@@ -57,7 +57,7 @@ class ConversationController extends Controller
 
         $conversation = Conversation::with([
             'company',
-            'messages' => fn ($q) => $q->oldest(),
+            'messages' => fn($q) => $q->oldest(),
             'assignedUser:id,name,email',
         ])->find($conversationId);
 
@@ -196,6 +196,75 @@ class ConversationController extends Controller
             'message' => $message,
             'was_sent' => $wasSent,
             'conversation' => $conversation->load('assignedUser:id,name,email'),
+        ]);
+    }
+
+    public function close(Request $request, int $conversationId): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user || !$user->isAdmin()) {
+            return response()->json(['authenticated' => false, 'redirect' => '/entrar'], 403);
+        }
+
+        $conversation = Conversation::find($conversationId);
+        if (!$conversation) {
+            return response()->json(['message' => 'Conversa nao encontrada.'], 404);
+        }
+
+        $conversation->status = 'closed';
+        $conversation->handling_mode = 'bot';
+        $conversation->assigned_user_id = null;
+        $conversation->assumed_at = null;
+        $conversation->closed_at = now();
+        $conversation->save();
+
+        $this->auditLog->record($request, 'admin.conversation.closed', $conversation->company_id, [
+            'conversation_id' => $conversation->id,
+            'closed_by' => $user->id,
+        ]);
+
+        return response()->json([
+            'ok' => true,
+            'conversation' => $conversation,
+        ]);
+    }
+
+    public function updateTags(Request $request, int $conversationId): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user || !$user->isAdmin()) {
+            return response()->json(['authenticated' => false, 'redirect' => '/entrar'], 403);
+        }
+
+        $validated = $request->validate([
+            'tags'   => ['present', 'array'],
+            'tags.*' => ['string', 'max:50'],
+        ]);
+
+        $conversation = Conversation::find($conversationId);
+        if (!$conversation) {
+            return response()->json(['message' => 'Conversa nao encontrada.'], 404);
+        }
+
+        // Normaliza: lowercase, sem duplicatas, sem vazios
+        $tags = collect($validated['tags'])
+            ->map(fn($t) => strtolower(trim($t)))
+            ->filter()
+            ->unique()
+            ->values()
+            ->toArray();
+
+        $conversation->tags = $tags;
+        $conversation->save();
+
+        $this->auditLog->record($request, 'admin.conversation.tags_updated', $conversation->company_id, [
+            'conversation_id' => $conversation->id,
+            'tags' => $tags,
+        ]);
+
+        return response()->json([
+            'ok' => true,
+            'tags' => $tags,
         ]);
     }
 }

@@ -56,7 +56,7 @@ class ConversationController extends Controller
         $conversation = Conversation::where('company_id', $companyId)
             ->whereKey($conversationId)
             ->with([
-                'messages' => fn ($q) => $q->oldest(),
+                'messages' => fn($q) => $q->oldest(),
                 'assignedUser:id,name,email',
             ])
             ->first();
@@ -206,6 +206,80 @@ class ConversationController extends Controller
             'message' => $message,
             'was_sent' => $wasSent,
             'conversation' => $conversation->load('assignedUser:id,name,email'),
+        ]);
+    }
+
+    public function close(Request $request, int $conversationId): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user || !$user->isCompanyUser()) {
+            return response()->json(['authenticated' => false, 'redirect' => '/entrar'], 403);
+        }
+
+        $conversation = Conversation::where('company_id', (int) $user->company_id)
+            ->whereKey($conversationId)
+            ->first();
+
+        if (!$conversation) {
+            return response()->json(['message' => 'Conversa nao encontrada para esta empresa.'], 404);
+        }
+
+        $conversation->status = 'closed';
+        $conversation->handling_mode = 'bot';
+        $conversation->assigned_user_id = null;
+        $conversation->assumed_at = null;
+        $conversation->closed_at = now();
+        $conversation->save();
+
+        $this->auditLog->record($request, 'company.conversation.closed', $conversation->company_id, [
+            'conversation_id' => $conversation->id,
+            'closed_by' => $user->id,
+        ]);
+
+        return response()->json([
+            'ok' => true,
+            'conversation' => $conversation,
+        ]);
+    }
+
+    public function updateTags(Request $request, int $conversationId): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user || !$user->isCompanyUser()) {
+            return response()->json(['authenticated' => false, 'redirect' => '/entrar'], 403);
+        }
+
+        $validated = $request->validate([
+            'tags'   => ['present', 'array'],
+            'tags.*' => ['string', 'max:50'],
+        ]);
+
+        $conversation = Conversation::where('company_id', (int) $user->company_id)
+            ->whereKey($conversationId)
+            ->first();
+
+        if (!$conversation) {
+            return response()->json(['message' => 'Conversa nao encontrada para esta empresa.'], 404);
+        }
+
+        $tags = collect($validated['tags'])
+            ->map(fn($t) => strtolower(trim($t)))
+            ->filter()
+            ->unique()
+            ->values()
+            ->toArray();
+
+        $conversation->tags = $tags;
+        $conversation->save();
+
+        $this->auditLog->record($request, 'company.conversation.tags_updated', $conversation->company_id, [
+            'conversation_id' => $conversation->id,
+            'tags' => $tags,
+        ]);
+
+        return response()->json([
+            'ok' => true,
+            'tags' => $tags,
         ]);
     }
 }

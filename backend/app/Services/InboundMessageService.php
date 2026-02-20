@@ -36,6 +36,14 @@ class InboundMessageService
             ],
             ['status' => 'open']
         );
+
+        if ($conversation->status === 'closed') {
+            $conversation->status = 'open';
+            $conversation->closed_at = null;
+            $conversation->handling_mode = 'bot';
+            $conversation->save();
+        }
+
         $isFirstInboundMessage = ! Message::where('conversation_id', $conversation->id)
             ->where('direction', 'in')
             ->exists();

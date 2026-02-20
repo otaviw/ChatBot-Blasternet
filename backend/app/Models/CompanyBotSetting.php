@@ -15,6 +15,7 @@ class CompanyBotSetting extends Model
         'out_of_hours_message',
         'business_hours',
         'keyword_replies',
+        'inactivity_close_hours',
     ];
 
     protected $casts = [

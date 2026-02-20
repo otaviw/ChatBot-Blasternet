@@ -10,11 +10,16 @@ use App\Http\Controllers\Admin\ConversationController as AdminConversationContro
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Company\BotController;
 use App\Http\Controllers\Company\ConversationController as CompanyConversationController;
+use App\Http\Controllers\Company\QuickReplyController;
 
 Route::get('/webhooks/whatsapp', [WebhookController::class, 'verify']);
 Route::post('/webhooks/whatsapp', [WebhookController::class, 'handle']);
 
 Route::middleware('web')->group(function () {
+    Route::get('/sanctum/csrf-cookie', function () {
+        return response()->json(['ok' => true]);
+    });
+
     Route::get('/entrar', [HomeController::class, 'index']);
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
 
@@ -45,6 +50,15 @@ Route::middleware('web')->group(function () {
                 ->middleware('throttle:bot-write');
             Route::post('/conversas/{conversationId}/responder-manual', [AdminConversationController::class, 'manualReply'])
                 ->middleware('throttle:bot-write');
+
+            Route::post('/conversas/{conversationId}/encerrar', [AdminConversationController::class, 'close'])
+                ->middleware('throttle:bot-write');
+
+            Route::get('/empresas/{company}/metricas', [CompanyController::class, 'metrics'])
+                ->middleware('throttle:inbox-read');
+
+            Route::put('/conversas/{conversationId}/tags', [AdminConversationController::class, 'updateTags'])
+                ->middleware('throttle:bot-write');
         });
 
         Route::prefix('minha-conta')->group(function () {
@@ -60,6 +74,17 @@ Route::middleware('web')->group(function () {
                 ->middleware('throttle:bot-write');
             Route::post('/conversas/{conversationId}/responder-manual', [CompanyConversationController::class, 'manualReply'])
                 ->middleware('throttle:bot-write');
+
+            Route::post('/conversas/{conversationId}/encerrar', [CompanyConversationController::class, 'close'])
+                ->middleware('throttle:bot-write');
+
+            Route::put('/conversas/{conversationId}/tags', [CompanyConversationController::class, 'updateTags'])
+                ->middleware('throttle:bot-write');
+
+            Route::get('/respostas-rapidas', [QuickReplyController::class, 'index']);
+            Route::post('/respostas-rapidas', [QuickReplyController::class, 'store'])->middleware('throttle:bot-write');
+            Route::put('/respostas-rapidas/{quickReply}', [QuickReplyController::class, 'update'])->middleware('throttle:bot-write');
+            Route::delete('/respostas-rapidas/{quickReply}', [QuickReplyController::class, 'destroy'])->middleware('throttle:bot-write');
         });
 
         Route::post('/simular/mensagem', [SimulatedMessageController::class, 'store'])

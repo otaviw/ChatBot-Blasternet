@@ -13,10 +13,14 @@ class Conversation extends Model
         'handling_mode',
         'assigned_user_id',
         'assumed_at',
+        'closed_at',
+        'tags',
     ];
 
     protected $casts = [
         'assumed_at' => 'datetime',
+        'closed_at' => 'datetime',
+        'tags' => 'array',
     ];
 
     public function company()

@@ -78,6 +78,7 @@ class BotController extends Controller
             'keyword_replies' => ['nullable', 'array', 'max:200'],
             'keyword_replies.*.keyword' => ['required_with:keyword_replies', 'string', 'max:120'],
             'keyword_replies.*.reply' => ['required_with:keyword_replies', 'string', 'max:2000'],
+            'inactivity_close_hours' => ['required', 'integer', 'min:1', 'max:720'],
         ]);
 
         $settings = CompanyBotSetting::updateOrCreate(
@@ -90,6 +91,7 @@ class BotController extends Controller
                 'out_of_hours_message' => $validated['out_of_hours_message'] ?? null,
                 'business_hours' => $this->normalizeBusinessHours($validated['business_hours']),
                 'keyword_replies' => $this->normalizeKeywordReplies($validated['keyword_replies'] ?? []),
+                'inactivity_close_hours' => $validated['inactivity_close_hours'],
             ]
         );
 

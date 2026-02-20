@@ -77,4 +77,9 @@ class Company extends Model
             $this->attributes['meta_access_token'] = Crypt::encryptString((string) $value);
         }
     }
+
+    public function quickReplies()
+    {
+        return $this->hasMany(QuickReply::class);
+    }
 }

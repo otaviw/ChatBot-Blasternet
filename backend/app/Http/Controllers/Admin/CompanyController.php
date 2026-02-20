@@ -50,7 +50,7 @@ class CompanyController extends Controller
 
         $company->loadCount('conversations');
         $company->load([
-            'conversations' => fn ($q) => $q->latest()->limit(10),
+            'conversations' => fn($q) => $q->latest()->limit(10),
             'botSetting',
         ]);
 
@@ -84,6 +84,7 @@ class CompanyController extends Controller
             'keyword_replies' => ['nullable', 'array', 'max:200'],
             'keyword_replies.*.keyword' => ['required_with:keyword_replies', 'string', 'max:120'],
             'keyword_replies.*.reply' => ['required_with:keyword_replies', 'string', 'max:2000'],
+            'inactivity_close_hours' => ['required', 'integer', 'min:1', 'max:720'],
         ]);
 
         $settings = CompanyBotSetting::updateOrCreate(
@@ -96,6 +97,7 @@ class CompanyController extends Controller
                 'out_of_hours_message' => $validated['out_of_hours_message'] ?? null,
                 'business_hours' => $this->normalizeBusinessHours($validated['business_hours']),
                 'keyword_replies' => $this->normalizeKeywordReplies($validated['keyword_replies'] ?? []),
+                'inactivity_close_hours' => $validated['inactivity_close_hours'],
             ]
         );
 
@@ -272,5 +274,60 @@ class CompanyController extends Controller
         }
 
         return $normalized;
+    }
+
+    public function metrics(Request $request, Company $company): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user || !$user->isAdmin()) {
+            return response()->json(['authenticated' => false, 'redirect' => '/entrar'], 403);
+        }
+
+        $byStatus = $company->conversations()
+            ->selectRaw('status, count(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        $byMode = $company->conversations()
+            ->where('status', 'closed')
+            ->selectRaw('handling_mode, count(*) as total')
+            ->groupBy('handling_mode')
+            ->pluck('total', 'handling_mode');
+
+        $byDay = $company->conversations()
+            ->selectRaw('DATE(created_at) as day, count(*) as total')
+            ->where('created_at', '>=', now()->subDays(30))
+            ->groupBy('day')
+            ->orderBy('day')
+            ->get();
+
+        $avgResponse = 0;
+
+        $conversations = $company->conversations()
+            ->with(['messages' => fn($q) => $q->orderBy('created_at')])
+            ->where('status', 'closed')
+            ->get();
+
+        $times = [];
+        foreach ($conversations as $conv) {
+            $firstIn  = $conv->messages->firstWhere('direction', 'in');
+            $firstOut = $conv->messages->firstWhere('direction', 'out');
+            if ($firstIn && $firstOut) {
+                $times[] = $firstIn->created_at->diffInMinutes($firstOut->created_at);
+            }
+        }
+
+        $avgResponse = count($times) > 0 ? round(array_sum($times) / count($times)) : 0;
+
+        return response()->json([
+            'authenticated' => true,
+            'metrics' => [
+                'by_status' => $byStatus,
+                'by_mode' => $byMode,
+                'by_day' => $byDay,
+                'avg_response_minutes' => round($avgResponse ?? 0),
+                'total' => $company->conversations()->count(),
+            ],
+        ]);
     }
 }

@@ -60,6 +60,13 @@ class WebhookController extends Controller
         $phoneNumberId = (string) ($value['metadata']['phone_number_id'] ?? '');
         $company = $this->resolveCompany($phoneNumberId);
 
+        if (!$company) {
+            \Log::warning('Webhook recebido para phone_number_id desconhecido', [
+                'phone_number_id' => $phoneNumberId,
+            ]);
+            return;
+        }
+
         foreach ($value['messages'] ?? [] as $msg) {
             if (($msg['type'] ?? '') !== 'text') {
                 continue;
