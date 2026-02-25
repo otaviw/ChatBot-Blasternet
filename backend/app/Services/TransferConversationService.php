@@ -1,0 +1,200 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\Area;
+use App\Models\Conversation;
+use App\Models\ConversationTransfer;
+use App\Models\Message;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
+
+class TransferConversationService
+{
+    public function __construct(
+        private WhatsAppSendService $whatsAppSend
+    ) {}
+
+    public function transfer(
+        Conversation $conversation,
+        User $actor,
+        string $targetType,
+        int $targetId,
+        bool $sendOutbound = true
+    ): array {
+        $normalizedType = $this->normalizeTargetType($targetType);
+        if (! in_array($normalizedType, ['user', 'area'], true)) {
+            throw ValidationException::withMessages([
+                'type' => ['Tipo de transferencia invalido. Use user ou area.'],
+            ]);
+        }
+
+        if ($targetId <= 0) {
+            throw ValidationException::withMessages([
+                'id' => ['Id de destino invalido.'],
+            ]);
+        }
+
+        return DB::transaction(function () use ($conversation, $actor, $normalizedType, $targetId, $sendOutbound) {
+            $lockedConversation = Conversation::query()
+                ->whereKey($conversation->id)
+                ->lockForUpdate()
+                ->with('company')
+                ->first();
+
+            if (! $lockedConversation) {
+                throw ValidationException::withMessages([
+                    'conversation_id' => ['Conversa nao encontrada.'],
+                ]);
+            }
+
+            if ((int) $lockedConversation->company_id !== (int) $actor->company_id) {
+                throw ValidationException::withMessages([
+                    'conversation_id' => ['Conversa nao pertence a empresa do usuario.'],
+                ]);
+            }
+
+            [$targetEntity, $targetLabel, $currentAreaId] = $this->resolveTarget(
+                (int) $lockedConversation->company_id,
+                $normalizedType,
+                $targetId
+            );
+
+            $fromAssignedType = $this->normalizeAssignedType($lockedConversation->assigned_type);
+            $fromAssignedId = $lockedConversation->assigned_id ? (int) $lockedConversation->assigned_id : null;
+
+            $lockedConversation->assigned_type = $normalizedType;
+            $lockedConversation->assigned_id = $targetId;
+            $lockedConversation->handling_mode = 'human';
+            $lockedConversation->current_area_id = $currentAreaId;
+            $lockedConversation->status = 'in_progress';
+            $lockedConversation->save();
+
+            $transfer = ConversationTransfer::create([
+                'company_id' => (int) $lockedConversation->company_id,
+                'conversation_id' => (int) $lockedConversation->id,
+                'from_assigned_type' => $fromAssignedType,
+                'from_assigned_id' => $fromAssignedId,
+                'to_assigned_type' => $normalizedType,
+                'to_assigned_id' => $targetId,
+                'transferred_by_user_id' => (int) $actor->id,
+            ]);
+
+            $text = "Conversa transferida para {$targetLabel}";
+            $message = Message::create([
+                'conversation_id' => (int) $lockedConversation->id,
+                'direction' => 'out',
+                'type' => 'system',
+                'text' => $text,
+                'meta' => [
+                    'source' => 'transfer',
+                    'from_assigned_type' => $fromAssignedType,
+                    'from_assigned_id' => $fromAssignedId,
+                    'to_assigned_type' => $normalizedType,
+                    'to_assigned_id' => $targetId,
+                    'transferred_by_user_id' => (int) $actor->id,
+                ],
+            ]);
+
+            $wasSent = $sendOutbound
+                ? $this->whatsAppSend->sendText($lockedConversation->company, $lockedConversation->customer_phone, $text)
+                : false;
+
+            $meta = $message->meta ?? [];
+            $meta['send_outbound'] = $sendOutbound;
+            $meta['was_sent'] = $wasSent;
+            $message->meta = $meta;
+            $message->save();
+
+            return [
+                'conversation' => $lockedConversation->fresh(['assignedUser:id,name,email', 'currentArea:id,name']),
+                'transfer' => $transfer,
+                'message' => $message,
+                'target' => $targetEntity,
+                'target_label' => $targetLabel,
+                'was_sent' => $wasSent,
+            ];
+        });
+    }
+
+    public function transferOptions(int $companyId): array
+    {
+        $areas = Area::query()
+            ->where('company_id', $companyId)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $users = User::query()
+            ->where('company_id', $companyId)
+            ->where('role', 'company')
+            ->where('is_active', true)
+            ->with('areas:id,name')
+            ->orderBy('name')
+            ->get(['id', 'name', 'email', 'company_id']);
+
+        return [
+            'areas' => $areas->map(fn(Area $area) => [
+                'id' => $area->id,
+                'name' => $area->name,
+            ])->values()->all(),
+            'users' => $users->map(fn(User $user) => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'areas' => $user->areas
+                    ->map(fn(Area $area) => ['id' => $area->id, 'name' => $area->name])
+                    ->values()
+                    ->all(),
+            ])->values()->all(),
+        ];
+    }
+
+    private function resolveTarget(int $companyId, string $type, int $id): array
+    {
+        if ($type === 'user') {
+            $user = User::query()
+                ->where('company_id', $companyId)
+                ->where('role', 'company')
+                ->where('is_active', true)
+                ->with('areas:id,name')
+                ->find($id);
+
+            if (! $user) {
+                throw ValidationException::withMessages([
+                    'id' => ['Usuario destino nao encontrado para esta empresa.'],
+                ]);
+            }
+
+            return [$user, $user->name, null];
+        }
+
+        $area = Area::query()
+            ->where('company_id', $companyId)
+            ->find($id);
+
+        if (! $area) {
+            throw ValidationException::withMessages([
+                'id' => ['Area destino nao encontrada para esta empresa.'],
+            ]);
+        }
+
+        return [$area, $area->name, (int) $area->id];
+    }
+
+    private function normalizeTargetType(string $type): string
+    {
+        return mb_strtolower(trim($type));
+    }
+
+    private function normalizeAssignedType(?string $type): string
+    {
+        $value = $this->normalizeTargetType((string) $type);
+        if (in_array($value, ['user', 'area', 'bot', 'unassigned'], true)) {
+            return $value;
+        }
+
+        return 'unassigned';
+    }
+}
+

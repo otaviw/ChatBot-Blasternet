@@ -2,8 +2,13 @@
 
 namespace App\Providers;
 
+use App\Models\Area;
+use App\Models\Conversation;
+use App\Policies\AreaPolicy;
+use App\Policies\ConversationPolicy;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -22,6 +27,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Gate::policy(Area::class, AreaPolicy::class);
+        Gate::policy(Conversation::class, ConversationPolicy::class);
+
         RateLimiter::for('bot-write', function (Request $request) {
             return Limit::perMinute((int) env('RATE_LIMIT_BOT_WRITE', 60))
                 ->by($this->limiterKey($request));

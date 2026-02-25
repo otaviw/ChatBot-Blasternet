@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Message extends Model
 {
-    protected $fillable = ['conversation_id', 'direction', 'text', 'meta'];
+    protected $fillable = ['conversation_id', 'direction', 'type', 'text', 'meta'];
 
     protected $casts = [
         'meta' => 'array',

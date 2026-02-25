@@ -82,4 +82,9 @@ class Company extends Model
     {
         return $this->hasMany(QuickReply::class);
     }
+
+    public function areas()
+    {
+        return $this->hasMany(Area::class);
+    }
 }

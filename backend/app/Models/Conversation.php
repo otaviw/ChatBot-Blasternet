@@ -10,8 +10,12 @@ class Conversation extends Model
         'company_id',
         'customer_phone',
         'status',
+        'assigned_type',
+        'assigned_id',
+        'current_area_id',
         'handling_mode',
         'assigned_user_id',
+        'assigned_area',
         'assumed_at',
         'closed_at',
         'tags',
@@ -35,11 +39,26 @@ class Conversation extends Model
 
     public function assignedUser()
     {
-        return $this->belongsTo(User::class, 'assigned_user_id');
+        return $this->belongsTo(User::class, 'assigned_id');
+    }
+
+    public function assignedArea()
+    {
+        return $this->belongsTo(Area::class, 'assigned_id');
+    }
+
+    public function currentArea()
+    {
+        return $this->belongsTo(Area::class, 'current_area_id');
+    }
+
+    public function transferHistory()
+    {
+        return $this->hasMany(ConversationTransfer::class)->latest('id');
     }
 
     public function isManualMode(): bool
     {
-        return $this->handling_mode === 'manual';
+        return $this->handling_mode === 'human';
     }
 }

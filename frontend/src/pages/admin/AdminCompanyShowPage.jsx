@@ -71,15 +71,48 @@ function AdminCompanyShowPage({ companyId }) {
     }));
   };
 
+  const updateServiceArea = (index, value) => {
+    setSettings((prev) => {
+      const next = [...(prev.service_areas ?? [])];
+      next[index] = value;
+      return { ...prev, service_areas: next };
+    });
+  };
+
+  const addServiceArea = () => {
+    setSettings((prev) => ({
+      ...prev,
+      service_areas: [...(prev.service_areas ?? []), ''],
+    }));
+  };
+
+  const removeServiceArea = (index) => {
+    setSettings((prev) => ({
+      ...prev,
+      service_areas: (prev.service_areas ?? []).filter((_, i) => i !== index),
+    }));
+  };
+
   const saveSettings = async (event) => {
     event.preventDefault();
     setSaveState('saving');
     setSaveError('');
 
     try {
+      const normalizedAreasMap = new Map();
+      for (const rawArea of settings.service_areas ?? []) {
+        const label = String(rawArea ?? '').trim();
+        if (!label) continue;
+        const key = label.toLowerCase();
+        if (!normalizedAreasMap.has(key)) {
+          normalizedAreasMap.set(key, label);
+        }
+      }
+
       const payload = {
         ...settings,
         keyword_replies: settings.keyword_replies.filter((item) => item.keyword?.trim() && item.reply?.trim()),
+        service_areas: [...normalizedAreasMap.values()],
       };
       const response = await api.put(`/admin/empresas/${companyId}/bot`, payload);
       setSettings(normalizeSettings(response.data?.settings));
@@ -270,6 +303,7 @@ function AdminCompanyShowPage({ companyId }) {
             <li>Mensagem fallback: {setting.fallback_message || '-'}</li>
             <li>Mensagem fora de horario: {setting.out_of_hours_message || '-'}</li>
             <li>Respostas por palavra-chave: {Array.isArray(setting.keyword_replies) ? setting.keyword_replies.length : 0}</li>
+            <li>Areas de atendimento: {Array.isArray(setting.service_areas) ? setting.service_areas.join(', ') || '-' : '-'}</li>
           </ul>
         )}
       </section>
@@ -423,6 +457,42 @@ function AdminCompanyShowPage({ companyId }) {
                       Remover
                     </button>
                   </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="border border-[#e3e3e0] dark:border-[#3E3E3A] rounded-lg p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-medium">Areas de atendimento</h3>
+              <button
+                type="button"
+                onClick={addServiceArea}
+                className="px-3 py-1.5 text-sm rounded border border-[#d5d5d2]"
+              >
+                Adicionar area
+              </button>
+            </div>
+            {!settings.service_areas?.length && (
+              <p className="text-sm text-[#706f6c]">Nenhuma area cadastrada.</p>
+            )}
+            <div className="space-y-2">
+              {(settings.service_areas ?? []).map((area, index) => (
+                <div key={index} className="flex gap-2">
+                  <input
+                    type="text"
+                    value={area}
+                    onChange={(e) => updateServiceArea(index, e.target.value)}
+                    placeholder="Ex.: Suporte"
+                    className="flex-1 rounded border border-[#d5d5d2] px-3 py-2 bg-white dark:bg-[#161615] text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeServiceArea(index)}
+                    className="px-3 py-2 text-sm rounded border border-red-300 text-red-700"
+                  >
+                    Remover
+                  </button>
                 </div>
               ))}
             </div>

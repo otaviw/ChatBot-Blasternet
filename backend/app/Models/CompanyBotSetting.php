@@ -15,6 +15,7 @@ class CompanyBotSetting extends Model
         'out_of_hours_message',
         'business_hours',
         'keyword_replies',
+        'service_areas',
         'inactivity_close_hours',
     ];
 
@@ -22,6 +23,7 @@ class CompanyBotSetting extends Model
         'is_active' => 'boolean',
         'business_hours' => 'array',
         'keyword_replies' => 'array',
+        'service_areas' => 'array',
     ];
 
     public function company()
@@ -29,4 +31,3 @@ class CompanyBotSetting extends Model
         return $this->belongsTo(Company::class);
     }
 }
-

@@ -89,15 +89,20 @@ class ConversationController extends Controller
             return response()->json(['message' => 'Conversa nao encontrada.'], 404);
         }
 
-        $conversation->handling_mode = 'manual';
+        $conversation->handling_mode = 'human';
+        $conversation->assigned_type = 'user';
+        $conversation->assigned_id = $user->id;
+        $conversation->current_area_id = null;
         $conversation->assigned_user_id = $user->id;
+        $conversation->assigned_area = null;
         $conversation->assumed_at = now();
         $conversation->status = 'in_progress';
         $conversation->save();
 
         $this->auditLog->record($request, 'admin.conversation.assumed', $conversation->company_id, [
             'conversation_id' => $conversation->id,
-            'assigned_user_id' => $user->id,
+            'assigned_type' => 'user',
+            'assigned_id' => $user->id,
         ]);
 
         return response()->json([
@@ -122,7 +127,11 @@ class ConversationController extends Controller
         }
 
         $conversation->handling_mode = 'bot';
+        $conversation->assigned_type = 'bot';
+        $conversation->assigned_id = null;
+        $conversation->current_area_id = null;
         $conversation->assigned_user_id = null;
+        $conversation->assigned_area = null;
         $conversation->assumed_at = null;
         $conversation->status = 'open';
         $conversation->save();
@@ -158,13 +167,24 @@ class ConversationController extends Controller
         }
 
         if (! $conversation->isManualMode()) {
-            $conversation->handling_mode = 'manual';
+            $conversation->handling_mode = 'human';
+            $conversation->assigned_type = 'user';
+            $conversation->assigned_id = $user->id;
+            $conversation->current_area_id = null;
             $conversation->assigned_user_id = $user->id;
+            $conversation->assigned_area = null;
             $conversation->assumed_at = now();
-        } elseif ((int) $conversation->assigned_user_id !== (int) $user->id) {
+        } elseif ($conversation->assigned_type === 'user' && (int) $conversation->assigned_id !== (int) $user->id) {
             return response()->json([
                 'message' => 'Conversa assumida por outro operador.',
             ], 409);
+        } elseif (in_array($conversation->assigned_type, ['area', 'bot', 'unassigned'], true)) {
+            $conversation->assigned_type = 'user';
+            $conversation->assigned_id = $user->id;
+            $conversation->current_area_id = null;
+            $conversation->assigned_user_id = $user->id;
+            $conversation->assigned_area = null;
+            $conversation->assumed_at = now();
         }
 
         $conversation->status = 'in_progress';
@@ -173,6 +193,7 @@ class ConversationController extends Controller
         $message = Message::create([
             'conversation_id' => $conversation->id,
             'direction' => 'out',
+            'type' => 'human',
             'text' => trim((string) $validated['text']),
             'meta' => [
                 'source' => 'manual',
@@ -213,7 +234,11 @@ class ConversationController extends Controller
 
         $conversation->status = 'closed';
         $conversation->handling_mode = 'bot';
+        $conversation->assigned_type = 'unassigned';
+        $conversation->assigned_id = null;
+        $conversation->current_area_id = null;
         $conversation->assigned_user_id = null;
+        $conversation->assigned_area = null;
         $conversation->assumed_at = null;
         $conversation->closed_at = now();
         $conversation->save();

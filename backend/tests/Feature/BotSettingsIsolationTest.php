@@ -188,6 +188,8 @@ class BotSettingsIsolationTest extends TestCase
             'keyword_replies' => [
                 ['keyword' => 'preco', 'reply' => 'Consulte nossos planos atuais.'],
             ],
+            'inactivity_close_hours' => 24,
+            'service_areas' => ['Suporte'],
         ];
 
         return array_replace_recursive($base, $overrides);

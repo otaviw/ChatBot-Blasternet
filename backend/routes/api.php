@@ -3,6 +3,8 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\WebhookController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\AreaController;
+use App\Http\Controllers\ConversationTransferController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\SimulatedMessageController;
 use App\Http\Controllers\Admin\CompanyController;
@@ -27,6 +29,12 @@ Route::middleware('web')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/me', [AuthController::class, 'me']);
         Route::get('/dashboard', [HomeController::class, 'dashboard']);
+        Route::get('/areas', [AreaController::class, 'index'])->middleware('throttle:inbox-read');
+        Route::get('/areas/{area}/users', [AreaController::class, 'users'])->middleware('throttle:inbox-read');
+        Route::post('/conversations/{conversation}/transfer', [ConversationTransferController::class, 'store'])
+            ->middleware('throttle:bot-write');
+        Route::get('/conversations/{conversation}/transfers', [ConversationTransferController::class, 'index'])
+            ->middleware('throttle:inbox-read');
 
         Route::prefix('admin')->group(function () {
             Route::get('/empresas', [CompanyController::class, 'index']);
@@ -73,6 +81,8 @@ Route::middleware('web')->group(function () {
             Route::post('/conversas/{conversationId}/soltar', [CompanyConversationController::class, 'release'])
                 ->middleware('throttle:bot-write');
             Route::post('/conversas/{conversationId}/responder-manual', [CompanyConversationController::class, 'manualReply'])
+                ->middleware('throttle:bot-write');
+            Route::post('/conversas/{conversationId}/transferir', [CompanyConversationController::class, 'transfer'])
                 ->middleware('throttle:bot-write');
 
             Route::post('/conversas/{conversationId}/encerrar', [CompanyConversationController::class, 'close'])

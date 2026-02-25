@@ -41,6 +41,8 @@ class SecurityHardeningTest extends TestCase
             'keyword_replies' => [
                 ['keyword' => 'preco', 'reply' => 'Consulte os planos.'],
             ],
+            'inactivity_close_hours' => 24,
+            'service_areas' => ['Suporte'],
         ];
 
         $response = $this->actingAs($user)->putJson('/api/minha-conta/bot', $payload);

@@ -34,13 +34,23 @@ class InboundMessageService
                 'company_id' => $company?->id,
                 'customer_phone' => $normalizedFrom,
             ],
-            ['status' => 'open']
+            [
+                'status' => 'open',
+                'assigned_type' => 'unassigned',
+                'handling_mode' => 'bot',
+            ]
         );
 
         if ($conversation->status === 'closed') {
             $conversation->status = 'open';
             $conversation->closed_at = null;
             $conversation->handling_mode = 'bot';
+            $conversation->assigned_type = 'bot';
+            $conversation->assigned_id = null;
+            $conversation->current_area_id = null;
+            $conversation->assigned_user_id = null;
+            $conversation->assigned_area = null;
+            $conversation->assumed_at = null;
             $conversation->save();
         }
 
@@ -51,6 +61,7 @@ class InboundMessageService
         $inMessage = Message::create([
             'conversation_id' => $conversation->id,
             'direction' => 'in',
+            'type' => 'user',
             'text' => $normalizedText,
             'meta' => $inMeta,
         ]);
@@ -74,6 +85,7 @@ class InboundMessageService
         $outMessage = Message::create([
             'conversation_id' => $conversation->id,
             'direction' => 'out',
+            'type' => 'bot',
             'text' => $reply,
             'meta' => $outMeta,
         ]);
@@ -83,6 +95,13 @@ class InboundMessageService
             : false;
 
         $conversation->status = 'open';
+        $conversation->handling_mode = 'bot';
+        $conversation->assigned_type = 'bot';
+        $conversation->assigned_id = null;
+        $conversation->current_area_id = null;
+        $conversation->assigned_user_id = null;
+        $conversation->assigned_area = null;
+        $conversation->assumed_at = null;
         $conversation->save();
 
         return [

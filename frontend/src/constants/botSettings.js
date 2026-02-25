@@ -26,6 +26,7 @@ const DEFAULT_SETTINGS = {
     sunday: { enabled: false, start: '', end: '' },
   },
   keyword_replies: [],
+  service_areas: [],
 };
 
 function normalizeSettings(input) {
@@ -41,6 +42,7 @@ function normalizeSettings(input) {
   return {
     ...merged,
     keyword_replies: Array.isArray(merged.keyword_replies) ? merged.keyword_replies : [],
+    service_areas: Array.isArray(merged.service_areas) ? merged.service_areas : [],
   };
 }
 
