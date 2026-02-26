@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Layout from '../../components/Layout';
 import usePageData from '../../hooks/usePageData';
 import useLogout from '../../hooks/useLogout';
 import api from '../../lib/api';
 
-function AdminUsersPage() {
-  const { data, loading, error } = usePageData('/admin/users');
-  const { data: companiesData } = usePageData('/admin/empresas');
+function CompanyUsersPage() {
+  const { data, loading, error } = usePageData('/minha-conta/users');
+  const { data: botData } = usePageData('/minha-conta/bot');
+  const { data: areasData } = usePageData('/areas');
   const { logout } = useLogout();
   const [createBusy, setCreateBusy] = useState(false);
   const [createError, setCreateError] = useState('');
@@ -18,34 +19,24 @@ function AdminUsersPage() {
     email: '',
     password: '',
     role: 'agent',
-    company_id: '',
     is_active: true,
     areas: [],
   });
   const [editForm, setEditForm] = useState(null);
 
   const users = data?.users ?? [];
-  const companies = companiesData?.companies ?? [];
-  const isCompanyScopedRole = (role) => role !== 'system_admin';
-  const roleLabel = (role) => {
-    if (role === 'system_admin') return 'superadmin';
-    if (role === 'company_admin') return 'admin_empresa';
-    if (role === 'agent') return 'agente';
-    return role;
-  };
+  const companyName = data?.company?.name ?? 'Empresa';
+  const availableAreas = useMemo(() => {
+    const rawFromBot = botData?.settings?.service_areas ?? [];
+    const fromBot = Array.isArray(rawFromBot) ? rawFromBot : [];
+    const fromAreaTable = (areasData?.areas ?? []).map((area) => area.name);
 
-  const getCompanyAreas = (companyId) => {
-    if (!companyId) return [];
-    const company = companies.find((item) => String(item.id) === String(companyId));
-    const areas = company?.bot_setting?.service_areas ?? company?.botSetting?.service_areas ?? [];
-    if (!Array.isArray(areas)) return [];
-    const normalized = areas
+    const normalized = [...fromBot, ...fromAreaTable]
       .map((value) => String(value ?? '').trim())
       .filter(Boolean);
+
     return [...new Map(normalized.map((label) => [label.toLowerCase(), label])).values()];
-  };
-  const createCompanyAreas = getCompanyAreas(createForm.company_id);
-  const editCompanyAreas = getCompanyAreas(editForm?.company_id);
+  }, [botData, areasData]);
 
   const toggleCreateArea = (area) => {
     setCreateForm((prev) => {
@@ -68,17 +59,14 @@ function AdminUsersPage() {
     });
   };
 
+  const roleLabel = (role) => (role === 'company_admin' ? 'admin_empresa' : 'agente');
+
   const handleCreate = async (event) => {
     event.preventDefault();
     setCreateBusy(true);
     setCreateError('');
     try {
-      const payload = {
-        ...createForm,
-        company_id: isCompanyScopedRole(createForm.role) && createForm.company_id ? Number(createForm.company_id) : null,
-        areas: isCompanyScopedRole(createForm.role) ? (createForm.areas ?? []) : [],
-      };
-      await api.post('/admin/users', payload);
+      await api.post('/minha-conta/users', createForm);
       window.location.reload();
     } catch (err) {
       setCreateError(err.response?.data?.message || 'Falha ao criar usuario.');
@@ -94,8 +82,7 @@ function AdminUsersPage() {
       name: user.name,
       email: user.email,
       password: '',
-      role: user.role,
-      company_id: user.company_id ? String(user.company_id) : '',
+      role: user.role === 'company_admin' ? 'company_admin' : 'agent',
       is_active: Boolean(user.is_active),
       areas: Array.isArray(user.areas) ? user.areas : [],
     });
@@ -108,15 +95,11 @@ function AdminUsersPage() {
     setEditBusy(true);
     setEditError('');
     try {
-      const payload = {
-        ...editForm,
-        company_id: isCompanyScopedRole(editForm.role) && editForm.company_id ? Number(editForm.company_id) : null,
-        areas: isCompanyScopedRole(editForm.role) ? (editForm.areas ?? []) : [],
-      };
+      const payload = { ...editForm };
       if (!payload.password) {
         delete payload.password;
       }
-      await api.put(`/admin/users/${editForm.id}`, payload);
+      await api.put(`/minha-conta/users/${editForm.id}`, payload);
       window.location.reload();
     } catch (err) {
       setEditError(err.response?.data?.message || 'Falha ao atualizar usuario.');
@@ -127,7 +110,7 @@ function AdminUsersPage() {
 
   if (loading) {
     return (
-      <Layout role="admin" onLogout={logout}>
+      <Layout role="company" companyName={companyName} onLogout={logout}>
         <p className="text-sm text-[#706f6c]">Carregando usuarios...</p>
       </Layout>
     );
@@ -135,15 +118,15 @@ function AdminUsersPage() {
 
   if (error || !data?.authenticated) {
     return (
-      <Layout>
+      <Layout role="company" companyName={companyName} onLogout={logout}>
         <p className="text-sm text-red-600 dark:text-red-400">Nao foi possivel carregar usuarios.</p>
       </Layout>
     );
   }
 
   return (
-    <Layout role="admin" onLogout={logout}>
-      <h1 className="text-xl font-medium mb-4">Usuarios</h1>
+    <Layout role="company" companyName={companyName} onLogout={logout}>
+      <h1 className="text-xl font-medium mb-4">Usuarios da empresa</h1>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <section className="border border-[#e3e3e0] dark:border-[#3E3E3A] rounded-lg p-4">
           <h2 className="font-medium mb-3">Criar usuario</h2>
@@ -174,63 +157,34 @@ function AdminUsersPage() {
             />
             <select
               value={createForm.role}
-              onChange={(e) => setCreateForm((p) => ({ ...p, role: e.target.value, company_id: '', areas: [] }))}
+              onChange={(e) => setCreateForm((p) => ({ ...p, role: e.target.value }))}
               className="w-full rounded border border-[#d5d5d2] px-3 py-2 bg-white dark:bg-[#161615]"
             >
               <option value="agent">Agente</option>
               <option value="company_admin">Admin da empresa</option>
-              <option value="system_admin">Superadmin</option>
             </select>
-            {isCompanyScopedRole(createForm.role) && (
-              <select
-                value={createForm.company_id}
-                onChange={(e) =>
-                  setCreateForm((p) => {
-                    const companyId = e.target.value;
-                    const allowedAreas = getCompanyAreas(companyId);
-                    return {
-                      ...p,
-                      company_id: companyId,
-                      areas: (p.areas ?? []).filter((area) => allowedAreas.includes(area)),
-                    };
-                  })
-                }
-                required
-                className="w-full rounded border border-[#d5d5d2] px-3 py-2 bg-white dark:bg-[#161615]"
-              >
-                <option value="">Selecione empresa</option>
-                {companies.map((company) => (
-                  <option key={company.id} value={company.id}>{company.name}</option>
-                ))}
-              </select>
-            )}
-            {isCompanyScopedRole(createForm.role) && (
-              <div className="rounded border border-[#d5d5d2] p-3 space-y-2">
-                <p className="text-sm font-medium">Areas de atuacao</p>
-                {!createForm.company_id && (
-                  <p className="text-xs text-[#706f6c]">Selecione a empresa para escolher as areas.</p>
-                )}
-                {!!createForm.company_id && !createCompanyAreas.length && (
-                  <p className="text-xs text-[#706f6c]">
-                    Empresa sem areas cadastradas. Configure em Config. do bot da empresa.
-                  </p>
-                )}
-                {!!createForm.company_id && createCompanyAreas.length > 0 && (
-                  <div className="flex flex-wrap gap-3">
-                    {createCompanyAreas.map((area) => (
-                      <label key={area} className="inline-flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={(createForm.areas ?? []).includes(area)}
-                          onChange={() => toggleCreateArea(area)}
-                        />
-                        {area}
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+            <div className="rounded border border-[#d5d5d2] p-3 space-y-2">
+              <p className="text-sm font-medium">Areas de atuacao</p>
+              {!availableAreas.length && (
+                <p className="text-xs text-[#706f6c]">
+                  Empresa sem areas cadastradas. Configure em Config. do bot da empresa.
+                </p>
+              )}
+              {availableAreas.length > 0 && (
+                <div className="flex flex-wrap gap-3">
+                  {availableAreas.map((area) => (
+                    <label key={area} className="inline-flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={(createForm.areas ?? []).includes(area)}
+                        onChange={() => toggleCreateArea(area)}
+                      />
+                      {area}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -259,7 +213,7 @@ function AdminUsersPage() {
                 <div className="flex items-center justify-between gap-2">
                   <div>
                     <strong>{user.name}</strong> ({roleLabel(user.role)}){user.is_active ? '' : ' [inativo]'}
-                    <div className="text-xs text-[#706f6c]">{user.email} {user.company?.name ? `- ${user.company.name}` : ''}</div>
+                    <div className="text-xs text-[#706f6c]">{user.email}</div>
                     <div className="text-xs text-[#706f6c]">
                       Areas: {Array.isArray(user.areas) && user.areas.length ? user.areas.join(', ') : '-'}
                     </div>
@@ -300,63 +254,34 @@ function AdminUsersPage() {
               />
               <select
                 value={editForm.role}
-                onChange={(e) => setEditForm((p) => ({ ...p, role: e.target.value, company_id: '', areas: [] }))}
+                onChange={(e) => setEditForm((p) => ({ ...p, role: e.target.value }))}
                 className="w-full rounded border border-[#d5d5d2] px-3 py-2 bg-white dark:bg-[#161615]"
               >
                 <option value="agent">Agente</option>
                 <option value="company_admin">Admin da empresa</option>
-                <option value="system_admin">Superadmin</option>
               </select>
-              {isCompanyScopedRole(editForm.role) && (
-                <select
-                  value={editForm.company_id}
-                  onChange={(e) =>
-                    setEditForm((p) => {
-                      const companyId = e.target.value;
-                      const allowedAreas = getCompanyAreas(companyId);
-                      return {
-                        ...p,
-                        company_id: companyId,
-                        areas: (p.areas ?? []).filter((area) => allowedAreas.includes(area)),
-                      };
-                    })
-                  }
-                  required
-                  className="w-full rounded border border-[#d5d5d2] px-3 py-2 bg-white dark:bg-[#161615]"
-                >
-                  <option value="">Selecione empresa</option>
-                  {companies.map((company) => (
-                    <option key={company.id} value={company.id}>{company.name}</option>
-                  ))}
-                </select>
-              )}
-              {isCompanyScopedRole(editForm.role) && (
-                <div className="rounded border border-[#d5d5d2] p-3 space-y-2">
-                  <p className="text-sm font-medium">Areas de atuacao</p>
-                  {!editForm.company_id && (
-                    <p className="text-xs text-[#706f6c]">Selecione a empresa para escolher as areas.</p>
-                  )}
-                  {!!editForm.company_id && !editCompanyAreas.length && (
-                    <p className="text-xs text-[#706f6c]">
-                      Empresa sem areas cadastradas. Configure em Config. do bot da empresa.
-                    </p>
-                  )}
-                  {!!editForm.company_id && editCompanyAreas.length > 0 && (
-                    <div className="flex flex-wrap gap-3">
-                      {editCompanyAreas.map((area) => (
-                        <label key={area} className="inline-flex items-center gap-2 text-sm">
-                          <input
-                            type="checkbox"
-                            checked={(editForm.areas ?? []).includes(area)}
-                            onChange={() => toggleEditArea(area)}
-                          />
-                          {area}
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+              <div className="rounded border border-[#d5d5d2] p-3 space-y-2">
+                <p className="text-sm font-medium">Areas de atuacao</p>
+                {!availableAreas.length && (
+                  <p className="text-xs text-[#706f6c]">
+                    Empresa sem areas cadastradas. Configure em Config. do bot da empresa.
+                  </p>
+                )}
+                {availableAreas.length > 0 && (
+                  <div className="flex flex-wrap gap-3">
+                    {availableAreas.map((area) => (
+                      <label key={area} className="inline-flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={(editForm.areas ?? []).includes(area)}
+                          onChange={() => toggleEditArea(area)}
+                        />
+                        {area}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
@@ -381,4 +306,4 @@ function AdminUsersPage() {
   );
 }
 
-export default AdminUsersPage;
+export default CompanyUsersPage;

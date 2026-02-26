@@ -11,6 +11,7 @@ import CompanySimulatorPage from './pages/company/CompanySimulatorPage';
 import CompanyInboxPage from './pages/company/CompanyInboxPage';
 import NotFoundPage from './pages/NotFoundPage';
 import CompanyQuickRepliesPage from './pages/company/CompanyQuickRepliesPage';
+import CompanyUsersPage from './pages/company/CompanyUsersPage';
 
 function AppRouter() {
   const path = window.location.pathname;
@@ -58,6 +59,10 @@ function AppRouter() {
 
   if (path === '/minha-conta/respostas-rapidas') {
     return <CompanyQuickRepliesPage />;
+  }
+
+  if (path === '/minha-conta/usuarios') {
+    return <CompanyUsersPage />;
   }
 
   return <NotFoundPage />;

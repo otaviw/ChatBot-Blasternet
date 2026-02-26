@@ -9,6 +9,12 @@ use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
+    public const ROLE_SYSTEM_ADMIN = 'system_admin';
+    public const ROLE_COMPANY_ADMIN = 'company_admin';
+    public const ROLE_AGENT = 'agent';
+    public const ROLE_LEGACY_ADMIN = 'admin';
+    public const ROLE_LEGACY_COMPANY = 'company';
+
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
 
@@ -24,6 +30,7 @@ class User extends Authenticatable
         'role',
         'company_id',
         'is_active',
+        'disabled_at',
     ];
 
     /**
@@ -47,6 +54,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'disabled_at' => 'datetime',
         ];
     }
 
@@ -55,14 +63,92 @@ class User extends Authenticatable
         return $this->belongsTo(Company::class);
     }
 
+    /**
+     * @return array<int, string>
+     */
+    public static function companyRoleValues(): array
+    {
+        return [
+            self::ROLE_COMPANY_ADMIN,
+            self::ROLE_AGENT,
+            self::ROLE_LEGACY_COMPANY,
+        ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function assignableRoleValuesForSystemAdmin(): array
+    {
+        return [
+            self::ROLE_SYSTEM_ADMIN,
+            self::ROLE_COMPANY_ADMIN,
+            self::ROLE_AGENT,
+            self::ROLE_LEGACY_ADMIN,
+            self::ROLE_LEGACY_COMPANY,
+        ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function assignableRoleValuesForCompanyAdmin(): array
+    {
+        return [
+            self::ROLE_COMPANY_ADMIN,
+            self::ROLE_AGENT,
+            self::ROLE_LEGACY_COMPANY,
+        ];
+    }
+
+    public static function normalizeRole(?string $role): string
+    {
+        $value = trim((string) $role);
+        if ($value === self::ROLE_LEGACY_ADMIN) {
+            return self::ROLE_SYSTEM_ADMIN;
+        }
+        if ($value === self::ROLE_LEGACY_COMPANY) {
+            return self::ROLE_AGENT;
+        }
+
+        return $value;
+    }
+
+    public function isSystemAdmin(): bool
+    {
+        return (bool) $this->is_active
+            && in_array($this->role, [self::ROLE_SYSTEM_ADMIN, self::ROLE_LEGACY_ADMIN], true);
+    }
+
+    public function isCompanyAdmin(): bool
+    {
+        return (bool) $this->is_active
+            && ! empty($this->company_id)
+            && $this->role === self::ROLE_COMPANY_ADMIN;
+    }
+
+    public function isAgent(): bool
+    {
+        return (bool) $this->is_active
+            && ! empty($this->company_id)
+            && in_array($this->role, [self::ROLE_AGENT, self::ROLE_LEGACY_COMPANY], true);
+    }
+
     public function isAdmin(): bool
     {
-        return $this->is_active && $this->role === 'admin';
+        return $this->isSystemAdmin();
     }
 
     public function isCompanyUser(): bool
     {
-        return $this->is_active && $this->role === 'company' && ! empty($this->company_id);
+        return (bool) $this->is_active
+            && ! empty($this->company_id)
+            && in_array($this->role, self::companyRoleValues(), true);
+    }
+
+    public function canManageCompanyUsers(): bool
+    {
+        return $this->isSystemAdmin() || $this->isCompanyAdmin();
     }
 
     public function areas()

@@ -127,7 +127,7 @@ class TransferConversationService
 
         $users = User::query()
             ->where('company_id', $companyId)
-            ->where('role', 'company')
+            ->whereIn('role', User::companyRoleValues())
             ->where('is_active', true)
             ->with('areas:id,name')
             ->orderBy('name')
@@ -155,7 +155,7 @@ class TransferConversationService
         if ($type === 'user') {
             $user = User::query()
                 ->where('company_id', $companyId)
-                ->where('role', 'company')
+                ->whereIn('role', User::companyRoleValues())
                 ->where('is_active', true)
                 ->with('areas:id,name')
                 ->find($id);
@@ -197,4 +197,3 @@ class TransferConversationService
         return 'unassigned';
     }
 }
-

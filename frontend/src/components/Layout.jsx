@@ -48,8 +48,11 @@ function Layout({ children, role, companyName, onLogout }) {
                   >
                     Usuarios
                   </a>
-                  <a href="/minha-conta/respostas-rapidas" className="text-[#706f6c] dark:text-[#A1A09A] hover:text-[#1b1b18] dark:hover:text-white">
-                    Respostas rápidas
+                  <a
+                    href="/minha-conta/respostas-rapidas"
+                    className="text-[#706f6c] dark:text-[#A1A09A] hover:text-[#1b1b18] dark:hover:text-white"
+                  >
+                    Respostas rapidas
                   </a>
                 </>
               )}
@@ -73,8 +76,17 @@ function Layout({ children, role, companyName, onLogout }) {
                   >
                     Inbox
                   </a>
-                  <a href="/minha-conta/respostas-rapidas" className="text-[#706f6c] dark:text-[#A1A09A] hover:text-[#1b1b18] dark:hover:text-white">
-                    Respostas rápidas
+                  <a
+                    href="/minha-conta/respostas-rapidas"
+                    className="text-[#706f6c] dark:text-[#A1A09A] hover:text-[#1b1b18] dark:hover:text-white"
+                  >
+                    Respostas rapidas
+                  </a>
+                  <a
+                    href="/minha-conta/usuarios"
+                    className="text-[#706f6c] dark:text-[#A1A09A] hover:text-[#1b1b18] dark:hover:text-white"
+                  >
+                    Usuarios
                   </a>
                 </>
               )}
@@ -96,3 +108,4 @@ function Layout({ children, role, companyName, onLogout }) {
 }
 
 export default Layout;
+

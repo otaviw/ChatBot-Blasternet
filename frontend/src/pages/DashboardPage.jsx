@@ -28,9 +28,9 @@ function DashboardPage() {
   if (data.role === 'admin') {
     return (
       <Layout role="admin" onLogout={logout}>
-        <h1 className="text-xl font-medium mb-2">Dashboard - Minha empresa</h1>
+        <h1 className="text-xl font-medium mb-2">Dashboard - Sistema</h1>
         <p className="text-[#706f6c] dark:text-[#A1A09A] text-sm mb-6">
-          Voce esta como administrador. Aqui voce gerencia empresas, usos e informacoes.
+          Voce esta como superadmin. Aqui voce gerencia empresas, usuarios e informacoes globais.
         </p>
 
         <ul className="space-y-2 text-sm">
@@ -89,6 +89,14 @@ function DashboardPage() {
           </a>{' '}
           - acompanhar conversas recebidas
         </li>
+        {data.can_manage_users && (
+          <li>
+            <a href="/minha-conta/usuarios" className="text-[#f53003] dark:text-[#FF4433] underline underline-offset-2">
+              Usuarios
+            </a>{' '}
+            - criar, editar e desativar usuarios da sua empresa
+          </li>
+        )}
       </ul>
     </Layout>
   );

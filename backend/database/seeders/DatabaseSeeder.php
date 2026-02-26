@@ -29,7 +29,7 @@ class DatabaseSeeder extends Seeder
         ], [
             'name' => 'teste Admin',
             'password' => 'teste123',
-            'role' => 'admin',
+            'role' => User::ROLE_SYSTEM_ADMIN,
             'company_id' => null,
             'is_active' => true,
         ]);
@@ -39,7 +39,7 @@ class DatabaseSeeder extends Seeder
         ], [
             'name' => 'teste Empresa',
             'password' => 'teste123',
-            'role' => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $company->id,
             'is_active' => true,
         ]);

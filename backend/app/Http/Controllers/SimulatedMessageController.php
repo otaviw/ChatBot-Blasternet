@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Company;
+use App\Models\User;
 use App\Services\AuditLogService;
 use App\Services\InboundMessageService;
 use Illuminate\Http\JsonResponse;
@@ -18,13 +19,13 @@ class SimulatedMessageController extends Controller
     public function store(Request $request): JsonResponse
     {
         $user = $request->user();
-        if (! $user || ! in_array($user->role, ['admin', 'company'], true)) {
+        if (! $user || (! $user->isSystemAdmin() && ! $user->isCompanyUser())) {
             return response()->json([
                 'authenticated' => false,
                 'redirect' => '/entrar',
             ], 403);
         }
-        $role = $user->role;
+        $role = User::normalizeRole($user->role);
 
         $validated = $request->validate([
             'company_id' => ['required', 'integer', 'exists:companies,id'],
@@ -34,7 +35,7 @@ class SimulatedMessageController extends Controller
         ]);
 
         $companyId = (int) $validated['company_id'];
-        if ($role === 'company' && (int) $user->company_id !== $companyId) {
+        if ($user->isCompanyUser() && (int) $user->company_id !== $companyId) {
             return response()->json([
                 'authenticated' => true,
                 'message' => 'Empresa nao pode simular mensagens para outro tenant.',

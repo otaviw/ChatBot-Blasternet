@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -77,9 +78,10 @@ class AuthController extends Controller
             'id' => $user->id,
             'name' => $user->name,
             'email' => $user->email,
-            'role' => $user->role,
+            'role' => User::normalizeRole($user->role),
             'company_id' => $user->company_id,
             'company_name' => $user->company?->name,
+            'can_manage_users' => $user->canManageCompanyUsers(),
         ];
     }
 }

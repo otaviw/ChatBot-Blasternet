@@ -37,10 +37,12 @@ class HomeController extends Controller
             ], 403);
         }
 
-        if ($user->role === 'admin') {
+        if ($user->isSystemAdmin()) {
             return response()->json([
                 'authenticated' => true,
                 'role' => 'admin',
+                'user_role' => \App\Models\User::normalizeRole($user->role),
+                'can_manage_users' => true,
                 'user' => [
                     'id' => $user->id,
                     'name' => $user->name,
@@ -52,6 +54,8 @@ class HomeController extends Controller
         return response()->json([
             'authenticated' => true,
             'role' => 'company',
+            'user_role' => \App\Models\User::normalizeRole($user->role),
+            'can_manage_users' => $user->canManageCompanyUsers(),
             'companyName' => $user->company?->name ?? 'Empresa',
             'user' => [
                 'id' => $user->id,

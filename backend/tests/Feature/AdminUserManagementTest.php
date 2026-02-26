@@ -17,7 +17,7 @@ class AdminUserManagementTest extends TestCase
             'name' => 'Admin',
             'email' => 'admin-users@test.local',
             'password' => 'secret123',
-            'role' => 'admin',
+            'role' => User::ROLE_SYSTEM_ADMIN,
             'is_active' => true,
         ]);
         $company = Company::create(['name' => 'Empresa U']);
@@ -26,7 +26,7 @@ class AdminUserManagementTest extends TestCase
             'name' => 'Operador 1',
             'email' => 'operador1@test.local',
             'password' => 'secret123',
-            'role' => 'company',
+            'role' => User::ROLE_AGENT,
             'company_id' => $company->id,
             'is_active' => true,
         ]);
@@ -35,7 +35,7 @@ class AdminUserManagementTest extends TestCase
         $response->assertJsonPath('ok', true);
         $this->assertDatabaseHas('users', [
             'email' => 'operador1@test.local',
-            'role' => 'company',
+            'role' => User::ROLE_AGENT,
             'company_id' => $company->id,
             'is_active' => 1,
         ]);
@@ -47,14 +47,14 @@ class AdminUserManagementTest extends TestCase
             'name' => 'Admin',
             'email' => 'admin-users2@test.local',
             'password' => 'secret123',
-            'role' => 'admin',
+            'role' => User::ROLE_SYSTEM_ADMIN,
             'is_active' => true,
         ]);
         $user = User::create([
             'name' => 'Operador 2',
             'email' => 'operador2@test.local',
             'password' => 'secret123',
-            'role' => 'company',
+            'role' => User::ROLE_AGENT,
             'company_id' => Company::create(['name' => 'Empresa X'])->id,
             'is_active' => true,
         ]);
@@ -62,7 +62,7 @@ class AdminUserManagementTest extends TestCase
         $response = $this->actingAs($admin)->putJson("/api/admin/users/{$user->id}", [
             'name' => 'Operador 2 Atualizado',
             'email' => 'operador2@test.local',
-            'role' => 'admin',
+            'role' => User::ROLE_SYSTEM_ADMIN,
             'company_id' => null,
             'is_active' => false,
         ]);
@@ -71,10 +71,9 @@ class AdminUserManagementTest extends TestCase
         $response->assertJsonPath('ok', true);
         $this->assertDatabaseHas('users', [
             'id' => $user->id,
-            'role' => 'admin',
+            'role' => User::ROLE_SYSTEM_ADMIN,
             'company_id' => null,
             'is_active' => 0,
         ]);
     }
 }
-

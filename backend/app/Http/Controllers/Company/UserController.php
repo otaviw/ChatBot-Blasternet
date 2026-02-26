@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Admin;
+namespace App\Http\Controllers\Company;
 
 use App\Http\Controllers\Controller;
 use App\Models\Area;
@@ -20,20 +20,33 @@ class UserController extends Controller
     public function index(Request $request): JsonResponse
     {
         $actor = $request->user();
-        if (! $actor || ! $actor->isSystemAdmin()) {
+        if (! $actor) {
             return response()->json([
                 'authenticated' => false,
                 'redirect' => '/entrar',
             ], 403);
         }
+        if (! $actor->isCompanyAdmin()) {
+            return response()->json([
+                'authenticated' => true,
+                'message' => 'Somente admin da empresa pode gerenciar usuarios.',
+            ], 403);
+        }
 
+        $companyId = (int) $actor->company_id;
         $users = User::query()
+            ->where('company_id', $companyId)
+            ->whereIn('role', User::companyRoleValues())
             ->with(['company:id,name', 'areas:id,name,company_id'])
             ->orderBy('name')
             ->get(['id', 'name', 'email', 'role', 'company_id', 'is_active', 'disabled_at', 'created_at']);
 
         return response()->json([
             'authenticated' => true,
+            'company' => [
+                'id' => $companyId,
+                'name' => $actor->company?->name,
+            ],
             'users' => $users->map(fn(User $user) => $this->serializeUser($user))->values(),
         ]);
     }
@@ -41,10 +54,16 @@ class UserController extends Controller
     public function store(Request $request): JsonResponse
     {
         $actor = $request->user();
-        if (! $actor || ! $actor->isSystemAdmin()) {
+        if (! $actor) {
             return response()->json([
                 'authenticated' => false,
                 'redirect' => '/entrar',
+            ], 403);
+        }
+        if (! $actor->isCompanyAdmin()) {
+            return response()->json([
+                'authenticated' => true,
+                'message' => 'Somente admin da empresa pode gerenciar usuarios.',
             ], 403);
         }
 
@@ -52,8 +71,7 @@ class UserController extends Controller
             'name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email', 'max:190', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8', 'max:100'],
-            'role' => ['required', Rule::in(User::assignableRoleValuesForSystemAdmin())],
-            'company_id' => ['nullable', 'integer', 'exists:companies,id'],
+            'role' => ['required', Rule::in(User::assignableRoleValuesForCompanyAdmin())],
             'is_active' => ['sometimes', 'boolean'],
             'area_ids' => ['sometimes', 'array', 'max:50'],
             'area_ids.*' => ['integer', 'exists:areas,id'],
@@ -61,16 +79,8 @@ class UserController extends Controller
             'areas.*' => ['string', 'max:120'],
         ]);
 
+        $companyId = (int) $actor->company_id;
         $normalizedRole = User::normalizeRole((string) $validated['role']);
-        $isCompanyRole = in_array($normalizedRole, [User::ROLE_COMPANY_ADMIN, User::ROLE_AGENT], true);
-
-        if ($isCompanyRole && empty($validated['company_id'])) {
-            return response()->json([
-                'message' => 'Usuario da empresa precisa de company_id.',
-            ], 422);
-        }
-
-        $companyId = $isCompanyRole ? (int) ($validated['company_id'] ?? 0) : null;
         $areaIds = $this->resolveAreaIds($companyId, $validated);
         $isActive = (bool) ($validated['is_active'] ?? true);
 
@@ -87,7 +97,7 @@ class UserController extends Controller
         $user->areas()->sync($areaIds);
         $user->load(['company:id,name', 'areas:id,name,company_id']);
 
-        $this->auditLog->record($request, 'admin.user.created', $user->company_id, [
+        $this->auditLog->record($request, 'company.user.created', $companyId, [
             'user_id' => $user->id,
             'role' => $user->role,
             'is_active' => $user->is_active,
@@ -103,18 +113,30 @@ class UserController extends Controller
     public function update(Request $request, User $user): JsonResponse
     {
         $actor = $request->user();
-        if (! $actor || ! $actor->isSystemAdmin()) {
+        if (! $actor) {
             return response()->json([
                 'authenticated' => false,
                 'redirect' => '/entrar',
             ], 403);
         }
+        if (! $actor->isCompanyAdmin()) {
+            return response()->json([
+                'authenticated' => true,
+                'message' => 'Somente admin da empresa pode gerenciar usuarios.',
+            ], 403);
+        }
+
+        $companyId = (int) $actor->company_id;
+        if ((int) $user->company_id !== $companyId || ! in_array($user->role, User::companyRoleValues(), true)) {
+            return response()->json([
+                'message' => 'Usuario nao pertence a empresa.',
+            ], 404);
+        }
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email', 'max:190', Rule::unique('users', 'email')->ignore($user->id)],
-            'role' => ['required', Rule::in(User::assignableRoleValuesForSystemAdmin())],
-            'company_id' => ['nullable', 'integer', 'exists:companies,id'],
+            'role' => ['required', Rule::in(User::assignableRoleValuesForCompanyAdmin())],
             'is_active' => ['required', 'boolean'],
             'password' => ['nullable', 'string', 'min:8', 'max:100'],
             'area_ids' => ['sometimes', 'array', 'max:50'],
@@ -124,14 +146,6 @@ class UserController extends Controller
         ]);
 
         $normalizedRole = User::normalizeRole((string) $validated['role']);
-        $isCompanyRole = in_array($normalizedRole, [User::ROLE_COMPANY_ADMIN, User::ROLE_AGENT], true);
-        if ($isCompanyRole && empty($validated['company_id'])) {
-            return response()->json([
-                'message' => 'Usuario da empresa precisa de company_id.',
-            ], 422);
-        }
-
-        $companyId = $isCompanyRole ? (int) ($validated['company_id'] ?? 0) : null;
         $areaIds = $this->resolveAreaIds($companyId, $validated);
         $isActive = (bool) $validated['is_active'];
 
@@ -139,7 +153,6 @@ class UserController extends Controller
             'name' => $user->name,
             'email' => $user->email,
             'role' => $user->role,
-            'company_id' => $user->company_id,
             'is_active' => $user->is_active,
             'disabled_at' => $user->disabled_at,
             'area_ids' => $user->areas()->pluck('areas.id')->values()->all(),
@@ -148,7 +161,6 @@ class UserController extends Controller
         $user->name = $validated['name'];
         $user->email = $validated['email'];
         $user->role = $normalizedRole;
-        $user->company_id = $companyId;
         $user->is_active = $isActive;
         $user->disabled_at = $isActive ? null : ($user->disabled_at ?? now());
         if (! empty($validated['password'])) {
@@ -159,14 +171,13 @@ class UserController extends Controller
         $user->areas()->sync($areaIds);
         $user->load(['company:id,name', 'areas:id,name,company_id']);
 
-        $this->auditLog->record($request, 'admin.user.updated', $user->company_id, [
+        $this->auditLog->record($request, 'company.user.updated', $companyId, [
             'user_id' => $user->id,
             'before' => $before,
             'after' => [
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $user->role,
-                'company_id' => $user->company_id,
                 'is_active' => $user->is_active,
                 'disabled_at' => $user->disabled_at,
                 'area_ids' => $areaIds,
@@ -183,12 +194,8 @@ class UserController extends Controller
      * @param  array<string, mixed>  $validated
      * @return array<int, int>
      */
-    private function resolveAreaIds(?int $companyId, array $validated): array
+    private function resolveAreaIds(int $companyId, array $validated): array
     {
-        if (! $companyId) {
-            return [];
-        }
-
         $ids = collect($validated['area_ids'] ?? [])
             ->map(fn($value) => (int) $value)
             ->filter(fn(int $value) => $value > 0)
@@ -231,7 +238,7 @@ class UserController extends Controller
 
         if ($validAreaCount !== count($ids)) {
             throw ValidationException::withMessages([
-                'area_ids' => ['Area informada nao pertence a empresa selecionada.'],
+                'area_ids' => ['Area informada nao pertence a empresa.'],
             ]);
         }
 
@@ -266,4 +273,3 @@ class UserController extends Controller
         ];
     }
 }
-

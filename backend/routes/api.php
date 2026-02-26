@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Company\BotController;
 use App\Http\Controllers\Company\ConversationController as CompanyConversationController;
 use App\Http\Controllers\Company\QuickReplyController;
+use App\Http\Controllers\Company\UserController as CompanyUserController;
 
 Route::get('/webhooks/whatsapp', [WebhookController::class, 'verify']);
 Route::post('/webhooks/whatsapp', [WebhookController::class, 'handle']);
@@ -95,6 +96,10 @@ Route::middleware('web')->group(function () {
             Route::post('/respostas-rapidas', [QuickReplyController::class, 'store'])->middleware('throttle:bot-write');
             Route::put('/respostas-rapidas/{quickReply}', [QuickReplyController::class, 'update'])->middleware('throttle:bot-write');
             Route::delete('/respostas-rapidas/{quickReply}', [QuickReplyController::class, 'destroy'])->middleware('throttle:bot-write');
+
+            Route::get('/users', [CompanyUserController::class, 'index'])->middleware('throttle:inbox-read');
+            Route::post('/users', [CompanyUserController::class, 'store'])->middleware('throttle:bot-write');
+            Route::put('/users/{user}', [CompanyUserController::class, 'update'])->middleware('throttle:bot-write');
         });
 
         Route::post('/simular/mensagem', [SimulatedMessageController::class, 'store'])

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Area;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -45,7 +46,7 @@ class AreaController extends Controller
         $this->authorize('view', $area);
 
         $users = $area->users()
-            ->where('role', 'company')
+            ->whereIn('role', User::companyRoleValues())
             ->where('is_active', true)
             ->with('areas:id,name')
             ->orderBy('name')
@@ -62,4 +63,3 @@ class AreaController extends Controller
         ]);
     }
 }
-
