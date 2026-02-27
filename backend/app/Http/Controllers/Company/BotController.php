@@ -81,6 +81,7 @@ class BotController extends Controller
             'keyword_replies.*.reply' => ['required_with:keyword_replies', 'string', 'max:2000'],
             'service_areas' => ['nullable', 'array', 'max:50'],
             'service_areas.*' => ['string', 'max:120'],
+            'stateful_menu_flow' => ['nullable', 'array'],
             'inactivity_close_hours' => ['required', 'integer', 'min:1', 'max:720'],
         ]);
 
@@ -95,6 +96,7 @@ class BotController extends Controller
                 'business_hours' => $this->normalizeBusinessHours($validated['business_hours']),
                 'keyword_replies' => $this->normalizeKeywordReplies($validated['keyword_replies'] ?? []),
                 'service_areas' => $this->normalizeServiceAreas($validated['service_areas'] ?? []),
+                'stateful_menu_flow' => $this->normalizeStatefulMenuFlow($validated['stateful_menu_flow'] ?? null),
                 'inactivity_close_hours' => $validated['inactivity_close_hours'],
             ]
         );
@@ -130,6 +132,7 @@ class BotController extends Controller
             'business_hours' => $this->defaultBusinessHours(),
             'keyword_replies' => [],
             'service_areas' => [],
+            'stateful_menu_flow' => null,
         ]);
     }
 
@@ -249,5 +252,18 @@ class BotController extends Controller
             ->whereDoesntHave('currentConversations')
             ->whereDoesntHave('users')
             ->delete();
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $flow
+     * @return array<string, mixed>|null
+     */
+    private function normalizeStatefulMenuFlow(?array $flow): ?array
+    {
+        if (! is_array($flow)) {
+            return null;
+        }
+
+        return $flow;
     }
 }

@@ -16,6 +16,7 @@ class CompanyBotSetting extends Model
         'business_hours',
         'keyword_replies',
         'service_areas',
+        'stateful_menu_flow',
         'inactivity_close_hours',
     ];
 
@@ -24,6 +25,7 @@ class CompanyBotSetting extends Model
         'business_hours' => 'array',
         'keyword_replies' => 'array',
         'service_areas' => 'array',
+        'stateful_menu_flow' => 'array',
     ];
 
     public function company()

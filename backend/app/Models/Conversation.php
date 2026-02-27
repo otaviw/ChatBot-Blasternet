@@ -18,12 +18,18 @@ class Conversation extends Model
         'assigned_area',
         'assumed_at',
         'closed_at',
+        'bot_flow',
+        'bot_step',
+        'bot_context',
+        'bot_last_interaction_at',
         'tags',
     ];
 
     protected $casts = [
         'assumed_at' => 'datetime',
         'closed_at' => 'datetime',
+        'bot_last_interaction_at' => 'datetime',
+        'bot_context' => 'array',
         'tags' => 'array',
     ];
 

@@ -1,9 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import Layout from '../../components/Layout';
+import StatefulMenuFlowEditor from '../../components/StatefulMenuFlowEditor';
 import usePageData from '../../hooks/usePageData';
 import useLogout from '../../hooks/useLogout';
 import api from '../../lib/api';
-import { DAY_KEYS, DAY_LABELS, DEFAULT_SETTINGS, normalizeSettings } from '../../constants/botSettings';
+import {
+  DAY_KEYS,
+  DAY_LABELS,
+  DEFAULT_SETTINGS,
+  normalizeSettings,
+} from '../../constants/botSettings';
+import {
+  editorToStatefulMenuFlow,
+  statefulMenuFlowToEditor,
+  validateStatefulMenuEditor,
+} from '../../lib/statefulMenuFlow';
 
 function AdminCompanyShowPage({ companyId }) {
   const { data, loading, error } = usePageData(`/admin/empresas/${companyId}`);
@@ -11,6 +22,9 @@ function AdminCompanyShowPage({ companyId }) {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [saveState, setSaveState] = useState('idle');
   const [saveError, setSaveError] = useState('');
+  const [useDefaultStatefulMenu, setUseDefaultStatefulMenu] = useState(true);
+  const [statefulMenuEditor, setStatefulMenuEditor] = useState(() => statefulMenuFlowToEditor(null));
+  const [menuFlowError, setMenuFlowError] = useState('');
   const [companyForm, setCompanyForm] = useState({
     name: '',
     meta_phone_number_id: '',
@@ -24,7 +38,13 @@ function AdminCompanyShowPage({ companyId }) {
 
   useEffect(() => {
     if (!data?.company) return;
-    setSettings(normalizeSettings(data.company.bot_setting));
+    const normalized = normalizeSettings(data.company.bot_setting);
+    setSettings(normalized);
+    setUseDefaultStatefulMenu(!normalized.stateful_menu_flow);
+    setStatefulMenuEditor(
+      statefulMenuFlowToEditor(normalized.stateful_menu_flow, normalized.welcome_message)
+    );
+    setMenuFlowError('');
     setCompanyForm({
       name: data.company.name ?? '',
       meta_phone_number_id: data.company.meta_phone_number_id ?? '',
@@ -97,6 +117,7 @@ function AdminCompanyShowPage({ companyId }) {
     event.preventDefault();
     setSaveState('saving');
     setSaveError('');
+    setMenuFlowError('');
 
     try {
       const normalizedAreasMap = new Map();
@@ -109,19 +130,50 @@ function AdminCompanyShowPage({ companyId }) {
         }
       }
 
+      let nextStatefulFlow = null;
+      if (!useDefaultStatefulMenu) {
+        const validationErrors = validateStatefulMenuEditor(statefulMenuEditor);
+        if (validationErrors.length) {
+          setSaveState('error');
+          setMenuFlowError(validationErrors[0]);
+          return;
+        }
+
+        nextStatefulFlow = editorToStatefulMenuFlow(statefulMenuEditor);
+      }
+
       const payload = {
         ...settings,
         keyword_replies: settings.keyword_replies.filter((item) => item.keyword?.trim() && item.reply?.trim()),
         service_areas: [...normalizedAreasMap.values()],
+        stateful_menu_flow: nextStatefulFlow,
       };
       const response = await api.put(`/admin/empresas/${companyId}/bot`, payload);
-      setSettings(normalizeSettings(response.data?.settings));
+      const normalized = normalizeSettings(response.data?.settings);
+      setSettings(normalized);
+      setUseDefaultStatefulMenu(!normalized.stateful_menu_flow);
+      setStatefulMenuEditor(
+        statefulMenuFlowToEditor(normalized.stateful_menu_flow, normalized.welcome_message)
+      );
       setSaveState('saved');
       setTimeout(() => setSaveState('idle'), 2500);
     } catch (err) {
       setSaveState('error');
       setSaveError(err.response?.data?.message || 'Falha ao salvar configuracoes.');
     }
+  };
+
+  const loadSuggestedMenuTemplate = () => {
+    setStatefulMenuEditor(statefulMenuFlowToEditor(null, settings.welcome_message));
+    setMenuFlowError('');
+  };
+
+  const enableCustomMenuBuilder = () => {
+    if (useDefaultStatefulMenu) {
+      setStatefulMenuEditor(statefulMenuFlowToEditor(null, settings.welcome_message));
+    }
+    setUseDefaultStatefulMenu(false);
+    setMenuFlowError('');
   };
 
   const saveCompanyData = async (event) => {
@@ -304,6 +356,7 @@ function AdminCompanyShowPage({ companyId }) {
             <li>Mensagem fora de horario: {setting.out_of_hours_message || '-'}</li>
             <li>Respostas por palavra-chave: {Array.isArray(setting.keyword_replies) ? setting.keyword_replies.length : 0}</li>
             <li>Areas de atendimento: {Array.isArray(setting.service_areas) ? setting.service_areas.join(', ') || '-' : '-'}</li>
+            <li>Menu stateful customizado: {setting.stateful_menu_flow ? 'Sim' : 'Nao (usa padrao automatico)'}</li>
           </ul>
         )}
       </section>
@@ -364,6 +417,61 @@ function AdminCompanyShowPage({ companyId }) {
                 className="mt-1 w-full rounded border border-[#d5d5d2] px-3 py-2 bg-white dark:bg-[#161615]"
               />
             </label>
+          </section>
+
+          <section className="border border-[#e3e3e0] dark:border-[#3E3E3A] rounded-lg p-4 space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="font-medium">Menu numerado (stateful)</h3>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={loadSuggestedMenuTemplate}
+                  className="px-3 py-1.5 text-sm rounded border border-[#d5d5d2]"
+                >
+                  Recarregar modelo sugerido
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUseDefaultStatefulMenu(true);
+                    setMenuFlowError('');
+                  }}
+                  className="px-3 py-1.5 text-sm rounded border border-[#d5d5d2]"
+                >
+                  Usar menu padrao automatico
+                </button>
+              </div>
+            </div>
+
+            <p className="text-sm text-[#706f6c]">
+              O menu inicia automaticamente na primeira mensagem. O comando <strong>#</strong> continua resetando para o inicio.
+            </p>
+
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={useDefaultStatefulMenu}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setUseDefaultStatefulMenu(true);
+                    setMenuFlowError('');
+                    return;
+                  }
+                  enableCustomMenuBuilder();
+                }}
+              />
+              Usar menu padrao automatico (sem customizacao manual)
+            </label>
+
+            {!useDefaultStatefulMenu && (
+              <StatefulMenuFlowEditor
+                value={statefulMenuEditor}
+                onChange={setStatefulMenuEditor}
+                serviceAreas={settings.service_areas ?? []}
+              />
+            )}
+
+            {menuFlowError && <p className="text-sm text-red-600">{menuFlowError}</p>}
           </section>
 
           <section className="border border-[#e3e3e0] dark:border-[#3E3E3A] rounded-lg p-4 space-y-4">

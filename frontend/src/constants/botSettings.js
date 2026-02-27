@@ -27,7 +27,81 @@ const DEFAULT_SETTINGS = {
   },
   keyword_replies: [],
   service_areas: [],
+  stateful_menu_flow: null,
 };
+
+function buildDefaultStatefulMenuFlow(welcomeMessage = 'Ola! O que voce precisa?') {
+  const intro = String(welcomeMessage || '').trim() || 'Ola! O que voce precisa?';
+
+  return {
+    commands: ['#', 'menu'],
+    initial: { flow: 'main', step: 'menu' },
+    steps: {
+      'main.menu': {
+        type: 'numeric_menu',
+        reply_text: `${intro}\n1 - Suporte tecnico\n2 - Vendas\n3 - Falar com atendente`,
+        options: {
+          '1': {
+            label: 'Suporte tecnico',
+            action: { kind: 'go_to', flow: 'support', step: 'issue_menu' },
+          },
+          '2': {
+            label: 'Vendas',
+            action: {
+              kind: 'handoff',
+              target_area_name: 'Vendas',
+              reply_text: 'Perfeito. Vou te encaminhar para Vendas.',
+            },
+          },
+          '3': {
+            label: 'Falar com atendente',
+            action: {
+              kind: 'handoff',
+              target_area_name: 'Atendimento',
+              reply_text: 'Certo. Vou te encaminhar para um atendente.',
+            },
+          },
+        },
+      },
+      'support.issue_menu': {
+        type: 'numeric_menu',
+        reply_text: 'Suporte tecnico. Qual o problema?\n1 - Internet lenta\n2 - Sem conexao\n3 - Outro',
+        options: {
+          '1': {
+            label: 'Internet lenta',
+            action: {
+              kind: 'handoff',
+              target_area_name: 'Suporte',
+              reply_text: 'Entendi: internet lenta. Vou te encaminhar para o Suporte.',
+            },
+          },
+          '2': {
+            label: 'Sem conexao',
+            action: {
+              kind: 'handoff',
+              target_area_name: 'Suporte',
+              reply_text: 'Entendi: sem conexao. Vou te encaminhar para o Suporte.',
+            },
+          },
+          '3': {
+            label: 'Outro',
+            action: { kind: 'go_to', flow: 'support', step: 'free_text_issue' },
+          },
+        },
+      },
+      'support.free_text_issue': {
+        type: 'free_text',
+        reply_text: 'Beleza. Me descreve o problema em uma frase.',
+        empty_input_reply_text: 'Beleza. Me descreve o problema em uma frase.',
+        on_text: {
+          kind: 'handoff',
+          target_area_name: 'Suporte',
+          reply_text: 'Perfeito, vou encaminhar sua descricao para o Suporte.',
+        },
+      },
+    },
+  };
+}
 
 function normalizeSettings(input) {
   const merged = {
@@ -43,7 +117,11 @@ function normalizeSettings(input) {
     ...merged,
     keyword_replies: Array.isArray(merged.keyword_replies) ? merged.keyword_replies : [],
     service_areas: Array.isArray(merged.service_areas) ? merged.service_areas : [],
+    stateful_menu_flow:
+      merged.stateful_menu_flow && typeof merged.stateful_menu_flow === 'object'
+        ? merged.stateful_menu_flow
+        : null,
   };
 }
 
-export { DAY_KEYS, DAY_LABELS, DEFAULT_SETTINGS, normalizeSettings };
+export { DAY_KEYS, DAY_LABELS, DEFAULT_SETTINGS, buildDefaultStatefulMenuFlow, normalizeSettings };
