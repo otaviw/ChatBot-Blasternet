@@ -6,6 +6,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AreaController;
 use App\Http\Controllers\ConversationTransferController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\RealtimeTokenController;
 use App\Http\Controllers\SimulatedMessageController;
 use App\Http\Controllers\Admin\CompanyController;
 use App\Http\Controllers\Admin\ConversationController as AdminConversationController;
@@ -29,6 +30,10 @@ Route::middleware('web')->group(function () {
     Route::middleware('auth')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/me', [AuthController::class, 'me']);
+        Route::post('/realtime/token', [RealtimeTokenController::class, 'issueSocketToken'])
+            ->middleware('throttle:realtime-token');
+        Route::post('/realtime/conversations/{conversation}/join-token', [RealtimeTokenController::class, 'issueConversationJoinToken'])
+            ->middleware('throttle:realtime-join');
         Route::get('/dashboard', [HomeController::class, 'dashboard']);
         Route::get('/areas', [AreaController::class, 'index'])->middleware('throttle:inbox-read');
         Route::get('/areas/{area}/users', [AreaController::class, 'users'])->middleware('throttle:inbox-read');

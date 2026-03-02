@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Layout from '../../components/Layout';
 import usePageData from '../../hooks/usePageData';
 import useLogout from '../../hooks/useLogout';
 import api from '../../lib/api';
+import realtimeClient from '../../lib/realtimeClient';
 
 function AdminInboxPage() {
   const { data, loading, error } = usePageData('/admin/empresas');
@@ -18,6 +19,7 @@ function AdminInboxPage() {
   const [manualBusy, setManualBusy] = useState(false);
   const [manualError, setManualError] = useState('');
   const [actionBusy, setActionBusy] = useState(false);
+  const selectedIdRef = useRef(null);
 
   useEffect(() => {
     const firstCompanyId = data?.companies?.[0]?.id;
@@ -44,7 +46,16 @@ function AdminInboxPage() {
     };
   }, [companyId]);
 
-  const openConversation = async (conversationId) => {
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
+
+  const openConversation = useCallback(async (conversationId) => {
+    const previousSelected = selectedIdRef.current;
+    if (previousSelected && Number(previousSelected) !== Number(conversationId)) {
+      realtimeClient.leaveConversation(previousSelected);
+    }
+
     setSelectedId(conversationId);
     setDetailLoading(true);
     setDetailError('');
@@ -52,19 +63,133 @@ function AdminInboxPage() {
     try {
       const response = await api.get(`/admin/conversas/${conversationId}`);
       setDetail(response.data?.conversation ?? null);
+      await realtimeClient.joinConversation(conversationId);
     } catch (err) {
       setDetailError(err.response?.data?.message || 'Falha ao carregar conversa.');
     } finally {
       setDetailLoading(false);
     }
-  };
+  }, []);
 
-  const refreshConversations = async (forcedCompanyId = null) => {
+  const refreshConversations = useCallback(async (forcedCompanyId = null) => {
     const targetCompanyId = forcedCompanyId ?? companyId;
     if (!targetCompanyId) return;
     const response = await api.get(`/admin/conversas?company_id=${targetCompanyId}`);
     setConversations(response.data?.conversations ?? []);
-  };
+  }, [companyId]);
+
+  useEffect(() => {
+    const unsubscribeMessageCreated = realtimeClient.on('message.created', (envelope) => {
+      const payload = envelope?.payload ?? {};
+      const conversationId = Number.parseInt(String(payload.conversationId ?? ''), 10);
+      const messageId = Number.parseInt(String(payload.messageId ?? ''), 10);
+      const payloadCompanyId = Number.parseInt(String(payload.companyId ?? ''), 10);
+      const selectedCompanyId = Number.parseInt(String(companyId ?? ''), 10);
+
+      if (!conversationId || !messageId) {
+        return;
+      }
+
+      if (selectedCompanyId && payloadCompanyId && selectedCompanyId !== payloadCompanyId) {
+        return;
+      }
+
+      setConversations((prev) => {
+        let found = false;
+        const next = prev.map((conversation) => {
+          if (Number(conversation.id) !== conversationId) {
+            return conversation;
+          }
+
+          found = true;
+          return {
+            ...conversation,
+            messages_count: Number(conversation.messages_count ?? 0) + 1,
+          };
+        });
+
+        if (!found) {
+          void refreshConversations(selectedCompanyId || null);
+        }
+
+        return next;
+      });
+
+      if (Number(selectedIdRef.current) !== conversationId) {
+        return;
+      }
+
+      setDetail((prev) => {
+        if (!prev || Number(prev.id) !== conversationId) {
+          return prev;
+        }
+
+        const alreadyExists = (prev.messages ?? []).some((item) => Number(item.id) === messageId);
+        if (alreadyExists) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          messages: [
+            ...(prev.messages ?? []),
+            {
+              id: messageId,
+              conversation_id: conversationId,
+              direction: payload.direction ?? 'out',
+              type: payload.type ?? 'system',
+              text: payload.text ?? '',
+              created_at: payload.createdAt ?? null,
+            },
+          ],
+        };
+      });
+    });
+
+    const unsubscribeConversationTransferred = realtimeClient.on('conversation.transferred', (envelope) => {
+      const payload = envelope?.payload ?? {};
+      const conversationId = Number.parseInt(String(payload.conversationId ?? ''), 10);
+      const payloadCompanyId = Number.parseInt(String(payload.companyId ?? ''), 10);
+      const selectedCompanyId = Number.parseInt(String(companyId ?? ''), 10);
+
+      if (!conversationId) {
+        return;
+      }
+
+      if (selectedCompanyId && payloadCompanyId && selectedCompanyId !== payloadCompanyId) {
+        return;
+      }
+
+      setConversations((prev) =>
+        prev.map((conversation) => {
+          if (Number(conversation.id) !== conversationId) {
+            return conversation;
+          }
+
+          return {
+            ...conversation,
+            handling_mode: 'human',
+            status: 'in_progress',
+            assigned_type: payload.toAssignedType ?? conversation.assigned_type,
+            assigned_id: payload.toAssignedId ?? conversation.assigned_id,
+          };
+        })
+      );
+
+      if (Number(selectedIdRef.current) === conversationId) {
+        void openConversation(conversationId);
+      }
+    });
+
+    return () => {
+      unsubscribeMessageCreated();
+      unsubscribeConversationTransferred();
+
+      if (selectedIdRef.current) {
+        realtimeClient.leaveConversation(selectedIdRef.current);
+      }
+    };
+  }, [companyId, openConversation, refreshConversations]);
 
   const assumeConversation = async () => {
     if (!detail?.id) return;
@@ -144,7 +269,7 @@ function AdminInboxPage() {
           Empresa
           <select
             value={companyId}
-            onChange={(e) => setCompanyId(e.target.value)}
+            onChange={(event) => setCompanyId(event.target.value)}
             className="mt-1 w-full rounded border border-[#d5d5d2] px-3 py-2 bg-white dark:bg-[#161615]"
           >
             {(data.companies ?? []).map((company) => (
@@ -164,7 +289,13 @@ function AdminInboxPage() {
           <ul className="space-y-2 text-sm">
             {conversations.map((conv) => (
               <li key={conv.id}>
-                <button className="w-full text-left px-3 py-2 rounded border ...">
+                <button
+                  type="button"
+                  onClick={() => openConversation(conv.id)}
+                  className={`w-full text-left px-3 py-2 rounded border ${
+                    selectedId === conv.id ? 'border-[#f53003]' : 'border-[#e3e3e0]'
+                  }`}
+                >
                   {conv.customer_phone} - {conv.status}
                   {(conv.tags ?? []).length > 0 && (
                     <span className="ml-2 text-xs text-[#706f6c]">
@@ -187,7 +318,7 @@ function AdminInboxPage() {
           {!!detail && (
             <>
               <div className="mb-3 text-xs text-[#706f6c]">
-                Modo: <strong>{detail.handling_mode === 'manual' ? 'Manual' : 'Bot'}</strong>{' '}
+                Modo: <strong>{detail.handling_mode === 'human' ? 'Manual' : 'Bot'}</strong>{' '}
                 {detail.assigned_user ? `| Assumida por: ${detail.assigned_user.name}` : ''}
               </div>
 
@@ -221,7 +352,7 @@ function AdminInboxPage() {
               <form onSubmit={sendManualReply} className="space-y-2">
                 <textarea
                   value={manualText}
-                  onChange={(e) => setManualText(e.target.value)}
+                  onChange={(event) => setManualText(event.target.value)}
                   rows={3}
                   placeholder="Digite resposta manual..."
                   className="w-full rounded border border-[#d5d5d2] px-3 py-2 bg-white dark:bg-[#161615] text-sm"

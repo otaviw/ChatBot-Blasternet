@@ -4,6 +4,7 @@ import StatefulMenuFlowEditor from '../../components/StatefulMenuFlowEditor';
 import usePageData from '../../hooks/usePageData';
 import useLogout from '../../hooks/useLogout';
 import api from '../../lib/api';
+import realtimeClient from '../../lib/realtimeClient';
 import {
   DAY_KEYS,
   DAY_LABELS,
@@ -51,6 +52,34 @@ function AdminCompanyShowPage({ companyId }) {
       meta_access_token: '',
     });
   }, [data]);
+
+  useEffect(() => {
+    const unsubscribe = realtimeClient.on('bot.updated', (envelope) => {
+      const payload = envelope?.payload ?? {};
+      if (Number(payload.companyId) !== Number(companyId)) {
+        return;
+      }
+
+      api.get(`/admin/empresas/${companyId}`).then((response) => {
+        const company = response.data?.company;
+        if (!company) {
+          return;
+        }
+
+        const normalized = normalizeSettings(company.bot_setting);
+        setSettings(normalized);
+        setUseDefaultStatefulMenu(!normalized.stateful_menu_flow);
+        setStatefulMenuEditor(
+          statefulMenuFlowToEditor(normalized.stateful_menu_flow, normalized.welcome_message)
+        );
+        setMenuFlowError('');
+      });
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [companyId]);
 
   const updateMessageField = (key, value) => {
     setSettings((prev) => ({ ...prev, [key]: value }));

@@ -35,11 +35,16 @@ frontend/.env
 frontend/.env.*
 !frontend/.env.example
 
+realtime/.env
+realtime/.env.*
+!realtime/.env.example
+
 # ------------------------------
 # Dependencies
 # ------------------------------
 node_modules/
 frontend/node_modules/
+realtime/node_modules/
 backend/vendor/
 backend/node_modules/
 

@@ -2,8 +2,14 @@
 
 namespace App\Providers;
 
+use App\Models\CompanyBotSetting;
 use App\Models\Area;
 use App\Models\Conversation;
+use App\Models\ConversationTransfer;
+use App\Models\Message;
+use App\Observers\CompanyBotSettingObserver;
+use App\Observers\ConversationTransferObserver;
+use App\Observers\MessageObserver;
 use App\Policies\AreaPolicy;
 use App\Policies\ConversationPolicy;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -29,6 +35,9 @@ class AppServiceProvider extends ServiceProvider
     {
         Gate::policy(Area::class, AreaPolicy::class);
         Gate::policy(Conversation::class, ConversationPolicy::class);
+        Message::observe(MessageObserver::class);
+        CompanyBotSetting::observe(CompanyBotSettingObserver::class);
+        ConversationTransfer::observe(ConversationTransferObserver::class);
 
         RateLimiter::for('bot-write', function (Request $request) {
             return Limit::perMinute((int) env('RATE_LIMIT_BOT_WRITE', 60))
@@ -44,6 +53,16 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute((int) env('RATE_LIMIT_INBOX_READ', 180))
                 ->by($this->limiterKey($request));
         });
+
+        RateLimiter::for('realtime-token', function (Request $request) {
+            return Limit::perMinute((int) env('RATE_LIMIT_REALTIME_TOKEN', 30))
+                ->by($this->realtimeLimiterKey($request));
+        });
+
+        RateLimiter::for('realtime-join', function (Request $request) {
+            return Limit::perMinute((int) env('RATE_LIMIT_REALTIME_JOIN', 120))
+                ->by($this->realtimeLimiterKey($request));
+        });
     }
 
     private function limiterKey(Request $request): string
@@ -52,5 +71,13 @@ class AppServiceProvider extends ServiceProvider
         $companyId = (string) $request->session()->get('company_id', '0');
 
         return "{$request->ip()}|{$role}|{$companyId}";
+    }
+
+    private function realtimeLimiterKey(Request $request): string
+    {
+        $user = $request->user();
+        $userId = $user ? (string) $user->id : 'guest';
+
+        return "{$request->ip()}|{$userId}";
     }
 }

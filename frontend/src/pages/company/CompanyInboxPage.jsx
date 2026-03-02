@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Layout from '../../components/Layout';
 import usePageData from '../../hooks/usePageData';
 import useLogout from '../../hooks/useLogout';
 import api from '../../lib/api';
+import realtimeClient from '../../lib/realtimeClient';
 
 const EMPTY_TRANSFER_OPTIONS = { areas: [], users: [] };
 
@@ -27,6 +28,7 @@ function CompanyInboxPage() {
   const [transferBusy, setTransferBusy] = useState(false);
   const [transferError, setTransferError] = useState('');
   const [transferSuccess, setTransferSuccess] = useState('');
+  const selectedIdRef = useRef(null);
 
   useEffect(() => {
     setConversations(data?.conversations ?? []);
@@ -57,12 +59,21 @@ function CompanyInboxPage() {
     }
   }, [availableUsers, transferUserId]);
 
-  const refreshConversations = async () => {
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
+
+  const refreshConversations = useCallback(async () => {
     const response = await api.get('/minha-conta/conversas');
     setConversations(response.data?.conversations ?? []);
-  };
+  }, []);
 
-  const openConversation = async (conversationId) => {
+  const openConversation = useCallback(async (conversationId) => {
+    const previousSelected = selectedIdRef.current;
+    if (previousSelected && Number(previousSelected) !== Number(conversationId)) {
+      realtimeClient.leaveConversation(previousSelected);
+    }
+
     setSelectedId(conversationId);
     setDetailLoading(true);
     setDetailError('');
@@ -80,12 +91,113 @@ function CompanyInboxPage() {
       setDetail(conversation);
       setTransferOptions(response.data?.transfer_options ?? EMPTY_TRANSFER_OPTIONS);
       setTransferArea(conversation?.assigned_type === 'area' ? String(conversation.assigned_id ?? '') : '');
+      await realtimeClient.joinConversation(conversationId);
     } catch (err) {
       setDetailError(err.response?.data?.message || 'Falha ao carregar conversa.');
     } finally {
       setDetailLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const unsubscribeMessageCreated = realtimeClient.on('message.created', (envelope) => {
+      const payload = envelope?.payload ?? {};
+      const conversationId = Number.parseInt(String(payload.conversationId ?? ''), 10);
+      const messageId = Number.parseInt(String(payload.messageId ?? ''), 10);
+
+      if (!conversationId || !messageId) {
+        return;
+      }
+
+      setConversations((prev) => {
+        let found = false;
+        const next = prev.map((conversation) => {
+          if (Number(conversation.id) !== conversationId) {
+            return conversation;
+          }
+
+          found = true;
+          return {
+            ...conversation,
+            messages_count: Number(conversation.messages_count ?? 0) + 1,
+          };
+        });
+
+        if (!found) {
+          void refreshConversations();
+        }
+
+        return next;
+      });
+
+      if (Number(selectedIdRef.current) !== conversationId) {
+        return;
+      }
+
+      setDetail((prev) => {
+        if (!prev || Number(prev.id) !== conversationId) {
+          return prev;
+        }
+
+        const alreadyExists = (prev.messages ?? []).some((item) => Number(item.id) === messageId);
+        if (alreadyExists) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          messages: [
+            ...(prev.messages ?? []),
+            {
+              id: messageId,
+              conversation_id: conversationId,
+              direction: payload.direction ?? 'out',
+              type: payload.type ?? 'system',
+              text: payload.text ?? '',
+              created_at: payload.createdAt ?? null,
+            },
+          ],
+        };
+      });
+    });
+
+    const unsubscribeConversationTransferred = realtimeClient.on('conversation.transferred', (envelope) => {
+      const payload = envelope?.payload ?? {};
+      const conversationId = Number.parseInt(String(payload.conversationId ?? ''), 10);
+      if (!conversationId) {
+        return;
+      }
+
+      setConversations((prev) =>
+        prev.map((conversation) => {
+          if (Number(conversation.id) !== conversationId) {
+            return conversation;
+          }
+
+          return {
+            ...conversation,
+            handling_mode: 'human',
+            status: 'in_progress',
+            assigned_type: payload.toAssignedType ?? conversation.assigned_type,
+            assigned_id: payload.toAssignedId ?? conversation.assigned_id,
+          };
+        })
+      );
+
+      if (Number(selectedIdRef.current) === conversationId) {
+        void openConversation(conversationId);
+      }
+    });
+
+    return () => {
+      unsubscribeMessageCreated();
+      unsubscribeConversationTransferred();
+
+      if (selectedIdRef.current) {
+        realtimeClient.leaveConversation(selectedIdRef.current);
+      }
+    };
+  }, [openConversation, refreshConversations]);
 
   const assumeConversation = async () => {
     if (!detail?.id) return;

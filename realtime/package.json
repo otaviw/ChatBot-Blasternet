@@ -1,0 +1,15 @@
+{
+  "name": "chatbot-realtime",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --env-file=.env --watch src/index.js",
+    "start": "node --env-file=.env src/index.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "ioredis": "^5.4.2",
+    "jsonwebtoken": "^9.0.2",
+    "socket.io": "^4.8.1"
+  }
+}

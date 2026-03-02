@@ -4,6 +4,7 @@ import StatefulMenuFlowEditor from '../../components/StatefulMenuFlowEditor';
 import usePageData from '../../hooks/usePageData';
 import useLogout from '../../hooks/useLogout';
 import api from '../../lib/api';
+import realtimeClient from '../../lib/realtimeClient';
 import {
   DAY_KEYS,
   DAY_LABELS,
@@ -36,6 +37,33 @@ function CompanyBotPage() {
     );
     setMenuFlowError('');
   }, [data]);
+
+  useEffect(() => {
+    if (!data?.company?.id) {
+      return undefined;
+    }
+
+    const unsubscribe = realtimeClient.on('bot.updated', (envelope) => {
+      const payload = envelope?.payload ?? {};
+      if (Number(payload.companyId) !== Number(data.company.id)) {
+        return;
+      }
+
+      api.get('/minha-conta/bot').then((response) => {
+        const normalized = normalizeSettings(response.data?.settings);
+        setSettings(normalized);
+        setUseDefaultStatefulMenu(!normalized.stateful_menu_flow);
+        setStatefulMenuEditor(
+          statefulMenuFlowToEditor(normalized.stateful_menu_flow, normalized.welcome_message)
+        );
+        setMenuFlowError('');
+      });
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [data?.company?.id]);
 
   const updateMessageField = (key, value) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
