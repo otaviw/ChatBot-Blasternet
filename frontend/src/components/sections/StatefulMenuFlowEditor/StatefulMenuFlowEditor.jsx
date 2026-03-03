@@ -1,6 +1,17 @@
 import './StatefulMenuFlowEditor.css';
 import { createEmptyOption, createEmptyStep } from '@/services/statefulMenuFlow';
 
+function normalizeStepKey(flow, step) {
+  const safeFlow = String(flow ?? '').trim();
+  const safeStep = String(step ?? '').trim();
+
+  if (!safeFlow || !safeStep) {
+    return '';
+  }
+
+  return `${safeFlow}.${safeStep}`;
+}
+
 function actionSummary(action) {
   if (!action) {
     return 'Acao nao configurada';
@@ -130,6 +141,14 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
     };
   });
 
+  const stepIndexById = new Map(editor.steps.map((step, index) => [step.id, index]));
+  const stepByKey = new Map(
+    editor.steps
+      .map((step) => [normalizeStepKey(step.flow, step.step), step])
+      .filter(([key]) => Boolean(key))
+  );
+  const initialStepKey = normalizeStepKey(editor.initial_flow, editor.initial_step);
+
   const setEditor = (next) => {
     onChange(next);
   };
@@ -178,6 +197,353 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
 
   const updateCommand = (index, value) => {
     updateCommands((editor.commands ?? []).map((item, i) => (i === index ? value : item)));
+  };
+
+  const addOption = (stepId) => {
+    updateStep(stepId, (current) => ({
+      ...current,
+      options: [...(current.options ?? []), createEmptyOption((current.options?.length ?? 0) + 1)],
+    }));
+  };
+
+  const updateOption = (stepId, optionId, updater) => {
+    updateStep(stepId, (current) => ({
+      ...current,
+      options: (current.options ?? []).map((item) => (item.id === optionId ? updater(item) : item)),
+    }));
+  };
+
+  const removeOption = (stepId, optionId) => {
+    updateStep(stepId, (current) => ({
+      ...current,
+      options: (current.options ?? []).filter((item) => item.id !== optionId),
+    }));
+  };
+
+  const resolveGoToStep = (action) => {
+    if (action?.kind !== 'go_to') {
+      return { targetStep: null, targetKey: '' };
+    }
+
+    const targetKey = normalizeStepKey(action?.flow, action?.step);
+    return {
+      targetStep: targetKey ? stepByKey.get(targetKey) ?? null : null,
+      targetKey,
+    };
+  };
+
+  const collectReachableKeys = () => {
+    const visited = new Set();
+
+    const visit = (stepKey, path = new Set()) => {
+      if (!stepKey || visited.has(stepKey) || path.has(stepKey)) {
+        return;
+      }
+
+      visited.add(stepKey);
+      const step = stepByKey.get(stepKey);
+      if (!step) {
+        return;
+      }
+
+      const nextPath = new Set(path);
+      nextPath.add(stepKey);
+
+      if (step.type === 'numeric_menu') {
+        for (const option of step.options ?? []) {
+          if (option?.action?.kind !== 'go_to') {
+            continue;
+          }
+
+          visit(normalizeStepKey(option?.action?.flow, option?.action?.step), nextPath);
+        }
+        return;
+      }
+
+      if (step?.on_text?.kind === 'go_to') {
+        visit(normalizeStepKey(step?.on_text?.flow, step?.on_text?.step), nextPath);
+      }
+    };
+
+    visit(initialStepKey);
+    return visited;
+  };
+
+  const reachableKeys = collectReachableKeys();
+  const initialStep = stepByKey.get(initialStepKey) ?? editor.steps[0] ?? null;
+  const disconnectedSteps = editor.steps.filter((step) => {
+    if (initialStep && step.id === initialStep.id) {
+      return false;
+    }
+
+    const stepKey = normalizeStepKey(step.flow, step.step);
+    if (!stepKey) {
+      return true;
+    }
+
+    return !reachableKeys.has(stepKey);
+  });
+
+  const renderStepAccordion = (step, depth = 0, ancestry = []) => {
+    const stepKey = normalizeStepKey(step.flow, step.step);
+    const isInitial = Boolean(stepKey) && stepKey === initialStepKey;
+    const stepIndex = stepIndexById.get(step.id);
+    const path = stepKey ? [...ancestry, stepKey] : [...ancestry];
+    const defaultOpen = depth === 0 ? isInitial || !stepKey : false;
+    const freeTextTarget = step.type === 'free_text' ? resolveGoToStep(step.on_text) : null;
+    const showFreeTextNested =
+      step.type === 'free_text'
+      && step.on_text?.kind === 'go_to'
+      && Boolean(freeTextTarget?.targetStep)
+      && freeTextTarget?.targetStep?.type === 'numeric_menu';
+    const freeTextHasCycle = Boolean(freeTextTarget?.targetKey) && path.includes(freeTextTarget.targetKey);
+
+    return (
+      <article
+        className={`rounded-lg border border-[#d9d9d5] dark:border-[#3E3E3A] bg-white dark:bg-[#141413] ${
+          depth > 0 ? 'ml-3' : ''
+        }`}
+      >
+        <details open={defaultOpen} className="stateful-flow-editor__accordion">
+          <summary className="cursor-pointer p-4">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="font-medium text-sm">{stepIndex !== undefined ? `Passo ${stepIndex + 1}` : 'Passo'}</p>
+                <p className="text-xs text-[#706f6c]">{stepKey || 'Identificador pendente'}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {isInitial && (
+                  <span className="px-2 py-0.5 text-[11px] rounded border border-[#cfe6cf] text-[#2f6f2f]">
+                    Inicial
+                  </span>
+                )}
+                {depth > 0 && (
+                  <span className="px-2 py-0.5 text-[11px] rounded border border-[#d5d5d2] text-[#706f6c]">
+                    Submenu
+                  </span>
+                )}
+              </div>
+            </div>
+          </summary>
+
+          <div className="px-4 pb-4 space-y-4">
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => removeStep(step.id)}
+                className="px-3 py-1 text-sm rounded border border-red-300 text-red-700"
+              >
+                Remover passo
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <label className="text-sm">
+                Flow
+                <input
+                  type="text"
+                  value={step.flow || ''}
+                  onChange={(e) => updateStep(step.id, (current) => ({ ...current, flow: e.target.value }))}
+                  placeholder="Ex.: support"
+                  className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615]"
+                />
+              </label>
+
+              <label className="text-sm">
+                Step
+                <input
+                  type="text"
+                  value={step.step || ''}
+                  onChange={(e) => updateStep(step.id, (current) => ({ ...current, step: e.target.value }))}
+                  placeholder="Ex.: issue_menu"
+                  className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615]"
+                />
+              </label>
+
+              <label className="text-sm">
+                Tipo
+                <select
+                  value={step.type}
+                  onChange={(e) =>
+                    updateStep(step.id, (current) => {
+                      if (e.target.value === current.type) {
+                        return current;
+                      }
+
+                      return {
+                        ...createEmptyStep(e.target.value === 'free_text' ? 'free_text' : 'numeric_menu'),
+                        id: current.id,
+                        flow: current.flow,
+                        step: current.step,
+                        reply_text: current.reply_text,
+                      };
+                    })
+                  }
+                  className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615]"
+                >
+                  <option value="numeric_menu">Menu numerado</option>
+                  <option value="free_text">Texto livre</option>
+                </select>
+              </label>
+            </div>
+
+            <label className="text-sm block">
+              Texto de resposta do passo
+              <textarea
+                value={step.reply_text || ''}
+                onChange={(e) => updateStep(step.id, (current) => ({ ...current, reply_text: e.target.value }))}
+                rows={3}
+                className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615]"
+              />
+            </label>
+
+            {step.type === 'numeric_menu' ? (
+              <div className="space-y-3">
+                <label className="text-sm block">
+                  Mensagem de opcao invalida (opcional)
+                  <input
+                    type="text"
+                    value={step.invalid_option_text || ''}
+                    onChange={(e) =>
+                      updateStep(step.id, (current) => ({ ...current, invalid_option_text: e.target.value }))
+                    }
+                    placeholder="Se vazio, o sistema gera automaticamente"
+                    className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615]"
+                  />
+                </label>
+
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-medium">Opcoes do menu</p>
+                  <button
+                    type="button"
+                    onClick={() => addOption(step.id)}
+                    className="px-3 py-1.5 text-sm rounded border border-[#d5d5d2]"
+                  >
+                    Adicionar opcao
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {(step.options ?? []).map((option, optionIndex) => {
+                    const { targetStep, targetKey } = resolveGoToStep(option.action);
+                    const showNestedStep = Boolean(targetStep) && targetStep?.type === 'numeric_menu';
+                    const hasCycle = Boolean(targetKey) && path.includes(targetKey);
+
+                    return (
+                      <details
+                        key={option.id}
+                        className="rounded border border-[#e3e3e0] dark:border-[#3E3E3A] bg-white dark:bg-[#141413]"
+                      >
+                        <summary className="cursor-pointer px-3 py-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-sm font-medium">Opcao {optionIndex + 1}</p>
+                            <span className="text-xs text-[#706f6c]">
+                              {(option.key || '?').trim()} - {(option.label || 'Sem label').trim()}
+                            </span>
+                          </div>
+                          <p className="text-xs text-[#706f6c] mt-1">{actionSummary(option.action)}</p>
+                        </summary>
+
+                        <div className="p-3 pt-2 space-y-3">
+                          <div className="flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => removeOption(step.id, option.id)}
+                              className="px-3 py-1 text-sm rounded border border-red-300 text-red-700"
+                            >
+                              Remover opcao
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <label className="text-sm">
+                              Numero da opcao
+                              <input
+                                type="text"
+                                value={option.key || ''}
+                                onChange={(e) => updateOption(step.id, option.id, (item) => ({ ...item, key: e.target.value }))}
+                                placeholder="Ex.: 1"
+                                className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615]"
+                              />
+                            </label>
+                            <label className="text-sm">
+                              Label da opcao
+                              <input
+                                type="text"
+                                value={option.label || ''}
+                                onChange={(e) => updateOption(step.id, option.id, (item) => ({ ...item, label: e.target.value }))}
+                                placeholder="Ex.: Financeiro"
+                                className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615]"
+                              />
+                            </label>
+                          </div>
+
+                          <ActionEditor
+                            action={option.action}
+                            serviceAreas={serviceAreas}
+                            onChange={(nextAction) => updateOption(step.id, option.id, (item) => ({ ...item, action: nextAction }))}
+                          />
+
+                          {showNestedStep && (
+                            <div className="space-y-2 rounded border border-dashed border-[#d5d5d2] dark:border-[#3E3E3A] p-3">
+                              <p className="text-xs text-[#706f6c]">Submenu aberto por esta opcao</p>
+                              {hasCycle ? (
+                                <p className="text-xs text-amber-700">
+                                  Referencia circular detectada para {targetKey}.
+                                </p>
+                              ) : (
+                                renderStepAccordion(targetStep, depth + 1, path)
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </details>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <label className="text-sm block">
+                  Resposta para texto vazio (opcional)
+                  <input
+                    type="text"
+                    value={step.empty_input_reply_text || ''}
+                    onChange={(e) =>
+                      updateStep(step.id, (current) => ({ ...current, empty_input_reply_text: e.target.value }))
+                    }
+                    placeholder="Se vazio, usa o texto principal do passo"
+                    className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615]"
+                  />
+                </label>
+
+                <div>
+                  <p className="text-sm font-medium mb-2">Acao ao receber texto do cliente</p>
+                  <ActionEditor
+                    action={step.on_text}
+                    serviceAreas={serviceAreas}
+                    onChange={(nextAction) => updateStep(step.id, (current) => ({ ...current, on_text: nextAction }))}
+                  />
+                </div>
+
+                {showFreeTextNested && (
+                  <div className="space-y-2 rounded border border-dashed border-[#d5d5d2] dark:border-[#3E3E3A] p-3">
+                    <p className="text-xs text-[#706f6c]">Submenu aberto apos o texto livre</p>
+                    {freeTextHasCycle ? (
+                      <p className="text-xs text-amber-700">
+                        Referencia circular detectada para {freeTextTarget?.targetKey}.
+                      </p>
+                    ) : (
+                      renderStepAccordion(freeTextTarget.targetStep, depth + 1, path)
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </details>
+      </article>
+    );
   };
 
   return (
@@ -265,222 +631,23 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
         )}
 
         <div className="space-y-4">
-          {editor.steps.map((step, stepIndex) => (
-            <article
-              key={step.id}
-              className="rounded-lg border border-[#d9d9d5] dark:border-[#3E3E3A] p-4 space-y-4 bg-white dark:bg-[#141413]"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <p className="font-medium text-sm">Passo {stepIndex + 1}</p>
-                  <p className="text-xs text-[#706f6c]">
-                    {step.flow && step.step ? `${step.flow}.${step.step}` : 'Identificador pendente'}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => removeStep(step.id)}
-                  className="px-3 py-1 text-sm rounded border border-red-300 text-red-700"
-                >
-                  Remover passo
-                </button>
+          {initialStep && (
+            <div className="space-y-2">
+              <p className="text-xs text-[#706f6c]">Fluxo principal a partir do passo inicial</p>
+              {renderStepAccordion(initialStep, 0, [])}
+            </div>
+          )}
+
+          {disconnectedSteps.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs text-[#706f6c]">Passos adicionais nao conectados ao caminho inicial</p>
+              <div className="space-y-3">
+                {disconnectedSteps.map((step) => (
+                  <div key={step.id}>{renderStepAccordion(step, 0, [])}</div>
+                ))}
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <label className="text-sm">
-                  Flow
-                  <input
-                    type="text"
-                    value={step.flow || ''}
-                    onChange={(e) => updateStep(step.id, (current) => ({ ...current, flow: e.target.value }))}
-                    placeholder="Ex.: support"
-                    className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615]"
-                  />
-                </label>
-
-                <label className="text-sm">
-                  Step
-                  <input
-                    type="text"
-                    value={step.step || ''}
-                    onChange={(e) => updateStep(step.id, (current) => ({ ...current, step: e.target.value }))}
-                    placeholder="Ex.: issue_menu"
-                    className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615]"
-                  />
-                </label>
-
-                <label className="text-sm">
-                  Tipo
-                  <select
-                    value={step.type}
-                    onChange={(e) =>
-                      updateStep(step.id, (current) => {
-                        if (e.target.value === current.type) {
-                          return current;
-                        }
-
-                        return {
-                          ...createEmptyStep(e.target.value === 'free_text' ? 'free_text' : 'numeric_menu'),
-                          id: current.id,
-                          flow: current.flow,
-                          step: current.step,
-                          reply_text: current.reply_text,
-                        };
-                      })
-                    }
-                    className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615]"
-                  >
-                    <option value="numeric_menu">Menu numerado</option>
-                    <option value="free_text">Texto livre</option>
-                  </select>
-                </label>
-              </div>
-
-              <label className="text-sm block">
-                Texto de resposta do passo
-                <textarea
-                  value={step.reply_text || ''}
-                  onChange={(e) => updateStep(step.id, (current) => ({ ...current, reply_text: e.target.value }))}
-                  rows={3}
-                  className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615]"
-                />
-              </label>
-
-              {step.type === 'numeric_menu' ? (
-                <div className="space-y-3">
-                  <label className="text-sm block">
-                    Mensagem de opcao invalida (opcional)
-                    <input
-                      type="text"
-                      value={step.invalid_option_text || ''}
-                      onChange={(e) =>
-                        updateStep(step.id, (current) => ({ ...current, invalid_option_text: e.target.value }))
-                      }
-                      placeholder="Se vazio, o sistema gera automaticamente"
-                      className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615]"
-                    />
-                  </label>
-
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-medium">Opcoes do menu</p>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        updateStep(step.id, (current) => ({
-                          ...current,
-                          options: [...(current.options ?? []), createEmptyOption((current.options?.length ?? 0) + 1)],
-                        }))
-                      }
-                      className="px-3 py-1.5 text-sm rounded border border-[#d5d5d2]"
-                    >
-                      Adicionar opcao
-                    </button>
-                  </div>
-
-                  <div className="space-y-3">
-                    {(step.options ?? []).map((option, optionIndex) => (
-                      <div
-                        key={option.id}
-                        className="rounded border border-[#e3e3e0] dark:border-[#3E3E3A] p-3 space-y-3"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-sm font-medium">Opcao {optionIndex + 1}</p>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              updateStep(step.id, (current) => ({
-                                ...current,
-                                options: (current.options ?? []).filter((item) => item.id !== option.id),
-                              }))
-                            }
-                            className="px-3 py-1 text-sm rounded border border-red-300 text-red-700"
-                          >
-                            Remover
-                          </button>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <label className="text-sm">
-                            Numero da opcao
-                            <input
-                              type="text"
-                              value={option.key || ''}
-                              onChange={(e) =>
-                                updateStep(step.id, (current) => ({
-                                  ...current,
-                                  options: (current.options ?? []).map((item) =>
-                                    item.id === option.id ? { ...item, key: e.target.value } : item
-                                  ),
-                                }))
-                              }
-                              placeholder="Ex.: 1"
-                              className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615]"
-                            />
-                          </label>
-                          <label className="text-sm">
-                            Label da opcao
-                            <input
-                              type="text"
-                              value={option.label || ''}
-                              onChange={(e) =>
-                                updateStep(step.id, (current) => ({
-                                  ...current,
-                                  options: (current.options ?? []).map((item) =>
-                                    item.id === option.id ? { ...item, label: e.target.value } : item
-                                  ),
-                                }))
-                              }
-                              placeholder="Ex.: Financeiro"
-                              className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615]"
-                            />
-                          </label>
-                        </div>
-
-                        <ActionEditor
-                          action={option.action}
-                          serviceAreas={serviceAreas}
-                          onChange={(nextAction) =>
-                            updateStep(step.id, (current) => ({
-                              ...current,
-                              options: (current.options ?? []).map((item) =>
-                                item.id === option.id ? { ...item, action: nextAction } : item
-                              ),
-                            }))
-                          }
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <label className="text-sm block">
-                    Resposta para texto vazio (opcional)
-                    <input
-                      type="text"
-                      value={step.empty_input_reply_text || ''}
-                      onChange={(e) =>
-                        updateStep(step.id, (current) => ({ ...current, empty_input_reply_text: e.target.value }))
-                      }
-                      placeholder="Se vazio, usa o texto principal do passo"
-                      className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615]"
-                    />
-                  </label>
-
-                  <div>
-                    <p className="text-sm font-medium mb-2">Acao ao receber texto do cliente</p>
-                    <ActionEditor
-                      action={step.on_text}
-                      serviceAreas={serviceAreas}
-                      onChange={(nextAction) =>
-                        updateStep(step.id, (current) => ({ ...current, on_text: nextAction }))
-                      }
-                    />
-                  </div>
-                </div>
-              )}
-            </article>
-          ))}
+            </div>
+          )}
         </div>
       </section>
     </div>
