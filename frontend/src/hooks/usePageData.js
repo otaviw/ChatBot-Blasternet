@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import api from '../lib/api';
+import api from '@/services/api';
 
 function usePageData(url, initial = null) {
   const [data, setData] = useState(initial);
@@ -45,3 +45,4 @@ function usePageData(url, initial = null) {
 }
 
 export default usePageData;
+

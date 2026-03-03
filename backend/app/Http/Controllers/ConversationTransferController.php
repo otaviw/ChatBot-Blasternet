@@ -169,4 +169,3 @@ class ConversationTransferController extends Controller
         return null;
     }
 }
-

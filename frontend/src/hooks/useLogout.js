@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import api from '../lib/api';
+import api from '@/services/api';
 
 function useLogout() {
   const [error, setError] = useState(null);
@@ -17,3 +17,4 @@ function useLogout() {
 }
 
 export default useLogout;
+
