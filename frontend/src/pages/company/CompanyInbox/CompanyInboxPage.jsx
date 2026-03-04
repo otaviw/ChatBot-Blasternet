@@ -5,6 +5,7 @@ import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
 import api from '@/services/api';
 import realtimeClient from '@/services/realtimeClient';
+import PageHeader from '@/components/ui/PageHeader/PageHeader.jsx';
 
 const EMPTY_TRANSFER_OPTIONS = { areas: [], users: [] };
 
@@ -400,10 +401,13 @@ function CompanyInboxPage() {
 
   return (
     <Layout role="company" onLogout={logout}>
-      <h1 className="text-xl font-medium mb-4">Inbox da empresa</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <section className="border border-[#e3e3e0] dark:border-[#3E3E3A] rounded-lg p-4">
-          <h2 className="font-medium mb-3">Conversas</h2>
+      <PageHeader
+        title="Inbox da empresa"
+        subtitle="Acompanhe atendimento em tempo real, organize tags e distribua conversas com mais clareza."
+      />
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[0.92fr_1.08fr]">
+        <section className="app-panel">
+          <h2 className="text-base font-semibold mb-3">Conversas</h2>
           {!conversations.length && <p className="text-sm text-[#706f6c]">Nenhuma conversa.</p>}
           <ul className="space-y-2 text-sm">
             {conversations.map((conv) => (
@@ -411,20 +415,20 @@ function CompanyInboxPage() {
                 <button
                   type="button"
                   onClick={() => openConversation(conv.id)}
-                  className={`w-full text-left px-3 py-2 rounded border ${
+                  className={`w-full text-left px-3 py-2.5 rounded-lg border transition ${
                     selectedId === conv.id
-                      ? 'border-[#f53003]'
+                      ? 'border-[#f53003] bg-[#fff5f2] shadow-[0_10px_20px_-22px_rgba(245,48,3,0.75)]'
                       : conv.status === 'closed'
-                        ? 'border-[#e3e3e0] opacity-50'
-                        : 'border-[#e3e3e0]'
+                        ? 'border-[#e3e3e0] opacity-60'
+                        : 'border-[#d9e1ec] hover:border-[#c5d1e1] hover:bg-[#f8fafc]'
                   }`}
                 >
-                  <div>
+                  <div className="font-medium text-[#0f172a]">
                     {conv.customer_name ? `${conv.customer_name} (${conv.customer_phone})` : conv.customer_phone}
                     {' - '}
                     {conv.status} ({conv.messages_count ?? 0} msg)
                   </div>
-                  <div className="text-xs text-[#706f6c] mt-0.5">
+                  <div className="text-xs text-[#526175] mt-1">
                     {conv.status === 'closed'
                       ? 'encerrada'
                       : conv.handling_mode === 'human'
@@ -441,8 +445,8 @@ function CompanyInboxPage() {
           </ul>
         </section>
 
-        <section className="border border-[#e3e3e0] dark:border-[#3E3E3A] rounded-lg p-4">
-          <h2 className="font-medium mb-3">Mensagens</h2>
+        <section className="app-panel">
+          <h2 className="text-base font-semibold mb-3">Mensagens</h2>
           {detailLoading && <p className="text-sm text-[#706f6c]">Carregando conversa...</p>}
           {detailError && <p className="text-sm text-red-600">{detailError}</p>}
           {!detailLoading && !detail && !detailError && (
@@ -450,13 +454,13 @@ function CompanyInboxPage() {
           )}
           {!!detail && (
             <>
-              <div className="mb-3 text-xs text-[#706f6c]">
+              <div className="mb-4 text-xs text-[#526175]">
                 Modo: <strong>{detail.handling_mode === 'human' ? 'Manual' : 'Bot'}</strong>
                 {detail.assigned_user ? ` | Responsavel: ${detail.assigned_user.name}` : ''}
                 {detail.current_area?.name ? ` | Area: ${detail.current_area.name}` : ''}
               </div>
 
-              <div className="mb-3 border border-[#e3e3e0] dark:border-[#3E3E3A] rounded-lg p-3">
+              <div className="mb-4 border border-[#d9e1ec] rounded-lg p-3.5 bg-[#fcfdff]">
                 <p className="text-xs text-[#706f6c] mb-2">Contato do cliente</p>
                 <div className="flex flex-col md:flex-row gap-2">
                   <input
@@ -474,7 +478,7 @@ function CompanyInboxPage() {
                     type="button"
                     onClick={saveContactName}
                     disabled={contactBusy}
-                    className="px-3 py-2 text-sm rounded border border-[#d5d5d2]"
+                    className="app-btn-secondary"
                   >
                     {contactBusy ? 'Salvando...' : 'Salvar contato'}
                   </button>
@@ -483,12 +487,12 @@ function CompanyInboxPage() {
                 {contactError && <p className="text-xs text-red-600 mt-2">{contactError}</p>}
               </div>
 
-              <div className="flex gap-2 mb-3">
+              <div className="flex flex-wrap gap-2 mb-4">
                 <button
                   type="button"
                   onClick={assumeConversation}
                   disabled={actionBusy}
-                  className="px-3 py-1 text-sm rounded border border-[#d5d5d2]"
+                  className="app-btn-secondary"
                 >
                   Assumir
                 </button>
@@ -496,7 +500,7 @@ function CompanyInboxPage() {
                   type="button"
                   onClick={releaseConversation}
                   disabled={actionBusy}
-                  className="px-3 py-1 text-sm rounded border border-[#d5d5d2]"
+                  className="app-btn-secondary"
                 >
                   Soltar para bot
                 </button>
@@ -504,7 +508,7 @@ function CompanyInboxPage() {
                   type="button"
                   onClick={closeConversation}
                   disabled={actionBusy || detail?.status === 'closed'}
-                  className="px-3 py-1 text-sm rounded border border-red-300 text-red-700 disabled:opacity-50"
+                  className="app-btn-danger disabled:opacity-50"
                 >
                   Encerrar
                 </button>
@@ -551,10 +555,10 @@ function CompanyInboxPage() {
                 </div>
               </div>
 
-              <div className="mb-4 border border-[#e3e3e0] dark:border-[#3E3E3A] rounded-lg p-3 space-y-3">
+              <div className="mb-5 border border-[#d9e1ec] rounded-lg p-3.5 space-y-3 bg-[#fcfdff]">
                 <div>
                   <p className="text-sm font-medium">Transferir conversa</p>
-                  <p className="text-xs text-[#706f6c]">
+                  <p className="text-xs text-[#526175]">
                     Escolha uma area ou um usuario especifico da area. A transferencia e aceita automaticamente.
                   </p>
                 </div>
@@ -568,7 +572,7 @@ function CompanyInboxPage() {
                         setTransferSuccess('');
                         setTransferError('');
                       }}
-                      className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615] text-sm"
+                      className="app-input text-sm"
                     >
                       <option value="">Selecionar area</option>
                       {(transferOptions.areas ?? []).map((area) => (
@@ -593,7 +597,7 @@ function CompanyInboxPage() {
                           setTransferArea(String(user.areas[0].id));
                         }
                       }}
-                      className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615] text-sm"
+                      className="app-input text-sm"
                     >
                       <option value="">Selecionar usuario</option>
                       {availableUsers.map((user) => (
@@ -612,7 +616,7 @@ function CompanyInboxPage() {
                     type="button"
                     onClick={transferConversation}
                     disabled={transferBusy}
-                    className="px-3 py-1 text-sm rounded border border-[#d5d5d2]"
+                    className="app-btn-secondary"
                   >
                     {transferBusy ? 'Transferindo...' : 'Transferir'}
                   </button>
@@ -646,9 +650,9 @@ function CompanyInboxPage() {
                 )}
               </div>
 
-              <ul className="space-y-2 text-sm mb-3 max-h-80 overflow-y-auto pr-1">
+              <ul className="space-y-2.5 text-sm mb-4 max-h-80 overflow-y-auto pr-1">
                 {(detail.messages ?? []).map((msg) => (
-                  <li key={msg.id} className="border border-[#e3e3e0] rounded p-2">
+                  <li key={msg.id} className="rounded-lg border border-[#d9e1ec] bg-white p-2.5">
                     <strong>{msg.direction === 'in' ? 'Cliente' : 'Atendente/Bot'}:</strong> {msg.text}
                   </li>
                 ))}
@@ -659,7 +663,7 @@ function CompanyInboxPage() {
                   <button
                     type="button"
                     onClick={() => setShowTemplates((prev) => !prev)}
-                    className="px-3 py-1 text-xs rounded border border-[#d5d5d2]"
+                    className="app-btn-secondary text-xs"
                   >
                     Respostas rapidas v
                   </button>
@@ -692,12 +696,12 @@ function CompanyInboxPage() {
                   onChange={(event) => setManualText(event.target.value)}
                   rows={3}
                   placeholder="Digite resposta manual ou use um template..."
-                  className="w-full rounded border border-[#d5d5d2] px-3 py-2 bg-white dark:bg-[#161615] text-sm"
+                  className="app-input"
                 />
                 <button
                   type="submit"
                   disabled={manualBusy}
-                  className="px-3 py-1.5 text-sm rounded bg-[#f53003] text-white disabled:opacity-60"
+                  className="app-btn-primary"
                 >
                   {manualBusy ? 'Enviando...' : 'Enviar resposta manual'}
                 </button>

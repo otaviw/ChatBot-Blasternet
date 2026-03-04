@@ -75,12 +75,11 @@ function Layout({ children, role, companyName, onLogout }) {
 
   return (
     <div className="min-h-screen relative text-[#0f172a]">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-44 bg-[radial-gradient(circle_at_top,rgba(245,48,3,0.14),transparent_60%)]" />
-      <header className="sticky top-0 z-20 border-b border-white/60 bg-black/35 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 py-3 md:py-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <header className="sticky top-0 z-20 border-b border-[#e2e8f0] bg-white/95 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-4 py-3 md:py-3.5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <a
             href={isLogged ? '/dashboard' : '/entrar'}
-            className="inline-flex items-center gap-2 text-sm md:text-base font-semibold tracking-tight text-[#0f172a]"
+            className="inline-flex items-center gap-2 text-sm md:text-base font-semibold tracking-tight text-[#0f172a] focus-visible:rounded-lg"
           >
             <span className="h-2.5 w-2.5 rounded-full bg-[#f53003]" />
             Blasternet ChatBot
@@ -100,10 +99,10 @@ function Layout({ children, role, companyName, onLogout }) {
                   key={item.href}
                   href={item.href}
                   className={[
-                    'rounded-full px-3 py-1.5 transition',
+                    'rounded-md px-2.5 py-1.5 transition-colors focus-visible:outline-none',
                     isActive(item.href)
-                      ? 'bg-[#0f172a] text-white shadow-[0_10px_20px_-16px_rgba(15,23,42,0.8)]'
-                      : 'bg-white text-[#475569] border border-[#d7dce6] hover:bg-[#f8fafc]',
+                      ? 'text-[#0f172a] font-semibold border-b-2 border-[#f53003]'
+                      : 'text-[#475569] border-b-2 border-transparent hover:text-[#0f172a] hover:border-[#cbd5e1]',
                   ].join(' ')}
                 >
                   {item.label}
@@ -112,7 +111,7 @@ function Layout({ children, role, companyName, onLogout }) {
               <a
                 href="/entrar"
                 onClick={handleLogout}
-                className="rounded-full px-3 py-1.5 border border-[#fecaca] bg-[#fff1f2] text-[#b91c1c] hover:bg-[#ffe4e6]"
+                className="rounded-md px-2.5 py-1.5 text-[#b91c1c] border-b-2 border-transparent hover:border-[#fecaca] hover:bg-[#fff1f2] focus-visible:outline-none"
               >
                 Sair
               </a>
@@ -121,7 +120,7 @@ function Layout({ children, role, companyName, onLogout }) {
         </div>
       </header>
 
-      <main className="relative max-w-7xl mx-auto px-4 py-8">{children}</main>
+      <main className="relative max-w-7xl mx-auto px-4 py-8 md:py-9">{children}</main>
     </div>
   );
 }

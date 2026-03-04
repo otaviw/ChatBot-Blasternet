@@ -252,8 +252,8 @@ function AdminCompanyShowPage({ companyId }) {
           {'<-'} Empresas
         </a>
       </div>
-      <h1 className="text-xl font-medium mb-2">{company.name}</h1>
-      <p className="text-[#706f6c] dark:text-[#A1A09A] text-sm mb-6">Informacoes e uso da empresa.</p>
+      <h1 className="app-page-title">{company.name}</h1>
+      <p className="app-page-subtitle mb-6">Informacoes e uso da empresa.</p>
 
       <section className="mb-8">
         <h2 className="text-sm font-medium text-[#706f6c] dark:text-[#A1A09A] mb-2">Informacoes</h2>
@@ -269,7 +269,7 @@ function AdminCompanyShowPage({ companyId }) {
 
       {metricsLoading && <p className="text-sm text-[#706f6c]">Carregando métricas...</p>}
       {metricsData?.metrics && (
-        <section className="border border-[#e3e3e0] dark:border-[#3E3E3A] rounded-lg p-4 mb-6">
+        <section className="app-panel mb-6">
           <h2 className="font-medium mb-4">Métricas</h2>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -321,7 +321,7 @@ function AdminCompanyShowPage({ companyId }) {
         </section>
       )}
 
-      <section className="mb-8 border border-[#e3e3e0] dark:border-[#3E3E3A] rounded-lg p-4">
+      <section className="app-panel mb-8">
         <h2 className="font-medium mb-3">Dados da empresa (admin)</h2>
         <form onSubmit={saveCompanyData} className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <label className="block text-sm md:col-span-2">
@@ -331,7 +331,7 @@ function AdminCompanyShowPage({ companyId }) {
               value={companyForm.name}
               onChange={(e) => setCompanyForm((p) => ({ ...p, name: e.target.value }))}
               required
-              className="mt-1 w-full rounded border border-[#d5d5d2] px-3 py-2 bg-white dark:bg-[#161615]"
+              className="app-input"
             />
           </label>
 
@@ -341,7 +341,7 @@ function AdminCompanyShowPage({ companyId }) {
               type="text"
               value={companyForm.meta_phone_number_id}
               onChange={(e) => setCompanyForm((p) => ({ ...p, meta_phone_number_id: e.target.value }))}
-              className="mt-1 w-full rounded border border-[#d5d5d2] px-3 py-2 bg-white dark:bg-[#161615]"
+              className="app-input"
             />
           </label>
 
@@ -349,7 +349,7 @@ function AdminCompanyShowPage({ companyId }) {
             <button
               type="submit"
               disabled={companySaveState === 'saving'}
-              className="px-4 py-2 rounded bg-[#f53003] text-white disabled:opacity-60"
+              className="app-btn-primary"
             >
               {companySaveState === 'saving' ? 'Salvando dados...' : 'Salvar dados da empresa'}
             </button>
@@ -378,7 +378,7 @@ function AdminCompanyShowPage({ companyId }) {
       <section className="mb-8">
         <h2 className="text-sm font-medium text-[#706f6c] dark:text-[#A1A09A] mb-2">Editar configuracoes (admin)</h2>
         <form onSubmit={saveSettings} className="space-y-8 max-w-4xl">
-          <section className="border border-[#e3e3e0] dark:border-[#3E3E3A] rounded-lg p-4 space-y-4">
+          <section className="app-panel space-y-4">
             <h3 className="font-medium">Estado e contexto</h3>
             <label className="flex items-center gap-2 text-sm">
               <input
@@ -395,12 +395,12 @@ function AdminCompanyShowPage({ companyId }) {
                 type="text"
                 value={settings.timezone}
                 onChange={(e) => updateMessageField('timezone', e.target.value)}
-                className="mt-1 w-full rounded border border-[#d5d5d2] px-3 py-2 bg-white dark:bg-[#161615]"
+                className="app-input"
               />
             </label>
           </section>
 
-          <section className="border border-[#e3e3e0] dark:border-[#3E3E3A] rounded-lg p-4 space-y-4">
+          <section className="app-panel space-y-4">
             <h3 className="font-medium">Mensagens</h3>
             <label className="block text-sm">
               Boas-vindas
@@ -408,7 +408,7 @@ function AdminCompanyShowPage({ companyId }) {
                 value={settings.welcome_message || ''}
                 onChange={(e) => updateMessageField('welcome_message', e.target.value)}
                 rows={3}
-                className="mt-1 w-full rounded border border-[#d5d5d2] px-3 py-2 bg-white dark:bg-[#161615]"
+                className="app-input"
               />
             </label>
 
@@ -418,7 +418,7 @@ function AdminCompanyShowPage({ companyId }) {
                 value={settings.fallback_message || ''}
                 onChange={(e) => updateMessageField('fallback_message', e.target.value)}
                 rows={3}
-                className="mt-1 w-full rounded border border-[#d5d5d2] px-3 py-2 bg-white dark:bg-[#161615]"
+                className="app-input"
               />
             </label>
 
@@ -428,19 +428,19 @@ function AdminCompanyShowPage({ companyId }) {
                 value={settings.out_of_hours_message || ''}
                 onChange={(e) => updateMessageField('out_of_hours_message', e.target.value)}
                 rows={3}
-                className="mt-1 w-full rounded border border-[#d5d5d2] px-3 py-2 bg-white dark:bg-[#161615]"
+                className="app-input"
               />
             </label>
           </section>
 
-          <section className="border border-[#e3e3e0] dark:border-[#3E3E3A] rounded-lg p-4 space-y-4">
+          <section className="app-panel space-y-4">
             <div className="flex items-center justify-between gap-3">
               <h3 className="font-medium">Menu numerado (stateful)</h3>
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={loadSuggestedMenuTemplate}
-                  className="px-3 py-1.5 text-sm rounded border border-[#d5d5d2]"
+                  className="app-btn-secondary"
                 >
                   Recarregar modelo sugerido
                 </button>
@@ -450,7 +450,7 @@ function AdminCompanyShowPage({ companyId }) {
                     setUseDefaultStatefulMenu(true);
                     setMenuFlowError('');
                   }}
-                  className="px-3 py-1.5 text-sm rounded border border-[#d5d5d2]"
+                  className="app-btn-secondary"
                 >
                   Usar menu padrao automatico
                 </button>
@@ -488,7 +488,7 @@ function AdminCompanyShowPage({ companyId }) {
             {menuFlowError && <p className="text-sm text-red-600">{menuFlowError}</p>}
           </section>
 
-          <section className="border border-[#e3e3e0] dark:border-[#3E3E3A] rounded-lg p-4 space-y-4">
+          <section className="app-panel space-y-4">
             <h3 className="font-medium">Horario por dia</h3>
             <div className="space-y-3">
               {DAY_KEYS.map((day) => {
@@ -511,7 +511,7 @@ function AdminCompanyShowPage({ companyId }) {
                         value={cfg.start || ''}
                         onChange={(e) => updateDay(day, { start: e.target.value })}
                         disabled={!cfg.enabled}
-                        className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615] disabled:opacity-50"
+                        className="app-input disabled:opacity-50"
                       />
                     </label>
 
@@ -522,7 +522,7 @@ function AdminCompanyShowPage({ companyId }) {
                         value={cfg.end || ''}
                         onChange={(e) => updateDay(day, { end: e.target.value })}
                         disabled={!cfg.enabled}
-                        className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615] disabled:opacity-50"
+                        className="app-input disabled:opacity-50"
                       />
                     </label>
                   </div>
@@ -531,13 +531,13 @@ function AdminCompanyShowPage({ companyId }) {
             </div>
           </section>
 
-          <section className="border border-[#e3e3e0] dark:border-[#3E3E3A] rounded-lg p-4 space-y-4">
+          <section className="app-panel space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-medium">Respostas por palavra-chave</h3>
               <button
                 type="button"
                 onClick={addKeywordReply}
-                className="px-3 py-1.5 text-sm rounded border border-[#d5d5d2]"
+                className="app-btn-secondary"
               >
                 Adicionar
               </button>
@@ -556,7 +556,7 @@ function AdminCompanyShowPage({ companyId }) {
                       type="text"
                       value={item.keyword || ''}
                       onChange={(e) => updateKeyword(index, 'keyword', e.target.value)}
-                      className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615]"
+                      className="app-input"
                     />
                   </label>
 
@@ -566,7 +566,7 @@ function AdminCompanyShowPage({ companyId }) {
                       type="text"
                       value={item.reply || ''}
                       onChange={(e) => updateKeyword(index, 'reply', e.target.value)}
-                      className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615]"
+                      className="app-input"
                     />
                   </label>
 
@@ -574,7 +574,7 @@ function AdminCompanyShowPage({ companyId }) {
                     <button
                       type="button"
                       onClick={() => removeKeywordReply(index)}
-                      className="w-full px-3 py-1.5 text-sm rounded border border-red-300 text-red-700"
+                      className="app-btn-danger w-full"
                     >
                       Remover
                     </button>
@@ -584,13 +584,13 @@ function AdminCompanyShowPage({ companyId }) {
             </div>
           </section>
 
-          <section className="border border-[#e3e3e0] dark:border-[#3E3E3A] rounded-lg p-4 space-y-4">
+          <section className="app-panel space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-medium">Areas de atendimento</h3>
               <button
                 type="button"
                 onClick={addServiceArea}
-                className="px-3 py-1.5 text-sm rounded border border-[#d5d5d2]"
+                className="app-btn-secondary"
               >
                 Adicionar area
               </button>
@@ -606,12 +606,12 @@ function AdminCompanyShowPage({ companyId }) {
                     value={area}
                     onChange={(e) => updateServiceArea(index, e.target.value)}
                     placeholder="Ex.: Suporte"
-                    className="flex-1 rounded border border-[#d5d5d2] px-3 py-2 bg-white dark:bg-[#161615] text-sm"
+                    className="app-input"
                   />
                   <button
                     type="button"
                     onClick={() => removeServiceArea(index)}
-                    className="px-3 py-2 text-sm rounded border border-red-300 text-red-700"
+                    className="app-btn-danger"
                   >
                     Remover
                   </button>
@@ -624,7 +624,7 @@ function AdminCompanyShowPage({ companyId }) {
             <button
               type="submit"
               disabled={saveState === 'saving'}
-              className="px-4 py-2 rounded bg-[#f53003] text-white disabled:opacity-60"
+            className="app-btn-primary"
             >
               {saveState === 'saving' ? 'Salvando...' : 'Salvar configuracoes (admin)'}
             </button>

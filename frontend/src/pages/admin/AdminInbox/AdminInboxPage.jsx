@@ -4,6 +4,7 @@ import Layout from '@/components/layout/Layout/Layout.jsx';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
 import api from '@/services/api';
+import PageHeader from '@/components/ui/PageHeader/PageHeader.jsx';
 
 function AdminInboxPage() {
   const { data, loading, error } = usePageData('/admin/empresas');
@@ -138,14 +139,17 @@ function AdminInboxPage() {
 
   return (
     <Layout role="admin" onLogout={logout}>
-      <h1 className="text-xl font-medium mb-4">Inbox (admin)</h1>
+      <PageHeader
+        title="Inbox (admin)"
+        subtitle="Monitore conversas por empresa, assuma atendimentos criticos e responda rapidamente."
+      />
       <div className="mb-4 max-w-sm">
         <label className="block text-sm">
           Empresa
           <select
             value={companyId}
             onChange={(event) => setCompanyId(event.target.value)}
-            className="mt-1 w-full rounded border border-[#d5d5d2] px-3 py-2 bg-white dark:bg-[#161615]"
+            className="app-input"
           >
             {(data.companies ?? []).map((company) => (
               <option key={company.id} value={company.id}>
@@ -162,9 +166,9 @@ function AdminInboxPage() {
         </p>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <section className="border border-[#e3e3e0] dark:border-[#3E3E3A] rounded-lg p-4">
-          <h2 className="font-medium mb-3">Conversas (metadados)</h2>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[0.92fr_1.08fr]">
+        <section className="app-panel">
+          <h2 className="text-base font-semibold mb-3">Conversas</h2>
           {listLoading && <p className="text-sm text-[#706f6c]">Carregando conversas...</p>}
           {!listLoading && !conversations.length && <p className="text-sm text-[#706f6c]">Nenhuma conversa.</p>}
           <ul className="space-y-2 text-sm">
@@ -173,15 +177,16 @@ function AdminInboxPage() {
                 <button
                   type="button"
                   onClick={() => openConversation(conv.id)}
-                  className={`w-full text-left px-3 py-2 rounded border ${selectedId === conv.id ? 'border-[#f53003]' : 'border-[#e3e3e0]'
-                    }`}
+                  className={`w-full text-left px-3 py-2.5 rounded-lg border transition ${
+                    selectedId === conv.id
+                      ? 'border-[#f53003] bg-[#fff5f2] shadow-[0_10px_20px_-22px_rgba(245,48,3,0.75)]'
+                      : 'border-[#d9e1ec] hover:border-[#c5d1e1] hover:bg-[#f8fafc]'
+                  }`}
                 >
-                  <div>
-                    {conv.customer_phone_masked}
-                    {' - '}
-                    {conv.status}
+                  <div className="font-medium">
+                    {conv.customer_phone_masked} - {conv.status}
                   </div>
-                  <div className="text-xs text-[#706f6c] mt-0.5">
+                  <div className="text-xs text-[#526175] mt-1">
                     msgs: {conv.messages_count ?? 0} | tags: {conv.tags_count ?? 0} | modo:{' '}
                     {conv.handling_mode === 'human' ? 'manual' : 'bot'}
                   </div>
@@ -191,8 +196,8 @@ function AdminInboxPage() {
           </ul>
         </section>
 
-        <section className="border border-[#e3e3e0] dark:border-[#3E3E3A] rounded-lg p-4">
-          <h2 className="font-medium mb-3">Detalhes permitidos</h2>
+        <section className="app-panel">
+          <h2 className="text-base font-semibold mb-3">Mensagens</h2>
           {detailLoading && <p className="text-sm text-[#706f6c]">Carregando conversa...</p>}
           {detailError && <p className="text-sm text-red-600">{detailError}</p>}
           {!detailLoading && !detail && !detailError && (
@@ -209,6 +214,33 @@ function AdminInboxPage() {
                 <li>Mensagens: {detail.messages_count ?? 0}</li>
                 <li>Tags: {detail.tags_count ?? 0}</li>
               </ul>
+
+              <div className="mb-4 border border-[#d9e1ec] rounded-lg p-3.5 bg-[#fcfdff]">
+                <p className="text-xs text-[#526175] mb-2">Contato do cliente</p>
+                <div className="flex flex-col md:flex-row gap-2">
+                  <input
+                    type="text"
+                    value={contactNameInput}
+                    onChange={(event) => {
+                      setContactNameInput(event.target.value);
+                      setContactSuccess('');
+                      setContactError('');
+                    }}
+                    placeholder="Nome do contato"
+                    className="app-input flex-1"
+                  />
+                  <button
+                    type="button"
+                    onClick={saveContactName}
+                    disabled={contactBusy}
+                    className="app-btn-secondary"
+                  >
+                    {contactBusy ? 'Salvando...' : 'Salvar contato'}
+                  </button>
+                </div>
+                {contactSuccess && <p className="text-xs text-green-700 mt-2">{contactSuccess}</p>}
+                {contactError && <p className="text-xs text-red-600 mt-2">{contactError}</p>}
+              </div>
             </>
           )}
         </section>

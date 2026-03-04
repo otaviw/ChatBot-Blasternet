@@ -79,15 +79,15 @@ function CompanyQuickRepliesPage() {
 
   return (
     <Layout role="company" onLogout={logout}>
-      <h1 className="text-xl font-medium mb-2">Respostas Rápidas</h1>
-      <p className="text-[#706f6c] dark:text-[#A1A09A] text-sm mb-6">
+      <h1 className="app-page-title">Respostas Rápidas</h1>
+      <p className="app-page-subtitle mb-6">
         Templates para agilizar o atendimento manual no inbox.
       </p>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
         {/* Formulário */}
-        <section className="border border-[#e3e3e0] dark:border-[#3E3E3A] rounded-lg p-4">
+        <section className="app-panel">
           <h2 className="font-medium mb-3">
             {editingId ? 'Editar template' : 'Novo template'}
           </h2>
@@ -100,7 +100,7 @@ function CompanyQuickRepliesPage() {
                 onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
                 required
                 placeholder="Ex: Saudação"
-                className="mt-1 w-full rounded border border-[#d5d5d2] px-3 py-2 bg-white dark:bg-[#161615]"
+                className="app-input"
               />
             </label>
             <label className="block text-sm">
@@ -111,7 +111,7 @@ function CompanyQuickRepliesPage() {
                 required
                 rows={4}
                 placeholder="Ex: Olá! Como posso ajudar você hoje?"
-                className="mt-1 w-full rounded border border-[#d5d5d2] px-3 py-2 bg-white dark:bg-[#161615]"
+                className="app-input"
               />
             </label>
             {formError && <p className="text-sm text-red-600">{formError}</p>}
@@ -119,7 +119,7 @@ function CompanyQuickRepliesPage() {
               <button
                 type="submit"
                 disabled={busy}
-                className="px-4 py-2 rounded bg-[#f53003] text-white disabled:opacity-60"
+                className="app-btn-primary"
               >
                 {busy ? 'Salvando...' : editingId ? 'Salvar edição' : 'Criar template'}
               </button>
@@ -127,7 +127,7 @@ function CompanyQuickRepliesPage() {
                 <button
                   type="button"
                   onClick={cancelEdit}
-                  className="px-4 py-2 rounded border border-[#d5d5d2]"
+                  className="app-btn-secondary"
                 >
                   Cancelar
                 </button>
@@ -137,14 +137,14 @@ function CompanyQuickRepliesPage() {
         </section>
 
         {/* Lista */}
-        <section className="border border-[#e3e3e0] dark:border-[#3E3E3A] rounded-lg p-4">
+        <section className="app-panel">
           <h2 className="font-medium mb-3">Templates cadastrados</h2>
           {!replies.length && (
             <p className="text-sm text-[#706f6c]">Nenhum template cadastrado ainda.</p>
           )}
           <ul className="space-y-2">
             {replies.map((reply) => (
-              <li key={reply.id} className="border border-[#e3e3e0] dark:border-[#3E3E3A] rounded p-3">
+              <li key={reply.id} className="rounded-lg border border-[#d9e1ec] bg-white p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium">{reply.title}</p>
@@ -154,14 +154,14 @@ function CompanyQuickRepliesPage() {
                     <button
                       type="button"
                       onClick={() => beginEdit(reply)}
-                      className="px-2 py-1 text-xs rounded border border-[#d5d5d2]"
+                      className="app-btn-secondary text-xs"
                     >
                       Editar
                     </button>
                     <button
                       type="button"
                       onClick={() => handleDelete(reply.id)}
-                      className="px-2 py-1 text-xs rounded border border-red-300 text-red-700"
+                      className="app-btn-danger text-xs"
                     >
                       Apagar
                     </button>
