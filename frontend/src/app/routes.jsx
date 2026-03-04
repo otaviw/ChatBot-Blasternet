@@ -6,12 +6,17 @@ import AdminCompanyShowPage from "@/pages/admin/AdminCompanyShow/AdminCompanySho
 import AdminSimulatorPage from "@/pages/admin/AdminSimulator/AdminSimulatorPage.jsx";
 import AdminInboxPage from "@/pages/admin/AdminInbox/AdminInboxPage.jsx";
 import AdminUsersPage from "@/pages/admin/AdminUsers/AdminUsersPage.jsx";
+import AdminSupportTicketsPage from "@/pages/admin/AdminSupportTickets/AdminSupportTicketsPage.jsx";
+import AdminTicketIndex from "@/pages/admin/AdminSupportTickets/AdminTicketIndex.jsx";
 import CompanyBotPage from "@/pages/company/CompanyBot/CompanyBotPage.jsx";
 import CompanySimulatorPage from "@/pages/company/CompanySimulator/CompanySimulatorPage.jsx";
 import CompanyInboxPage from "@/pages/company/CompanyInbox/CompanyInboxPage.jsx";
 import NotFoundPage from "@/pages/NotFound/NotFoundPage.jsx";
 import CompanyQuickRepliesPage from "@/pages/company/CompanyQuickReplies/CompanyQuickRepliesPage.jsx";
 import CompanyUsersPage from "@/pages/company/CompanyUsers/CompanyUsersPage.jsx";
+import CompanySupportTicketPage from "@/pages/company/CompanySupportTickets/CompanySupportTicketPage.jsx";
+import CompanyTicketIndex from "@/pages/company/CompanySupportTickets/CompanyTicketIndex.jsx";
+import SupportRequestPage from "@/pages/support/SupportRequest/SupportRequestPage.jsx";
 
 function AppRoutes() {
   const path = window.location.pathname;
@@ -41,6 +46,19 @@ function AppRoutes() {
     return <AdminUsersPage />;
   }
 
+  if (path === "/admin/suporte") {
+    return <AdminSupportTicketsPage />;
+  }
+
+  if (
+    segments[0] === "admin" &&
+    segments[1] === "suporte" &&
+    segments[2] === "solicitacoes" &&
+    segments[3]
+  ) {
+    return <AdminTicketIndex ticketId={segments[3]} />;
+  }
+
   if (segments[0] === "admin" && segments[1] === "empresas" && segments[2]) {
     return <AdminCompanyShowPage companyId={segments[2]} />;
   }
@@ -63,6 +81,23 @@ function AppRoutes() {
 
   if (path === "/minha-conta/usuarios") {
     return <CompanyUsersPage />;
+  }
+
+  if (path === "/minha-conta/suporte/solicitacoes") {
+    return <CompanySupportTicketPage />;
+  }
+
+  if (
+    segments[0] === "minha-conta" &&
+    segments[1] === "suporte" &&
+    segments[2] === "solicitacoes" &&
+    segments[3]
+  ) {
+    return <CompanyTicketIndex ticketId={segments[3]} />;
+  }
+
+  if (path === "/suporte") {
+    return <SupportRequestPage />;
   }
 
   return <NotFoundPage />;

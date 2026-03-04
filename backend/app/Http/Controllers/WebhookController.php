@@ -67,6 +67,17 @@ class WebhookController extends Controller
             return;
         }
 
+        $contactNameByWaId = [];
+        foreach ($value['contacts'] ?? [] as $contact) {
+            $waId = trim((string) ($contact['wa_id'] ?? ''));
+            $name = trim((string) ($contact['profile']['name'] ?? ''));
+            if ($waId === '' || $name === '') {
+                continue;
+            }
+
+            $contactNameByWaId[$waId] = $name;
+        }
+
         foreach ($value['messages'] ?? [] as $msg) {
             if (($msg['type'] ?? '') !== 'text') {
                 continue;
@@ -74,6 +85,7 @@ class WebhookController extends Controller
             $from = (string) ($msg['from'] ?? '');
             $text = (string) ($msg['text']['body'] ?? '');
             $messageId = (string) ($msg['id'] ?? '');
+            $contactName = $contactNameByWaId[$from] ?? null;
 
             if (trim($text) === '' || trim($from) === '') {
                 continue;
@@ -85,7 +97,8 @@ class WebhookController extends Controller
                 $text,
                 ['wamid' => $messageId, 'from' => $from, 'source' => 'webhook'],
                 ['source' => 'webhook'],
-                true
+                true,
+                $contactName
             );
         }
     }

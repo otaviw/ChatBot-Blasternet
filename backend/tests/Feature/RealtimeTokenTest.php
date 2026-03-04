@@ -87,7 +87,7 @@ class RealtimeTokenTest extends TestCase
         $response->assertStatus(403);
     }
 
-    public function test_admin_can_request_conversation_join_token(): void
+    public function test_admin_cannot_request_conversation_join_token_in_privacy_mode(): void
     {
         $company = Company::create(['name' => 'Empresa Admin']);
         $admin = User::create([
@@ -110,13 +110,7 @@ class RealtimeTokenTest extends TestCase
         $response = $this->actingAs($admin)
             ->postJson("/api/realtime/conversations/{$conversation->id}/join-token");
 
-        $response->assertOk();
-        $response->assertJsonPath('conversation_id', $conversation->id);
-
-        $payload = $this->decodeJwtPayload((string) $response->json('token'));
-        $this->assertSame((string) $admin->id, (string) ($payload['sub'] ?? ''));
-        $this->assertSame('conversation_join', (string) ($payload['type'] ?? ''));
-        $this->assertSame((int) $conversation->id, (int) ($payload['conversationId'] ?? 0));
+        $response->assertStatus(403);
     }
 
     /**

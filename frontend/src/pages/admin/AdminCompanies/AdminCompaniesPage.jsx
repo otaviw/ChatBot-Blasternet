@@ -11,7 +11,6 @@ function AdminCompaniesPage() {
   const [newCompany, setNewCompany] = useState({
     name: '',
     meta_phone_number_id: '',
-    meta_access_token: '',
   });
   const [createBusy, setCreateBusy] = useState(false);
   const [createError, setCreateError] = useState('');
@@ -27,12 +26,11 @@ function AdminCompaniesPage() {
       const payload = {
         name: newCompany.name,
         meta_phone_number_id: newCompany.meta_phone_number_id || null,
-        meta_access_token: newCompany.meta_access_token || null,
       };
       const response = await api.post('/admin/empresas', payload);
       const created = response.data?.company;
       setCreateSuccess(`Empresa criada: ${created?.name ?? payload.name}`);
-      setNewCompany({ name: '', meta_phone_number_id: '', meta_access_token: '' });
+      setNewCompany({ name: '', meta_phone_number_id: '' });
       setTimeout(() => window.location.reload(), 400);
     } catch (err) {
       setCreateError(err.response?.data?.message || 'Falha ao criar empresa.');
@@ -86,16 +84,6 @@ function AdminCompaniesPage() {
               type="text"
               value={newCompany.meta_phone_number_id}
               onChange={(e) => setNewCompany((p) => ({ ...p, meta_phone_number_id: e.target.value }))}
-              className="mt-1 w-full rounded border border-[#d5d5d2] px-3 py-2 bg-white dark:bg-[#161615]"
-            />
-          </label>
-
-          <label className="block text-sm">
-            Meta Access Token
-            <input
-              type="password"
-              value={newCompany.meta_access_token}
-              onChange={(e) => setNewCompany((p) => ({ ...p, meta_access_token: e.target.value }))}
               className="mt-1 w-full rounded border border-[#d5d5d2] px-3 py-2 bg-white dark:bg-[#161615]"
             />
           </label>

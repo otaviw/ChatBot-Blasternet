@@ -23,10 +23,12 @@ class InboundMessageService
         string $text,
         array $inMeta = [],
         array $outMeta = [],
-        bool $sendOutbound = true
+        bool $sendOutbound = true,
+        ?string $contactName = null
     ): array {
         $normalizedFrom = $this->normalizePhone($from);
         $normalizedText = trim($text);
+        $normalizedContactName = $this->normalizeContactName($contactName);
 
         if ($normalizedFrom === '' || $normalizedText === '') {
             throw new InvalidArgumentException('Phone e texto sao obrigatorios para processar mensagem.');
@@ -41,8 +43,14 @@ class InboundMessageService
                 'status' => 'open',
                 'assigned_type' => 'unassigned',
                 'handling_mode' => 'bot',
+                'customer_name' => $normalizedContactName,
             ]
         );
+
+        if ($normalizedContactName !== null && $conversation->customer_name !== $normalizedContactName) {
+            $conversation->customer_name = $normalizedContactName;
+            $conversation->save();
+        }
 
         if ($conversation->status === 'closed') {
             $this->reopenClosedConversation($conversation);
@@ -97,12 +105,17 @@ class InboundMessageService
             $reply,
             $outMeta,
             $statefulHandled,
-            $statefulResult
+            $statefulResult,
+            $normalizedContactName
         ) {
             $lockedConversation = Conversation::query()
                 ->whereKey($conversation->id)
                 ->lockForUpdate()
                 ->firstOrFail();
+
+            if ($normalizedContactName !== null) {
+                $lockedConversation->customer_name = $normalizedContactName;
+            }
 
             $outMessage = Message::create([
                 'conversation_id' => $lockedConversation->id,
@@ -140,6 +153,16 @@ class InboundMessageService
     private function normalizePhone(string $phone): string
     {
         return preg_replace('/\D/', '', $phone) ?? '';
+    }
+
+    private function normalizeContactName(?string $contactName): ?string
+    {
+        $value = trim((string) $contactName);
+        if ($value === '') {
+            return null;
+        }
+
+        return mb_substr($value, 0, 160);
     }
 
     private function reopenClosedConversation(Conversation $conversation): void

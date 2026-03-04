@@ -336,6 +336,48 @@ class ConversationController extends Controller
         ]);
     }
 
+    public function updateContact(Request $request, int $conversationId): JsonResponse
+    {
+        $user = $request->user();
+        if (! $user || ! $user->isCompanyUser()) {
+            return response()->json([
+                'authenticated' => false,
+                'redirect' => '/entrar',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'customer_name' => ['nullable', 'string', 'max:160'],
+        ]);
+
+        $conversation = Conversation::query()
+            ->where('company_id', (int) $user->company_id)
+            ->whereKey($conversationId)
+            ->first();
+
+        if (! $conversation) {
+            return response()->json(['message' => 'Conversa nao encontrada para esta empresa.'], 404);
+        }
+
+        $customerName = trim((string) ($validated['customer_name'] ?? ''));
+        $customerName = $customerName !== '' ? $customerName : null;
+        $before = $conversation->customer_name;
+
+        $conversation->customer_name = $customerName;
+        $conversation->save();
+
+        $this->auditLog->record($request, 'company.conversation.contact_updated', $conversation->company_id, [
+            'conversation_id' => $conversation->id,
+            'before_customer_name' => $before,
+            'after_customer_name' => $conversation->customer_name,
+        ]);
+
+        return response()->json([
+            'ok' => true,
+            'conversation' => $conversation,
+        ]);
+    }
+
     public function transfer(Request $request, int $conversationId): JsonResponse
     {
         $user = $request->user();

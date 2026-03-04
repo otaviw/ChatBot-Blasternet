@@ -32,22 +32,22 @@ function DashboardPage() {
       {
         href: '/admin/empresas',
         title: 'Empresas',
-        description: 'Cadastre empresas, acompanhe uso e configure credenciais.',
+        description: 'Acompanhe metricas e status tecnico sem acesso a conteudo sensivel.',
       },
       {
-        href: '/admin/usuarios',
-        title: 'Usuarios',
-        description: 'Gerencie acessos com perfis de superadmin, admin de empresa e agente.',
-      },
-      {
-        href: '/admin/conversas',
-        title: 'Inbox',
-        description: 'Acompanhe atendimento em tempo real e assuma conversas criticas.',
+        href: '/admin/suporte',
+        title: 'Solicitacoes de suporte',
+        description: 'Visualize chamados abertos/fechados e atualize o status de resolucao.',
       },
       {
         href: '/admin/simulador',
         title: 'Simulador',
         description: 'Teste comportamento do bot sem depender de canais externos.',
+      },
+      {
+        href: '/suporte',
+        title: 'Abrir chamado',
+        description: 'Registre um novo chamado interno para o time de suporte.',
       },
     ];
 
@@ -87,6 +87,16 @@ function DashboardPage() {
       href: '/minha-conta/conversas',
       title: 'Inbox',
       description: 'Acompanhe conversas, tags e transferencias da equipe.',
+    },
+    {
+      href: '/suporte',
+      title: 'Suporte',
+      description: 'Abra solicitacoes para o time da plataforma quando precisar de ajuda.',
+    },
+    {
+      href: '/minha-conta/suporte/solicitacoes',
+      title: 'Minhas solicitacoes',
+      description: 'Acompanhe apenas os chamados que voce abriu.',
     },
   ];
 

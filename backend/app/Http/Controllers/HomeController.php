@@ -42,7 +42,7 @@ class HomeController extends Controller
                 'authenticated' => true,
                 'role' => 'admin',
                 'user_role' => \App\Models\User::normalizeRole($user->role),
-                'can_manage_users' => true,
+                'can_manage_users' => false,
                 'user' => [
                     'id' => $user->id,
                     'name' => $user->name,

@@ -31,6 +31,7 @@ class SimulatedMessageController extends Controller
             'company_id' => ['required', 'integer', 'exists:companies,id'],
             'from' => ['required', 'string', 'max:40'],
             'text' => ['required', 'string', 'max:2000'],
+            'contact_name' => ['nullable', 'string', 'max:160'],
             'send_outbound' => ['sometimes', 'boolean'],
         ]);
 
@@ -56,7 +57,8 @@ class SimulatedMessageController extends Controller
             [
                 'source' => 'simulation',
             ],
-            $sendOutbound
+            $sendOutbound,
+            $validated['contact_name'] ?? null
         );
 
         $this->auditLog->record(
@@ -79,6 +81,7 @@ class SimulatedMessageController extends Controller
             'conversation' => [
                 'id' => $result['conversation']->id,
                 'customer_phone' => $result['conversation']->customer_phone,
+                'customer_name' => $result['conversation']->customer_name,
                 'status' => $result['conversation']->status,
             ],
             'in_message' => [

@@ -19,6 +19,10 @@ function CompanyInboxPage() {
   const [manualText, setManualText] = useState('');
   const [manualBusy, setManualBusy] = useState(false);
   const [manualError, setManualError] = useState('');
+  const [contactNameInput, setContactNameInput] = useState('');
+  const [contactBusy, setContactBusy] = useState(false);
+  const [contactError, setContactError] = useState('');
+  const [contactSuccess, setContactSuccess] = useState('');
   const [actionBusy, setActionBusy] = useState(false);
   const [tagInput, setTagInput] = useState('');
   const [showTemplates, setShowTemplates] = useState(false);
@@ -85,11 +89,15 @@ function CompanyInboxPage() {
     setTransferError('');
     setTransferSuccess('');
     setShowTemplates(false);
+    setContactNameInput('');
+    setContactError('');
+    setContactSuccess('');
 
     try {
       const response = await api.get(`/minha-conta/conversas/${conversationId}`);
       const conversation = response.data?.conversation ?? null;
       setDetail(conversation);
+      setContactNameInput(conversation?.customer_name ?? '');
       setTransferOptions(response.data?.transfer_options ?? EMPTY_TRANSFER_OPTIONS);
       setTransferArea(conversation?.assigned_type === 'area' ? String(conversation.assigned_id ?? '') : '');
       await realtimeClient.joinConversation(conversationId);
@@ -335,6 +343,38 @@ function CompanyInboxPage() {
     }
   };
 
+  const saveContactName = async () => {
+    if (!detail?.id) return;
+    setContactBusy(true);
+    setContactError('');
+    setContactSuccess('');
+    try {
+      const payloadName = String(contactNameInput ?? '').trim();
+      const response = await api.put(`/minha-conta/conversas/${detail.id}/contato`, {
+        customer_name: payloadName || null,
+      });
+
+      const updatedConversation = response.data?.conversation ?? null;
+      if (updatedConversation) {
+        setDetail((prev) => ({ ...(prev ?? {}), ...updatedConversation }));
+        setContactNameInput(updatedConversation.customer_name ?? '');
+        setConversations((prev) =>
+          prev.map((item) =>
+            Number(item.id) === Number(updatedConversation.id)
+              ? { ...item, customer_name: updatedConversation.customer_name ?? null }
+              : item
+          )
+        );
+      }
+
+      setContactSuccess('Contato salvo.');
+    } catch (err) {
+      setContactError(err.response?.data?.message || 'Falha ao salvar contato.');
+    } finally {
+      setContactBusy(false);
+    }
+  };
+
   const formatDate = (value) => {
     if (!value) return '-';
     const date = new Date(value);
@@ -379,7 +419,11 @@ function CompanyInboxPage() {
                         : 'border-[#e3e3e0]'
                   }`}
                 >
-                  <div>{conv.customer_phone} - {conv.status} ({conv.messages_count ?? 0} msg)</div>
+                  <div>
+                    {conv.customer_name ? `${conv.customer_name} (${conv.customer_phone})` : conv.customer_phone}
+                    {' - '}
+                    {conv.status} ({conv.messages_count ?? 0} msg)
+                  </div>
                   <div className="text-xs text-[#706f6c] mt-0.5">
                     {conv.status === 'closed'
                       ? 'encerrada'
@@ -410,6 +454,33 @@ function CompanyInboxPage() {
                 Modo: <strong>{detail.handling_mode === 'human' ? 'Manual' : 'Bot'}</strong>
                 {detail.assigned_user ? ` | Responsavel: ${detail.assigned_user.name}` : ''}
                 {detail.current_area?.name ? ` | Area: ${detail.current_area.name}` : ''}
+              </div>
+
+              <div className="mb-3 border border-[#e3e3e0] dark:border-[#3E3E3A] rounded-lg p-3">
+                <p className="text-xs text-[#706f6c] mb-2">Contato do cliente</p>
+                <div className="flex flex-col md:flex-row gap-2">
+                  <input
+                    type="text"
+                    value={contactNameInput}
+                    onChange={(event) => {
+                      setContactNameInput(event.target.value);
+                      setContactSuccess('');
+                      setContactError('');
+                    }}
+                    placeholder="Nome do contato"
+                    className="flex-1 rounded border border-[#d5d5d2] px-3 py-2 bg-white dark:bg-[#161615] text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={saveContactName}
+                    disabled={contactBusy}
+                    className="px-3 py-2 text-sm rounded border border-[#d5d5d2]"
+                  >
+                    {contactBusy ? 'Salvando...' : 'Salvar contato'}
+                  </button>
+                </div>
+                {contactSuccess && <p className="text-xs text-green-700 mt-2">{contactSuccess}</p>}
+                {contactError && <p className="text-xs text-red-600 mt-2">{contactError}</p>}
               </div>
 
               <div className="flex gap-2 mb-3">

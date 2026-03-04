@@ -8,8 +8,10 @@ use App\Http\Controllers\ConversationTransferController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\RealtimeTokenController;
 use App\Http\Controllers\SimulatedMessageController;
+use App\Http\Controllers\SupportTicketController;
 use App\Http\Controllers\Admin\CompanyController;
 use App\Http\Controllers\Admin\ConversationController as AdminConversationController;
+use App\Http\Controllers\Admin\SupportTicketController as AdminSupportTicketController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Company\BotController;
 use App\Http\Controllers\Company\ConversationController as CompanyConversationController;
@@ -34,6 +36,12 @@ Route::middleware('web')->group(function () {
             ->middleware('throttle:realtime-token');
         Route::post('/realtime/conversations/{conversation}/join-token', [RealtimeTokenController::class, 'issueConversationJoinToken'])
             ->middleware('throttle:realtime-join');
+        Route::post('/suporte/solicitacoes', [SupportTicketController::class, 'store'])
+            ->middleware('throttle:bot-write');
+        Route::get('/suporte/minhas-solicitacoes', [SupportTicketController::class, 'mine'])
+            ->middleware('throttle:inbox-read');
+        Route::get('/suporte/minhas-solicitacoes/{ticket}', [SupportTicketController::class, 'showMine'])
+            ->middleware('throttle:inbox-read');
         Route::get('/dashboard', [HomeController::class, 'dashboard']);
         Route::get('/areas', [AreaController::class, 'index'])->middleware('throttle:inbox-read');
         Route::get('/areas/{area}/users', [AreaController::class, 'users'])->middleware('throttle:inbox-read');
@@ -73,6 +81,15 @@ Route::middleware('web')->group(function () {
 
             Route::put('/conversas/{conversationId}/tags', [AdminConversationController::class, 'updateTags'])
                 ->middleware('throttle:bot-write');
+            Route::put('/conversas/{conversationId}/contato', [AdminConversationController::class, 'updateContact'])
+                ->middleware('throttle:bot-write');
+
+            Route::get('/suporte/solicitacoes', [AdminSupportTicketController::class, 'index'])
+                ->middleware('throttle:inbox-read');
+            Route::get('/suporte/solicitacoes/{ticket}', [AdminSupportTicketController::class, 'show'])
+                ->middleware('throttle:inbox-read');
+            Route::put('/suporte/solicitacoes/{ticket}/status', [AdminSupportTicketController::class, 'updateStatus'])
+                ->middleware('throttle:bot-write');
         });
 
         Route::prefix('minha-conta')->group(function () {
@@ -95,6 +112,8 @@ Route::middleware('web')->group(function () {
                 ->middleware('throttle:bot-write');
 
             Route::put('/conversas/{conversationId}/tags', [CompanyConversationController::class, 'updateTags'])
+                ->middleware('throttle:bot-write');
+            Route::put('/conversas/{conversationId}/contato', [CompanyConversationController::class, 'updateContact'])
                 ->middleware('throttle:bot-write');
 
             Route::get('/respostas-rapidas', [QuickReplyController::class, 'index']);

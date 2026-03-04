@@ -3,13 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Area;
+use App\Models\Company;
 use App\Models\User;
 use App\Services\AuditLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Collection;
 
 class UserController extends Controller
 {
@@ -27,14 +26,27 @@ class UserController extends Controller
             ], 403);
         }
 
-        $users = User::query()
-            ->with(['company:id,name', 'areas:id,name,company_id'])
-            ->orderBy('name')
-            ->get(['id', 'name', 'email', 'role', 'company_id', 'is_active', 'disabled_at', 'created_at']);
+        $summaryRows = User::query()
+            ->selectRaw('COALESCE(company_id, 0) as company_scope, role, is_active, COUNT(*) as total')
+            ->groupBy('company_scope', 'role', 'is_active')
+            ->get();
+
+        $companyIds = $summaryRows
+            ->pluck('company_scope')
+            ->map(fn($value) => (int) $value)
+            ->filter(fn(int $id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        $companyNames = Company::query()
+            ->whereIn('id', $companyIds)
+            ->pluck('name', 'id');
 
         return response()->json([
             'authenticated' => true,
-            'users' => $users->map(fn(User $user) => $this->serializeUser($user))->values(),
+            'privacy_mode' => 'blind_default',
+            'users_summary' => $this->buildSummaryPayload($summaryRows, $companyNames),
         ]);
     }
 
@@ -48,56 +60,12 @@ class UserController extends Controller
             ], 403);
         }
 
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:120'],
-            'email' => ['required', 'email', 'max:190', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:8', 'max:100'],
-            'role' => ['required', Rule::in(User::assignableRoleValuesForSystemAdmin())],
-            'company_id' => ['nullable', 'integer', 'exists:companies,id'],
-            'is_active' => ['sometimes', 'boolean'],
-            'area_ids' => ['sometimes', 'array', 'max:50'],
-            'area_ids.*' => ['integer', 'exists:areas,id'],
-            'areas' => ['sometimes', 'array', 'max:50'],
-            'areas.*' => ['string', 'max:120'],
-        ]);
-
-        $normalizedRole = User::normalizeRole((string) $validated['role']);
-        $isCompanyRole = in_array($normalizedRole, [User::ROLE_COMPANY_ADMIN, User::ROLE_AGENT], true);
-
-        if ($isCompanyRole && empty($validated['company_id'])) {
-            return response()->json([
-                'message' => 'Usuario da empresa precisa de company_id.',
-            ], 422);
-        }
-
-        $companyId = $isCompanyRole ? (int) ($validated['company_id'] ?? 0) : null;
-        $areaIds = $this->resolveAreaIds($companyId, $validated);
-        $isActive = (bool) ($validated['is_active'] ?? true);
-
-        $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => $validated['password'],
-            'role' => $normalizedRole,
-            'company_id' => $companyId,
-            'is_active' => $isActive,
-            'disabled_at' => $isActive ? null : now(),
-        ]);
-
-        $user->areas()->sync($areaIds);
-        $user->load(['company:id,name', 'areas:id,name,company_id']);
-
-        $this->auditLog->record($request, 'admin.user.created', $user->company_id, [
-            'user_id' => $user->id,
-            'role' => $user->role,
-            'is_active' => $user->is_active,
-            'area_ids' => $areaIds,
-        ]);
+        $this->auditLog->record($request, 'admin.user.create_blocked_by_privacy_mode');
 
         return response()->json([
-            'ok' => true,
-            'user' => $this->serializeUser($user),
-        ], 201);
+            'message' => 'Operacao bloqueada para superadmin no modo privacidade.',
+            'privacy_mode' => 'blind_default',
+        ], 403);
     }
 
     public function update(Request $request, User $user): JsonResponse
@@ -110,159 +78,71 @@ class UserController extends Controller
             ], 403);
         }
 
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:120'],
-            'email' => ['required', 'email', 'max:190', Rule::unique('users', 'email')->ignore($user->id)],
-            'role' => ['required', Rule::in(User::assignableRoleValuesForSystemAdmin())],
-            'company_id' => ['nullable', 'integer', 'exists:companies,id'],
-            'is_active' => ['required', 'boolean'],
-            'password' => ['nullable', 'string', 'min:8', 'max:100'],
-            'area_ids' => ['sometimes', 'array', 'max:50'],
-            'area_ids.*' => ['integer', 'exists:areas,id'],
-            'areas' => ['sometimes', 'array', 'max:50'],
-            'areas.*' => ['string', 'max:120'],
-        ]);
-
-        $normalizedRole = User::normalizeRole((string) $validated['role']);
-        $isCompanyRole = in_array($normalizedRole, [User::ROLE_COMPANY_ADMIN, User::ROLE_AGENT], true);
-        if ($isCompanyRole && empty($validated['company_id'])) {
-            return response()->json([
-                'message' => 'Usuario da empresa precisa de company_id.',
-            ], 422);
-        }
-
-        $companyId = $isCompanyRole ? (int) ($validated['company_id'] ?? 0) : null;
-        $areaIds = $this->resolveAreaIds($companyId, $validated);
-        $isActive = (bool) $validated['is_active'];
-
-        $before = [
-            'name' => $user->name,
-            'email' => $user->email,
-            'role' => $user->role,
-            'company_id' => $user->company_id,
-            'is_active' => $user->is_active,
-            'disabled_at' => $user->disabled_at,
-            'area_ids' => $user->areas()->pluck('areas.id')->values()->all(),
-        ];
-
-        $user->name = $validated['name'];
-        $user->email = $validated['email'];
-        $user->role = $normalizedRole;
-        $user->company_id = $companyId;
-        $user->is_active = $isActive;
-        $user->disabled_at = $isActive ? null : ($user->disabled_at ?? now());
-        if (! empty($validated['password'])) {
-            $user->password = $validated['password'];
-        }
-        $user->save();
-
-        $user->areas()->sync($areaIds);
-        $user->load(['company:id,name', 'areas:id,name,company_id']);
-
-        $this->auditLog->record($request, 'admin.user.updated', $user->company_id, [
-            'user_id' => $user->id,
-            'before' => $before,
-            'after' => [
-                'name' => $user->name,
-                'email' => $user->email,
-                'role' => $user->role,
-                'company_id' => $user->company_id,
-                'is_active' => $user->is_active,
-                'disabled_at' => $user->disabled_at,
-                'area_ids' => $areaIds,
-            ],
-        ]);
+        $this->auditLog->record(
+            $request,
+            'admin.user.update_blocked_by_privacy_mode',
+            $user->company_id,
+            ['target_user_id' => $user->id]
+        );
 
         return response()->json([
-            'ok' => true,
-            'user' => $this->serializeUser($user),
-        ]);
+            'message' => 'Operacao bloqueada para superadmin no modo privacidade.',
+            'privacy_mode' => 'blind_default',
+        ], 403);
     }
 
     /**
-     * @param  array<string, mixed>  $validated
-     * @return array<int, int>
-     */
-    private function resolveAreaIds(?int $companyId, array $validated): array
-    {
-        if (! $companyId) {
-            return [];
-        }
-
-        $ids = collect($validated['area_ids'] ?? [])
-            ->map(fn($value) => (int) $value)
-            ->filter(fn(int $value) => $value > 0)
-            ->values()
-            ->all();
-
-        $names = collect($validated['areas'] ?? [])
-            ->map(fn($value) => trim((string) $value))
-            ->filter()
-            ->values()
-            ->all();
-
-        if ($names !== []) {
-            $resolvedByName = Area::query()
-                ->where('company_id', $companyId)
-                ->whereIn('name', $names)
-                ->pluck('id')
-                ->map(fn($value) => (int) $value)
-                ->values()
-                ->all();
-
-            if (count($resolvedByName) !== count(array_unique($names))) {
-                throw ValidationException::withMessages([
-                    'areas' => ['Uma ou mais areas informadas nao existem para a empresa.'],
-                ]);
-            }
-
-            $ids = array_merge($ids, $resolvedByName);
-        }
-
-        $ids = array_values(array_unique($ids));
-        if ($ids === []) {
-            return [];
-        }
-
-        $validAreaCount = Area::query()
-            ->where('company_id', $companyId)
-            ->whereIn('id', $ids)
-            ->count();
-
-        if ($validAreaCount !== count($ids)) {
-            throw ValidationException::withMessages([
-                'area_ids' => ['Area informada nao pertence a empresa selecionada.'],
-            ]);
-        }
-
-        return $ids;
-    }
-
-    /**
+     * @param  Collection<int, object>  $summaryRows
+     * @param  Collection<int, string>  $companyNames
      * @return array<string, mixed>
      */
-    private function serializeUser(User $user): array
+    private function buildSummaryPayload(Collection $summaryRows, Collection $companyNames): array
     {
+        $global = [
+            'active' => 0,
+            'inactive' => 0,
+            'total' => 0,
+            'by_role' => [],
+        ];
+        $companies = [];
+
+        foreach ($summaryRows as $row) {
+            $companyScope = (int) ($row->company_scope ?? 0);
+            $normalizedRole = User::normalizeRole((string) ($row->role ?? ''));
+            $isActive = (bool) ($row->is_active ?? false);
+            $total = (int) ($row->total ?? 0);
+            $statusKey = $isActive ? 'active' : 'inactive';
+
+            $global[$statusKey] += $total;
+            $global['total'] += $total;
+            $global['by_role'][$normalizedRole] = (int) ($global['by_role'][$normalizedRole] ?? 0) + $total;
+
+            if ($companyScope <= 0) {
+                continue;
+            }
+
+            if (! isset($companies[$companyScope])) {
+                $companies[$companyScope] = [
+                    'company_id' => $companyScope,
+                    'company_name' => $companyNames->get($companyScope, 'Empresa #'.$companyScope),
+                    'active' => 0,
+                    'inactive' => 0,
+                    'total' => 0,
+                    'by_role' => [],
+                ];
+            }
+
+            $companies[$companyScope][$statusKey] += $total;
+            $companies[$companyScope]['total'] += $total;
+            $companies[$companyScope]['by_role'][$normalizedRole] =
+                (int) ($companies[$companyScope]['by_role'][$normalizedRole] ?? 0) + $total;
+        }
+
+        ksort($companies);
+
         return [
-            'id' => $user->id,
-            'name' => $user->name,
-            'email' => $user->email,
-            'role' => User::normalizeRole($user->role),
-            'company_id' => $user->company_id,
-            'is_active' => (bool) $user->is_active,
-            'disabled_at' => $user->disabled_at,
-            'company' => $user->company ? [
-                'id' => $user->company->id,
-                'name' => $user->company->name,
-            ] : null,
-            'area_ids' => $user->areas->pluck('id')->map(fn($id) => (int) $id)->values()->all(),
-            'areas' => $user->areas->pluck('name')->values()->all(),
-            'areas_detail' => $user->areas->map(fn(Area $area) => [
-                'id' => $area->id,
-                'name' => $area->name,
-                'company_id' => $area->company_id,
-            ])->values()->all(),
-            'created_at' => $user->created_at,
+            'global' => $global,
+            'companies' => array_values($companies),
         ];
     }
 }

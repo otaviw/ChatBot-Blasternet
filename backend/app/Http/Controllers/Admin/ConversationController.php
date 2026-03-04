@@ -4,16 +4,14 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Conversation;
-use App\Models\Message;
 use App\Services\AuditLogService;
-use App\Services\WhatsAppSendService;
+use App\Support\AdminPrivacySanitizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ConversationController extends Controller
 {
     public function __construct(
-        private WhatsAppSendService $whatsAppSend,
         private AuditLogService $auditLog
     ) {}
 
@@ -28,7 +26,7 @@ class ConversationController extends Controller
         }
 
         $query = Conversation::query()
-            ->with(['company', 'assignedUser:id,name,email'])
+            ->with(['company:id,name'])
             ->withCount('messages')
             ->latest();
         $companyId = $request->query('company_id');
@@ -37,11 +35,21 @@ class ConversationController extends Controller
         }
 
         $conversations = $query->limit(150)->get();
+        $sanitized = AdminPrivacySanitizer::conversationSummaryCollection($conversations);
+        $byStatus = $conversations
+            ->groupBy(fn(Conversation $conversation) => (string) $conversation->status)
+            ->map(fn($items) => count($items))
+            ->all();
 
         return response()->json([
             'authenticated' => true,
             'role' => 'admin',
-            'conversations' => $conversations,
+            'privacy_mode' => 'blind_default',
+            'conversations' => $sanitized,
+            'metrics' => [
+                'total' => count($sanitized),
+                'by_status' => $byStatus,
+            ],
         ]);
     }
 
@@ -55,11 +63,10 @@ class ConversationController extends Controller
             ], 403);
         }
 
-        $conversation = Conversation::with([
-            'company',
-            'messages' => fn($q) => $q->oldest(),
-            'assignedUser:id,name,email',
-        ])->find($conversationId);
+        $conversation = Conversation::query()
+            ->with(['company:id,name'])
+            ->withCount('messages')
+            ->find($conversationId);
 
         if (! $conversation) {
             return response()->json([
@@ -70,84 +77,38 @@ class ConversationController extends Controller
         return response()->json([
             'authenticated' => true,
             'role' => 'admin',
-            'conversation' => $conversation,
+            'privacy_mode' => 'blind_default',
+            'conversation' => AdminPrivacySanitizer::conversationSummary($conversation),
         ]);
     }
 
     public function assume(Request $request, int $conversationId): JsonResponse
     {
-        $user = $request->user();
-        if (! $user || ! $user->isAdmin()) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
-        }
-
-        $conversation = Conversation::find($conversationId);
-        if (! $conversation) {
-            return response()->json(['message' => 'Conversa nao encontrada.'], 404);
-        }
-
-        $conversation->handling_mode = 'human';
-        $conversation->assigned_type = 'user';
-        $conversation->assigned_id = $user->id;
-        $conversation->current_area_id = null;
-        $conversation->assigned_user_id = $user->id;
-        $conversation->assigned_area = null;
-        $conversation->assumed_at = now();
-        $conversation->status = 'in_progress';
-        $conversation->save();
-
-        $this->auditLog->record($request, 'admin.conversation.assumed', $conversation->company_id, [
-            'conversation_id' => $conversation->id,
-            'assigned_type' => 'user',
-            'assigned_id' => $user->id,
-        ]);
-
-        return response()->json([
-            'ok' => true,
-            'conversation' => $conversation->load('assignedUser:id,name,email'),
-        ]);
+        return $this->blockedByPrivacyMode($request, 'admin.conversation.assume_blocked', $conversationId);
     }
 
     public function release(Request $request, int $conversationId): JsonResponse
     {
-        $user = $request->user();
-        if (! $user || ! $user->isAdmin()) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
-        }
-
-        $conversation = Conversation::find($conversationId);
-        if (! $conversation) {
-            return response()->json(['message' => 'Conversa nao encontrada.'], 404);
-        }
-
-        $conversation->handling_mode = 'bot';
-        $conversation->assigned_type = 'bot';
-        $conversation->assigned_id = null;
-        $conversation->current_area_id = null;
-        $conversation->assigned_user_id = null;
-        $conversation->assigned_area = null;
-        $conversation->assumed_at = null;
-        $conversation->status = 'open';
-        $conversation->save();
-
-        $this->auditLog->record($request, 'admin.conversation.released', $conversation->company_id, [
-            'conversation_id' => $conversation->id,
-        ]);
-
-        return response()->json([
-            'ok' => true,
-            'conversation' => $conversation,
-        ]);
+        return $this->blockedByPrivacyMode($request, 'admin.conversation.release_blocked', $conversationId);
     }
 
     public function manualReply(Request $request, int $conversationId): JsonResponse
     {
+        return $this->blockedByPrivacyMode($request, 'admin.conversation.manual_reply_blocked', $conversationId);
+    }
+
+    public function close(Request $request, int $conversationId): JsonResponse
+    {
+        return $this->blockedByPrivacyMode($request, 'admin.conversation.close_blocked', $conversationId);
+    }
+
+    public function updateTags(Request $request, int $conversationId): JsonResponse
+    {
+        return $this->blockedByPrivacyMode($request, 'admin.conversation.tags_update_blocked', $conversationId);
+    }
+
+    public function updateContact(Request $request, int $conversationId): JsonResponse
+    {
         $user = $request->user();
         if (! $user || ! $user->isAdmin()) {
             return response()->json([
@@ -157,139 +118,65 @@ class ConversationController extends Controller
         }
 
         $validated = $request->validate([
-            'text' => ['required', 'string', 'max:2000'],
-            'send_outbound' => ['sometimes', 'boolean'],
+            'customer_name' => ['nullable', 'string', 'max:160'],
         ]);
 
-        $conversation = Conversation::with('company')->find($conversationId);
+        $conversation = Conversation::query()
+            ->with(['company:id,name'])
+            ->withCount('messages')
+            ->find($conversationId);
+
         if (! $conversation) {
-            return response()->json(['message' => 'Conversa nao encontrada.'], 404);
-        }
-
-        if (! $conversation->isManualMode()) {
-            $conversation->handling_mode = 'human';
-            $conversation->assigned_type = 'user';
-            $conversation->assigned_id = $user->id;
-            $conversation->current_area_id = null;
-            $conversation->assigned_user_id = $user->id;
-            $conversation->assigned_area = null;
-            $conversation->assumed_at = now();
-        } elseif ($conversation->assigned_type === 'user' && (int) $conversation->assigned_id !== (int) $user->id) {
             return response()->json([
-                'message' => 'Conversa assumida por outro operador.',
-            ], 409);
-        } elseif (in_array($conversation->assigned_type, ['area', 'bot', 'unassigned'], true)) {
-            $conversation->assigned_type = 'user';
-            $conversation->assigned_id = $user->id;
-            $conversation->current_area_id = null;
-            $conversation->assigned_user_id = $user->id;
-            $conversation->assigned_area = null;
-            $conversation->assumed_at = now();
+                'message' => 'Conversa nao encontrada.',
+            ], 404);
         }
 
-        $conversation->status = 'in_progress';
+        $customerName = trim((string) ($validated['customer_name'] ?? ''));
+        $customerName = $customerName !== '' ? $customerName : null;
+        $before = $conversation->customer_name;
+        $conversation->customer_name = $customerName;
         $conversation->save();
 
-        $message = Message::create([
+        $this->auditLog->record($request, 'admin.conversation.contact_updated', $conversation->company_id, [
             'conversation_id' => $conversation->id,
-            'direction' => 'out',
-            'type' => 'human',
-            'text' => trim((string) $validated['text']),
-            'meta' => [
-                'source' => 'manual',
-                'actor_user_id' => $user->id,
-            ],
-        ]);
-
-        $sendOutbound = (bool) ($validated['send_outbound'] ?? true);
-        $wasSent = $sendOutbound
-            ? $this->whatsAppSend->sendText($conversation->company, $conversation->customer_phone, $message->text)
-            : false;
-
-        $this->auditLog->record($request, 'admin.conversation.manual_reply', $conversation->company_id, [
-            'conversation_id' => $conversation->id,
-            'message_id' => $message->id,
-            'sent' => $wasSent,
+            'before_customer_name' => $before,
+            'after_customer_name' => $conversation->customer_name,
         ]);
 
         return response()->json([
             'ok' => true,
-            'message' => $message,
-            'was_sent' => $wasSent,
-            'conversation' => $conversation->load('assignedUser:id,name,email'),
+            'privacy_mode' => 'blind_default',
+            'conversation' => AdminPrivacySanitizer::conversationSummary($conversation),
         ]);
     }
 
-    public function close(Request $request, int $conversationId): JsonResponse
+    private function blockedByPrivacyMode(Request $request, string $action, int $conversationId): JsonResponse
     {
         $user = $request->user();
-        if (!$user || !$user->isAdmin()) {
-            return response()->json(['authenticated' => false, 'redirect' => '/entrar'], 403);
+        if (! $user || ! $user->isAdmin()) {
+            return response()->json([
+                'authenticated' => false,
+                'redirect' => '/entrar',
+            ], 403);
         }
 
-        $conversation = Conversation::find($conversationId);
-        if (!$conversation) {
-            return response()->json(['message' => 'Conversa nao encontrada.'], 404);
-        }
+        $conversation = Conversation::query()
+            ->select(['id', 'company_id'])
+            ->find($conversationId);
 
-        $conversation->status = 'closed';
-        $conversation->handling_mode = 'bot';
-        $conversation->assigned_type = 'unassigned';
-        $conversation->assigned_id = null;
-        $conversation->current_area_id = null;
-        $conversation->assigned_user_id = null;
-        $conversation->assigned_area = null;
-        $conversation->assumed_at = null;
-        $conversation->closed_at = now();
-        $conversation->save();
-
-        $this->auditLog->record($request, 'admin.conversation.closed', $conversation->company_id, [
-            'conversation_id' => $conversation->id,
-            'closed_by' => $user->id,
-        ]);
+        $this->auditLog->record(
+            $request,
+            $action,
+            $conversation?->company_id,
+            [
+                'conversation_id' => $conversationId,
+            ]
+        );
 
         return response()->json([
-            'ok' => true,
-            'conversation' => $conversation,
-        ]);
-    }
-
-    public function updateTags(Request $request, int $conversationId): JsonResponse
-    {
-        $user = $request->user();
-        if (!$user || !$user->isAdmin()) {
-            return response()->json(['authenticated' => false, 'redirect' => '/entrar'], 403);
-        }
-
-        $validated = $request->validate([
-            'tags'   => ['present', 'array'],
-            'tags.*' => ['string', 'max:50'],
-        ]);
-
-        $conversation = Conversation::find($conversationId);
-        if (!$conversation) {
-            return response()->json(['message' => 'Conversa nao encontrada.'], 404);
-        }
-
-        // Normaliza: lowercase, sem duplicatas, sem vazios
-        $tags = collect($validated['tags'])
-            ->map(fn($t) => strtolower(trim($t)))
-            ->filter()
-            ->unique()
-            ->values()
-            ->toArray();
-
-        $conversation->tags = $tags;
-        $conversation->save();
-
-        $this->auditLog->record($request, 'admin.conversation.tags_updated', $conversation->company_id, [
-            'conversation_id' => $conversation->id,
-            'tags' => $tags,
-        ]);
-
-        return response()->json([
-            'ok' => true,
-            'tags' => $tags,
-        ]);
+            'message' => 'Operacao bloqueada para superadmin no modo privacidade.',
+            'privacy_mode' => 'blind_default',
+        ], 403);
     }
 }

@@ -30,7 +30,6 @@ function AdminCompanyShowPage({ companyId }) {
   const [companyForm, setCompanyForm] = useState({
     name: '',
     meta_phone_number_id: '',
-    meta_access_token: '',
   });
   const [companySaveState, setCompanySaveState] = useState('idle');
   const [companySaveError, setCompanySaveError] = useState('');
@@ -50,7 +49,6 @@ function AdminCompanyShowPage({ companyId }) {
     setCompanyForm({
       name: data.company.name ?? '',
       meta_phone_number_id: data.company.meta_phone_number_id ?? '',
-      meta_access_token: '',
     });
   }, [data]);
 
@@ -216,12 +214,8 @@ function AdminCompanyShowPage({ companyId }) {
         name: companyForm.name,
         meta_phone_number_id: companyForm.meta_phone_number_id || null,
       };
-      if (companyForm.meta_access_token.trim() !== '') {
-        payload.meta_access_token = companyForm.meta_access_token;
-      }
       await api.put(`/admin/empresas/${companyId}`, payload);
       setCompanySaveState('saved');
-      setCompanyForm((prev) => ({ ...prev, meta_access_token: '' }));
       setTimeout(() => {
         setCompanySaveState('idle');
         window.location.reload();
@@ -347,16 +341,6 @@ function AdminCompanyShowPage({ companyId }) {
               type="text"
               value={companyForm.meta_phone_number_id}
               onChange={(e) => setCompanyForm((p) => ({ ...p, meta_phone_number_id: e.target.value }))}
-              className="mt-1 w-full rounded border border-[#d5d5d2] px-3 py-2 bg-white dark:bg-[#161615]"
-            />
-          </label>
-
-          <label className="block text-sm">
-            Novo Meta Access Token (opcional)
-            <input
-              type="password"
-              value={companyForm.meta_access_token}
-              onChange={(e) => setCompanyForm((p) => ({ ...p, meta_access_token: e.target.value }))}
               className="mt-1 w-full rounded border border-[#d5d5d2] px-3 py-2 bg-white dark:bg-[#161615]"
             />
           </label>
@@ -654,18 +638,9 @@ function AdminCompanyShowPage({ companyId }) {
       <section className="mb-8">
         <h2 className="text-sm font-medium text-[#706f6c] dark:text-[#A1A09A] mb-2">Uso</h2>
         <p className="text-sm">Total de conversas: <strong>{company.conversations_count ?? 0}</strong></p>
-        {Array.isArray(company.conversations) && company.conversations.length > 0 && (
-          <>
-            <p className="text-sm text-[#706f6c] mt-2">Ultimas conversas (ate 10):</p>
-            <ul className="mt-1 text-sm space-y-1">
-              {company.conversations.map((conv) => (
-                <li key={conv.id}>
-                  {conv.customer_phone} - {conv.status} ({conv.created_at})
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
+        <p className="text-sm text-[#706f6c] mt-2">
+          O modo privacidade oculta detalhes de conversas do painel de superadmin.
+        </p>
       </section>
     </Layout>
   );

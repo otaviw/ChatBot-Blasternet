@@ -51,7 +51,6 @@ class CompanyController extends Controller
 
         $company->loadCount('conversations');
         $company->load([
-            'conversations' => fn($q) => $q->latest()->limit(10),
             'botSetting',
         ]);
 
@@ -142,13 +141,11 @@ class CompanyController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:120', 'unique:companies,name'],
             'meta_phone_number_id' => ['nullable', 'string', 'max:255', 'unique:companies,meta_phone_number_id'],
-            'meta_access_token' => ['nullable', 'string', 'max:8000'],
         ]);
 
         $company = Company::create([
             'name' => $validated['name'],
             'meta_phone_number_id' => $validated['meta_phone_number_id'] ?? null,
-            'meta_access_token' => $validated['meta_access_token'] ?? null,
         ]);
 
         CompanyBotSetting::firstOrCreate(
@@ -200,7 +197,6 @@ class CompanyController extends Controller
                 'max:255',
                 Rule::unique('companies', 'meta_phone_number_id')->ignore($company->id),
             ],
-            'meta_access_token' => ['nullable', 'string', 'max:8000'],
         ]);
 
         $before = [
@@ -211,9 +207,6 @@ class CompanyController extends Controller
 
         $company->name = $validated['name'];
         $company->meta_phone_number_id = $validated['meta_phone_number_id'] ?? null;
-        if (array_key_exists('meta_access_token', $validated)) {
-            $company->meta_access_token = $validated['meta_access_token'] ?: null;
-        }
         $company->save();
         $company->refresh();
 

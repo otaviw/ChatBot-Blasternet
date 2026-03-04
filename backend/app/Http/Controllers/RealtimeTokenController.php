@@ -95,10 +95,6 @@ class RealtimeTokenController extends Controller
 
     private function canJoinConversation(User $user, Conversation $conversation): bool
     {
-        if ($user->isAdmin()) {
-            return true;
-        }
-
         return $user->isCompanyUser()
             && (int) $user->company_id === (int) $conversation->company_id;
     }

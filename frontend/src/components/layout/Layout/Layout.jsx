@@ -1,26 +1,63 @@
 import './Layout.css';
+import { useEffect, useMemo, useState } from 'react';
+import api from '@/services/api';
 
 function Layout({ children, role, companyName, onLogout }) {
   const isLogged = Boolean(role);
   const currentPath = window.location.pathname;
+  const [canManageUsers, setCanManageUsers] = useState(false);
+
+  useEffect(() => {
+    let canceled = false;
+
+    if (role !== 'company') {
+      setCanManageUsers(false);
+      return () => {
+        canceled = true;
+      };
+    }
+
+    api
+      .get('/me')
+      .then((response) => {
+        if (canceled) return;
+        setCanManageUsers(Boolean(response.data?.user?.can_manage_users));
+      })
+      .catch(() => {
+        if (canceled) return;
+        setCanManageUsers(false);
+      });
+
+    return () => {
+      canceled = true;
+    };
+  }, [role]);
 
   const adminLinks = [
     { href: '/dashboard', label: 'Dashboard' },
     { href: '/admin/empresas', label: 'Empresas' },
-    { href: '/admin/usuarios', label: 'Usuarios' },
-    { href: '/admin/conversas', label: 'Inbox' },
+    { href: '/admin/suporte', label: 'Solicitacoes' },
+    { href: '/suporte', label: 'Abrir suporte' },
     { href: '/admin/simulador', label: 'Simulador' },
-    { href: '/minha-conta/respostas-rapidas', label: 'Respostas rapidas' },
   ];
 
-  const companyLinks = [
-    { href: '/dashboard', label: 'Dashboard' },
-    { href: '/minha-conta/bot', label: 'Config. do bot' },
-    { href: '/minha-conta/conversas', label: 'Inbox' },
-    { href: '/minha-conta/simulador', label: 'Simulador' },
-    { href: '/minha-conta/respostas-rapidas', label: 'Respostas rapidas' },
-    { href: '/minha-conta/usuarios', label: 'Usuarios' },
-  ];
+  const companyLinks = useMemo(() => {
+    const links = [
+      { href: '/dashboard', label: 'Dashboard' },
+      { href: '/minha-conta/bot', label: 'Config. do bot' },
+      { href: '/minha-conta/conversas', label: 'Inbox' },
+      { href: '/suporte', label: 'Suporte' },
+      { href: '/minha-conta/suporte/solicitacoes', label: 'Minhas solicitacoes' },
+      { href: '/minha-conta/simulador', label: 'Simulador' },
+      { href: '/minha-conta/respostas-rapidas', label: 'Respostas rapidas' },
+    ];
+
+    if (canManageUsers) {
+      links.push({ href: '/minha-conta/usuarios', label: 'Usuarios' });
+    }
+
+    return links;
+  }, [canManageUsers]);
 
   const links = role === 'admin' ? adminLinks : role === 'company' ? companyLinks : [];
 
@@ -90,4 +127,3 @@ function Layout({ children, role, companyName, onLogout }) {
 }
 
 export default Layout;
-

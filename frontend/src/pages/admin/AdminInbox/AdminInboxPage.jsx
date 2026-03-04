@@ -1,10 +1,9 @@
 import './AdminInboxPage.css';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import Layout from '@/components/layout/Layout/Layout.jsx';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
 import api from '@/services/api';
-import realtimeClient from '@/services/realtimeClient';
 
 function AdminInboxPage() {
   const { data, loading, error } = usePageData('/admin/empresas');
@@ -16,11 +15,11 @@ function AdminInboxPage() {
   const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
-  const [manualText, setManualText] = useState('');
-  const [manualBusy, setManualBusy] = useState(false);
-  const [manualError, setManualError] = useState('');
-  const [actionBusy, setActionBusy] = useState(false);
-  const selectedIdRef = useRef(null);
+  const [contactNameInput, setContactNameInput] = useState('');
+  const [contactBusy, setContactBusy] = useState(false);
+  const [contactError, setContactError] = useState('');
+  const [contactSuccess, setContactSuccess] = useState('');
+  const [privacyMessage, setPrivacyMessage] = useState('');
 
   useEffect(() => {
     const firstCompanyId = data?.companies?.[0]?.id;
@@ -32,11 +31,27 @@ function AdminInboxPage() {
     if (!companyId) return;
     let canceled = false;
     setListLoading(true);
+    setPrivacyMessage('');
+    setConversations([]);
+    setSelectedId(null);
+    setDetail(null);
+    setContactNameInput('');
+    setContactError('');
+    setContactSuccess('');
     api
       .get(`/admin/conversas?company_id=${companyId}`)
       .then((response) => {
         if (canceled) return;
         setConversations(response.data?.conversations ?? []);
+        if (response.data?.privacy_mode) {
+          setPrivacyMessage(
+            'Modo privacidade ativo: mensagens e dados pessoais do cliente nao sao exibidos para superadmin.'
+          );
+        }
+      })
+      .catch((err) => {
+        if (canceled) return;
+        setPrivacyMessage(err.response?.data?.message || 'Falha ao carregar metadados das conversas.');
       })
       .finally(() => {
         if (!canceled) setListLoading(false);
@@ -47,202 +62,61 @@ function AdminInboxPage() {
     };
   }, [companyId]);
 
-  useEffect(() => {
-    selectedIdRef.current = selectedId;
-  }, [selectedId]);
-
-  const openConversation = useCallback(async (conversationId) => {
-    const previousSelected = selectedIdRef.current;
-    if (previousSelected && Number(previousSelected) !== Number(conversationId)) {
-      realtimeClient.leaveConversation(previousSelected);
-    }
-
+  const openConversation = async (conversationId) => {
     setSelectedId(conversationId);
     setDetailLoading(true);
     setDetailError('');
     setDetail(null);
+    setContactNameInput('');
+    setContactError('');
+    setContactSuccess('');
+    
     try {
       const response = await api.get(`/admin/conversas/${conversationId}`);
-      setDetail(response.data?.conversation ?? null);
-      await realtimeClient.joinConversation(conversationId);
+      const conversation = response.data?.conversation ?? null;
+      setDetail(conversation);
+      setContactNameInput(conversation?.customer_name ?? '');
+      if (response.data?.privacy_mode) {
+        setPrivacyMessage(
+          'Modo privacidade ativo: detalhes sensiveis e historico de mensagens permanecem ocultos.'
+        );
+      }
     } catch (err) {
       setDetailError(err.response?.data?.message || 'Falha ao carregar conversa.');
     } finally {
       setDetailLoading(false);
     }
-  }, []);
-
-  const refreshConversations = useCallback(async (forcedCompanyId = null) => {
-    const targetCompanyId = forcedCompanyId ?? companyId;
-    if (!targetCompanyId) return;
-    const response = await api.get(`/admin/conversas?company_id=${targetCompanyId}`);
-    setConversations(response.data?.conversations ?? []);
-  }, [companyId]);
-
-  useEffect(() => {
-    const unsubscribeMessageCreated = realtimeClient.on('message.created', (envelope) => {
-      const payload = envelope?.payload ?? {};
-      const conversationId = Number.parseInt(String(payload.conversationId ?? ''), 10);
-      const messageId = Number.parseInt(String(payload.messageId ?? ''), 10);
-      const payloadCompanyId = Number.parseInt(String(payload.companyId ?? ''), 10);
-      const selectedCompanyId = Number.parseInt(String(companyId ?? ''), 10);
-
-      if (!conversationId || !messageId) {
-        return;
-      }
-
-      if (selectedCompanyId && payloadCompanyId && selectedCompanyId !== payloadCompanyId) {
-        return;
-      }
-
-      setConversations((prev) => {
-        let found = false;
-        const next = prev.map((conversation) => {
-          if (Number(conversation.id) !== conversationId) {
-            return conversation;
-          }
-
-          found = true;
-          return {
-            ...conversation,
-            messages_count: Number(conversation.messages_count ?? 0) + 1,
-          };
-        });
-
-        if (!found) {
-          void refreshConversations(selectedCompanyId || null);
-        }
-
-        return next;
-      });
-
-      if (Number(selectedIdRef.current) !== conversationId) {
-        return;
-      }
-
-      setDetail((prev) => {
-        if (!prev || Number(prev.id) !== conversationId) {
-          return prev;
-        }
-
-        const alreadyExists = (prev.messages ?? []).some((item) => Number(item.id) === messageId);
-        if (alreadyExists) {
-          return prev;
-        }
-
-        return {
-          ...prev,
-          messages: [
-            ...(prev.messages ?? []),
-            {
-              id: messageId,
-              conversation_id: conversationId,
-              direction: payload.direction ?? 'out',
-              type: payload.type ?? 'system',
-              text: payload.text ?? '',
-              created_at: payload.createdAt ?? null,
-            },
-          ],
-        };
-      });
-    });
-
-    const unsubscribeConversationTransferred = realtimeClient.on('conversation.transferred', (envelope) => {
-      const payload = envelope?.payload ?? {};
-      const conversationId = Number.parseInt(String(payload.conversationId ?? ''), 10);
-      const payloadCompanyId = Number.parseInt(String(payload.companyId ?? ''), 10);
-      const selectedCompanyId = Number.parseInt(String(companyId ?? ''), 10);
-
-      if (!conversationId) {
-        return;
-      }
-
-      if (selectedCompanyId && payloadCompanyId && selectedCompanyId !== payloadCompanyId) {
-        return;
-      }
-
-      setConversations((prev) =>
-        prev.map((conversation) => {
-          if (Number(conversation.id) !== conversationId) {
-            return conversation;
-          }
-
-          return {
-            ...conversation,
-            handling_mode: 'human',
-            status: 'in_progress',
-            assigned_type: payload.toAssignedType ?? conversation.assigned_type,
-            assigned_id: payload.toAssignedId ?? conversation.assigned_id,
-          };
-        })
-      );
-
-      if (Number(selectedIdRef.current) === conversationId) {
-        void openConversation(conversationId);
-      }
-    });
-
-    return () => {
-      unsubscribeMessageCreated();
-      unsubscribeConversationTransferred();
-
-      if (selectedIdRef.current) {
-        realtimeClient.leaveConversation(selectedIdRef.current);
-      }
-    };
-  }, [companyId, openConversation, refreshConversations]);
-
-  const assumeConversation = async () => {
-    if (!detail?.id) return;
-    setActionBusy(true);
-    try {
-      const response = await api.post(`/admin/conversas/${detail.id}/assumir`);
-      setDetail((prev) => ({ ...(prev ?? {}), ...response.data?.conversation }));
-      await refreshConversations();
-    } catch (err) {
-      setDetailError(err.response?.data?.message || 'Falha ao assumir conversa.');
-    } finally {
-      setActionBusy(false);
-    }
   };
 
-  const releaseConversation = async () => {
+  const saveContactName = async () => {
     if (!detail?.id) return;
-    setActionBusy(true);
+    setContactBusy(true);
+    setContactError('');
+    setContactSuccess('');
     try {
-      const response = await api.post(`/admin/conversas/${detail.id}/soltar`);
-      setDetail((prev) => ({ ...(prev ?? {}), ...response.data?.conversation }));
-      await refreshConversations();
-    } catch (err) {
-      setDetailError(err.response?.data?.message || 'Falha ao soltar conversa.');
-    } finally {
-      setActionBusy(false);
-    }
-  };
-
-  const sendManualReply = async (event) => {
-    event.preventDefault();
-    if (!detail?.id || !manualText.trim()) return;
-
-    setManualBusy(true);
-    setManualError('');
-    try {
-      const response = await api.post(`/admin/conversas/${detail.id}/responder-manual`, {
-        text: manualText.trim(),
-        send_outbound: true,
+      const payloadName = String(contactNameInput ?? '').trim();
+      const response = await api.put(`/admin/conversas/${detail.id}/contato`, {
+        customer_name: payloadName || null,
       });
-      const message = response.data?.message;
-      setDetail((prev) => ({
-        ...(prev ?? {}),
-        ...response.data?.conversation,
-        messages: [...(prev?.messages ?? []), message],
-      }));
-      setManualText('');
-      await refreshConversations();
+
+      const updatedConversation = response.data?.conversation ?? null;
+      if (updatedConversation) {
+        setDetail(updatedConversation);
+        setContactNameInput(updatedConversation.customer_name ?? '');
+        setConversations((prev) =>
+          prev.map((item) =>
+            Number(item.id) === Number(updatedConversation.id)
+              ? { ...item, customer_name: updatedConversation.customer_name ?? null }
+              : item
+          )
+        );
+      }
+
+      setContactSuccess('Contato salvo.');
     } catch (err) {
-      setManualError(err.response?.data?.message || 'Falha ao enviar resposta manual.');
+      setContactError(err.response?.data?.message || 'Falha ao salvar contato.');
     } finally {
-      setManualBusy(false);
+      setContactBusy(false);
     }
   };
 
@@ -282,9 +156,15 @@ function AdminInboxPage() {
         </label>
       </div>
 
+      {privacyMessage && (
+        <p className="mb-4 text-sm text-[#475569] bg-[#f8fafc] border border-[#e2e8f0] rounded px-3 py-2">
+          {privacyMessage}
+        </p>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <section className="border border-[#e3e3e0] dark:border-[#3E3E3A] rounded-lg p-4">
-          <h2 className="font-medium mb-3">Conversas</h2>
+          <h2 className="font-medium mb-3">Conversas (metadados)</h2>
           {listLoading && <p className="text-sm text-[#706f6c]">Carregando conversas...</p>}
           {!listLoading && !conversations.length && <p className="text-sm text-[#706f6c]">Nenhuma conversa.</p>}
           <ul className="space-y-2 text-sm">
@@ -293,16 +173,18 @@ function AdminInboxPage() {
                 <button
                   type="button"
                   onClick={() => openConversation(conv.id)}
-                  className={`w-full text-left px-3 py-2 rounded border ${
-                    selectedId === conv.id ? 'border-[#f53003]' : 'border-[#e3e3e0]'
-                  }`}
+                  className={`w-full text-left px-3 py-2 rounded border ${selectedId === conv.id ? 'border-[#f53003]' : 'border-[#e3e3e0]'
+                    }`}
                 >
-                  {conv.customer_phone} - {conv.status}
-                  {(conv.tags ?? []).length > 0 && (
-                    <span className="ml-2 text-xs text-[#706f6c]">
-                      {conv.tags.join(', ')}
-                    </span>
-                  )}
+                  <div>
+                    {conv.customer_phone_masked}
+                    {' - '}
+                    {conv.status}
+                  </div>
+                  <div className="text-xs text-[#706f6c] mt-0.5">
+                    msgs: {conv.messages_count ?? 0} | tags: {conv.tags_count ?? 0} | modo:{' '}
+                    {conv.handling_mode === 'human' ? 'manual' : 'bot'}
+                  </div>
                 </button>
               </li>
             ))}
@@ -310,7 +192,7 @@ function AdminInboxPage() {
         </section>
 
         <section className="border border-[#e3e3e0] dark:border-[#3E3E3A] rounded-lg p-4">
-          <h2 className="font-medium mb-3">Mensagens</h2>
+          <h2 className="font-medium mb-3">Detalhes permitidos</h2>
           {detailLoading && <p className="text-sm text-[#706f6c]">Carregando conversa...</p>}
           {detailError && <p className="text-sm text-red-600">{detailError}</p>}
           {!detailLoading && !detail && !detailError && (
@@ -318,55 +200,15 @@ function AdminInboxPage() {
           )}
           {!!detail && (
             <>
-              <div className="mb-3 text-xs text-[#706f6c]">
-                Modo: <strong>{detail.handling_mode === 'human' ? 'Manual' : 'Bot'}</strong>{' '}
-                {detail.assigned_user ? `| Assumida por: ${detail.assigned_user.name}` : ''}
-              </div>
-
-              <div className="flex gap-2 mb-3">
-                <button
-                  type="button"
-                  onClick={assumeConversation}
-                  disabled={actionBusy}
-                  className="px-3 py-1 text-sm rounded border border-[#d5d5d2]"
-                >
-                  Assumir
-                </button>
-                <button
-                  type="button"
-                  onClick={releaseConversation}
-                  disabled={actionBusy}
-                  className="px-3 py-1 text-sm rounded border border-[#d5d5d2]"
-                >
-                  Soltar para bot
-                </button>
-              </div>
-
-              <ul className="space-y-2 text-sm mb-3 max-h-80 overflow-y-auto pr-1">
-                {(detail.messages ?? []).map((msg) => (
-                  <li key={msg.id} className="border border-[#e3e3e0] rounded p-2">
-                    <strong>{msg.direction === 'in' ? 'Cliente' : 'Atendente/Bot'}:</strong> {msg.text}
-                  </li>
-                ))}
+              <ul className="text-sm space-y-1 mb-3">
+                <li>ID da conversa: {detail.id}</li>
+                <li>Empresa ID: {detail.company_id}</li>
+                <li>Telefone mascarado: {detail.customer_phone_masked}</li>
+                <li>Status: {detail.status}</li>
+                <li>Modo: {detail.handling_mode === 'human' ? 'manual' : 'bot'}</li>
+                <li>Mensagens: {detail.messages_count ?? 0}</li>
+                <li>Tags: {detail.tags_count ?? 0}</li>
               </ul>
-
-              <form onSubmit={sendManualReply} className="space-y-2">
-                <textarea
-                  value={manualText}
-                  onChange={(event) => setManualText(event.target.value)}
-                  rows={3}
-                  placeholder="Digite resposta manual..."
-                  className="w-full rounded border border-[#d5d5d2] px-3 py-2 bg-white dark:bg-[#161615] text-sm"
-                />
-                <button
-                  type="submit"
-                  disabled={manualBusy}
-                  className="px-3 py-1.5 text-sm rounded bg-[#f53003] text-white disabled:opacity-60"
-                >
-                  {manualBusy ? 'Enviando...' : 'Enviar resposta manual'}
-                </button>
-                {manualError && <p className="text-sm text-red-600">{manualError}</p>}
-              </form>
             </>
           )}
         </section>
@@ -376,7 +218,3 @@ function AdminInboxPage() {
 }
 
 export default AdminInboxPage;
-
-
-
-

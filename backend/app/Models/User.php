@@ -148,7 +148,7 @@ class User extends Authenticatable
 
     public function canManageCompanyUsers(): bool
     {
-        return $this->isSystemAdmin() || $this->isCompanyAdmin();
+        return $this->isCompanyAdmin();
     }
 
     public function areas()
