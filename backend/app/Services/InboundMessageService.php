@@ -9,6 +9,7 @@ use App\Services\Bot\StatefulBotService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
+use Illuminate\Support\Facades\Log;
 
 class InboundMessageService
 {
@@ -73,6 +74,12 @@ class InboundMessageService
         ]);
 
         if ($conversation->isManualMode()) {
+            Log::info('Auto reply ignorado porque conversa esta em modo manual.', [
+                'conversation_id' => $conversation->id,
+                'company_id' => $company?->id,
+                'customer_phone' => $normalizedFrom,
+            ]);
+
             $conversation->status = 'in_progress';
             $conversation->save();
 
@@ -143,6 +150,15 @@ class InboundMessageService
         $wasSent = $sendOutbound
             ? $this->whatsAppSend->sendText($company, $from, $reply)
             : false;
+
+        if ($sendOutbound && ! $wasSent) {
+            Log::warning('Falha ao enviar resposta automatica para WhatsApp.', [
+                'conversation_id' => $updatedConversation->id,
+                'company_id' => $company?->id,
+                'to' => $normalizedFrom,
+                'reply_preview' => mb_substr($reply, 0, 140),
+            ]);
+        }
 
         return [
             'conversation' => $updatedConversation,

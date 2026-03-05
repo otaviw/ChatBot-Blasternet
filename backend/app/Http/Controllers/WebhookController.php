@@ -6,6 +6,7 @@ use App\Models\Company;
 use App\Services\InboundMessageService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Log;
 
 class WebhookController extends Controller
 {
@@ -140,6 +141,13 @@ class WebhookController extends Controller
                     ],
                     $contactName
                 );
+
+                Log::info('Webhook WhatsApp recebido com tipo ainda nao tratado para auto resposta.', [
+                    'company_id' => $company->id,
+                    'from' => $from,
+                    'message_type' => $messageType,
+                    'message_id' => $messageId,
+                ]);
             }
         }
     }
@@ -154,6 +162,10 @@ class WebhookController extends Controller
             if ($company) {
                 return $company;
             }
+
+            Log::warning('Webhook WhatsApp sem company correspondente para phone_number_id.', [
+                'phone_number_id' => $phoneNumberId,
+            ]);
         }
 
         return null;
