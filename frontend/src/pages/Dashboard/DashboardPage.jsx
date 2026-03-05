@@ -20,9 +20,7 @@ function DashboardPage() {
   if (error || !data?.authenticated) {
     return (
       <Layout>
-        <p className="text-sm text-red-600">
-          Não foi possível carregar o dashboard.
-        </p>
+        <p className="text-sm text-red-600">Nao foi possivel carregar o dashboard.</p>
       </Layout>
     );
   }
@@ -32,11 +30,16 @@ function DashboardPage() {
       {
         href: '/admin/empresas',
         title: 'Empresas',
-        description: 'Acompanhe métricas e status técnico sem acesso a conteúdo sensível.',
+        description: 'Acompanhe metricas e status tecnico sem acesso a conteudo sensivel.',
+      },
+      {
+        href: '/admin/usuarios',
+        title: 'Usuarios',
+        description: 'Gerencie usuarios, perfis e vinculacao com empresas.',
       },
       {
         href: '/admin/suporte',
-        title: 'Solicitações de suporte',
+        title: 'Solicitacoes de suporte',
         description: 'Visualize chamados abertos/fechados e atualize o status de resolucao.',
       },
       {
@@ -55,7 +58,7 @@ function DashboardPage() {
       <Layout role="admin" onLogout={logout}>
         <PageHeader
           title="Dashboard do sistema"
-          subtitle="Visão central de operação para gerenciar empresas, usuários e fluxo de atendimento."
+          subtitle="Visao central de operacao para gerenciar empresas, usuarios e fluxo de atendimento."
         />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {adminItems.map((item) => (
@@ -75,7 +78,7 @@ function DashboardPage() {
   const companyItems = [
     {
       href: '/minha-conta/bot',
-      title: 'Configurações do bot',
+      title: 'Configuracoes do bot',
       description: 'Ajuste mensagens, areas, horarios e regras de resposta.',
     },
     {
@@ -91,11 +94,11 @@ function DashboardPage() {
     {
       href: '/suporte',
       title: 'Suporte',
-      description: 'Abra solicitações para o time da plataforma quando precisar de ajuda.',
+      description: 'Abra solicitacoes para o time da plataforma quando precisar de ajuda.',
     },
     {
       href: '/minha-conta/suporte/solicitacoes',
-      title: 'Minhas solicitações',
+      title: 'Minhas solicitacoes',
       description: 'Acompanhe apenas os chamados que voce abriu.',
     },
   ];
@@ -103,7 +106,7 @@ function DashboardPage() {
   if (data.can_manage_users) {
     companyItems.push({
       href: '/minha-conta/usuarios',
-      title: 'Usuários',
+      title: 'Usuarios',
       description: 'Controle acessos, perfis e areas de atuacao do time.',
     });
   }
@@ -112,7 +115,7 @@ function DashboardPage() {
     <Layout role="company" companyName={data.companyName} onLogout={logout}>
       <PageHeader
         title={`Dashboard - ${data.companyName ?? 'Empresa'}`}
-        subtitle="Resumo de operação para manter o bot alinhado com o atendimento humano."
+        subtitle="Resumo de operacao para manter o bot alinhado com o atendimento humano."
       />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {companyItems.map((item) => (
@@ -130,6 +133,3 @@ function DashboardPage() {
 }
 
 export default DashboardPage;
-
-
-

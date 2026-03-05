@@ -158,6 +158,7 @@ function CompanyBotPage() {
 
       const payload = {
         ...settings,
+        inactivity_close_hours: Number(settings.inactivity_close_hours ?? 24),
         keyword_replies: settings.keyword_replies.filter((item) => item.keyword?.trim() && item.reply?.trim()),
         service_areas: [...normalizedAreasMap.values()],
         stateful_menu_flow: nextStatefulFlow,

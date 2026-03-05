@@ -17,7 +17,7 @@ class BotController extends Controller
         private AuditLogService $auditLog
     ) {}
 
-    /** Configurações do bot da empresa logada (respostas, horários, etc.). */
+    /** Configuracoes do bot da empresa logada (respostas, horarios etc.). */
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -82,7 +82,7 @@ class BotController extends Controller
             'service_areas' => ['nullable', 'array', 'max:50'],
             'service_areas.*' => ['string', 'max:120'],
             'stateful_menu_flow' => ['nullable', 'array'],
-            'inactivity_close_hours' => ['required', 'integer', 'min:1', 'max:720'],
+            'inactivity_close_hours' => ['nullable', 'integer', 'min:1', 'max:720'],
         ]);
 
         $settings = CompanyBotSetting::updateOrCreate(
@@ -97,7 +97,7 @@ class BotController extends Controller
                 'keyword_replies' => $this->normalizeKeywordReplies($validated['keyword_replies'] ?? []),
                 'service_areas' => $this->normalizeServiceAreas($validated['service_areas'] ?? []),
                 'stateful_menu_flow' => $this->normalizeStatefulMenuFlow($validated['stateful_menu_flow'] ?? null),
-                'inactivity_close_hours' => $validated['inactivity_close_hours'],
+                'inactivity_close_hours' => $this->resolveInactivityCloseHours($company, $validated),
             ]
         );
 
@@ -127,13 +127,34 @@ class BotController extends Controller
             'is_active' => true,
             'timezone' => 'America/Sao_Paulo',
             'welcome_message' => 'Oi. Como posso ajudar?',
-            'fallback_message' => 'Não entendi sua mensagem. Pode reformular?',
-            'out_of_hours_message' => 'Estamos fora do horário de atendimento no momento.',
+            'fallback_message' => 'Nao entendi sua mensagem. Pode reformular?',
+            'out_of_hours_message' => 'Estamos fora do horario de atendimento no momento.',
             'business_hours' => $this->defaultBusinessHours(),
             'keyword_replies' => [],
             'service_areas' => [],
             'stateful_menu_flow' => null,
+            'inactivity_close_hours' => 24,
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function resolveInactivityCloseHours(Company $company, array $validated): int
+    {
+        if (array_key_exists('inactivity_close_hours', $validated) && $validated['inactivity_close_hours'] !== null) {
+            return (int) $validated['inactivity_close_hours'];
+        }
+
+        $existing = $company->botSetting?->inactivity_close_hours;
+        if (is_numeric($existing)) {
+            $hours = (int) $existing;
+            if ($hours >= 1 && $hours <= 720) {
+                return $hours;
+            }
+        }
+
+        return 24;
     }
 
     private function defaultBusinessHours(): array

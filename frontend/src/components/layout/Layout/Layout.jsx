@@ -36,7 +36,8 @@ function Layout({ children, role, companyName, onLogout }) {
   const adminLinks = [
     { href: '/dashboard', label: 'Dashboard' },
     { href: '/admin/empresas', label: 'Empresas' },
-    { href: '/admin/suporte', label: 'Solicitações' },
+    { href: '/admin/usuarios', label: 'Usuarios' },
+    { href: '/admin/suporte', label: 'Solicitacoes' },
     { href: '/suporte', label: 'Abrir suporte' },
     { href: '/admin/simulador', label: 'Simulador' },
   ];
@@ -47,13 +48,13 @@ function Layout({ children, role, companyName, onLogout }) {
       { href: '/minha-conta/bot', label: 'Bot' },
       { href: '/minha-conta/conversas', label: 'Inbox' },
       { href: '/suporte', label: 'Suporte' },
-      { href: '/minha-conta/suporte/solicitacoes', label: 'Solicitações' },
+      { href: '/minha-conta/suporte/solicitacoes', label: 'Solicitacoes' },
       { href: '/minha-conta/simulador', label: 'Simulador' },
       { href: '/minha-conta/respostas-rapidas', label: 'Respostas' },
     ];
 
     if (canManageUsers) {
-      links.push({ href: '/minha-conta/usuarios', label: 'Usuários' });
+      links.push({ href: '/minha-conta/usuarios', label: 'Usuarios' });
     }
 
     return links;

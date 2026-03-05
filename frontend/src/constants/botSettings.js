@@ -26,6 +26,7 @@ const DEFAULT_SETTINGS = {
     sunday: { enabled: false, start: '', end: '' },
   },
   keyword_replies: [],
+  inactivity_close_hours: 24,
   service_areas: [],
   stateful_menu_flow: null,
 };
@@ -116,6 +117,12 @@ function normalizeSettings(input) {
   return {
     ...merged,
     keyword_replies: Array.isArray(merged.keyword_replies) ? merged.keyword_replies : [],
+    inactivity_close_hours:
+      Number.isFinite(Number(merged.inactivity_close_hours)) &&
+      Number(merged.inactivity_close_hours) >= 1 &&
+      Number(merged.inactivity_close_hours) <= 720
+        ? Number(merged.inactivity_close_hours)
+        : 24,
     service_areas: Array.isArray(merged.service_areas) ? merged.service_areas : [],
     stateful_menu_flow:
       merged.stateful_menu_flow && typeof merged.stateful_menu_flow === 'object'

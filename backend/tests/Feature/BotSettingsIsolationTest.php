@@ -81,6 +81,35 @@ class BotSettingsIsolationTest extends TestCase
         ]);
     }
 
+    public function test_company_update_without_inactivity_close_hours_uses_fallback_value(): void
+    {
+        $company = Company::create(['name' => 'Empresa Sem Campo Inatividade']);
+        $user = User::create([
+            'name' => 'Empresa Sem Campo User',
+            'email' => 'empresa-sem-campo@test.local',
+            'password' => 'secret123',
+            'role' => 'company',
+            'company_id' => $company->id,
+            'is_active' => true,
+        ]);
+
+        $payload = $this->validSettingsPayload([
+            'welcome_message' => 'Salvar sem campo de inatividade',
+        ]);
+        unset($payload['inactivity_close_hours']);
+
+        $response = $this->actingAs($user)->putJson('/api/minha-conta/bot', $payload);
+
+        $response->assertOk();
+        $response->assertJsonPath('ok', true);
+        $response->assertJsonPath('settings.inactivity_close_hours', 24);
+
+        $this->assertDatabaseHas('company_bot_settings', [
+            'company_id' => $company->id,
+            'inactivity_close_hours' => 24,
+        ]);
+    }
+
     public function test_company_cannot_access_admin_company_endpoints(): void
     {
         [, $companyB] = $this->createTwoCompaniesWithSettings();
@@ -141,6 +170,44 @@ class BotSettingsIsolationTest extends TestCase
             'company_id' => $companyB->id,
             'is_active' => 0,
             'welcome_message' => 'Ajustado pelo admin',
+        ]);
+    }
+
+    public function test_admin_update_without_inactivity_close_hours_preserves_existing_value(): void
+    {
+        $company = Company::create(['name' => 'Empresa Admin Inatividade']);
+        CompanyBotSetting::create([
+            'company_id' => $company->id,
+            ...$this->validSettingsPayload([
+                'welcome_message' => 'Antes',
+                'inactivity_close_hours' => 72,
+            ]),
+        ]);
+
+        $admin = User::create([
+            'name' => 'Admin Preserve',
+            'email' => 'admin-preserve@test.local',
+            'password' => 'secret123',
+            'role' => 'admin',
+            'company_id' => null,
+            'is_active' => true,
+        ]);
+
+        $payload = $this->validSettingsPayload([
+            'welcome_message' => 'Depois',
+        ]);
+        unset($payload['inactivity_close_hours']);
+
+        $response = $this->actingAs($admin)->putJson("/api/admin/empresas/{$company->id}/bot", $payload);
+
+        $response->assertOk();
+        $response->assertJsonPath('ok', true);
+        $response->assertJsonPath('settings.inactivity_close_hours', 72);
+
+        $this->assertDatabaseHas('company_bot_settings', [
+            'company_id' => $company->id,
+            'welcome_message' => 'Depois',
+            'inactivity_close_hours' => 72,
         ]);
     }
 
