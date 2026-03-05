@@ -81,6 +81,27 @@ class WebhookController extends Controller
             return;
         }
 
+        // Log de STATUS (sent/delivered/read/failed)
+        if (!empty($value['statuses'])) {
+            foreach (($value['statuses'] ?? []) as $st) {
+                Log::warning('WA STATUS', [
+                    'status' => $st['status'] ?? null,
+                    'id' => $st['id'] ?? null,
+                    'timestamp' => $st['timestamp'] ?? null,
+                    'recipient_id' => $st['recipient_id'] ?? null,
+                    'errors' => $st['errors'] ?? null,
+                    'conversation' => $st['conversation'] ?? null,
+                    'pricing' => $st['pricing'] ?? null,
+                    'metadata_phone_number_id' => $value['metadata']['phone_number_id'] ?? null,
+                ]);
+            }
+        } else {
+            Log::info('WA STATUS (nenhum status no payload)', [
+                'metadata_phone_number_id' => $value['metadata']['phone_number_id'] ?? null,
+                'keys' => array_keys($value),
+            ]);
+        }
+
         Log::info('Webhook WhatsApp company resolvida por metadata.phone_number_id.', [
             'phone_number_id' => $phoneNumberId,
             'company_id' => $company->id,
