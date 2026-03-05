@@ -81,6 +81,11 @@ class WebhookController extends Controller
             return;
         }
 
+        Log::info('Webhook WhatsApp company resolvida por metadata.phone_number_id.', [
+            'phone_number_id' => $phoneNumberId,
+            'company_id' => $company->id,
+        ]);
+
         $contactNameByWaId = [];
         foreach ($value['contacts'] ?? [] as $contact) {
             $waId = trim((string) ($contact['wa_id'] ?? ''));
@@ -152,7 +157,7 @@ class WebhookController extends Controller
         }
     }
 
-    /** Encontra company pelo meta_phone_number_id ou retorna primeira; depois pode usar env. */
+    /** Encontra company exclusivamente pelo meta_phone_number_id. */
     private function resolveCompany(string $phoneNumberId): ?Company
     {
         if ($phoneNumberId !== '') {

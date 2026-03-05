@@ -10,36 +10,52 @@ use Illuminate\Support\Facades\Log;
 class WhatsAppSendService
 {
     /**
-     * Envia texto para um número WhatsApp.
-     * Se não houver token/number_id (env ou company), só registra em log e retorna.
-     * Quando preencher WHATSAPP_ACCESS_TOKEN e WHATSAPP_PHONE_NUMBER_ID (ou na company), passa a enviar de verdade.
+     * Envia texto para um numero WhatsApp.
+     * Prioriza credenciais da company e usa env como fallback single-tenant.
      */
     public function sendText(?Company $company, string $toPhone, string $text): bool
     {
-        $phoneNumberId = $company?->meta_phone_number_id ?: config('whatsapp.phone_number_id');
-        $accessToken = $company?->meta_access_token ?: config('whatsapp.access_token');
+        $phoneNumberId = $this->resolvePhoneNumberId($company);
+        $accessToken = $this->resolveAccessToken($company);
+        $normalizedTo = $this->normalizeRecipient($toPhone);
 
-        if (empty($phoneNumberId) || empty($accessToken)) {
+        if ($normalizedTo === '') {
+            Log::warning('WhatsApp envio de texto ignorado: destinatario invalido.', [
+                'company_id' => $company?->id,
+                'to_original' => $toPhone,
+            ]);
+
+            return false;
+        }
+
+        if ($phoneNumberId === '' || $accessToken === '') {
             Log::info('WhatsApp [esqueleto]: envio simulado (sem token/number_id).', [
-                'to' => $toPhone,
+                'company_id' => $company?->id,
+                'phone_number_id' => $phoneNumberId !== '' ? $phoneNumberId : null,
+                'to' => $normalizedTo,
                 'text' => $text,
             ]);
 
             return true;
         }
 
-        $url = rtrim(config('whatsapp.api_url'), '/') . '/' . $phoneNumberId . '/messages';
+        $url = $this->messagesUrl($phoneNumberId);
         $body = [
             'messaging_product' => 'whatsapp',
-            'recipient_type' => 'individual',
-            'to' => preg_replace('/\D/', '', $toPhone),
+            'to' => $normalizedTo,
             'type' => 'text',
             'text' => ['body' => $text],
         ];
 
+        $this->logRequestDiagnostics($company, 'text', $url, $phoneNumberId, $normalizedTo, $accessToken);
+
         /** @var Response $response */
         $response = Http::withToken($accessToken)
+            ->withHeaders(['Content-Type' => 'application/json'])
+            ->asJson()
             ->post($url, $body);
+
+        $this->logResponseDiagnostics('text', $response);
 
         if (! $response->successful()) {
             Log::warning('WhatsApp API erro ao enviar.', [
@@ -55,8 +71,9 @@ class WhatsAppSendService
 
     public function sendImage(?Company $company, string $toPhone, string $imageUrl, ?string $caption = null): bool
     {
-        $phoneNumberId = $company?->meta_phone_number_id ?: config('whatsapp.phone_number_id');
-        $accessToken = $company?->meta_access_token ?: config('whatsapp.access_token');
+        $phoneNumberId = $this->resolvePhoneNumberId($company);
+        $accessToken = $this->resolveAccessToken($company);
+        $normalizedTo = $this->normalizeRecipient($toPhone);
         $normalizedUrl = trim($imageUrl);
         if ($normalizedUrl !== '' && str_starts_with($normalizedUrl, '/')) {
             $normalizedUrl = rtrim((string) config('app.url'), '/').$normalizedUrl;
@@ -70,9 +87,20 @@ class WhatsAppSendService
             return false;
         }
 
-        if (empty($phoneNumberId) || empty($accessToken)) {
+        if ($normalizedTo === '') {
+            Log::warning('WhatsApp envio de imagem ignorado: destinatario invalido.', [
+                'company_id' => $company?->id,
+                'to_original' => $toPhone,
+            ]);
+
+            return false;
+        }
+
+        if ($phoneNumberId === '' || $accessToken === '') {
             Log::info('WhatsApp [esqueleto]: envio de imagem simulado (sem token/number_id).', [
-                'to' => $toPhone,
+                'company_id' => $company?->id,
+                'phone_number_id' => $phoneNumberId !== '' ? $phoneNumberId : null,
+                'to' => $normalizedTo,
                 'image_url' => $normalizedUrl,
                 'caption' => $caption,
             ]);
@@ -80,7 +108,7 @@ class WhatsAppSendService
             return true;
         }
 
-        $url = rtrim(config('whatsapp.api_url'), '/') . '/' . $phoneNumberId . '/messages';
+        $url = $this->messagesUrl($phoneNumberId);
         $image = ['link' => $normalizedUrl];
         $captionValue = trim((string) $caption);
         if ($captionValue !== '') {
@@ -89,13 +117,19 @@ class WhatsAppSendService
 
         $body = [
             'messaging_product' => 'whatsapp',
-            'recipient_type' => 'individual',
-            'to' => preg_replace('/\D/', '', $toPhone),
+            'to' => $normalizedTo,
             'type' => 'image',
             'image' => $image,
         ];
 
-        $response = Http::withToken($accessToken)->post($url, $body);
+        $this->logRequestDiagnostics($company, 'image', $url, $phoneNumberId, $normalizedTo, $accessToken);
+
+        $response = Http::withToken($accessToken)
+            ->withHeaders(['Content-Type' => 'application/json'])
+            ->asJson()
+            ->post($url, $body);
+
+        $this->logResponseDiagnostics('image', $response);
 
         if (! $response->successful()) {
             Log::warning('WhatsApp API erro ao enviar imagem.', [
@@ -114,9 +148,9 @@ class WhatsAppSendService
      */
     public function downloadInboundImage(?Company $company, string $mediaId): ?array
     {
-        $accessToken = $company?->meta_access_token ?: config('whatsapp.access_token');
+        $accessToken = $this->resolveAccessToken($company);
         $normalizedMediaId = trim($mediaId);
-        if ($normalizedMediaId === '' || empty($accessToken)) {
+        if ($normalizedMediaId === '' || $accessToken === '') {
             return null;
         }
 
@@ -154,5 +188,91 @@ class WhatsAppSendService
             'mime_type' => $metadata['mime_type'] ?? $mediaResponse->header('Content-Type'),
             'size_bytes' => isset($metadata['file_size']) ? (int) $metadata['file_size'] : strlen((string) $mediaResponse->body()),
         ];
+    }
+
+    private function resolvePhoneNumberId(?Company $company): string
+    {
+        $companyPhoneNumberId = trim((string) ($company?->meta_phone_number_id ?? ''));
+        if ($companyPhoneNumberId !== '') {
+            return $companyPhoneNumberId;
+        }
+
+        if ($company?->id) {
+            Log::warning('WhatsApp envio com fallback de phone_number_id do env.', [
+                'company_id' => $company->id,
+            ]);
+        }
+
+        return trim((string) config('whatsapp.phone_number_id', ''));
+    }
+
+    private function resolveAccessToken(?Company $company): string
+    {
+        $companyAccessToken = trim((string) ($company?->meta_access_token ?? ''));
+        if ($companyAccessToken !== '') {
+            return $companyAccessToken;
+        }
+
+        return trim((string) config('whatsapp.access_token', ''));
+    }
+
+    private function normalizeRecipient(string $to): string
+    {
+        $normalized = preg_replace('/\D+/', '', (string) $to);
+
+        return trim((string) $normalized);
+    }
+
+    private function messagesUrl(string $phoneNumberId): string
+    {
+        return rtrim((string) config('whatsapp.api_url'), '/').'/'.$phoneNumberId.'/messages';
+    }
+
+    private function tokenPrefix(string $token): ?string
+    {
+        $trimmed = trim($token);
+        if ($trimmed === '') {
+            return null;
+        }
+
+        return substr($trimmed, 0, 12);
+    }
+
+    private function logRequestDiagnostics(
+        ?Company $company,
+        string $type,
+        string $url,
+        string $phoneNumberId,
+        string $to,
+        string $accessToken
+    ): void {
+        Log::info('WhatsApp API request diagnostico.', [
+            'company_id' => $company?->id,
+            'type' => $type,
+            'url' => $url,
+            'phone_number_id' => $phoneNumberId,
+            'to' => $to,
+            'to_length' => strlen($to),
+            'token_prefix' => $this->tokenPrefix($accessToken),
+        ]);
+    }
+
+    private function logResponseDiagnostics(string $type, Response $response): void
+    {
+        $payload = [
+            'type' => $type,
+            'status' => $response->status(),
+            'success' => $response->successful(),
+            'graph_message_id' => $response->json('messages.0.id'),
+            'error' => $response->json('error'),
+        ];
+
+        if ($response->successful()) {
+            Log::info('WhatsApp API response diagnostico.', $payload);
+
+            return;
+        }
+
+        Log::warning('WhatsApp API response diagnostico com erro.', $payload);
     }
 }

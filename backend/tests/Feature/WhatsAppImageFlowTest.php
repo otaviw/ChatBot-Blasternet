@@ -28,9 +28,10 @@ class WhatsAppImageFlowTest extends TestCase
 
         $imageFile = UploadedFile::fake()->image('incoming.jpg', 50, 50);
         $binary = (string) file_get_contents($imageFile->getRealPath());
+        $baseApiUrl = rtrim((string) config('whatsapp.api_url'), '/');
 
         Http::fake([
-            'https://graph.facebook.com/v21.0/media-id-123' => Http::response([
+            "{$baseApiUrl}/media-id-123" => Http::response([
                 'url' => 'https://lookaside.fbsbx.com/whatsapp_media_123',
                 'mime_type' => 'image/jpeg',
                 'file_size' => strlen($binary),
