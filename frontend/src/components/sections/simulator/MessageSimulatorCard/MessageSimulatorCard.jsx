@@ -13,6 +13,9 @@ function MessageSimulatorCard({
   onFromChange,
   text,
   onTextChange,
+  imageFile = null,
+  onImageChange,
+  onRemoveImage,
   sendOutbound,
   onSendOutboundChange,
   onSubmit,
@@ -46,6 +49,26 @@ function MessageSimulatorCard({
 
         <Field label="Mensagem recebida">
           <TextAreaInput value={text} onChange={(event) => onTextChange(event.target.value)} rows={4} />
+        </Field>
+
+        <Field label="Imagem recebida (opcional)">
+          <div className="simulator-upload-row">
+            <label className="app-btn-secondary text-xs cursor-pointer">
+              Selecionar imagem
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(event) => onImageChange?.(event.target.files?.[0] ?? null)}
+                className="hidden"
+              />
+            </label>
+            {imageFile ? (
+              <button type="button" onClick={onRemoveImage} className="app-btn-danger text-xs">
+                Remover
+              </button>
+            ) : null}
+          </div>
+          {imageFile ? <p className="simulator-upload-file">{imageFile.name}</p> : null}
         </Field>
 
         <CheckboxField checked={sendOutbound} onChange={(event) => onSendOutboundChange(event.target.checked)}>

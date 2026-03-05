@@ -18,6 +18,8 @@ function CompanyInboxPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
   const [manualText, setManualText] = useState('');
+  const [manualImageFile, setManualImageFile] = useState(null);
+  const [manualImagePreviewUrl, setManualImagePreviewUrl] = useState('');
   const [manualBusy, setManualBusy] = useState(false);
   const [manualError, setManualError] = useState('');
   const [contactNameInput, setContactNameInput] = useState('');
@@ -35,6 +37,14 @@ function CompanyInboxPage() {
   const [transferError, setTransferError] = useState('');
   const [transferSuccess, setTransferSuccess] = useState('');
   const selectedIdRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (manualImagePreviewUrl) {
+        URL.revokeObjectURL(manualImagePreviewUrl);
+      }
+    };
+  }, [manualImagePreviewUrl]);
 
   useEffect(() => {
     setConversations(data?.conversations ?? []);
@@ -164,6 +174,12 @@ function CompanyInboxPage() {
               direction: payload.direction ?? 'out',
               type: payload.type ?? 'system',
               text: payload.text ?? '',
+              content_type: payload.contentType ?? 'text',
+              media_url: payload.mediaUrl ?? null,
+              media_mime_type: payload.mediaMimeType ?? null,
+              media_size_bytes: payload.mediaSizeBytes ?? null,
+              media_width: payload.mediaWidth ?? null,
+              media_height: payload.mediaHeight ?? null,
               created_at: payload.createdAt ?? null,
             },
           ],
@@ -319,15 +335,27 @@ function CompanyInboxPage() {
 
   const sendManualReply = async (event) => {
     event.preventDefault();
-    if (!detail?.id || !manualText.trim()) return;
+    const trimmedText = manualText.trim();
+    if (!detail?.id || (!trimmedText && !manualImageFile)) return;
 
     setManualBusy(true);
     setManualError('');
     try {
-      const response = await api.post(`/minha-conta/conversas/${detail.id}/responder-manual`, {
-        text: manualText.trim(),
-        send_outbound: true,
-      });
+      let response;
+      if (manualImageFile) {
+        const payload = new FormData();
+        if (trimmedText) {
+          payload.append('text', trimmedText);
+        }
+        payload.append('send_outbound', '1');
+        payload.append('image', manualImageFile);
+        response = await api.post(`/minha-conta/conversas/${detail.id}/responder-manual`, payload);
+      } else {
+        response = await api.post(`/minha-conta/conversas/${detail.id}/responder-manual`, {
+          text: trimmedText,
+          send_outbound: true,
+        });
+      }
 
       const message = response.data?.message;
       setDetail((prev) => ({
@@ -336,12 +364,40 @@ function CompanyInboxPage() {
         messages: [...(prev?.messages ?? []), message],
       }));
       setManualText('');
+      if (manualImagePreviewUrl) {
+        URL.revokeObjectURL(manualImagePreviewUrl);
+      }
+      setManualImageFile(null);
+      setManualImagePreviewUrl('');
       await refreshConversations();
     } catch (err) {
       setManualError(err.response?.data?.message || 'Falha ao enviar resposta manual.');
     } finally {
       setManualBusy(false);
     }
+  };
+
+  const handleManualImageChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    if (manualImagePreviewUrl) {
+      URL.revokeObjectURL(manualImagePreviewUrl);
+    }
+
+    setManualImageFile(file);
+    setManualImagePreviewUrl(URL.createObjectURL(file));
+    setManualError('');
+  };
+
+  const removeManualImage = () => {
+    if (manualImagePreviewUrl) {
+      URL.revokeObjectURL(manualImagePreviewUrl);
+    }
+    setManualImageFile(null);
+    setManualImagePreviewUrl('');
   };
 
   const saveContactName = async () => {
@@ -381,6 +437,11 @@ function CompanyInboxPage() {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return '-';
     return date.toLocaleString('pt-BR');
+  };
+
+  const getMessageImageUrl = (msg) => {
+    if (!msg?.id) return '';
+    return `/api/minha-conta/mensagens/${msg.id}/media`;
   };
 
   if (loading) {
@@ -653,7 +714,21 @@ function CompanyInboxPage() {
               <ul className="space-y-2.5 text-sm mb-4 max-h-80 overflow-y-auto pr-1">
                 {(detail.messages ?? []).map((msg) => (
                   <li key={msg.id} className="rounded-lg border border-[#d9e1ec] bg-white p-2.5">
-                    <strong>{msg.direction === 'in' ? 'Cliente' : 'Atendente/Bot'}:</strong> {msg.text}
+                    <strong>{msg.direction === 'in' ? 'Cliente' : 'Atendente/Bot'}:</strong>{' '}
+                    {msg.content_type === 'image' ? (
+                      <div className="company-inbox-message-media">
+                        <a href={getMessageImageUrl(msg)} target="_blank" rel="noreferrer">
+                          <img
+                            src={getMessageImageUrl(msg)}
+                            alt="Imagem enviada na conversa"
+                            className="company-inbox-message-image"
+                          />
+                        </a>
+                        {msg.text ? <p className="company-inbox-message-caption">{msg.text}</p> : null}
+                      </div>
+                    ) : (
+                      <span>{msg.text}</span>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -698,9 +773,34 @@ function CompanyInboxPage() {
                   placeholder="Digite resposta manual ou use um template..."
                   className="app-input"
                 />
+                <div className="company-inbox-upload-row">
+                  <label className="app-btn-secondary text-xs cursor-pointer">
+                    Anexar imagem
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleManualImageChange}
+                      className="hidden"
+                    />
+                  </label>
+                  {manualImageFile ? (
+                    <button
+                      type="button"
+                      onClick={removeManualImage}
+                      className="app-btn-danger text-xs"
+                    >
+                      Remover imagem
+                    </button>
+                  ) : null}
+                </div>
+                {manualImagePreviewUrl ? (
+                  <div className="company-inbox-image-preview">
+                    <img src={manualImagePreviewUrl} alt="Prévia da imagem anexada" />
+                  </div>
+                ) : null}
                 <button
                   type="submit"
-                  disabled={manualBusy}
+                  disabled={manualBusy || (!manualText.trim() && !manualImageFile)}
                   className="app-btn-primary"
                 >
                   {manualBusy ? 'Enviando...' : 'Enviar resposta manual'}

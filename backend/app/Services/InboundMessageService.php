@@ -6,6 +6,7 @@ use App\Models\Company;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Services\Bot\StatefulBotService;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -14,7 +15,8 @@ class InboundMessageService
     public function __construct(
         private BotReplyService $botReply,
         private WhatsAppSendService $whatsAppSend,
-        private StatefulBotService $statefulBot
+        private StatefulBotService $statefulBot,
+        private MessageMediaStorageService $mediaStorage
     ) {}
 
     public function handleIncomingText(
@@ -65,6 +67,7 @@ class InboundMessageService
             'conversation_id' => $conversation->id,
             'direction' => 'in',
             'type' => 'user',
+            'content_type' => 'text',
             'text' => $normalizedText,
             'meta' => $inMeta,
         ]);
@@ -121,6 +124,7 @@ class InboundMessageService
                 'conversation_id' => $lockedConversation->id,
                 'direction' => 'out',
                 'type' => 'bot',
+                'content_type' => 'text',
                 'text' => $reply,
                 'meta' => $outMeta,
             ]);
@@ -147,6 +151,165 @@ class InboundMessageService
             'reply' => $reply,
             'was_sent' => $wasSent,
             'auto_replied' => true,
+        ];
+    }
+
+    public function handleIncomingImage(
+        ?Company $company,
+        string $from,
+        string $mediaId,
+        ?string $caption = null,
+        array $inMeta = [],
+        ?string $contactName = null
+    ): array {
+        $normalizedFrom = $this->normalizePhone($from);
+        $normalizedMediaId = trim($mediaId);
+        $normalizedContactName = $this->normalizeContactName($contactName);
+        $captionValue = trim((string) $caption);
+
+        if ($normalizedFrom === '' || $normalizedMediaId === '') {
+            throw new InvalidArgumentException('Phone e mediaId sao obrigatorios para processar imagem.');
+        }
+
+        $conversation = Conversation::firstOrCreate(
+            [
+                'company_id' => $company?->id,
+                'customer_phone' => $normalizedFrom,
+            ],
+            [
+                'status' => 'open',
+                'assigned_type' => 'unassigned',
+                'handling_mode' => 'bot',
+                'customer_name' => $normalizedContactName,
+            ]
+        );
+
+        if ($normalizedContactName !== null && $conversation->customer_name !== $normalizedContactName) {
+            $conversation->customer_name = $normalizedContactName;
+            $conversation->save();
+        }
+
+        if ($conversation->status === 'closed') {
+            $this->reopenClosedConversation($conversation);
+            $conversation->save();
+        }
+
+        $download = $this->whatsAppSend->downloadInboundImage($company, $normalizedMediaId);
+        $storedMedia = null;
+        if ($download && ($download['binary'] ?? '') !== '') {
+            $storedMedia = $this->mediaStorage->storeBinaryImage(
+                (string) $download['binary'],
+                isset($download['mime_type']) ? (string) $download['mime_type'] : null,
+                $company?->id
+            );
+        }
+
+        $meta = array_merge($inMeta, [
+            'media_id' => $normalizedMediaId,
+            'media_downloaded' => $storedMedia !== null,
+        ]);
+
+        $inMessage = Message::create([
+            'conversation_id' => $conversation->id,
+            'direction' => 'in',
+            'type' => 'user',
+            'content_type' => 'image',
+            'text' => $captionValue !== '' ? $captionValue : null,
+            'media_provider' => $storedMedia['provider'] ?? null,
+            'media_key' => $storedMedia['key'] ?? null,
+            'media_url' => $storedMedia['url'] ?? null,
+            'media_mime_type' => $storedMedia['mime_type'] ?? null,
+            'media_size_bytes' => $storedMedia['size_bytes'] ?? null,
+            'media_width' => $storedMedia['width'] ?? null,
+            'media_height' => $storedMedia['height'] ?? null,
+            'meta' => $meta,
+        ]);
+
+        if ($conversation->isManualMode()) {
+            $conversation->status = 'in_progress';
+            $conversation->save();
+        }
+
+        return [
+            'conversation' => $conversation,
+            'in_message' => $inMessage,
+            'out_message' => null,
+            'reply' => null,
+            'was_sent' => false,
+            'auto_replied' => false,
+        ];
+    }
+
+    public function handleIncomingUploadedImage(
+        ?Company $company,
+        string $from,
+        UploadedFile $imageFile,
+        ?string $caption = null,
+        array $inMeta = [],
+        ?string $contactName = null
+    ): array {
+        $normalizedFrom = $this->normalizePhone($from);
+        $normalizedContactName = $this->normalizeContactName($contactName);
+        $captionValue = trim((string) $caption);
+
+        if ($normalizedFrom === '') {
+            throw new InvalidArgumentException('Phone e imagem sao obrigatorios para processar mensagem.');
+        }
+
+        $conversation = Conversation::firstOrCreate(
+            [
+                'company_id' => $company?->id,
+                'customer_phone' => $normalizedFrom,
+            ],
+            [
+                'status' => 'open',
+                'assigned_type' => 'unassigned',
+                'handling_mode' => 'bot',
+                'customer_name' => $normalizedContactName,
+            ]
+        );
+
+        if ($normalizedContactName !== null && $conversation->customer_name !== $normalizedContactName) {
+            $conversation->customer_name = $normalizedContactName;
+            $conversation->save();
+        }
+
+        if ($conversation->status === 'closed') {
+            $this->reopenClosedConversation($conversation);
+            $conversation->save();
+        }
+
+        $storedMedia = $this->mediaStorage->storeUploadedImage($imageFile, $company?->id);
+        $meta = array_merge($inMeta, ['media_uploaded' => true]);
+
+        $inMessage = Message::create([
+            'conversation_id' => $conversation->id,
+            'direction' => 'in',
+            'type' => 'user',
+            'content_type' => 'image',
+            'text' => $captionValue !== '' ? $captionValue : null,
+            'media_provider' => $storedMedia['provider'] ?? null,
+            'media_key' => $storedMedia['key'] ?? null,
+            'media_url' => $storedMedia['url'] ?? null,
+            'media_mime_type' => $storedMedia['mime_type'] ?? null,
+            'media_size_bytes' => $storedMedia['size_bytes'] ?? null,
+            'media_width' => $storedMedia['width'] ?? null,
+            'media_height' => $storedMedia['height'] ?? null,
+            'meta' => $meta,
+        ]);
+
+        if ($conversation->isManualMode()) {
+            $conversation->status = 'in_progress';
+            $conversation->save();
+        }
+
+        return [
+            'conversation' => $conversation,
+            'in_message' => $inMessage,
+            'out_message' => null,
+            'reply' => null,
+            'was_sent' => false,
+            'auto_replied' => false,
         ];
     }
 

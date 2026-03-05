@@ -19,5 +19,8 @@ return [
     'api_url' => env('WHATSAPP_API_URL', 'https://graph.facebook.com/v21.0'),
     'phone_number_id' => env('WHATSAPP_PHONE_NUMBER_ID'), // ID do número no Meta
     'access_token' => env('WHATSAPP_ACCESS_TOKEN'),        // Token permanente ou temporário
+    'media_disk' => env('WHATSAPP_MEDIA_DISK', 'public'),
+    'media_prefix' => env('WHATSAPP_MEDIA_PREFIX', 'whatsapp/messages'),
+    'media_max_size_kb' => (int) env('WHATSAPP_MEDIA_MAX_SIZE_KB', 5120),
 
 ];

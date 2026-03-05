@@ -26,11 +26,13 @@ class SimulatedMessageController extends Controller
             ], 403);
         }
         $role = User::normalizeRole($user->role);
+        $canViewMedia = $user->isCompanyUser();
 
         $validated = $request->validate([
             'company_id' => ['required', 'integer', 'exists:companies,id'],
             'from' => ['required', 'string', 'max:40'],
-            'text' => ['required', 'string', 'max:2000'],
+            'text' => ['nullable', 'string', 'max:2000'],
+            'image' => ['nullable', 'file', 'image', 'max:'.config('whatsapp.media_max_size_kb', 5120)],
             'contact_name' => ['nullable', 'string', 'max:160'],
             'send_outbound' => ['sometimes', 'boolean'],
         ]);
@@ -45,21 +47,43 @@ class SimulatedMessageController extends Controller
 
         $company = Company::with('botSetting')->findOrFail($companyId);
         $sendOutbound = (bool) ($validated['send_outbound'] ?? true);
+        $text = trim((string) ($validated['text'] ?? ''));
+        $image = $request->file('image');
+        if ($text === '' && ! $image) {
+            return response()->json([
+                'message' => 'Informe texto ou imagem para simular.',
+            ], 422);
+        }
 
-        $result = $this->inboundMessage->handleIncomingText(
-            $company,
-            (string) $validated['from'],
-            (string) $validated['text'],
-            [
-                'source' => 'simulation',
-                'triggered_by_role' => $role,
-            ],
-            [
-                'source' => 'simulation',
-            ],
-            $sendOutbound,
-            $validated['contact_name'] ?? null
-        );
+        if ($image) {
+            $result = $this->inboundMessage->handleIncomingUploadedImage(
+                $company,
+                (string) $validated['from'],
+                $image,
+                $text !== '' ? $text : null,
+                [
+                    'source' => 'simulation',
+                    'triggered_by_role' => $role,
+                    'incoming_type' => 'image',
+                ],
+                $validated['contact_name'] ?? null
+            );
+        } else {
+            $result = $this->inboundMessage->handleIncomingText(
+                $company,
+                (string) $validated['from'],
+                $text,
+                [
+                    'source' => 'simulation',
+                    'triggered_by_role' => $role,
+                ],
+                [
+                    'source' => 'simulation',
+                ],
+                $sendOutbound,
+                $validated['contact_name'] ?? null
+            );
+        }
 
         $this->auditLog->record(
             $request,
@@ -71,7 +95,8 @@ class SimulatedMessageController extends Controller
             ],
             [
                 'from' => substr((string) $validated['from'], 0, 6) . '***',
-                'text_length' => mb_strlen((string) $validated['text']),
+                'text_length' => mb_strlen($text),
+                'has_image' => (bool) $image,
             ]
         );
 
@@ -87,6 +112,8 @@ class SimulatedMessageController extends Controller
             'in_message' => [
                 'id' => $result['in_message']->id,
                 'text' => $result['in_message']->text,
+                'content_type' => $result['in_message']->content_type,
+                'media_url' => $canViewMedia ? $result['in_message']->media_url : null,
             ],
             'out_message' => [
                 'id' => $result['out_message']?->id,

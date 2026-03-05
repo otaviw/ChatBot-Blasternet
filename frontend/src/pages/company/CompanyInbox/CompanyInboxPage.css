@@ -1,2 +1,30 @@
 /* Styles for CompanyInboxPage */
 
+.company-inbox-message-media {
+  margin-top: 0.5rem;
+}
+
+.company-inbox-message-image {
+  max-width: min(280px, 100%);
+  border: 1px solid #d9e1ec;
+  border-radius: 0.5rem;
+}
+
+.company-inbox-message-caption {
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  color: #526175;
+}
+
+.company-inbox-upload-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.company-inbox-image-preview img {
+  max-width: min(260px, 100%);
+  border: 1px solid #d9e1ec;
+  border-radius: 0.5rem;
+}
+
