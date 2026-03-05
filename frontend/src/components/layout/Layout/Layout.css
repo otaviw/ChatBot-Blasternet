@@ -1,2 +1,10 @@
 /* Styles for Layout */
 
+.layout-nav {
+  scrollbar-width: none;
+}
+
+.layout-nav::-webkit-scrollbar {
+  display: none;
+}
+

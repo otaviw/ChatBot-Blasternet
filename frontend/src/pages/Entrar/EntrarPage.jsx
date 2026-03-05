@@ -89,19 +89,6 @@ function EntrarPage() {
               <li>Acoes manuais com historico completo para auditoria.</li>
             </ul>
           </Card>
-
-          {Array.isArray(data?.demo_accounts) && data.demo_accounts.length > 0 && (
-            <Card>
-              <h2 className="text-sm font-semibold text-[#0f172a] mb-2">Contas de teste</h2>
-              <ul className="space-y-2 text-xs text-[#475569]">
-                {data.demo_accounts.map((acc) => (
-                  <li key={acc.email} className="rounded-lg bg-[#f8fafc] px-3 py-2 border border-[#e2e8f0]">
-                    <strong>{acc.label}</strong>: {acc.email} / {acc.password}
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          )}
         </div>
       </div>
     </Layout>
