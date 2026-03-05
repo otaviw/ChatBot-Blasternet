@@ -17,7 +17,7 @@ class WebhookController extends Controller
      * Verificação do webhook (GET). Meta envia hub.mode, hub.verify_token, hub.challenge.
      * Configure WHATSAPP_VERIFY_TOKEN no .env com o mesmo valor do painel Meta.
      */
-    public function verify(Request $request): Response
+    public function verify(Request $request)
     {
         $mode = $request->query('hub.mode');
         $token = $request->query('hub.verify_token');
@@ -25,11 +25,11 @@ class WebhookController extends Controller
 
         $expectedToken = config('whatsapp.verify_token');
 
-        if ($mode === 'subscribe' && $token === $expectedToken && $challenge) {
+        if ($mode === 'subscribe' && $token === $expectedToken) {
             return response($challenge, 200)->header('Content-Type', 'text/plain');
         }
 
-        return response('', 403);
+        return response('Forbidden', 403);
     }
 
     /**
