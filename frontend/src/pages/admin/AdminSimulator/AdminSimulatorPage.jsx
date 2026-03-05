@@ -15,6 +15,7 @@ function AdminSimulatorPage() {
   const [companyId, setCompanyId] = useState('');
   const [from, setFrom] = useState('5511999999999');
   const [text, setText] = useState('');
+  const [imageFile, setImageFile] = useState(null);
   const [sendOutbound, setSendOutbound] = useState(true);
   const [result, setResult] = useState(null);
   const [actionError, setActionError] = useState('');
@@ -37,12 +38,23 @@ function AdminSimulatorPage() {
     setResult(null);
 
     try {
-      const response = await api.post('/simular/mensagem', {
-        company_id: Number(companyId),
-        from,
-        text,
-        send_outbound: sendOutbound,
-      });
+      let response;
+      if (imageFile) {
+        const formData = new FormData();
+        formData.append('company_id', String(Number(companyId)));
+        formData.append('from', from);
+        formData.append('text', text);
+        formData.append('send_outbound', sendOutbound ? '1' : '0');
+        formData.append('image', imageFile);
+        response = await api.post('/simular/mensagem', formData);
+      } else {
+        response = await api.post('/simular/mensagem', {
+          company_id: Number(companyId),
+          from,
+          text,
+          send_outbound: sendOutbound,
+        });
+      }
       setResult(response.data);
     } catch (err) {
       setActionError(err.response?.data?.message || 'Falha ao simular mensagem.');
@@ -86,6 +98,9 @@ function AdminSimulatorPage() {
         onFromChange={setFrom}
         text={text}
         onTextChange={setText}
+        imageFile={imageFile}
+        onImageChange={setImageFile}
+        onRemoveImage={() => setImageFile(null)}
         sendOutbound={sendOutbound}
         onSendOutboundChange={setSendOutbound}
         onSubmit={runSimulation}
@@ -101,6 +116,8 @@ function AdminSimulatorPage() {
           items={[
             { label: 'Empresa ID', value: result.company_id },
             { label: 'Conversa ID', value: result.conversation?.id ?? '-' },
+            { label: 'Tipo inbound', value: result.in_message?.content_type ?? 'text' },
+            { label: 'Imagem inbound', value: result.in_message?.media_url ?? '-' },
             {
               label: 'Resposta do bot',
               value: result.reply ?? '(sem resposta automatica: conversa em modo manual)',

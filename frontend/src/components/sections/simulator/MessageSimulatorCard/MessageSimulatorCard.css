@@ -1,2 +1,14 @@
 /* Styles for MessageSimulatorCard */
 
+.simulator-upload-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.simulator-upload-file {
+  margin-top: 0.4rem;
+  font-size: 0.75rem;
+  color: #526175;
+}
+

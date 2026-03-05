@@ -79,27 +79,55 @@ class WebhookController extends Controller
         }
 
         foreach ($value['messages'] ?? [] as $msg) {
-            if (($msg['type'] ?? '') !== 'text') {
-                continue;
-            }
             $from = (string) ($msg['from'] ?? '');
-            $text = (string) ($msg['text']['body'] ?? '');
             $messageId = (string) ($msg['id'] ?? '');
+            $messageType = (string) ($msg['type'] ?? '');
             $contactName = $contactNameByWaId[$from] ?? null;
 
-            if (trim($text) === '' || trim($from) === '') {
+            if (trim($from) === '') {
                 continue;
             }
 
-            $this->inboundMessage->handleIncomingText(
-                $company,
-                $from,
-                $text,
-                ['wamid' => $messageId, 'from' => $from, 'source' => 'webhook'],
-                ['source' => 'webhook'],
-                true,
-                $contactName
-            );
+            if ($messageType === 'text') {
+                $text = (string) ($msg['text']['body'] ?? '');
+                if (trim($text) === '') {
+                    continue;
+                }
+
+                $this->inboundMessage->handleIncomingText(
+                    $company,
+                    $from,
+                    $text,
+                    ['wamid' => $messageId, 'from' => $from, 'source' => 'webhook'],
+                    ['source' => 'webhook'],
+                    true,
+                    $contactName
+                );
+
+                continue;
+            }
+
+            if ($messageType === 'image') {
+                $mediaId = (string) ($msg['image']['id'] ?? '');
+                $caption = (string) ($msg['image']['caption'] ?? '');
+                if (trim($mediaId) === '') {
+                    continue;
+                }
+
+                $this->inboundMessage->handleIncomingImage(
+                    $company,
+                    $from,
+                    $mediaId,
+                    $caption,
+                    [
+                        'wamid' => $messageId,
+                        'from' => $from,
+                        'source' => 'webhook',
+                        'incoming_type' => 'image',
+                    ],
+                    $contactName
+                );
+            }
         }
     }
 

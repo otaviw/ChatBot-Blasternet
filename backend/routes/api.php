@@ -99,6 +99,8 @@ Route::middleware('web')->group(function () {
                 ->middleware('throttle:inbox-read');
             Route::get('/conversas/{conversationId}', [CompanyConversationController::class, 'show'])
                 ->middleware('throttle:inbox-read');
+            Route::get('/mensagens/{messageId}/media', [CompanyConversationController::class, 'media'])
+                ->middleware('throttle:inbox-read');
             Route::post('/conversas/{conversationId}/assumir', [CompanyConversationController::class, 'assume'])
                 ->middleware('throttle:bot-write');
             Route::post('/conversas/{conversationId}/soltar', [CompanyConversationController::class, 'release'])

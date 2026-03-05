@@ -9,16 +9,19 @@ use App\Models\ConversationTransfer;
 use App\Models\Message;
 use App\Models\User;
 use App\Services\AuditLogService;
+use App\Services\MessageMediaStorageService;
 use App\Services\TransferConversationService;
 use App\Services\WhatsAppSendService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class ConversationController extends Controller
 {
     public function __construct(
         private WhatsAppSendService $whatsAppSend,
+        private MessageMediaStorageService $mediaStorage,
         private AuditLogService $auditLog,
         private TransferConversationService $transferService
     ) {}
@@ -88,6 +91,41 @@ class ConversationController extends Controller
             'transfer_history' => $transferHistory,
             'transfer_options' => $this->transferService->transferOptions($companyId),
         ]);
+    }
+
+    public function media(Request $request, int $messageId)
+    {
+        $user = $request->user();
+        if (! $user || ! $user->isCompanyUser()) {
+            return response()->json([
+                'authenticated' => false,
+                'redirect' => '/entrar',
+            ], 403);
+        }
+
+        $message = Message::query()
+            ->whereKey($messageId)
+            ->where('content_type', 'image')
+            ->whereHas('conversation', function ($query) use ($user) {
+                $query->where('company_id', (int) $user->company_id);
+            })
+            ->first();
+
+        if (! $message || ! $message->media_key) {
+            return response()->json(['message' => 'Mídia não encontrada.'], 404);
+        }
+
+        $disk = $message->media_provider ?: (string) config('whatsapp.media_disk', 'public');
+        if (! Storage::disk($disk)->exists($message->media_key)) {
+            return response()->json(['message' => 'Arquivo de mídia não encontrado.'], 404);
+        }
+
+        $headers = [];
+        if ($message->media_mime_type) {
+            $headers['Content-Type'] = (string) $message->media_mime_type;
+        }
+
+        return Storage::disk($disk)->response($message->media_key, null, $headers);
     }
 
     public function assume(Request $request, int $conversationId): JsonResponse
@@ -186,7 +224,8 @@ class ConversationController extends Controller
         }
 
         $validated = $request->validate([
-            'text' => ['required', 'string', 'max:2000'],
+            'text' => ['nullable', 'string', 'max:2000'],
+            'image' => ['nullable', 'file', 'image', 'max:'.config('whatsapp.media_max_size_kb', 5120)],
             'send_outbound' => ['sometimes', 'boolean'],
         ]);
 
@@ -217,11 +256,34 @@ class ConversationController extends Controller
         $conversation->status = 'in_progress';
         $conversation->save();
 
+        $trimmedText = trim((string) ($validated['text'] ?? ''));
+        $uploadedImage = $request->file('image');
+        if ($trimmedText === '' && ! $uploadedImage) {
+            return response()->json([
+                'message' => 'Informe texto ou imagem para enviar.',
+            ], 422);
+        }
+
+        $storedMedia = null;
+        if ($uploadedImage) {
+            $storedMedia = $this->mediaStorage->storeUploadedImage($uploadedImage, $conversation->company_id);
+        }
+
+        $contentType = $storedMedia ? 'image' : 'text';
+
         $message = Message::create([
             'conversation_id' => $conversation->id,
             'direction' => 'out',
             'type' => 'human',
-            'text' => trim((string) $validated['text']),
+            'content_type' => $contentType,
+            'text' => $trimmedText !== '' ? $trimmedText : null,
+            'media_provider' => $storedMedia['provider'] ?? null,
+            'media_key' => $storedMedia['key'] ?? null,
+            'media_url' => $storedMedia['url'] ?? null,
+            'media_mime_type' => $storedMedia['mime_type'] ?? null,
+            'media_size_bytes' => $storedMedia['size_bytes'] ?? null,
+            'media_width' => $storedMedia['width'] ?? null,
+            'media_height' => $storedMedia['height'] ?? null,
             'meta' => [
                 'source' => 'manual',
                 'actor_user_id' => $user->id,
@@ -229,9 +291,23 @@ class ConversationController extends Controller
         ]);
 
         $sendOutbound = (bool) ($validated['send_outbound'] ?? true);
-        $wasSent = $sendOutbound
-            ? $this->whatsAppSend->sendText($conversation->company, $conversation->customer_phone, $message->text)
-            : false;
+        $wasSent = false;
+        if ($sendOutbound) {
+            if ($contentType === 'image') {
+                $wasSent = $this->whatsAppSend->sendImage(
+                    $conversation->company,
+                    $conversation->customer_phone,
+                    (string) ($message->media_url ?? ''),
+                    $message->text
+                );
+            } else {
+                $wasSent = $this->whatsAppSend->sendText(
+                    $conversation->company,
+                    $conversation->customer_phone,
+                    (string) $message->text
+                );
+            }
+        }
 
         $this->auditLog->record($request, 'company.conversation.manual_reply', $conversation->company_id, [
             'conversation_id' => $conversation->id,
