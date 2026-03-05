@@ -236,7 +236,7 @@ class RealtimeClient {
         }
         await this.emitJoinConversation(conversationId, joinToken);
       } catch (_error) {
-        // Falha de rejoin nao deve derrubar o restante da conexao.
+        // Falha de rejoin não deve derrubar o restante da conexão.
       }
     }
   }

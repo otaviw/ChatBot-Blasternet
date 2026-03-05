@@ -75,7 +75,7 @@ function CompanySupportTicketPage() {
     if (loading) {
         return (
             <Layout role="company" onLogout={logout}>
-                <p className="text-sm text-[#64748b]">Carregando solicitacoes de suporte...</p>
+                <p className="text-sm text-[#64748b]">Carregando solicitações de suporte...</p>
             </Layout>
         );
     }
@@ -83,7 +83,7 @@ function CompanySupportTicketPage() {
     if (error || !data?.authenticated) {
         return (
             <Layout>
-                <p className="text-sm text-red-600">Nao foi possivel carregar as solicitacoes de suporte.</p>
+                <p className="text-sm text-red-600">Não foi possível carregar as solicitações de suporte.</p>
             </Layout>
         );
     }
@@ -96,21 +96,21 @@ function CompanySupportTicketPage() {
             companyName={role === 'company' ? (data.company_name ?? 'Empresa') : undefined}
             onLogout={logout}
         >
-            <h1 className="text-xl font-medium mb-2">Minhas solicitacoes de suporte</h1>
+            <h1 className="text-xl font-medium mb-2">Minhas solicitações de suporte</h1>
             <p className="text-sm text-[#64748b] mb-6">
-                Acompanhe apenas as solicitacoes abertas por voce.
+                Acompanhe apenas as solicitações abertas por você.
             </p>
 
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                 <TicketSection
                     title={`Abertas (${openTickets.length})`}
-                    emptyText="Voce nao possui solicitacoes abertas."
+                    emptyText="Você não possui solicitações abertas."
                     tickets={openTickets}
                 />
 
                 <TicketSection
                     title={`Fechadas (${closedTickets.length})`}
-                    emptyText="Voce nao possui solicitacoes fechadas."
+                    emptyText="Você não possui solicitações fechadas."
                     tickets={closedTickets}
                 />
             </div>

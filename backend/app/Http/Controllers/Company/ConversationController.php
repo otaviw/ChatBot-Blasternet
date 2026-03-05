@@ -247,7 +247,7 @@ class ConversationController extends Controller
             ], 409);
         } elseif ($conversation->assigned_type === 'area' && ! $user->hasArea((int) ($conversation->assigned_id ?? 0))) {
             return response()->json([
-                'message' => 'Conversa destinada para outra area de atendimento.',
+                'message' => 'Conversa destinada para outra área de atendimento.',
             ], 409);
         } elseif (in_array($conversation->assigned_type, ['bot', 'unassigned'], true)) {
             $this->assignConversationToCurrentUser($conversation, $user);
@@ -557,7 +557,7 @@ class ConversationController extends Controller
 
             if (! $area) {
                 throw ValidationException::withMessages([
-                    'to_area' => ['Area destino nao encontrada para esta empresa.'],
+                    'to_area' => ['Área destino não encontrada para esta empresa.'],
                 ]);
             }
 

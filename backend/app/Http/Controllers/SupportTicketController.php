@@ -111,7 +111,7 @@ class SupportTicketController extends Controller
 
         if ((int) ($ticket->requester_user_id ?? 0) !== (int) $user->id) {
             return response()->json([
-                'message' => 'Voce nao tem permissao para visualizar esta solicitacao.',
+                'message' => 'Você não tem permissão para visualizar esta solicitação.',
             ], 403);
         }
 

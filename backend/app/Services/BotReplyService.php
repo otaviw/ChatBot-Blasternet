@@ -85,12 +85,12 @@ class BotReplyService
 
     private function defaultFallback(): string
     {
-        return 'Nao entendi sua mensagem. Pode reformular?';
+        return 'Não entendi sua mensagem. Pode reformular?';
     }
 
     private function defaultOutOfHours(): string
     {
-        return 'Estamos fora do horario de atendimento no momento.';
+        return 'Estamos fora do horário de atendimento no momento.';
     }
 
     private function defaultWelcome(): string

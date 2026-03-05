@@ -187,7 +187,7 @@ function AdminCompanyShowPage({ companyId }) {
       setTimeout(() => setSaveState('idle'), 2500);
     } catch (err) {
       setSaveState('error');
-      setSaveError(err.response?.data?.message || 'Falha ao salvar configuracoes.');
+      setSaveError(err.response?.data?.message || 'Falha ao salvar configurações.');
     }
   };
 
@@ -237,7 +237,7 @@ function AdminCompanyShowPage({ companyId }) {
   if (error || !data?.authenticated || !data.company) {
     return (
       <Layout>
-        <p className="text-sm text-red-600 dark:text-red-400">Nao foi possivel carregar a empresa.</p>
+        <p className="text-sm text-red-600 dark:text-red-400">Não foi possível carregar a empresa.</p>
       </Layout>
     );
   }
@@ -253,16 +253,16 @@ function AdminCompanyShowPage({ companyId }) {
         </a>
       </div>
       <h1 className="app-page-title">{company.name}</h1>
-      <p className="app-page-subtitle mb-6">Informacoes e uso da empresa.</p>
+      <p className="app-page-subtitle mb-6">Informações e uso da empresa.</p>
 
       <section className="mb-8">
-        <h2 className="text-sm font-medium text-[#706f6c] dark:text-[#A1A09A] mb-2">Informacoes</h2>
+        <h2 className="text-sm font-medium text-[#706f6c] dark:text-[#A1A09A] mb-2">Informações</h2>
         <ul className="text-sm space-y-1">
           <li>ID: {company.id}</li>
           <li>Nome: {company.name}</li>
           <li>Meta Phone Number ID: {company.meta_phone_number_id ? company.meta_phone_number_id : '-'}</li>
-          <li>Token configurado: {company.has_meta_credentials ? 'Sim' : 'Nao'}</li>
-          <li>Bot ativo: {setting?.is_active ? 'Sim' : 'Nao'}</li>
+          <li>Token configurado: {company.has_meta_credentials ? 'Sim' : 'Não'}</li>
+          <li>Bot ativo: {setting?.is_active ? 'Sim' : 'Não'}</li>
           <li>Timezone: {setting?.timezone ?? 'America/Sao_Paulo'}</li>
         </ul>
       </section>
@@ -367,16 +367,16 @@ function AdminCompanyShowPage({ companyId }) {
           <ul className="text-sm space-y-1">
             <li>Mensagem de boas-vindas: {setting.welcome_message || '-'}</li>
             <li>Mensagem fallback: {setting.fallback_message || '-'}</li>
-            <li>Mensagem fora de horario: {setting.out_of_hours_message || '-'}</li>
+            <li>Mensagem fora de horário: {setting.out_of_hours_message || '-'}</li>
             <li>Respostas por palavra-chave: {Array.isArray(setting.keyword_replies) ? setting.keyword_replies.length : 0}</li>
-            <li>Areas de atendimento: {Array.isArray(setting.service_areas) ? setting.service_areas.join(', ') || '-' : '-'}</li>
-            <li>Menu stateful customizado: {setting.stateful_menu_flow ? 'Sim' : 'Nao (usa padrao automatico)'}</li>
+            <li>Áreas de atendimento: {Array.isArray(setting.service_areas) ? setting.service_areas.join(', ') || '-' : '-'}</li>
+            <li>Menu stateful customizado: {setting.stateful_menu_flow ? 'Sim' : 'Não (usa padrão automático)'}</li>
           </ul>
         )}
       </section>
 
       <section className="mb-8">
-        <h2 className="text-sm font-medium text-[#706f6c] dark:text-[#A1A09A] mb-2">Editar configuracoes (admin)</h2>
+        <h2 className="text-sm font-medium text-[#706f6c] dark:text-[#A1A09A] mb-2">Editar configurações (admin)</h2>
         <form onSubmit={saveSettings} className="space-y-8 max-w-4xl">
           <section className="app-panel space-y-4">
             <h3 className="font-medium">Estado e contexto</h3>
@@ -423,7 +423,7 @@ function AdminCompanyShowPage({ companyId }) {
             </label>
 
             <label className="block text-sm">
-              Fora de horario
+              Fora de horário
               <textarea
                 value={settings.out_of_hours_message || ''}
                 onChange={(e) => updateMessageField('out_of_hours_message', e.target.value)}
@@ -458,7 +458,7 @@ function AdminCompanyShowPage({ companyId }) {
             </div>
 
             <p className="text-sm text-[#706f6c]">
-              O menu inicia automaticamente na primeira mensagem. O comando <strong>#</strong> continua resetando para o inicio.
+              O menu inicia automaticamente na primeira mensagem. O comando <strong>#</strong> continua resetando para o início.
             </p>
 
             <label className="flex items-center gap-2 text-sm">
@@ -586,17 +586,17 @@ function AdminCompanyShowPage({ companyId }) {
 
           <section className="app-panel space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-medium">Areas de atendimento</h3>
+              <h3 className="font-medium">Áreas de atendimento</h3>
               <button
                 type="button"
                 onClick={addServiceArea}
                 className="app-btn-secondary"
               >
-                Adicionar area
+                Adicionar área
               </button>
             </div>
             {!settings.service_areas?.length && (
-              <p className="text-sm text-[#706f6c]">Nenhuma area cadastrada.</p>
+              <p className="text-sm text-[#706f6c]">Nenhuma área cadastrada.</p>
             )}
             <div className="space-y-2">
               {(settings.service_areas ?? []).map((area, index) => (
@@ -626,10 +626,10 @@ function AdminCompanyShowPage({ companyId }) {
               disabled={saveState === 'saving'}
             className="app-btn-primary"
             >
-              {saveState === 'saving' ? 'Salvando...' : 'Salvar configuracoes (admin)'}
+              {saveState === 'saving' ? 'Salvando...' : 'Salvar configurações (admin)'}
             </button>
 
-            {saveState === 'saved' && <p className="text-sm text-green-700">Configuracoes salvas com sucesso.</p>}
+            {saveState === 'saved' && <p className="text-sm text-green-700">Configurações salvas com sucesso.</p>}
             {saveState === 'error' && <p className="text-sm text-red-600">{saveError}</p>}
           </div>
         </form>

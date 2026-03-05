@@ -209,7 +209,7 @@ function AdminSupportTicketsPage() {
             <button
               type="submit"
               disabled={busy}
-              className="px-4 py-2 rounded bg-[#f53003] text-white disabled:opacity-60"
+              className="px-4 py-2 rounded bg-[#2563eb] text-white disabled:opacity-60"
             >
               {busy ? 'Filtrando...' : 'Filtrar'}
             </button>

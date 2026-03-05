@@ -26,13 +26,13 @@ class TransferConversationService
         $normalizedType = $this->normalizeTargetType($targetType);
         if (! in_array($normalizedType, ['user', 'area'], true)) {
             throw ValidationException::withMessages([
-                'type' => ['Tipo de transferencia invalido. Use user ou area.'],
+                'type' => ['Tipo de transferência inválido. Use user ou area.'],
             ]);
         }
 
         if ($targetId <= 0) {
             throw ValidationException::withMessages([
-                'id' => ['Id de destino invalido.'],
+                'id' => ['Id de destino inválido.'],
             ]);
         }
 
@@ -45,13 +45,13 @@ class TransferConversationService
 
             if (! $lockedConversation) {
                 throw ValidationException::withMessages([
-                    'conversation_id' => ['Conversa nao encontrada.'],
+                    'conversation_id' => ['Conversa não encontrada.'],
                 ]);
             }
 
             if ((int) $lockedConversation->company_id !== (int) $actor->company_id) {
                 throw ValidationException::withMessages([
-                    'conversation_id' => ['Conversa nao pertence a empresa do usuario.'],
+                    'conversation_id' => ['Conversa não pertence à empresa do usuário.'],
                 ]);
             }
 
@@ -175,7 +175,7 @@ class TransferConversationService
 
         if (! $area) {
             throw ValidationException::withMessages([
-                'id' => ['Area destino nao encontrada para esta empresa.'],
+                'id' => ['Área destino não encontrada para esta empresa.'],
             ]);
         }
 

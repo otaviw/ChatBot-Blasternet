@@ -29,7 +29,7 @@ class UserController extends Controller
         if (! $actor->isCompanyAdmin()) {
             return response()->json([
                 'authenticated' => true,
-                'message' => 'Somente admin da empresa pode gerenciar usuarios.',
+                'message' => 'Somente admin da empresa pode gerenciar usuários.',
             ], 403);
         }
 
@@ -63,7 +63,7 @@ class UserController extends Controller
         if (! $actor->isCompanyAdmin()) {
             return response()->json([
                 'authenticated' => true,
-                'message' => 'Somente admin da empresa pode gerenciar usuarios.',
+                'message' => 'Somente admin da empresa pode gerenciar usuários.',
             ], 403);
         }
 
@@ -122,7 +122,7 @@ class UserController extends Controller
         if (! $actor->isCompanyAdmin()) {
             return response()->json([
                 'authenticated' => true,
-                'message' => 'Somente admin da empresa pode gerenciar usuarios.',
+                'message' => 'Somente admin da empresa pode gerenciar usuários.',
             ], 403);
         }
 

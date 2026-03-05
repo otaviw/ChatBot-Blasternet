@@ -32,7 +32,7 @@ function CompanyTicketIndex({ ticketId }) {
   if (loading) {
     return (
       <Layout role="company" onLogout={logout}>
-        <p className="text-sm text-[#64748b]">Carregando solicitacao...</p>
+        <p className="text-sm text-[#64748b]">Carregando solicitação...</p>
       </Layout>
     );
   }
@@ -41,7 +41,7 @@ function CompanyTicketIndex({ ticketId }) {
     return (
       <Layout role="company" onLogout={logout}>
         <p className="text-sm text-red-600">
-          Nao foi possivel carregar a solicitacao.
+          Não foi possível carregar a solicitação.
         </p>
       </Layout>
     );
@@ -55,14 +55,14 @@ function CompanyTicketIndex({ ticketId }) {
     >
       <div className="mb-4">
         <a href="/minha-conta/suporte/solicitacoes" className="text-sm text-[#64748b] hover:underline">
-          {'<-'} Voltar para minhas solicitacoes
+          {'<-'} Voltar para minhas solicitações
         </a>
       </div>
 
       <div className="flex items-start justify-between gap-3 mb-4">
         <div>
           <h1 className="text-xl font-medium">
-            Solicitacao #{formatTicketNumber(ticket.ticket_number)}
+            Solicitação #{formatTicketNumber(ticket.ticket_number)}
           </h1>
           <p className="text-sm text-[#64748b] mt-1">
             {ticket.subject ?? '(sem assunto)'}
@@ -82,7 +82,7 @@ function CompanyTicketIndex({ ticketId }) {
       </div>
 
       <section className="mb-6 border border-[#e3e3e0] rounded-lg p-4">
-        <h2 className="font-medium mb-3">Dados da solicitacao</h2>
+        <h2 className="font-medium mb-3">Dados da solicitação</h2>
         <ul className="text-sm space-y-1">
           <li><strong>Empresa:</strong> {ticket.company_name ?? ticket.requester_company_name ?? '-'}</li>
           <li><strong>Solicitante:</strong> {ticket.requester_name ?? '-'}</li>
@@ -98,7 +98,7 @@ function CompanyTicketIndex({ ticketId }) {
       </section>
 
       <section className="border border-[#e3e3e0] rounded-lg p-4">
-        <h2 className="font-medium mb-3">Descricao</h2>
+        <h2 className="font-medium mb-3">Descrição</h2>
         <div className="text-sm whitespace-pre-wrap leading-relaxed text-[#1f1f1e]">
           {ticket.message ?? '(sem mensagem)'}
         </div>

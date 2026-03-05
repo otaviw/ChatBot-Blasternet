@@ -246,7 +246,7 @@ function validateAction(action, stepLabel) {
   if (kind === 'handoff') {
     const target = String(action?.target_area_name ?? '').trim();
     if (!target) {
-      errors.push(`${stepLabel}: informe a area de handoff.`);
+      errors.push(`${stepLabel}: informe a área de handoff.`);
     }
 
     return errors;
@@ -278,19 +278,19 @@ function validateStatefulMenuEditor(editor) {
     const reply = String(step?.reply_text ?? '').trim();
 
     if (!flow || !stepName) {
-      errors.push(`${label}: flow e step sao obrigatorios.`);
+      errors.push(`${label}: flow e step são obrigatórios.`);
       continue;
     }
 
     const key = `${flow}.${stepName}`;
     if (keys.has(key)) {
-      errors.push(`${label}: o identificador ${key} esta duplicado.`);
+      errors.push(`${label}: o identificador ${key} está duplicado.`);
       continue;
     }
     keys.add(key);
 
     if (!reply) {
-      errors.push(`${label}: reply_text e obrigatorio.`);
+      errors.push(`${label}: reply_text é obrigatório.`);
     }
 
     if (step?.type === 'free_text') {
@@ -300,14 +300,14 @@ function validateStatefulMenuEditor(editor) {
 
     const options = Array.isArray(step?.options) ? step.options : [];
     if (!options.length) {
-      errors.push(`${label}: adicione pelo menos uma opcao.`);
+      errors.push(`${label}: adicione pelo menos uma opção.`);
       continue;
     }
 
     const optionKeys = new Set();
     for (let optionIndex = 0; optionIndex < options.length; optionIndex += 1) {
       const option = options[optionIndex];
-      const optionLabel = `${label} / opcao ${optionIndex + 1}`;
+      const optionLabel = `${label} / opção ${optionIndex + 1}`;
       const optionKey = String(option?.key ?? '').trim();
       if (!optionKey || !/^\d+$/.test(optionKey)) {
         errors.push(`${optionLabel}: chave deve ser numerica (ex.: 1, 2, 3).`);
@@ -318,7 +318,7 @@ function validateStatefulMenuEditor(editor) {
       }
 
       if (!String(option?.label ?? '').trim()) {
-        errors.push(`${optionLabel}: label obrigatoria.`);
+        errors.push(`${optionLabel}: label obrigatória.`);
       }
 
       errors.push(...validateAction(option?.action, `${optionLabel} (acao)`));
@@ -346,7 +346,7 @@ function validateStatefulMenuEditor(editor) {
         }
         const target = `${targetFlow}.${targetStep}`;
         if (!keys.has(target)) {
-          errors.push(`${label}: destino ${target} nao existe.`);
+          errors.push(`${label}: destino ${target} não existe.`);
         }
       }
       continue;
@@ -365,7 +365,7 @@ function validateStatefulMenuEditor(editor) {
       }
       const target = `${targetFlow}.${targetStep}`;
       if (!keys.has(target)) {
-        errors.push(`${label} / opcao ${optionIndex + 1}: destino ${target} nao existe.`);
+        errors.push(`${label} / opção ${optionIndex + 1}: destino ${target} não existe.`);
       }
     }
   }

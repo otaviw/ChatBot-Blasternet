@@ -33,7 +33,7 @@ class InboundMessageService
         $normalizedContactName = $this->normalizeContactName($contactName);
 
         if ($normalizedFrom === '' || $normalizedText === '') {
-            throw new InvalidArgumentException('Phone e texto sao obrigatorios para processar mensagem.');
+            throw new InvalidArgumentException('Phone e texto são obrigatórios para processar mensagem.');
         }
 
         $conversation = Conversation::firstOrCreate(

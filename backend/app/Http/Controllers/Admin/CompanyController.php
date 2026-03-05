@@ -154,7 +154,7 @@ class CompanyController extends Controller
                 'is_active' => true,
                 'timezone' => 'America/Sao_Paulo',
                 'welcome_message' => 'Oi. Como posso ajudar?',
-                'fallback_message' => 'Nao entendi sua mensagem. Pode reformular?',
+                'fallback_message' => 'Não entendi sua mensagem. Pode reformular?',
                 'out_of_hours_message' => 'Estamos fora do horario de atendimento no momento.',
                 'business_hours' => $this->defaultBusinessHours(),
                 'keyword_replies' => [],

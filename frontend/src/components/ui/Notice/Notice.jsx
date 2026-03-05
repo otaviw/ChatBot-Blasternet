@@ -3,7 +3,7 @@ import './Notice.css';
 const TONE_CLASSES = {
   info: 'border-[#bfdbfe] bg-[#eff6ff] text-[#1e3a8a]',
   success: 'border-[#bbf7d0] bg-[#f0fdf4] text-[#166534]',
-  danger: 'border-[#fecaca] bg-[#fef2f2] text-[#b91c1c]',
+  danger: 'border-[#bfdbfe] bg-[#eff6ff] text-[#1d4ed8]',
 };
 
 function Notice({ tone = 'info', className = '', children }) {

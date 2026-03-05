@@ -1,6 +1,6 @@
 # Realtime Service (`/realtime`)
 
-Servico Socket.IO desacoplado para notificacoes em tempo real.
+Serviço Socket.IO desacoplado para notificações em tempo real.
 
 ## Responsabilidade
 
@@ -57,7 +57,7 @@ npm install --omit=dev
 npm run start
 ```
 
-Recomendacoes:
+Recomendações:
 
 - Rodar atras de reverse proxy (Nginx/Traefik) com TLS
 - Restringir acesso a `/internal/emit` para rede interna

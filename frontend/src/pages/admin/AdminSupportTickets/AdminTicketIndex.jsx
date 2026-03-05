@@ -62,7 +62,7 @@ function AdminSupportTicketShowPage({ ticketId }) {
   if (loading) {
     return (
       <Layout role="admin" onLogout={logout}>
-        <p className="text-sm text-[#64748b]">Carregando solicitacao...</p>
+        <p className="text-sm text-[#64748b]">Carregando solicitação...</p>
       </Layout>
     );
   }
@@ -71,7 +71,7 @@ function AdminSupportTicketShowPage({ ticketId }) {
     return (
       <Layout role="admin" onLogout={logout}>
         <p className="text-sm text-red-600">
-          Nao foi possivel carregar a solicitacao.
+          Não foi possível carregar a solicitação.
         </p>
       </Layout>
     );
@@ -114,7 +114,7 @@ function AdminSupportTicketShowPage({ ticketId }) {
               type="button"
               onClick={closeTicket}
               disabled={actionState === 'saving'}
-              className="px-3 py-2 text-sm rounded bg-[#f53003] text-white disabled:opacity-60"
+              className="px-3 py-2 text-sm rounded bg-[#2563eb] text-white disabled:opacity-60"
             >
               {actionState === 'saving' ? 'Fechando...' : 'Fechar'}
             </button>
@@ -152,7 +152,7 @@ function AdminSupportTicketShowPage({ ticketId }) {
       </section>
 
       <section className="border border-[#e3e3e0] rounded-lg p-4">
-        <h2 className="font-medium mb-3">Descricao</h2>
+        <h2 className="font-medium mb-3">Descrição</h2>
         <div className="text-sm whitespace-pre-wrap leading-relaxed text-[#1f1f1e]">
           {ticket.message ?? '(sem mensagem)'}
         </div>

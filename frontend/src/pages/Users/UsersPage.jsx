@@ -217,7 +217,7 @@ export default function UsersPage({ scope = "company" }) {
       await refreshUsers();
       setCreateForm(initialForm(isAdminScope));
     } catch (err) {
-      setCreateError(err.response?.data?.message || "Falha ao criar usuario.");
+      setCreateError(err.response?.data?.message || "Falha ao criar usuário.");
     } finally {
       setCreateBusy(false);
     }
@@ -269,7 +269,7 @@ export default function UsersPage({ scope = "company" }) {
       setSelectedUserId(null);
       setEditForm(null);
     } catch (err) {
-      setEditError(err.response?.data?.message || "Falha ao atualizar usuario.");
+      setEditError(err.response?.data?.message || "Falha ao atualizar usuário.");
     } finally {
       setEditBusy(false);
     }
@@ -285,7 +285,7 @@ export default function UsersPage({ scope = "company" }) {
         companyName={isAdminScope ? null : companyName}
         onLogout={logout}
       >
-        <p className="text-sm text-[#64748b]">Carregando usuarios...</p>
+        <p className="text-sm text-[#64748b]">Carregando usuários...</p>
       </Layout>
     );
   }
@@ -297,7 +297,7 @@ export default function UsersPage({ scope = "company" }) {
         companyName={isAdminScope ? null : companyName}
         onLogout={logout}
       >
-        <p className="text-sm text-red-600">Nao foi possivel carregar usuarios.</p>
+        <p className="text-sm text-red-600">Não foi possível carregar usuários.</p>
       </Layout>
     );
   }
@@ -329,7 +329,7 @@ export default function UsersPage({ scope = "company" }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
-          <h2 className="text-base font-semibold text-[#0f172a] mb-3">Criar usuario</h2>
+          <h2 className="text-base font-semibold text-[#0f172a] mb-3">Criar usuário</h2>
           <form onSubmit={handleCreate} className="space-y-3">
             <UserFormFields
               form={createForm}
@@ -359,7 +359,7 @@ export default function UsersPage({ scope = "company" }) {
             />
 
             <Button type="submit" variant="primary" disabled={createBusy}>
-              {createBusy ? "Criando..." : "Criar usuario"}
+              {createBusy ? "Criando..." : "Criar usuário"}
             </Button>
 
             {createError && <Notice tone="danger">{createError}</Notice>}
@@ -377,7 +377,7 @@ export default function UsersPage({ scope = "company" }) {
 
           {editForm && (
             <form onSubmit={handleEdit} className="space-y-3 border-t border-[#e2e8f0] pt-4">
-              <h3 className="text-sm font-semibold text-[#0f172a]">Editar usuario #{selectedUserId}</h3>
+              <h3 className="text-sm font-semibold text-[#0f172a]">Editar usuário #{selectedUserId}</h3>
 
               <UserFormFields
                 form={editForm}
@@ -408,7 +408,7 @@ export default function UsersPage({ scope = "company" }) {
               />
 
               <Button type="submit" variant="primary" disabled={editBusy}>
-                {editBusy ? "Salvando..." : "Salvar usuario"}
+                {editBusy ? "Salvando..." : "Salvar usuário"}
               </Button>
 
               {editError && <Notice tone="danger">{editError}</Notice>}

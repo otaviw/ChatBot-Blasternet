@@ -50,7 +50,7 @@ function AdminCompaniesPage() {
   if (error || !data?.authenticated) {
     return (
       <Layout>
-        <p className="text-sm text-red-600 dark:text-red-400">Nao foi possivel carregar as empresas.</p>
+        <p className="text-sm text-red-600 dark:text-red-400">Não foi possível carregar as empresas.</p>
       </Layout>
     );
   }
@@ -61,7 +61,7 @@ function AdminCompaniesPage() {
     <Layout role="admin" onLogout={logout}>
       <h1 className="app-page-title">Empresas</h1>
       <p className="app-page-subtitle mb-6">
-        Lista de empresas com acesso. Clique para ver informacoes e uso.
+        Lista de empresas com acesso. Clique para ver informações e uso.
       </p>
 
       <section className="app-panel mb-8">

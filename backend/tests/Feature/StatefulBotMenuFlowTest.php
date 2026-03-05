@@ -17,7 +17,7 @@ class StatefulBotMenuFlowTest extends TestCase
     protected function setUp(): void
     {
         if (! extension_loaded('pdo_sqlite')) {
-            $this->markTestSkipped('Extensao pdo_sqlite nao habilitada neste ambiente.');
+            $this->markTestSkipped('Extensão pdo_sqlite não habilitada neste ambiente.');
         }
 
         parent::setUp();
@@ -65,7 +65,7 @@ class StatefulBotMenuFlowTest extends TestCase
         $response = $this->simulateInbound($user, $company, '5511911110003', '9');
 
         $response->assertOk();
-        $response->assertJsonPath('reply', 'Opcao invalida. Responda com 1, 2, 3.');
+        $response->assertJsonPath('reply', 'Opção inválida. Responda com 1, 2, 3.');
 
         $conversation = Conversation::findOrFail((int) $response->json('conversation.id'));
         $this->assertSame('main', $conversation->bot_flow);
@@ -152,7 +152,7 @@ class StatefulBotMenuFlowTest extends TestCase
 
         $first = $this->simulateInbound($user, $company, '5511911110006', 'mensagem qualquer');
         $first->assertOk();
-        $first->assertJsonPath('reply', "WELCOME_LEGACY\n1 - Suporte tecnico\n2 - Vendas\n3 - Falar com atendente");
+        $first->assertJsonPath('reply', "WELCOME_LEGACY\n1 - Suporte técnico\n2 - Vendas\n3 - Falar com atendente");
 
         $conversation = Conversation::findOrFail((int) $first->json('conversation.id'));
         $this->assertSame('main', $conversation->bot_flow);
@@ -160,7 +160,7 @@ class StatefulBotMenuFlowTest extends TestCase
 
         $second = $this->simulateInbound($user, $company, '5511911110006', 'segunda mensagem');
         $second->assertOk();
-        $second->assertJsonPath('reply', 'Opcao invalida. Responda com 1, 2, 3.');
+        $second->assertJsonPath('reply', 'Opção inválida. Responda com 1, 2, 3.');
     }
 
     public function test_company_can_configure_multiple_stateful_menus_from_settings(): void
@@ -270,8 +270,8 @@ class StatefulBotMenuFlowTest extends TestCase
             'is_active' => true,
             'timezone' => 'America/Sao_Paulo',
             'welcome_message' => 'Oi. Como posso ajudar?',
-            'fallback_message' => 'Nao entendi sua mensagem. Pode reformular?',
-            'out_of_hours_message' => 'Fora do horario',
+            'fallback_message' => 'Não entendi sua mensagem. Pode reformular?',
+            'out_of_hours_message' => 'Fora do horário',
             'business_hours' => [
                 'monday' => ['enabled' => true, 'start' => '00:00', 'end' => '23:59'],
                 'tuesday' => ['enabled' => true, 'start' => '00:00', 'end' => '23:59'],
@@ -303,12 +303,12 @@ class StatefulBotMenuFlowTest extends TestCase
 
     private function mainMenuText(string $welcomeMessage): string
     {
-        return "{$welcomeMessage}\n1 - Suporte tecnico\n2 - Vendas\n3 - Falar com atendente";
+        return "{$welcomeMessage}\n1 - Suporte técnico\n2 - Vendas\n3 - Falar com atendente";
     }
 
     private function supportMenuText(): string
     {
-        return "Suporte tecnico. Qual o problema?\n1 - Internet lenta\n2 - Sem conexao\n3 - Outro";
+        return "Suporte técnico. Qual o problema?\n1 - Internet lenta\n2 - Sem conexão\n3 - Outro";
     }
 
     private function simulateInbound(User $user, Company $company, string $from, string $text)

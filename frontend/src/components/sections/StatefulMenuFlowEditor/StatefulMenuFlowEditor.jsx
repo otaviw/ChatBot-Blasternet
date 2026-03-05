@@ -551,7 +551,7 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
       <section className="space-y-3">
         <h4 className="font-medium text-sm">Comandos globais para reiniciar</h4>
         <p className="text-xs text-[#706f6c]">
-          Esses comandos reiniciam o fluxo para o inicio. O menu ja entra automaticamente na primeira mensagem.
+          Esses comandos reiniciam o fluxo para o início. O menu já entra automaticamente na primeira mensagem.
         </p>
         <div className="space-y-2">
           {(editor.commands ?? []).map((command, index) => (

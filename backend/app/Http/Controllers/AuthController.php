@@ -26,7 +26,7 @@ class AuthController extends Controller
         $user = $request->user();
         if (! $user) {
             return response()->json([
-                'message' => 'Falha ao autenticar usuario.',
+                'message' => 'Falha ao autenticar usuário.',
             ], 500);
         }
         if (! $user->is_active) {

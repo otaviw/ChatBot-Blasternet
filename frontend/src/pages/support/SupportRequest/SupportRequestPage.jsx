@@ -39,7 +39,7 @@ function SupportRequestPage() {
       setSubject('');
       setMessage('');
     } catch (err) {
-      setActionError(err.response?.data?.message || 'Falha ao enviar solicitacao de suporte.');
+      setActionError(err.response?.data?.message || 'Falha ao enviar solicitação de suporte.');
     } finally {
       setBusy(false);
     }
@@ -56,7 +56,7 @@ function SupportRequestPage() {
   if (error || !data?.authenticated) {
     return (
       <Layout>
-        <p className="text-sm text-red-600">Nao foi possivel carregar o modulo de suporte.</p>
+        <p className="text-sm text-red-600">Não foi possível carregar o módulo de suporte.</p>
       </Layout>
     );
   }
@@ -72,9 +72,9 @@ function SupportRequestPage() {
       companyName={data.role === 'company' ? companyLabel : undefined}
       onLogout={logout}
     >
-      <h1 className="text-xl font-medium mb-2">Abrir solicitacao de suporte</h1>
+      <h1 className="text-xl font-medium mb-2">Abrir solicitação de suporte</h1>
       <p className="text-sm text-[#64748b] mb-6">
-        Envie um chamado para o time de suporte com o maximo de detalhes possivel.
+        Envie um chamado para o time de suporte com o máximo de detalhes possível.
       </p>
 
       <section className="border border-[#e3e3e0] rounded-lg p-4 mb-6">
@@ -89,7 +89,7 @@ function SupportRequestPage() {
       <section className="border border-[#e3e3e0] rounded-lg p-4">
         <form onSubmit={submitTicket} className="space-y-4 max-w-3xl">
           <label className="block text-sm">
-            Titulo da solicitacao (assunto)
+            Título da solicitação (assunto)
             <input
               type="text"
               value={subject}
@@ -102,7 +102,7 @@ function SupportRequestPage() {
           </label>
 
           <label className="block text-sm">
-            Descricao completa do problema
+            Descrição completa do problema
             <textarea
               value={message}
               onChange={(event) => setMessage(event.target.value)}
@@ -117,9 +117,9 @@ function SupportRequestPage() {
           <button
             type="submit"
             disabled={busy}
-            className="px-4 py-2 rounded bg-[#f53003] text-white disabled:opacity-60"
+            className="px-4 py-2 rounded bg-[#2563eb] text-white disabled:opacity-60"
           >
-            {busy ? 'Enviando...' : 'Enviar solicitacao'}
+            {busy ? 'Enviando...' : 'Enviar solicitação'}
           </button>
         </form>
 

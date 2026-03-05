@@ -79,7 +79,7 @@ function AdminInboxPage() {
       setContactNameInput(conversation?.customer_name ?? '');
       if (response.data?.privacy_mode) {
         setPrivacyMessage(
-          'Modo privacidade ativo: detalhes sensiveis e historico de mensagens permanecem ocultos.'
+          'Modo privacidade ativo: detalhes sensíveis e histórico de mensagens permanecem ocultos.'
         );
       }
     } catch (err) {
@@ -132,7 +132,7 @@ function AdminInboxPage() {
   if (error || !data?.authenticated) {
     return (
       <Layout>
-        <p className="text-sm text-red-600 dark:text-red-400">Nao foi possivel carregar a inbox.</p>
+        <p className="text-sm text-red-600 dark:text-red-400">Não foi possível carregar a inbox.</p>
       </Layout>
     );
   }
@@ -141,7 +141,7 @@ function AdminInboxPage() {
     <Layout role="admin" onLogout={logout}>
       <PageHeader
         title="Inbox (admin)"
-        subtitle="Monitore conversas por empresa, assuma atendimentos criticos e responda rapidamente."
+        subtitle="Monitore conversas por empresa, assuma atendimentos críticos e responda rapidamente."
       />
       <div className="mb-4 max-w-sm">
         <label className="block text-sm">
@@ -179,7 +179,7 @@ function AdminInboxPage() {
                   onClick={() => openConversation(conv.id)}
                   className={`w-full text-left px-3 py-2.5 rounded-lg border transition ${
                     selectedId === conv.id
-                      ? 'border-[#f53003] bg-[#fff5f2] shadow-[0_10px_20px_-22px_rgba(245,48,3,0.75)]'
+                      ? 'border-[#2563eb] bg-[#eff6ff] shadow-[0_10px_20px_-22px_rgba(37,99,235,0.75)]'
                       : 'border-[#d9e1ec] hover:border-[#c5d1e1] hover:bg-[#f8fafc]'
                   }`}
                 >

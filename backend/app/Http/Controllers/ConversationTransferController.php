@@ -153,7 +153,7 @@ class ConversationTransferController extends Controller
         if (! $assignedId) {
             return match ($assignedType) {
                 'bot' => 'Bot',
-                'unassigned' => 'Nao atribuido',
+                'unassigned' => 'Não atribuído',
                 default => null,
             };
         }

@@ -3,7 +3,7 @@ import Button from '@/components/ui/Button/Button.jsx';
 
 function UsersListPanel({ users, roleLabel, onEdit, showCompany = false }) {
   if (!users.length) {
-    return <p className="text-sm text-[#64748b]">Nenhum usuario cadastrado.</p>;
+    return <p className="text-sm text-[#64748b]">Nenhum usuário cadastrado.</p>;
   }
 
   return (

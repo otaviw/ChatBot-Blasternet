@@ -2,9 +2,9 @@
 
 Projeto multi-servico com:
 
-- `backend/`: Laravel (API, autorizacao, regras de negocio, auditoria)
+- `backend/`: Laravel (API, autorização, regras de negócio, auditoria)
 - `frontend/`: React + Vite (painel operacional)
-- `realtime/`: Node.js + Socket.IO (somente notificacoes realtime)
+- `realtime/`: Node.js + Socket.IO (somente notificações realtime)
 
 ## Arquitetura realtime
 
@@ -129,7 +129,7 @@ npm run start
 - [ ] Somente websocket (sem polling)
 - [ ] Chave interna (`X-INTERNAL-KEY`) forte e rotacionada
 - [ ] Endpoint `/internal/emit` exposto apenas internamente
-- [ ] Nao incluir payload sensivel nos broadcasts
+- [ ] Não incluir payload sensível nos broadcasts
 - [ ] Logs monitorados para `realtime.publish.*` e `socket.auth_failed`
 
 ## Escalabilidade

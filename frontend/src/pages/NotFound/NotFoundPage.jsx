@@ -9,8 +9,8 @@ function NotFoundPage() {
     <Layout>
       <Card className="mx-auto max-w-lg text-center">
         <PageHeader
-          title="Pagina nao encontrada"
-          subtitle="A URL informada não corresponde a uma rota valida do painel."
+          title="Página não encontrada"
+          subtitle="A URL informada não corresponde a uma rota válida do painel."
           className="justify-center"
         />
         <a href="/entrar">

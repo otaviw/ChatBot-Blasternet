@@ -174,7 +174,7 @@ function CompanyBotPage() {
       setTimeout(() => setSaveState('idle'), 2500);
     } catch (err) {
       setSaveState('error');
-      setSaveError(err.response?.data?.message || 'Falha ao salvar configuracoes.');
+      setSaveError(err.response?.data?.message || 'Falha ao salvar configurações.');
     }
   };
 
@@ -194,7 +194,7 @@ function CompanyBotPage() {
   if (loading) {
     return (
       <Layout role="company" onLogout={logout}>
-        <p className="text-sm text-[#706f6c]">Carregando configuracoes do bot...</p>
+        <p className="text-sm text-[#706f6c]">Carregando configurações do bot...</p>
       </Layout>
     );
   }
@@ -203,7 +203,7 @@ function CompanyBotPage() {
     return (
       <Layout>
         <p className="text-sm text-red-600 dark:text-red-400">
-          Nao foi possivel carregar as configuracoes do bot.
+          Não foi possível carregar as configurações do bot.
         </p>
       </Layout>
     );
@@ -213,7 +213,7 @@ function CompanyBotPage() {
 
   return (
     <Layout role="company" companyName={company.name} onLogout={logout}>
-      <h1 className="app-page-title">Configuracoes do bot - {company.name}</h1>
+      <h1 className="app-page-title">Configurações do bot - {company.name}</h1>
       <p className="app-page-subtitle mb-6">
         Defina mensagens, horarios e respostas por palavra-chave.
       </p>
@@ -243,17 +243,17 @@ function CompanyBotPage() {
 
         <section className="app-panel space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-medium">Areas de atendimento</h2>
+            <h2 className="font-medium">Áreas de atendimento</h2>
             <button
               type="button"
               onClick={addServiceArea}
               className="app-btn-secondary"
             >
-              Adicionar area
+              Adicionar área
             </button>
           </div>
           {!settings.service_areas?.length && (
-            <p className="text-sm text-[#706f6c]">Nenhuma area cadastrada.</p>
+            <p className="text-sm text-[#706f6c]">Nenhuma área cadastrada.</p>
           )}
           <div className="space-y-2">
             {(settings.service_areas ?? []).map((area, index) => (
@@ -300,7 +300,7 @@ function CompanyBotPage() {
           </label>
 
           <label className="block text-sm">
-            Fora de horario
+            Fora de horário
             <textarea
               value={settings.out_of_hours_message || ''}
               onChange={(e) => updateMessageField('out_of_hours_message', e.target.value)}
@@ -346,7 +346,7 @@ function CompanyBotPage() {
           </div>
 
           <p className="text-sm text-[#706f6c]">
-            O menu inicia automaticamente na primeira mensagem. O comando <strong>#</strong> continua resetando para o inicio.
+            O menu inicia automaticamente na primeira mensagem. O comando <strong>#</strong> continua resetando para o início.
           </p>
 
           <label className="flex items-center gap-2 text-sm">
@@ -478,7 +478,7 @@ function CompanyBotPage() {
             disabled={saveState === 'saving'}
             className="app-btn-primary"
           >
-            {saveState === 'saving' ? 'Salvando...' : 'Salvar configuracoes'}
+            {saveState === 'saving' ? 'Salvando...' : 'Salvar configurações'}
           </button>
 
           {saveState === 'saved' && <p className="text-sm text-green-700">Configuracoes salvas com sucesso.</p>}

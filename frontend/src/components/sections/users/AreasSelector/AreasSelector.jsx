@@ -1,7 +1,7 @@
 import './AreasSelector.css';
 
 function AreasSelector({
-  title = 'Areas de atuacao',
+  title = 'Áreas de atuação',
   areas = [],
   selectedAreas = [],
   onToggle,
@@ -22,7 +22,7 @@ function AreasSelector({
                 type="checkbox"
                 checked={selectedAreas.includes(area)}
                 onChange={() => onToggle(area)}
-                className="h-4 w-4 rounded border-[#cbd5e1] text-[#f53003] focus:ring-[#f53003]/25"
+                className="h-4 w-4 rounded border-[#cbd5e1] text-[#2563eb] focus:ring-[#2563eb]/25"
               />
               {area}
             </label>

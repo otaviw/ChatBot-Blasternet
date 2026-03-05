@@ -82,8 +82,8 @@ class SupportTicketTest extends TestCase
             'requester_name' => $other->name,
             'requester_contact' => $other->email,
             'requester_company_name' => $company->name,
-            'subject' => 'Chamado de outro usuario',
-            'message' => 'Descricao de outro usuario',
+            'subject' => 'Chamado de outro usuário',
+            'message' => 'Descrição de outro usuário',
             'status' => SupportTicket::STATUS_CLOSED,
             'closed_at' => now(),
         ]);

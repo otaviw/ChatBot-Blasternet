@@ -18,9 +18,9 @@
     --ui-border-strong: #cbd5e1;
     --ui-text: #0f172a;
     --ui-text-muted: #526175;
-    --ui-accent: #f53003;
-    --ui-accent-strong: #cf2801;
-    --ui-ring: rgba(245, 48, 3, 0.26);
+    --ui-accent: #2563eb;
+    --ui-accent-strong: #1d4ed8;
+    --ui-ring: rgba(37, 99, 235, 0.26);
     --ui-shadow: 0 8px 16px -14px rgba(15, 23, 42, 0.25);
   }
 
@@ -91,7 +91,7 @@
   }
 
   ::selection {
-    background: rgba(245, 48, 3, 0.2);
+    background: rgba(37, 99, 235, 0.2);
     color: #111827;
   }
 }
@@ -118,7 +118,7 @@
   }
 
   .app-btn-primary {
-    @apply rounded-md bg-[#f53003] px-4 py-2 text-sm font-medium text-white hover:bg-[#cf2801] disabled:opacity-60;
+    @apply rounded-md bg-[#2563eb] px-4 py-2 text-sm font-medium text-white hover:bg-[#1d4ed8] disabled:opacity-60;
   }
 
   .app-btn-secondary {

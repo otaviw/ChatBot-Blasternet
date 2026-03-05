@@ -21,7 +21,7 @@ function DashboardPage() {
     return (
       <Layout>
         <p className="text-sm text-red-600">
-          Nao foi possivel carregar o dashboard.
+          Não foi possível carregar o dashboard.
         </p>
       </Layout>
     );
@@ -32,11 +32,11 @@ function DashboardPage() {
       {
         href: '/admin/empresas',
         title: 'Empresas',
-        description: 'Acompanhe metricas e status tecnico sem acesso a conteudo sensivel.',
+        description: 'Acompanhe métricas e status técnico sem acesso a conteúdo sensível.',
       },
       {
         href: '/admin/suporte',
-        title: 'Solicitacoes de suporte',
+        title: 'Solicitações de suporte',
         description: 'Visualize chamados abertos/fechados e atualize o status de resolucao.',
       },
       {
@@ -55,7 +55,7 @@ function DashboardPage() {
       <Layout role="admin" onLogout={logout}>
         <PageHeader
           title="Dashboard do sistema"
-          subtitle="Visao central de operacao para gerenciar empresas, usuarios e fluxo de atendimento."
+          subtitle="Visão central de operação para gerenciar empresas, usuários e fluxo de atendimento."
         />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {adminItems.map((item) => (
@@ -63,7 +63,7 @@ function DashboardPage() {
               <Card className="h-full transition group-hover:-translate-y-0.5 group-hover:shadow-[0_18px_30px_-24px_rgba(15,23,42,0.95)]">
                 <p className="text-base font-semibold text-[#0f172a]">{item.title}</p>
                 <p className="mt-2 text-sm text-[#64748b]">{item.description}</p>
-                <p className="mt-4 text-xs font-medium uppercase tracking-wide text-[#f53003]">Abrir modulo</p>
+                <p className="mt-4 text-xs font-medium uppercase tracking-wide text-[#2563eb]">Abrir modulo</p>
               </Card>
             </a>
           ))}
@@ -75,7 +75,7 @@ function DashboardPage() {
   const companyItems = [
     {
       href: '/minha-conta/bot',
-      title: 'Configuracoes do bot',
+      title: 'Configurações do bot',
       description: 'Ajuste mensagens, areas, horarios e regras de resposta.',
     },
     {
@@ -91,11 +91,11 @@ function DashboardPage() {
     {
       href: '/suporte',
       title: 'Suporte',
-      description: 'Abra solicitacoes para o time da plataforma quando precisar de ajuda.',
+      description: 'Abra solicitações para o time da plataforma quando precisar de ajuda.',
     },
     {
       href: '/minha-conta/suporte/solicitacoes',
-      title: 'Minhas solicitacoes',
+      title: 'Minhas solicitações',
       description: 'Acompanhe apenas os chamados que voce abriu.',
     },
   ];
@@ -103,7 +103,7 @@ function DashboardPage() {
   if (data.can_manage_users) {
     companyItems.push({
       href: '/minha-conta/usuarios',
-      title: 'Usuarios',
+      title: 'Usuários',
       description: 'Controle acessos, perfis e areas de atuacao do time.',
     });
   }
@@ -112,7 +112,7 @@ function DashboardPage() {
     <Layout role="company" companyName={data.companyName} onLogout={logout}>
       <PageHeader
         title={`Dashboard - ${data.companyName ?? 'Empresa'}`}
-        subtitle="Resumo de operacao para manter o bot alinhado com o atendimento humano."
+        subtitle="Resumo de operação para manter o bot alinhado com o atendimento humano."
       />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {companyItems.map((item) => (
@@ -120,7 +120,7 @@ function DashboardPage() {
             <Card className="h-full transition group-hover:-translate-y-0.5 group-hover:shadow-[0_18px_30px_-24px_rgba(15,23,42,0.95)]">
               <p className="text-base font-semibold text-[#0f172a]">{item.title}</p>
               <p className="mt-2 text-sm text-[#64748b]">{item.description}</p>
-              <p className="mt-4 text-xs font-medium uppercase tracking-wide text-[#f53003]">Abrir modulo</p>
+              <p className="mt-4 text-xs font-medium uppercase tracking-wide text-[#2563eb]">Abrir modulo</p>
             </Card>
           </a>
         ))}

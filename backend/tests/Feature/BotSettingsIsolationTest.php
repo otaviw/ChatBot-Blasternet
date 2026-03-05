@@ -174,8 +174,8 @@ class BotSettingsIsolationTest extends TestCase
             'is_active' => true,
             'timezone' => 'America/Sao_Paulo',
             'welcome_message' => 'Oi. Como posso ajudar?',
-            'fallback_message' => 'Nao entendi sua mensagem.',
-            'out_of_hours_message' => 'Estamos fora do horario de atendimento.',
+            'fallback_message' => 'Não entendi sua mensagem.',
+            'out_of_hours_message' => 'Estamos fora do horário de atendimento.',
             'business_hours' => [
                 'monday' => ['enabled' => true, 'start' => '08:00', 'end' => '18:00'],
                 'tuesday' => ['enabled' => true, 'start' => '08:00', 'end' => '18:00'],

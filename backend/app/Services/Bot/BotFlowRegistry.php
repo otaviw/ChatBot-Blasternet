@@ -40,12 +40,12 @@ class BotFlowRegistry
 
     public function mainMenuText(): string
     {
-        return "Ola! O que voce precisa?\n1 - Suporte tecnico\n2 - Vendas\n3 - Falar com atendente";
+        return "Olá! O que você precisa?\n1 - Suporte técnico\n2 - Vendas\n3 - Falar com atendente";
     }
 
     public function supportIssueMenuText(): string
     {
-        return "Suporte tecnico. Qual o problema?\n1 - Internet lenta\n2 - Sem conexao\n3 - Outro";
+        return "Suporte técnico. Qual o problema?\n1 - Internet lenta\n2 - Sem conexão\n3 - Outro";
     }
 
     public function supportFreeTextPrompt(): string
@@ -60,7 +60,7 @@ class BotFlowRegistry
     {
         $labels = implode(', ', $options);
 
-        return "Opcao invalida. Responda com {$labels}.";
+        return "Opção inválida. Responda com {$labels}.";
     }
 
     /**
@@ -362,7 +362,7 @@ class BotFlowRegistry
                 'invalid_option_text' => null,
                 'options' => [
                     '1' => [
-                        'label' => 'Suporte tecnico',
+                        'label' => 'Suporte técnico',
                         'action' => [
                             'kind' => 'go_to',
                             'flow' => self::FLOW_SUPPORT,
@@ -402,11 +402,11 @@ class BotFlowRegistry
                         ],
                     ],
                     '2' => [
-                        'label' => 'Sem conexao',
+                        'label' => 'Sem conexão',
                         'action' => [
                             'kind' => 'handoff',
                             'target_area_name' => self::AREA_SUPPORT,
-                            'reply_text' => 'Entendi: sem conexao. Vou te encaminhar para o Suporte.',
+                            'reply_text' => 'Entendi: sem conexão. Vou te encaminhar para o Suporte.',
                         ],
                     ],
                     '3' => [
@@ -449,7 +449,7 @@ class BotFlowRegistry
             return $this->mainMenuText();
         }
 
-        return "{$welcome}\n1 - Suporte tecnico\n2 - Vendas\n3 - Falar com atendente";
+        return "{$welcome}\n1 - Suporte técnico\n2 - Vendas\n3 - Falar com atendente";
     }
 
     private function stateKey(string $flow, string $step): string

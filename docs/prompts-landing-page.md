@@ -10,7 +10,7 @@ Use estes prompts com Cursor ou outra IA para gerar e refinar a landing page.
 Crie uma landing page para o produto "Blasternet ChatBot", um sistema de atendimento via WhatsApp com bot inteligente, inbox unificado, respostas rápidas e transferência entre áreas/usuários.
 
 Requisitos:
-- Design moderno e minimalista, alinhado ao restante do app (cores primária #f53003, tipografia Sora, fundo neutro)
+- Design moderno e minimalista, alinhado ao restante do app (cores primária #2563eb, tipografia Sora, fundo neutro)
 - Seções: hero (título + CTA), benefícios (3–4 pontos: atendimento 24/7, respostas automáticas, inbox unificado, transferência entre equipes), CTA final
 - Botão principal "Acessar painel" que redireciona para /entrar
 - Deve ser responsiva e carregar rápido
@@ -28,7 +28,7 @@ Refine a landing page do Blasternet ChatBot com foco em:
 1. Refinamento visual (UI):
    - Ajuste espaçamentos (whitespace) e hierarquia tipográfica
    - Melhore contraste e legibilidade
-   - Deixe CTAs mais evidentes e alinhados ao design system (#f53003 como acento)
+   - Deixe CTAs mais evidentes e alinhados ao design system (#2563eb como acento)
 
 2. Usabilidade (UX):
    - Verifique se o CTA "Acessar painel" tem hover/focus acessível

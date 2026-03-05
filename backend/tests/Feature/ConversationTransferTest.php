@@ -127,7 +127,7 @@ class ConversationTransferTest extends TestCase
             'send_outbound' => false,
         ]);
         $invalidReply->assertStatus(409);
-        $invalidReply->assertJsonPath('message', 'Conversa destinada para outra area de atendimento.');
+        $invalidReply->assertJsonPath('message', 'Conversa destinada para outra área de atendimento.');
 
         $validReply = $this->actingAs($financeUser)->postJson("/api/minha-conta/conversas/{$conversationId}/responder-manual", [
             'text' => 'Atendimento financeiro iniciado',

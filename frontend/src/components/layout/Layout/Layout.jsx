@@ -36,7 +36,7 @@ function Layout({ children, role, companyName, onLogout }) {
   const adminLinks = [
     { href: '/dashboard', label: 'Dashboard' },
     { href: '/admin/empresas', label: 'Empresas' },
-    { href: '/admin/suporte', label: 'Solicitacoes' },
+    { href: '/admin/suporte', label: 'Solicitações' },
     { href: '/suporte', label: 'Abrir suporte' },
     { href: '/admin/simulador', label: 'Simulador' },
   ];
@@ -47,13 +47,13 @@ function Layout({ children, role, companyName, onLogout }) {
       { href: '/minha-conta/bot', label: 'Bot' },
       { href: '/minha-conta/conversas', label: 'Inbox' },
       { href: '/suporte', label: 'Suporte' },
-      { href: '/minha-conta/suporte/solicitacoes', label: 'Solicitacoes' },
+      { href: '/minha-conta/suporte/solicitacoes', label: 'Solicitações' },
       { href: '/minha-conta/simulador', label: 'Simulador' },
       { href: '/minha-conta/respostas-rapidas', label: 'Respostas' },
     ];
 
     if (canManageUsers) {
-      links.push({ href: '/minha-conta/usuarios', label: 'Usuarios' });
+      links.push({ href: '/minha-conta/usuarios', label: 'Usuários' });
     }
 
     return links;
@@ -84,13 +84,13 @@ function Layout({ children, role, companyName, onLogout }) {
               isCompany ? 'text-sm md:text-sm' : 'text-sm md:text-base'
             }`}
           >
-            <span className="h-2.5 w-2.5 rounded-full bg-[#f53003]" />
+            <span className="h-2.5 w-2.5 rounded-full bg-[#2563eb]" />
             Blasternet ChatBot
             {role === 'company' && companyName ? (
               <span className="hidden xl:inline text-[#64748b] text-xs">/ {companyName}</span>
             ) : null}
             {role === 'admin' ? (
-              <span className="rounded-full bg-[#fee2e2] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#b91c1c]">
+              <span className="rounded-full bg-[#dbeafe] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#1d4ed8]">
                 Admin
               </span>
             ) : null}
@@ -110,7 +110,7 @@ function Layout({ children, role, companyName, onLogout }) {
                       ? 'rounded-md px-2 py-1 transition-colors focus-visible:outline-none'
                       : 'rounded-md px-2.5 py-1.5 transition-colors focus-visible:outline-none',
                     isActive(item.href)
-                      ? 'text-[#0f172a] font-semibold border-b-2 border-[#f53003]'
+                      ? 'text-[#0f172a] font-semibold border-b-2 border-[#2563eb]'
                       : 'text-[#475569] border-b-2 border-transparent hover:text-[#0f172a] hover:border-[#cbd5e1]',
                   ].join(' ')}
                 >
@@ -120,7 +120,7 @@ function Layout({ children, role, companyName, onLogout }) {
               <a
                 href="/entrar"
                 onClick={handleLogout}
-                className={`text-[#b91c1c] border-b-2 border-transparent hover:border-[#fecaca] hover:bg-[#fff1f2] focus-visible:outline-none ${
+                className={`text-[#1d4ed8] border-b-2 border-transparent hover:border-[#bfdbfe] hover:bg-[#eff6ff] focus-visible:outline-none ${
                   isCompany ? 'rounded-md px-2 py-1' : 'rounded-md px-2.5 py-1.5'
                 }`}
               >

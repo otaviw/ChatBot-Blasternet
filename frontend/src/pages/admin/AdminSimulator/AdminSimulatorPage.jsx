@@ -74,7 +74,7 @@ function AdminSimulatorPage() {
   if (error || !data?.authenticated) {
     return (
       <Layout>
-        <p className="text-sm text-red-600">Nao foi possivel carregar o simulador.</p>
+        <p className="text-sm text-red-600">Não foi possível carregar o simulador.</p>
       </Layout>
     );
   }
@@ -122,7 +122,7 @@ function AdminSimulatorPage() {
               label: 'Resposta do bot',
               value: result.reply ?? '(sem resposta automatica: conversa em modo manual)',
             },
-            { label: 'Envio externo', value: result.was_sent ? 'Sim' : 'Nao' },
+            { label: 'Envio externo', value: result.was_sent ? 'Sim' : 'Não' },
           ]}
         />
       )}

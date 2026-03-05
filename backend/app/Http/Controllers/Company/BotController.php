@@ -17,7 +17,7 @@ class BotController extends Controller
         private AuditLogService $auditLog
     ) {}
 
-    /** Configuracoes do bot da empresa logada (respostas, horarios, etc.). */
+    /** Configurações do bot da empresa logada (respostas, horários, etc.). */
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -127,8 +127,8 @@ class BotController extends Controller
             'is_active' => true,
             'timezone' => 'America/Sao_Paulo',
             'welcome_message' => 'Oi. Como posso ajudar?',
-            'fallback_message' => 'Nao entendi sua mensagem. Pode reformular?',
-            'out_of_hours_message' => 'Estamos fora do horario de atendimento no momento.',
+            'fallback_message' => 'Não entendi sua mensagem. Pode reformular?',
+            'out_of_hours_message' => 'Estamos fora do horário de atendimento no momento.',
             'business_hours' => $this->defaultBusinessHours(),
             'keyword_replies' => [],
             'service_areas' => [],

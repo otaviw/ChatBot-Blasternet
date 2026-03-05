@@ -273,7 +273,7 @@ function CompanyInboxPage() {
   const transferConversation = async () => {
     if (!detail?.id) return;
     if (!transferArea && !transferUserId) {
-      setTransferError('Selecione uma area ou um usuario destino.');
+      setTransferError('Selecione uma área ou um usuário destino.');
       setTransferSuccess('');
       return;
     }
@@ -478,7 +478,7 @@ function CompanyInboxPage() {
                   onClick={() => openConversation(conv.id)}
                   className={`w-full text-left px-3 py-2.5 rounded-lg border transition ${
                     selectedId === conv.id
-                      ? 'border-[#f53003] bg-[#fff5f2] shadow-[0_10px_20px_-22px_rgba(245,48,3,0.75)]'
+                      ? 'border-[#2563eb] bg-[#eff6ff] shadow-[0_10px_20px_-22px_rgba(37,99,235,0.75)]'
                       : conv.status === 'closed'
                         ? 'border-[#e3e3e0] opacity-60'
                         : 'border-[#d9e1ec] hover:border-[#c5d1e1] hover:bg-[#f8fafc]'
@@ -620,7 +620,7 @@ function CompanyInboxPage() {
                 <div>
                   <p className="text-sm font-medium">Transferir conversa</p>
                   <p className="text-xs text-[#526175]">
-                    Escolha uma area ou um usuario especifico da area. A transferencia e aceita automaticamente.
+                    Escolha uma área ou um usuário específico da área. A transferência é aceita automaticamente.
                   </p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -660,7 +660,7 @@ function CompanyInboxPage() {
                       }}
                       className="app-input text-sm"
                     >
-                      <option value="">Selecionar usuario</option>
+                      <option value="">Selecionar usuário</option>
                       {availableUsers.map((user) => (
                         <option key={user.id} value={user.id}>
                           {user.name}{' '}

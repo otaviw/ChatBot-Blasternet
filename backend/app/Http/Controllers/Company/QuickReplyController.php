@@ -58,7 +58,7 @@ class QuickReplyController extends Controller
         }
 
         if ((int) $quickReply->company_id !== (int) $user->company_id) {
-            return response()->json(['message' => 'Nao autorizado.'], 403);
+            return response()->json(['message' => 'Não autorizado.'], 403);
         }
 
         $validated = $request->validate([
@@ -82,7 +82,7 @@ class QuickReplyController extends Controller
         }
 
         if ((int) $quickReply->company_id !== (int) $user->company_id) {
-            return response()->json(['message' => 'Nao autorizado.'], 403);
+            return response()->json(['message' => 'Não autorizado.'], 403);
         }
 
         $quickReply->delete();

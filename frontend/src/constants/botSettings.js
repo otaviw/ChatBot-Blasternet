@@ -14,8 +14,8 @@ const DEFAULT_SETTINGS = {
   is_active: true,
   timezone: 'America/Sao_Paulo',
   welcome_message: 'Oi. Como posso ajudar?',
-  fallback_message: 'Nao entendi sua mensagem. Pode reformular?',
-  out_of_hours_message: 'Estamos fora do horario de atendimento no momento.',
+  fallback_message: 'Não entendi sua mensagem. Pode reformular?',
+  out_of_hours_message: 'Estamos fora do horário de atendimento no momento.',
   business_hours: {
     monday: { enabled: true, start: '08:00', end: '18:00' },
     tuesday: { enabled: true, start: '08:00', end: '18:00' },
@@ -39,10 +39,10 @@ function buildDefaultStatefulMenuFlow(welcomeMessage = 'Ola! O que voce precisa?
     steps: {
       'main.menu': {
         type: 'numeric_menu',
-        reply_text: `${intro}\n1 - Suporte tecnico\n2 - Vendas\n3 - Falar com atendente`,
+        reply_text: `${intro}\n1 - Suporte técnico\n2 - Vendas\n3 - Falar com atendente`,
         options: {
           '1': {
-            label: 'Suporte tecnico',
+            label: 'Suporte técnico',
             action: { kind: 'go_to', flow: 'support', step: 'issue_menu' },
           },
           '2': {
@@ -65,7 +65,7 @@ function buildDefaultStatefulMenuFlow(welcomeMessage = 'Ola! O que voce precisa?
       },
       'support.issue_menu': {
         type: 'numeric_menu',
-        reply_text: 'Suporte tecnico. Qual o problema?\n1 - Internet lenta\n2 - Sem conexao\n3 - Outro',
+        reply_text: 'Suporte técnico. Qual o problema?\n1 - Internet lenta\n2 - Sem conexão\n3 - Outro',
         options: {
           '1': {
             label: 'Internet lenta',
@@ -76,11 +76,11 @@ function buildDefaultStatefulMenuFlow(welcomeMessage = 'Ola! O que voce precisa?
             },
           },
           '2': {
-            label: 'Sem conexao',
+            label: 'Sem conexão',
             action: {
               kind: 'handoff',
               target_area_name: 'Suporte',
-              reply_text: 'Entendi: sem conexao. Vou te encaminhar para o Suporte.',
+              reply_text: 'Entendi: sem conexão. Vou te encaminhar para o Suporte.',
             },
           },
           '3': {
