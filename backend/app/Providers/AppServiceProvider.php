@@ -7,9 +7,13 @@ use App\Models\Area;
 use App\Models\Conversation;
 use App\Models\ConversationTransfer;
 use App\Models\Message;
+use App\Models\Notification;
+use App\Models\SupportTicket;
 use App\Observers\CompanyBotSettingObserver;
 use App\Observers\ConversationTransferObserver;
 use App\Observers\MessageObserver;
+use App\Observers\NotificationObserver;
+use App\Observers\SupportTicketObserver;
 use App\Policies\AreaPolicy;
 use App\Policies\ConversationPolicy;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -38,6 +42,8 @@ class AppServiceProvider extends ServiceProvider
         Message::observe(MessageObserver::class);
         CompanyBotSetting::observe(CompanyBotSettingObserver::class);
         ConversationTransfer::observe(ConversationTransferObserver::class);
+        Notification::observe(NotificationObserver::class);
+        SupportTicket::observe(SupportTicketObserver::class);
 
         RateLimiter::for('bot-write', function (Request $request) {
             return Limit::perMinute((int) env('RATE_LIMIT_BOT_WRITE', 60))

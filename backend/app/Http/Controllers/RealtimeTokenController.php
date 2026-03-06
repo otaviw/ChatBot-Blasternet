@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Conversation;
 use App\Models\User;
+use App\Services\ConversationPresenceService;
 use App\Services\JwtTokenService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,17 +13,15 @@ use RuntimeException;
 class RealtimeTokenController extends Controller
 {
     public function __construct(
-        private JwtTokenService $jwt
+        private JwtTokenService $jwt,
+        private ConversationPresenceService $presenceService
     ) {}
 
     public function issueSocketToken(Request $request): JsonResponse
     {
-        $user = $request->user();
-        if (! $user) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
+        $user = $this->resolveAuthenticatedUser($request);
+        if (! $user instanceof User) {
+            return $this->unauthenticatedResponse();
         }
 
         try {
@@ -53,12 +52,9 @@ class RealtimeTokenController extends Controller
 
     public function issueConversationJoinToken(Request $request, Conversation $conversation): JsonResponse
     {
-        $user = $request->user();
-        if (! $user) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
+        $user = $this->resolveAuthenticatedUser($request);
+        if (! $user instanceof User) {
+            return $this->unauthenticatedResponse();
         }
 
         if (! $this->canJoinConversation($user, $conversation)) {
@@ -93,9 +89,66 @@ class RealtimeTokenController extends Controller
         ]);
     }
 
+    public function touchConversationPresence(Request $request, Conversation $conversation): JsonResponse
+    {
+        $user = $this->resolveAuthenticatedUser($request);
+        if (! $user instanceof User) {
+            return $this->unauthenticatedResponse();
+        }
+
+        if (! $this->canJoinConversation($user, $conversation)) {
+            return response()->json([
+                'message' => 'Sem permissao para atualizar presenca desta conversa.',
+            ], 403);
+        }
+
+        $this->presenceService->touch((int) $user->id, (int) $conversation->id);
+
+        return response()->json([
+            'ok' => true,
+            'conversation_id' => (int) $conversation->id,
+        ]);
+    }
+
+    public function clearConversationPresence(Request $request, Conversation $conversation): JsonResponse
+    {
+        $user = $this->resolveAuthenticatedUser($request);
+        if (! $user instanceof User) {
+            return $this->unauthenticatedResponse();
+        }
+
+        if (! $this->canJoinConversation($user, $conversation)) {
+            return response()->json([
+                'message' => 'Sem permissao para atualizar presenca desta conversa.',
+            ], 403);
+        }
+
+        $this->presenceService->clear((int) $user->id, (int) $conversation->id);
+
+        return response()->json([
+            'ok' => true,
+            'conversation_id' => (int) $conversation->id,
+        ]);
+    }
+
     private function canJoinConversation(User $user, Conversation $conversation): bool
     {
         return $user->isCompanyUser()
             && (int) $user->company_id === (int) $conversation->company_id;
+    }
+
+    private function resolveAuthenticatedUser(Request $request): ?User
+    {
+        $user = $request->user();
+
+        return $user instanceof User ? $user : null;
+    }
+
+    private function unauthenticatedResponse(): JsonResponse
+    {
+        return response()->json([
+            'authenticated' => false,
+            'redirect' => '/entrar',
+        ], 403);
     }
 }

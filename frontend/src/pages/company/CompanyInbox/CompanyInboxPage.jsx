@@ -6,12 +6,17 @@ import useLogout from '@/hooks/useLogout';
 import api from '@/services/api';
 import realtimeClient from '@/services/realtimeClient';
 import PageHeader from '@/components/ui/PageHeader/PageHeader.jsx';
+import { useNotificationsContext } from '@/contexts/NotificationsContext';
+import { NOTIFICATION_MODULE, NOTIFICATION_REFERENCE_TYPE } from '@/constants/notifications';
+import { appendUniqueMessage, sortConversationsByActivity } from './inboxRealtimeUtils';
+import useInboxRealtimeSync from './useInboxRealtimeSync';
 
 const EMPTY_TRANSFER_OPTIONS = { areas: [], users: [] };
 
 function CompanyInboxPage() {
   const { data, loading, error } = usePageData('/minha-conta/conversas');
   const { logout } = useLogout();
+  const { markReadByReference, unreadConversationIds } = useNotificationsContext();
   const [conversations, setConversations] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [detail, setDetail] = useState(null);
@@ -37,6 +42,12 @@ function CompanyInboxPage() {
   const [transferError, setTransferError] = useState('');
   const [transferSuccess, setTransferSuccess] = useState('');
   const selectedIdRef = useRef(null);
+  const queryConversationHandledRef = useRef(false);
+
+  const unreadConversationSet = useMemo(
+    () => new Set((unreadConversationIds ?? []).map((value) => Number(value))),
+    [unreadConversationIds]
+  );
 
   useEffect(() => {
     return () => {
@@ -47,7 +58,7 @@ function CompanyInboxPage() {
   }, [manualImagePreviewUrl]);
 
   useEffect(() => {
-    setConversations(data?.conversations ?? []);
+    setConversations(sortConversationsByActivity(data?.conversations ?? []));
   }, [data]);
 
   useEffect(() => {
@@ -81,13 +92,66 @@ function CompanyInboxPage() {
 
   const refreshConversations = useCallback(async () => {
     const response = await api.get('/minha-conta/conversas');
-    setConversations(response.data?.conversations ?? []);
+    setConversations(sortConversationsByActivity(response.data?.conversations ?? []));
+  }, []);
+
+  const touchConversationPresence = useCallback(async (conversationId) => {
+    const id = Number.parseInt(String(conversationId), 10);
+    if (!id) {
+      return;
+    }
+
+    try {
+      await api.post(`/realtime/conversations/${id}/presence`);
+    } catch (_error) {
+      // Presenca e best-effort; falha nao deve interromper inbox.
+    }
+  }, []);
+
+  const clearConversationPresence = useCallback(async (conversationId) => {
+    const id = Number.parseInt(String(conversationId), 10);
+    if (!id) {
+      return;
+    }
+
+    try {
+      await api.delete(`/realtime/conversations/${id}/presence`);
+    } catch (_error) {
+      // Presenca e best-effort; falha nao deve interromper inbox.
+    }
+  }, []);
+
+  const refreshConversationDetail = useCallback(async (conversationId) => {
+    const id = Number.parseInt(String(conversationId), 10);
+    if (!id) {
+      return;
+    }
+
+    try {
+      const response = await api.get(`/minha-conta/conversas/${id}`);
+      const conversation = response.data?.conversation ?? null;
+      if (!conversation || Number(selectedIdRef.current) !== id) {
+        return;
+      }
+
+      setDetail((prev) => ({
+        ...(prev ?? {}),
+        ...conversation,
+        messages: Array.isArray(conversation.messages) ? conversation.messages : prev?.messages ?? [],
+        transfer_history: response.data?.transfer_history ?? prev?.transfer_history ?? [],
+      }));
+      setTransferOptions(response.data?.transfer_options ?? EMPTY_TRANSFER_OPTIONS);
+      setContactNameInput(conversation.customer_name ?? '');
+    } catch (_error) {
+      // O estado local ja foi atualizado pelo evento; este refresh e apenas para garantir consistencia.
+    }
   }, []);
 
   const openConversation = useCallback(async (conversationId) => {
     const previousSelected = selectedIdRef.current;
     if (previousSelected && Number(previousSelected) !== Number(conversationId)) {
       realtimeClient.leaveConversation(previousSelected);
+      void clearConversationPresence(previousSelected);
     }
 
     setSelectedId(conversationId);
@@ -107,123 +171,71 @@ function CompanyInboxPage() {
     try {
       const response = await api.get(`/minha-conta/conversas/${conversationId}`);
       const conversation = response.data?.conversation ?? null;
-      setDetail(conversation);
+      setDetail(
+        conversation
+          ? {
+              ...conversation,
+              transfer_history: response.data?.transfer_history ?? [],
+            }
+          : null
+      );
       setContactNameInput(conversation?.customer_name ?? '');
       setTransferOptions(response.data?.transfer_options ?? EMPTY_TRANSFER_OPTIONS);
       setTransferArea(conversation?.assigned_type === 'area' ? String(conversation.assigned_id ?? '') : '');
       await realtimeClient.joinConversation(conversationId);
+      await touchConversationPresence(conversationId);
+      await markReadByReference(
+        NOTIFICATION_MODULE.INBOX,
+        NOTIFICATION_REFERENCE_TYPE.CONVERSATION,
+        conversationId
+      );
     } catch (err) {
       setDetailError(err.response?.data?.message || 'Falha ao carregar conversa.');
     } finally {
       setDetailLoading(false);
     }
-  }, []);
+  }, [clearConversationPresence, markReadByReference, touchConversationPresence]);
 
   useEffect(() => {
-    const unsubscribeMessageCreated = realtimeClient.on('message.created', (envelope) => {
-      const payload = envelope?.payload ?? {};
-      const conversationId = Number.parseInt(String(payload.conversationId ?? ''), 10);
-      const messageId = Number.parseInt(String(payload.messageId ?? ''), 10);
+    if (queryConversationHandledRef.current || loading || !data?.authenticated) {
+      return;
+    }
 
-      if (!conversationId || !messageId) {
-        return;
-      }
+    const params = new URLSearchParams(window.location.search);
+    const conversationId = Number.parseInt(String(params.get('conversationId') ?? ''), 10);
+    if (!conversationId) {
+      queryConversationHandledRef.current = true;
+      return;
+    }
 
-      setConversations((prev) => {
-        let found = false;
-        const next = prev.map((conversation) => {
-          if (Number(conversation.id) !== conversationId) {
-            return conversation;
-          }
+    queryConversationHandledRef.current = true;
+    void openConversation(conversationId);
+  }, [data, loading, openConversation]);
 
-          found = true;
-          return {
-            ...conversation,
-            messages_count: Number(conversation.messages_count ?? 0) + 1,
-          };
-        });
+  useEffect(() => {
+    if (!selectedId) {
+      return undefined;
+    }
 
-        if (!found) {
-          void refreshConversations();
-        }
-
-        return next;
-      });
-
-      if (Number(selectedIdRef.current) !== conversationId) {
-        return;
-      }
-
-      setDetail((prev) => {
-        if (!prev || Number(prev.id) !== conversationId) {
-          return prev;
-        }
-
-        const alreadyExists = (prev.messages ?? []).some((item) => Number(item.id) === messageId);
-        if (alreadyExists) {
-          return prev;
-        }
-
-        return {
-          ...prev,
-          messages: [
-            ...(prev.messages ?? []),
-            {
-              id: messageId,
-              conversation_id: conversationId,
-              direction: payload.direction ?? 'out',
-              type: payload.type ?? 'system',
-              text: payload.text ?? '',
-              content_type: payload.contentType ?? 'text',
-              media_url: payload.mediaUrl ?? null,
-              media_mime_type: payload.mediaMimeType ?? null,
-              media_size_bytes: payload.mediaSizeBytes ?? null,
-              media_width: payload.mediaWidth ?? null,
-              media_height: payload.mediaHeight ?? null,
-              created_at: payload.createdAt ?? null,
-            },
-          ],
-        };
-      });
-    });
-
-    const unsubscribeConversationTransferred = realtimeClient.on('conversation.transferred', (envelope) => {
-      const payload = envelope?.payload ?? {};
-      const conversationId = Number.parseInt(String(payload.conversationId ?? ''), 10);
-      if (!conversationId) {
-        return;
-      }
-
-      setConversations((prev) =>
-        prev.map((conversation) => {
-          if (Number(conversation.id) !== conversationId) {
-            return conversation;
-          }
-
-          return {
-            ...conversation,
-            handling_mode: 'human',
-            status: 'in_progress',
-            assigned_type: payload.toAssignedType ?? conversation.assigned_type,
-            assigned_id: payload.toAssignedId ?? conversation.assigned_id,
-          };
-        })
-      );
-
-      if (Number(selectedIdRef.current) === conversationId) {
-        void openConversation(conversationId);
-      }
-    });
+    void touchConversationPresence(selectedId);
+    const heartbeat = setInterval(() => {
+      void touchConversationPresence(selectedId);
+    }, 15000);
 
     return () => {
-      unsubscribeMessageCreated();
-      unsubscribeConversationTransferred();
-
-      if (selectedIdRef.current) {
-        realtimeClient.leaveConversation(selectedIdRef.current);
-      }
+      clearInterval(heartbeat);
+      void clearConversationPresence(selectedId);
     };
-  }, [openConversation, refreshConversations]);
+  }, [clearConversationPresence, selectedId, touchConversationPresence]);
+
+  useInboxRealtimeSync({
+    clearConversationPresence,
+    refreshConversationDetail,
+    refreshConversations,
+    selectedIdRef,
+    setConversations,
+    setDetail,
+  });
 
   const assumeConversation = async () => {
     if (!detail?.id) return;
@@ -291,10 +303,12 @@ function CompanyInboxPage() {
       });
 
       const autoMessage = response.data?.message ?? null;
+      const transferHistory = response.data?.transfer_history ?? [];
       setDetail((prev) => ({
         ...(prev ?? {}),
         ...response.data?.conversation,
-        messages: autoMessage ? [...(prev?.messages ?? []), autoMessage] : prev?.messages ?? [],
+        transfer_history: transferHistory.length ? transferHistory : prev?.transfer_history ?? [],
+        messages: autoMessage ? appendUniqueMessage(prev?.messages ?? [], autoMessage) : prev?.messages ?? [],
       }));
 
       setTransferSuccess('Transferencia realizada com sucesso.');
@@ -361,7 +375,7 @@ function CompanyInboxPage() {
       setDetail((prev) => ({
         ...(prev ?? {}),
         ...response.data?.conversation,
-        messages: [...(prev?.messages ?? []), message],
+        messages: appendUniqueMessage(prev?.messages ?? [], message),
       }));
       setManualText('');
       if (manualImagePreviewUrl) {
@@ -471,38 +485,49 @@ function CompanyInboxPage() {
           <h2 className="text-base font-semibold mb-3">Conversas</h2>
           {!conversations.length && <p className="text-sm text-[#706f6c]">Nenhuma conversa.</p>}
           <ul className="space-y-2 text-sm">
-            {conversations.map((conv) => (
-              <li key={conv.id}>
-                <button
-                  type="button"
-                  onClick={() => openConversation(conv.id)}
-                  className={`w-full text-left px-3 py-2.5 rounded-lg border transition ${
-                    selectedId === conv.id
-                      ? 'border-[#2563eb] bg-[#eff6ff] shadow-[0_10px_20px_-22px_rgba(37,99,235,0.75)]'
-                      : conv.status === 'closed'
-                        ? 'border-[#e3e3e0] opacity-60'
-                        : 'border-[#d9e1ec] hover:border-[#c5d1e1] hover:bg-[#f8fafc]'
-                  }`}
-                >
-                  <div className="font-medium text-[#0f172a]">
-                    {conv.customer_name ? `${conv.customer_name} (${conv.customer_phone})` : conv.customer_phone}
-                    {' - '}
-                    {conv.status} ({conv.messages_count ?? 0} msg)
-                  </div>
-                  <div className="text-xs text-[#526175] mt-1">
-                    {conv.status === 'closed'
-                      ? 'encerrada'
-                      : conv.handling_mode === 'human'
-                        ? 'manual'
-                        : 'bot'}
-                    {conv.current_area?.name ? <span className="ml-2">area: {conv.current_area.name}</span> : null}
-                    {(conv.tags ?? []).length > 0 && (
-                      <span className="ml-2">{conv.tags.join(', ')}</span>
-                    )}
-                  </div>
-                </button>
-              </li>
-            ))}
+            {conversations.map((conv) => {
+              const hasUnread = unreadConversationSet.has(Number(conv.id));
+
+              return (
+                <li key={conv.id}>
+                  <button
+                    type="button"
+                    onClick={() => openConversation(conv.id)}
+                    className={`w-full text-left px-3 py-2.5 rounded-lg border transition ${
+                      selectedId === conv.id
+                        ? 'border-[#2563eb] bg-[#eff6ff] shadow-[0_10px_20px_-22px_rgba(37,99,235,0.75)]'
+                        : conv.status === 'closed'
+                          ? 'border-[#e3e3e0] opacity-60'
+                          : hasUnread
+                            ? 'border-[#fca5a5] bg-[#fff1f2] hover:border-[#f87171] hover:bg-[#ffe4e6]'
+                            : 'border-[#d9e1ec] hover:border-[#c5d1e1] hover:bg-[#f8fafc]'
+                    }`}
+                  >
+                    <div className="font-medium text-[#0f172a]">
+                      {conv.customer_name ? `${conv.customer_name} (${conv.customer_phone})` : conv.customer_phone}
+                      {' - '}
+                      {conv.status} ({conv.messages_count ?? 0} msg)
+                    </div>
+                    <div className="text-xs text-[#526175] mt-1">
+                      {conv.status === 'closed'
+                        ? 'encerrada'
+                        : conv.handling_mode === 'human'
+                          ? 'manual'
+                          : 'bot'}
+                      {hasUnread ? (
+                        <span className="ml-2 rounded-full bg-[#dc2626] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                          nova msg
+                        </span>
+                      ) : null}
+                      {conv.current_area?.name ? <span className="ml-2">area: {conv.current_area.name}</span> : null}
+                      {(conv.tags ?? []).length > 0 && (
+                        <span className="ml-2">{conv.tags.join(', ')}</span>
+                      )}
+                    </div>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </section>
 

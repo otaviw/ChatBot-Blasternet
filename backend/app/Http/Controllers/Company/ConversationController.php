@@ -37,11 +37,29 @@ class ConversationController extends Controller
         }
 
         $companyId = (int) $user->company_id;
+        $lastMessageIdSubquery = Message::query()
+            ->select('id')
+            ->whereColumn('messages.conversation_id', 'conversations.id')
+            ->latest('id')
+            ->limit(1);
+
+        $lastMessageAtSubquery = Message::query()
+            ->select('created_at')
+            ->whereColumn('messages.conversation_id', 'conversations.id')
+            ->latest('id')
+            ->limit(1);
+
         $conversations = Conversation::query()
             ->where('company_id', $companyId)
+            ->addSelect([
+                'last_message_id' => $lastMessageIdSubquery,
+                'last_message_at' => $lastMessageAtSubquery,
+            ])
             ->with(['assignedUser:id,name,email', 'currentArea:id,name'])
             ->withCount('messages')
-            ->latest()
+            ->orderByRaw("COALESCE(({$lastMessageAtSubquery->toSql()}), conversations.created_at) DESC")
+            ->addBinding($lastMessageAtSubquery->getBindings(), 'order')
+            ->orderByDesc('conversations.id')
             ->limit(100)
             ->get();
 

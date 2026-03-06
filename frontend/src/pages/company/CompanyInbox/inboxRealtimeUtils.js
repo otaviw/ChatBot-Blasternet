@@ -1,0 +1,67 @@
+export function toTimestamp(value) {
+  if (!value) return 0;
+
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+export function conversationActivityTimestamp(conversation) {
+  return Math.max(
+    toTimestamp(conversation?.last_message_at),
+    toTimestamp(conversation?.updated_at),
+    toTimestamp(conversation?.created_at)
+  );
+}
+
+export function sortConversationsByActivity(items) {
+  return [...items].sort((a, b) => {
+    const byActivity = conversationActivityTimestamp(b) - conversationActivityTimestamp(a);
+    if (byActivity !== 0) {
+      return byActivity;
+    }
+
+    return Number(b?.id ?? 0) - Number(a?.id ?? 0);
+  });
+}
+
+export function appendUniqueMessage(messages, message) {
+  if (!message || !message.id) {
+    return messages;
+  }
+
+  const exists = messages.some((item) => Number(item.id) === Number(message.id));
+  return exists ? messages : [...messages, message];
+}
+
+export function normalizeEventConversation(payload) {
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+
+  const id = Number.parseInt(String(payload.id ?? ''), 10);
+  if (!id) {
+    return null;
+  }
+
+  return {
+    ...payload,
+    id,
+  };
+}
+
+export function buildRealtimeMessage(payload, conversationId, messageId) {
+  return {
+    id: messageId,
+    conversation_id: conversationId,
+    direction: payload.direction ?? 'out',
+    type: payload.type ?? 'system',
+    text: payload.text ?? '',
+    content_type: payload.contentType ?? 'text',
+    media_url: payload.mediaUrl ?? null,
+    media_mime_type: payload.mediaMimeType ?? null,
+    media_size_bytes: payload.mediaSizeBytes ?? null,
+    media_width: payload.mediaWidth ?? null,
+    media_height: payload.mediaHeight ?? null,
+    created_at: payload.createdAt ?? null,
+  };
+}

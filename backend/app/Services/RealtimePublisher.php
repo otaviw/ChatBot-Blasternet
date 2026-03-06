@@ -34,12 +34,22 @@ class RealtimePublisher
             return;
         }
 
-        $pending = PublishRealtimeEventJob::dispatch($envelope)
-            ->onQueue((string) config('realtime.publish.queue', 'realtime'));
-
         if ($mode === 'after_response') {
-            $pending->afterResponse();
+            if (app()->runningInConsole()) {
+                $this->publishNow($envelope);
+
+                return;
+            }
+
+            app()->terminating(function () use ($envelope): void {
+                $this->publishNow($envelope);
+            });
+
+            return;
         }
+
+        PublishRealtimeEventJob::dispatch($envelope)
+            ->onQueue((string) config('realtime.publish.queue', 'realtime'));
     }
 
     /**

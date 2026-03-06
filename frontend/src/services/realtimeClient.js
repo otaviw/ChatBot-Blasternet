@@ -5,6 +5,7 @@ const SUPPORTED_EVENTS = new Set([
   'message.created',
   'bot.updated',
   'conversation.transferred',
+  'notification.created',
 ]);
 
 const MAX_SEEN_ITEMS = 1500;
@@ -18,6 +19,7 @@ class RealtimeClient {
     this.joinedConversations = new Set();
     this.seenRequestIds = new Map();
     this.seenMessageIds = new Map();
+    this.seenTransferIds = new Map();
     this.reconnectTimer = null;
   }
 
@@ -299,13 +301,15 @@ class RealtimeClient {
     const now = Date.now();
     this.pruneSeen(this.seenRequestIds, now);
     this.pruneSeen(this.seenMessageIds, now);
+    this.pruneSeen(this.seenTransferIds, now);
 
     const requestId = String(envelope?.meta?.requestId ?? '').trim();
     if (requestId !== '') {
-      if (this.seenRequestIds.has(requestId)) {
+      const scopedRequestKey = `${eventName}:${requestId}:${this.buildRequestDedupeKey(eventName, envelope?.payload)}`;
+      if (this.seenRequestIds.has(scopedRequestKey)) {
         return true;
       }
-      this.seenRequestIds.set(requestId, now);
+      this.seenRequestIds.set(scopedRequestKey, now);
     }
 
     if (eventName === 'message.created') {
@@ -318,7 +322,45 @@ class RealtimeClient {
       }
     }
 
+    if (eventName === 'conversation.transferred') {
+      const transferId = Number.parseInt(String(envelope?.payload?.transferId ?? ''), 10);
+      if (transferId > 0) {
+        if (this.seenTransferIds.has(transferId)) {
+          return true;
+        }
+        this.seenTransferIds.set(transferId, now);
+      }
+    }
+
     return false;
+  }
+
+  buildRequestDedupeKey(eventName, payload) {
+    if (!payload || typeof payload !== 'object') {
+      return 'empty';
+    }
+
+    if (eventName === 'message.created') {
+      const messageId = Number.parseInt(String(payload.messageId ?? ''), 10);
+      return messageId > 0 ? `message:${messageId}` : 'message:unknown';
+    }
+
+    if (eventName === 'conversation.transferred') {
+      const transferId = Number.parseInt(String(payload.transferId ?? ''), 10);
+      return transferId > 0 ? `transfer:${transferId}` : 'transfer:unknown';
+    }
+
+    if (eventName === 'notification.created') {
+      const notificationId = Number.parseInt(String(payload?.notification?.id ?? ''), 10);
+      return notificationId > 0 ? `notification:${notificationId}` : 'notification:unknown';
+    }
+
+    const companyId = Number.parseInt(String(payload.companyId ?? ''), 10);
+    if (companyId > 0) {
+      return `company:${companyId}`;
+    }
+
+    return 'generic';
   }
 
   pruneSeen(map, now) {

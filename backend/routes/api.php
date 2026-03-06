@@ -6,6 +6,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AreaController;
 use App\Http\Controllers\ConversationTransferController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\RealtimeTokenController;
 use App\Http\Controllers\SimulatedMessageController;
 use App\Http\Controllers\SupportTicketController;
@@ -36,6 +37,10 @@ Route::middleware('web')->group(function () {
             ->middleware('throttle:realtime-token');
         Route::post('/realtime/conversations/{conversation}/join-token', [RealtimeTokenController::class, 'issueConversationJoinToken'])
             ->middleware('throttle:realtime-join');
+        Route::post('/realtime/conversations/{conversation}/presence', [RealtimeTokenController::class, 'touchConversationPresence'])
+            ->middleware('throttle:realtime-join');
+        Route::delete('/realtime/conversations/{conversation}/presence', [RealtimeTokenController::class, 'clearConversationPresence'])
+            ->middleware('throttle:realtime-join');
         Route::post('/suporte/solicitacoes', [SupportTicketController::class, 'store'])
             ->middleware('throttle:bot-write');
         Route::get('/suporte/minhas-solicitacoes', [SupportTicketController::class, 'mine'])
@@ -43,6 +48,14 @@ Route::middleware('web')->group(function () {
         Route::get('/suporte/minhas-solicitacoes/{ticket}', [SupportTicketController::class, 'showMine'])
             ->middleware('throttle:inbox-read');
         Route::get('/dashboard', [HomeController::class, 'dashboard']);
+        Route::get('/notifications', [NotificationController::class, 'index'])
+            ->middleware('throttle:inbox-read');
+        Route::get('/notifications/unread-counts', [NotificationController::class, 'unreadCounts'])
+            ->middleware('throttle:inbox-read');
+        Route::post('/notifications/{notification}/read', [NotificationController::class, 'markAsRead'])
+            ->middleware('throttle:bot-write');
+        Route::post('/notifications/read-by-reference', [NotificationController::class, 'markReadByReference'])
+            ->middleware('throttle:bot-write');
         Route::get('/areas', [AreaController::class, 'index'])->middleware('throttle:inbox-read');
         Route::get('/areas/{area}/users', [AreaController::class, 'users'])->middleware('throttle:inbox-read');
         Route::post('/conversations/{conversation}/transfer', [ConversationTransferController::class, 'store'])

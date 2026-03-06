@@ -1,11 +1,14 @@
 import './Layout.css';
 import { useEffect, useMemo, useState } from 'react';
 import api from '@/services/api';
+import { useNotificationsContext } from '@/contexts/NotificationsContext';
+import { NOTIFICATION_MODULE } from '@/constants/notifications';
 
 function Layout({ children, role, companyName, onLogout }) {
   const isLogged = Boolean(role);
   const currentPath = window.location.pathname;
   const [canManageUsers, setCanManageUsers] = useState(false);
+  const { unreadByModule, totalUnread } = useNotificationsContext();
 
   useEffect(() => {
     let canceled = false;
@@ -37,8 +40,10 @@ function Layout({ children, role, companyName, onLogout }) {
     { href: '/dashboard', label: 'Dashboard' },
     { href: '/admin/empresas', label: 'Empresas' },
     { href: '/admin/usuarios', label: 'Usuarios' },
-    { href: '/admin/suporte', label: 'Solicitacoes' },
-    { href: '/suporte', label: 'Abrir suporte' },
+    { href: '/admin/conversas', label: 'Inbox', module: NOTIFICATION_MODULE.INBOX },
+    { href: '/admin/suporte', label: 'Solicitacoes', module: NOTIFICATION_MODULE.SUPPORT },
+    { href: '/suporte', label: 'Abrir suporte', module: NOTIFICATION_MODULE.SUPPORT },
+    { href: '/notificacoes', label: 'Notificacoes', module: NOTIFICATION_MODULE.CENTER },
     { href: '/admin/simulador', label: 'Simulador' },
   ];
 
@@ -46,9 +51,10 @@ function Layout({ children, role, companyName, onLogout }) {
     const links = [
       { href: '/dashboard', label: 'Dashboard' },
       { href: '/minha-conta/bot', label: 'Bot' },
-      { href: '/minha-conta/conversas', label: 'Inbox' },
-      { href: '/suporte', label: 'Suporte' },
-      { href: '/minha-conta/suporte/solicitacoes', label: 'Solicitacoes' },
+      { href: '/minha-conta/conversas', label: 'Inbox', module: NOTIFICATION_MODULE.INBOX },
+      { href: '/suporte', label: 'Suporte', module: NOTIFICATION_MODULE.SUPPORT },
+      { href: '/minha-conta/suporte/solicitacoes', label: 'Solicitacoes', module: NOTIFICATION_MODULE.SUPPORT },
+      { href: '/notificacoes', label: 'Notificacoes', module: NOTIFICATION_MODULE.CENTER },
       { href: '/minha-conta/simulador', label: 'Simulador' },
       { href: '/minha-conta/respostas-rapidas', label: 'Respostas' },
     ];
@@ -73,6 +79,18 @@ function Layout({ children, role, companyName, onLogout }) {
     if (currentPath === href) return true;
     if (href === '/dashboard') return false;
     return currentPath.startsWith(`${href}/`);
+  };
+
+  const unreadCountForLink = (item) => {
+    if (!item?.module) {
+      return 0;
+    }
+
+    if (item.module === NOTIFICATION_MODULE.CENTER) {
+      return Number(totalUnread ?? 0);
+    }
+
+    return Number(unreadByModule?.[item.module] ?? 0);
   };
 
   return (
@@ -102,22 +120,32 @@ function Layout({ children, role, companyName, onLogout }) {
                 isCompany ? 'md:max-w-[70%] md:text-xs' : 'md:max-w-[72%]'
               }`}
             >
-              {links.map((item) => (
-                <a
-                  key={item.href}
-                  href={item.href}
-                  className={[
-                    isCompany
-                      ? 'rounded-md px-2 py-1 transition-colors focus-visible:outline-none'
-                      : 'rounded-md px-2.5 py-1.5 transition-colors focus-visible:outline-none',
-                    isActive(item.href)
-                      ? 'text-[#0f172a] font-semibold border-b-2 border-[#2563eb]'
-                      : 'text-[#475569] border-b-2 border-transparent hover:text-[#0f172a] hover:border-[#cbd5e1]',
-                  ].join(' ')}
-                >
-                  {item.label}
-                </a>
-              ))}
+              {links.map((item) => {
+                const unreadCount = unreadCountForLink(item);
+                return (
+                  <a
+                    key={item.href}
+                    href={item.href}
+                    className={[
+                      isCompany
+                        ? 'rounded-md px-2 py-1 transition-colors focus-visible:outline-none'
+                        : 'rounded-md px-2.5 py-1.5 transition-colors focus-visible:outline-none',
+                      isActive(item.href)
+                        ? 'text-[#0f172a] font-semibold border-b-2 border-[#2563eb]'
+                        : 'text-[#475569] border-b-2 border-transparent hover:text-[#0f172a] hover:border-[#cbd5e1]',
+                    ].join(' ')}
+                  >
+                    <span className="inline-flex items-center gap-1.5">
+                      <span>{item.label}</span>
+                      {unreadCount > 0 ? (
+                        <span className="inline-flex min-w-[1.1rem] h-[1.1rem] items-center justify-center rounded-full bg-[#dc2626] px-1 text-[10px] font-semibold text-white">
+                          {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
+                      ) : null}
+                    </span>
+                  </a>
+                );
+              })}
               <a
                 href="/entrar"
                 onClick={handleLogout}

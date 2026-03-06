@@ -30,4 +30,8 @@ return [
     'client' => [
         'url' => env('REALTIME_CLIENT_URL', 'http://localhost:8081'),
     ],
+
+    'presence' => [
+        'ttl_seconds' => (int) env('REALTIME_PRESENCE_TTL_SECONDS', 40),
+    ],
 ];

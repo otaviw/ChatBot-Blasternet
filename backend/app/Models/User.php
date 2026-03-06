@@ -63,6 +63,11 @@ class User extends Authenticatable
         return $this->belongsTo(Company::class);
     }
 
+    public function notifications()
+    {
+        return $this->hasMany(Notification::class)->latest('id');
+    }
+
     /**
      * @return array<int, string>
      */
@@ -103,12 +108,12 @@ class User extends Authenticatable
 
     public static function normalizeRole(?string $role): string
     {
-        $value = trim((string) $role);
+        $value = mb_strtolower(trim((string) $role));
         if ($value === self::ROLE_LEGACY_ADMIN) {
             return self::ROLE_SYSTEM_ADMIN;
         }
         if ($value === self::ROLE_LEGACY_COMPANY) {
-            return self::ROLE_AGENT;
+            return self::ROLE_COMPANY_ADMIN;
         }
 
         return $value;
@@ -116,22 +121,28 @@ class User extends Authenticatable
 
     public function isSystemAdmin(): bool
     {
+        $normalizedRole = self::normalizeRole($this->role);
+
         return (bool) $this->is_active
-            && in_array($this->role, [self::ROLE_SYSTEM_ADMIN, self::ROLE_LEGACY_ADMIN], true);
+            && $normalizedRole === self::ROLE_SYSTEM_ADMIN;
     }
 
     public function isCompanyAdmin(): bool
     {
+        $normalizedRole = self::normalizeRole($this->role);
+
         return (bool) $this->is_active
             && ! empty($this->company_id)
-            && $this->role === self::ROLE_COMPANY_ADMIN;
+            && $normalizedRole === self::ROLE_COMPANY_ADMIN;
     }
 
     public function isAgent(): bool
     {
+        $normalizedRole = self::normalizeRole($this->role);
+
         return (bool) $this->is_active
             && ! empty($this->company_id)
-            && in_array($this->role, [self::ROLE_AGENT, self::ROLE_LEGACY_COMPANY], true);
+            && $normalizedRole === self::ROLE_AGENT;
     }
 
     public function isAdmin(): bool
@@ -141,9 +152,11 @@ class User extends Authenticatable
 
     public function isCompanyUser(): bool
     {
+        $normalizedRole = self::normalizeRole($this->role);
+
         return (bool) $this->is_active
             && ! empty($this->company_id)
-            && in_array($this->role, self::companyRoleValues(), true);
+            && in_array($normalizedRole, [self::ROLE_COMPANY_ADMIN, self::ROLE_AGENT], true);
     }
 
     public function canManageCompanyUsers(): bool
