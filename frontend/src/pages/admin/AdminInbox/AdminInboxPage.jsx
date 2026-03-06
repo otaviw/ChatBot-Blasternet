@@ -138,12 +138,14 @@ function AdminInboxPage() {
   }
 
   return (
-    <Layout role="admin" onLogout={logout}>
-      <PageHeader
-        title="Inbox (admin)"
-        subtitle="Monitore conversas por empresa, assuma atendimentos críticos e responda rapidamente."
-      />
-      <div className="mb-4 max-w-sm">
+    <Layout role="admin" onLogout={logout} fullWidth>
+      <div className="inbox-page">
+      <div className="inbox-header px-4 py-4 lg:px-6 shrink-0">
+        <PageHeader
+          title="Inbox (admin)"
+          subtitle="Monitore conversas por empresa, assuma atendimentos críticos e responda rapidamente."
+        />
+      <div className="mb-4 max-w-sm mt-2">
         <label className="block text-sm">
           Empresa
           <select
@@ -161,26 +163,31 @@ function AdminInboxPage() {
       </div>
 
       {privacyMessage && (
-        <p className="mb-4 text-sm text-[#475569] bg-[#f8fafc] border border-[#e2e8f0] rounded px-3 py-2">
+        <p className="mb-4 text-sm text-[#525252] bg-[#fafafa] rounded-lg px-4 py-3">
           {privacyMessage}
         </p>
       )}
+      </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[0.92fr_1.08fr]">
-        <section className="app-panel">
+      <div className="inbox-layout grid grid-cols-1 lg:grid-cols-[minmax(200px,280px)_1fr] flex-1 min-h-0">
+        <aside
+          className={`inbox-conversations min-h-0 overflow-y-auto bg-[#fafafa] px-4 py-4 lg:px-5 ${
+            selectedId ? 'hidden lg:block' : 'block'
+          }`}
+        >
           <h2 className="text-base font-semibold mb-3">Conversas</h2>
-          {listLoading && <p className="text-sm text-[#706f6c]">Carregando conversas...</p>}
-          {!listLoading && !conversations.length && <p className="text-sm text-[#706f6c]">Nenhuma conversa.</p>}
+          {listLoading && <p className="text-sm text-[#737373]">Carregando conversas...</p>}
+          {!listLoading && !conversations.length && <p className="text-sm text-[#737373]">Nenhuma conversa.</p>}
           <ul className="space-y-2 text-sm">
             {conversations.map((conv) => (
               <li key={conv.id}>
                 <button
                   type="button"
                   onClick={() => openConversation(conv.id)}
-                  className={`w-full text-left px-3 py-2.5 rounded-lg border transition ${
+                  className={`w-full text-left px-3 py-2.5 rounded-lg transition ${
                     selectedId === conv.id
-                      ? 'border-[#2563eb] bg-[#eff6ff] shadow-[0_10px_20px_-22px_rgba(37,99,235,0.75)]'
-                      : 'border-[#d9e1ec] hover:border-[#c5d1e1] hover:bg-[#f8fafc]'
+                      ? 'bg-[#eff6ff]'
+                      : 'hover:bg-white'
                   }`}
                 >
                   <div className="font-medium">
@@ -194,14 +201,30 @@ function AdminInboxPage() {
               </li>
             ))}
           </ul>
-        </section>
+        </aside>
 
-        <section className="app-panel">
+        <section
+          className={`inbox-messages flex flex-col min-h-[400px] lg:min-h-[600px] bg-white px-4 py-4 lg:px-6 overflow-y-auto ${
+            selectedId ? 'block' : 'hidden lg:flex'
+          }`}
+        >
+          {selectedId && (
+            <button
+              type="button"
+              onClick={() => setSelectedId(null)}
+              className="lg:hidden flex items-center gap-2 text-sm text-[#525252] hover:text-[#171717] mb-4"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M19 12H5M12 19l-7-7 7-7" />
+              </svg>
+              Voltar às conversas
+            </button>
+          )}
           <h2 className="text-base font-semibold mb-3">Mensagens</h2>
-          {detailLoading && <p className="text-sm text-[#706f6c]">Carregando conversa...</p>}
+          {detailLoading && <p className="text-sm text-[#737373]">Carregando conversa...</p>}
           {detailError && <p className="text-sm text-red-600">{detailError}</p>}
           {!detailLoading && !detail && !detailError && (
-            <p className="text-sm text-[#706f6c]">Selecione uma conversa.</p>
+            <p className="text-sm text-[#737373]">Selecione uma conversa.</p>
           )}
           {!!detail && (
             <>
@@ -215,7 +238,7 @@ function AdminInboxPage() {
                 <li>Tags: {detail.tags_count ?? 0}</li>
               </ul>
 
-              <div className="mb-4 border border-[#d9e1ec] rounded-lg p-3.5 bg-[#fcfdff]">
+              <div className="mb-4 rounded-lg p-3.5 bg-[#fafafa]">
                 <p className="text-xs text-[#526175] mb-2">Contato do cliente</p>
                 <div className="flex flex-col md:flex-row gap-2">
                   <input
@@ -244,6 +267,7 @@ function AdminInboxPage() {
             </>
           )}
         </section>
+      </div>
       </div>
     </Layout>
   );

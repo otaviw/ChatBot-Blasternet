@@ -103,21 +103,21 @@ function AdminCompaniesPage() {
       </section>
 
       {!companies.length ? (
-        <p className="text-sm text-[#706f6c]">Nenhuma empresa cadastrada.</p>
+        <p className="text-sm text-[#737373]">Nenhuma empresa cadastrada.</p>
       ) : (
-        <ul className="border border-[#d9e1ec] rounded-lg divide-y divide-[#e6ecf4] overflow-hidden bg-white">
+        <ul className="rounded-xl border border-[#eeeeee] overflow-hidden bg-white divide-y divide-[#eeeeee]">
           {companies.map((company) => (
             <li key={company.id}>
               <a
                 href={`/admin/empresas/${company.id}`}
-                className="block px-4 py-3 transition hover:bg-[#f8fafc] focus-visible:rounded-none"
+                className="block px-5 py-4 transition hover:bg-[#fafafa]"
               >
-                <span className="font-medium">{company.name}</span>
-                <span className="text-sm text-[#706f6c] dark:text-[#A1A09A] ml-2">
-                  - {company.conversations_count ?? 0} conversa(s)
+                <span className="font-medium text-[#171717]">{company.name}</span>
+                <span className="text-sm text-[#737373] ml-2">
+                  · {company.conversations_count ?? 0} conversa(s)
                 </span>
-                <span className="text-xs text-[#706f6c] dark:text-[#A1A09A] ml-2">
-                  | bot: {company.bot_setting ? 'configurado' : 'padrao'}
+                <span className="text-xs text-[#a3a3a3] ml-2">
+                  · bot {company.bot_setting ? 'configurado' : 'padrão'}
                 </span>
               </a>
             </li>

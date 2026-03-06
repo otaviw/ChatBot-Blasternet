@@ -1,2 +1,36 @@
 /* Styles for AdminInboxPage */
 
+.inbox-page {
+  min-height: calc(100vh - 57px);
+  display: flex;
+  flex-direction: column;
+}
+
+.inbox-layout {
+  display: grid;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+}
+
+@media (min-width: 1024px) {
+  .inbox-layout {
+    grid-template-columns: minmax(200px, 280px) 1fr;
+  }
+}
+
+.inbox-conversations {
+  max-height: 360px;
+}
+
+@media (min-width: 1024px) {
+  .inbox-conversations {
+    max-height: none;
+  }
+}
+
+.inbox-messages {
+  display: flex;
+  flex-direction: column;
+}
+

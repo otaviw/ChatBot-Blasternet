@@ -230,7 +230,7 @@ function AdminCompanyShowPage({ companyId }) {
   if (loading) {
     return (
       <Layout role="admin" onLogout={logout}>
-        <p className="text-sm text-[#706f6c]">Carregando empresa...</p>
+        <p className="text-sm text-[#737373]">Carregando empresa...</p>
       </Layout>
     );
   }
@@ -248,47 +248,90 @@ function AdminCompanyShowPage({ companyId }) {
 
   return (
     <Layout role="admin" onLogout={logout}>
-      <div className="mb-4">
-        <a href="/admin/empresas" className="text-sm text-[#706f6c] dark:text-[#A1A09A] hover:underline">
-          {'<-'} Empresas
-        </a>
-      </div>
-      <h1 className="app-page-title">{company.name}</h1>
-      <p className="app-page-subtitle mb-6">Informações e uso da empresa.</p>
+      <a
+        href="/admin/empresas"
+        className="inline-flex items-center gap-2 text-sm text-[#525252] hover:text-[#171717] mb-6 transition-colors"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M19 12H5M12 19l-7-7 7-7" />
+        </svg>
+        Voltar para Empresas
+      </a>
 
-      <section className="mb-8">
-        <h2 className="text-sm font-medium text-[#706f6c] dark:text-[#A1A09A] mb-2">Informações</h2>
-        <ul className="text-sm space-y-1">
-          <li>ID: {company.id}</li>
-          <li>Nome: {company.name}</li>
-          <li>Meta Phone Number ID: {company.meta_phone_number_id ? company.meta_phone_number_id : '-'}</li>
-          <li>Token configurado: {company.has_meta_credentials ? 'Sim' : 'Não'}</li>
-          <li>Bot ativo: {setting?.is_active ? 'Sim' : 'Não'}</li>
-          <li>Timezone: {setting?.timezone ?? 'America/Sao_Paulo'}</li>
-        </ul>
+      <div className="mb-8">
+        <h1 className="app-page-title">{company.name}</h1>
+        <p className="app-page-subtitle">Informações e uso da empresa</p>
+      </div>
+
+      <section className="app-panel mb-8">
+        <h2 className="text-sm font-semibold text-[#171717] mb-4">Informações</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="rounded-lg bg-[#fafafa] px-4 py-3">
+            <p className="text-xs font-medium text-[#737373] uppercase tracking-wider">ID</p>
+            <p className="mt-0.5 text-sm font-medium text-[#171717]">{company.id}</p>
+          </div>
+          <div className="rounded-lg bg-[#fafafa] px-4 py-3">
+            <p className="text-xs font-medium text-[#737373] uppercase tracking-wider">Nome</p>
+            <p className="mt-0.5 text-sm font-medium text-[#171717]">{company.name}</p>
+          </div>
+          <div className="rounded-lg bg-[#fafafa] px-4 py-3">
+            <p className="text-xs font-medium text-[#737373] uppercase tracking-wider">Meta Phone Number ID</p>
+            <p className="mt-0.5 text-sm font-medium text-[#171717] font-mono">
+              {company.meta_phone_number_id || '—'}
+            </p>
+          </div>
+          <div className="rounded-lg bg-[#fafafa] px-4 py-3">
+            <p className="text-xs font-medium text-[#737373] uppercase tracking-wider">Token configurado</p>
+            <span
+              className={`inline-flex mt-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                company.has_meta_credentials ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+              }`}
+            >
+              {company.has_meta_credentials ? 'Sim' : 'Não'}
+            </span>
+          </div>
+          <div className="rounded-lg bg-[#fafafa] px-4 py-3">
+            <p className="text-xs font-medium text-[#737373] uppercase tracking-wider">Bot ativo</p>
+            <span
+              className={`inline-flex mt-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                setting?.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-neutral-100 text-neutral-600'
+              }`}
+            >
+              {setting?.is_active ? 'Sim' : 'Não'}
+            </span>
+          </div>
+          <div className="rounded-lg bg-[#fafafa] px-4 py-3">
+            <p className="text-xs font-medium text-[#737373] uppercase tracking-wider">Timezone</p>
+            <p className="mt-0.5 text-sm font-medium text-[#171717]">{setting?.timezone ?? 'America/Sao_Paulo'}</p>
+          </div>
+        </div>
       </section>
 
-      {metricsLoading && <p className="text-sm text-[#706f6c]">Carregando métricas...</p>}
+      {metricsLoading && <p className="text-sm text-[#737373]">Carregando métricas...</p>}
       {metricsData?.metrics && (
         <section className="app-panel mb-6">
           <h2 className="font-medium mb-4">Métricas</h2>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div className="border rounded-lg p-3 text-center">
-              <p className="text-2xl font-medium">{metricsData.metrics.total}</p>
-              <p className="text-xs text-[#706f6c]">Total de conversas</p>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+            <div className="app-metric-card">
+              <p className="app-metric-value">{metricsData.metrics.total}</p>
+              <p className="app-metric-label">Total de conversas</p>
             </div>
-            <div className="border rounded-lg p-3 text-center">
-              <p className="text-2xl font-medium">{metricsData.metrics.by_status?.open ?? 0}</p>
-              <p className="text-xs text-[#706f6c]">Abertas</p>
+            <div className="app-metric-card">
+              <p className="app-metric-value">{metricsData.metrics.total_messages ?? 0}</p>
+              <p className="app-metric-label">Total de mensagens</p>
             </div>
-            <div className="border rounded-lg p-3 text-center">
-              <p className="text-2xl font-medium">{metricsData.metrics.by_status?.closed ?? 0}</p>
-              <p className="text-xs text-[#706f6c]">Encerradas</p>
+            <div className="app-metric-card">
+              <p className="app-metric-value">{metricsData.metrics.total_users ?? 0}</p>
+              <p className="app-metric-label">Total de usuários</p>
             </div>
-            <div className="border rounded-lg p-3 text-center">
-              <p className="text-2xl font-medium">{metricsData.metrics.avg_response_minutes} min</p>
-              <p className="text-xs text-[#706f6c]">Tempo médio de resposta</p>
+            <div className="app-metric-card">
+              <p className="app-metric-value">{metricsData.metrics.by_status?.open ?? 0}</p>
+              <p className="app-metric-label">Abertas</p>
+            </div>
+            <div className="app-metric-card">
+              <p className="app-metric-value">{metricsData.metrics.by_status?.closed ?? 0}</p>
+              <p className="app-metric-label">Encerradas</p>
             </div>
           </div>
 
@@ -309,7 +352,7 @@ function AdminCompanyShowPage({ companyId }) {
 
             <div>
               <h3 className="text-sm font-medium mb-2">Últimos 30 dias</h3>
-              <ul className="text-xs text-[#706f6c] space-y-1 max-h-32 overflow-y-auto">
+              <ul className="text-xs text-[#737373] space-y-1 max-h-32 overflow-y-auto">
                 {metricsData.metrics.by_day.map((item) => (
                   <li key={item.day} className="flex justify-between">
                     <span>{item.day}</span>
@@ -361,9 +404,9 @@ function AdminCompanyShowPage({ companyId }) {
       </section>
 
       <section className="mb-8">
-        <h2 className="text-sm font-medium text-[#706f6c] dark:text-[#A1A09A] mb-2">Regras do bot</h2>
+        <h2 className="text-sm font-medium text-[#737373] mb-2">Regras do bot</h2>
         {!setting ? (
-          <p className="text-sm text-[#706f6c]">Empresa ainda usando configuracao padrao.</p>
+          <p className="text-sm text-[#737373]">Empresa ainda usando configuração padrão.</p>
         ) : (
           <ul className="text-sm space-y-1">
             <li>Mensagem de boas-vindas: {setting.welcome_message || '-'}</li>
@@ -377,7 +420,7 @@ function AdminCompanyShowPage({ companyId }) {
       </section>
 
       <section className="mb-8">
-        <h2 className="text-sm font-medium text-[#706f6c] dark:text-[#A1A09A] mb-2">Editar configurações (admin)</h2>
+        <h2 className="text-sm font-medium text-[#737373] mb-2">Editar configurações (admin)</h2>
         <form onSubmit={saveSettings} className="space-y-8 max-w-4xl">
           <section className="app-panel space-y-4">
             <h3 className="font-medium">Estado e contexto</h3>
@@ -458,7 +501,7 @@ function AdminCompanyShowPage({ companyId }) {
               </div>
             </div>
 
-            <p className="text-sm text-[#706f6c]">
+            <p className="text-sm text-[#737373]">
               O menu inicia automaticamente na primeira mensagem. O comando <strong>#</strong> continua resetando para o início.
             </p>
 
@@ -545,7 +588,7 @@ function AdminCompanyShowPage({ companyId }) {
             </div>
 
             {!settings.keyword_replies.length && (
-              <p className="text-sm text-[#706f6c]">Nenhuma regra cadastrada.</p>
+              <p className="text-sm text-[#737373]">Nenhuma regra cadastrada.</p>
             )}
 
             <div className="space-y-3">
@@ -597,7 +640,7 @@ function AdminCompanyShowPage({ companyId }) {
               </button>
             </div>
             {!settings.service_areas?.length && (
-              <p className="text-sm text-[#706f6c]">Nenhuma área cadastrada.</p>
+              <p className="text-sm text-[#737373]">Nenhuma área cadastrada.</p>
             )}
             <div className="space-y-2">
               {(settings.service_areas ?? []).map((area, index) => (
@@ -637,9 +680,9 @@ function AdminCompanyShowPage({ companyId }) {
       </section>
 
       <section className="mb-8">
-        <h2 className="text-sm font-medium text-[#706f6c] dark:text-[#A1A09A] mb-2">Uso</h2>
+        <h2 className="text-sm font-medium text-[#737373] mb-2">Uso</h2>
         <p className="text-sm">Total de conversas: <strong>{company.conversations_count ?? 0}</strong></p>
-        <p className="text-sm text-[#706f6c] mt-2">
+        <p className="text-sm text-[#737373] mt-2">
           O modo privacidade oculta detalhes de conversas do painel de superadmin.
         </p>
       </section>

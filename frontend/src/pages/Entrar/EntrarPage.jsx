@@ -42,8 +42,7 @@ function EntrarPage() {
   return (
     <Layout>
       <div className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[1.05fr_.95fr]">
-        <Card className="relative overflow-hidden">
-          <div className="pointer-events-none absolute right-0 top-0 h-32 w-32 rounded-full bg-[#2563eb]/10 blur-2xl" />
+        <Card>
           <PageHeader
             title="Acessar painel"
             subtitle="Entre com seu usuário para monitorar conversas, bot e atendimento manual em um único fluxo."
@@ -82,8 +81,8 @@ function EntrarPage() {
 
         <div className="space-y-4">
           <Card>
-            <h2 className="text-lg font-semibold text-[#0f172a] mb-2">Fluxo otimizado para operação</h2>
-            <ul className="space-y-2 text-sm text-[#475569]">
+            <h2 className="text-base font-semibold text-[#171717] mb-2">Fluxo otimizado para operação</h2>
+            <ul className="space-y-2 text-sm text-[#737373] leading-relaxed">
               <li>Painel único para conversas, usuários e configurações do bot.</li>
               <li>Atualização em tempo real de mensagens e transferencias.</li>
               <li>Ações manuais com histórico completo para auditoria.</li>

@@ -1,12 +1,46 @@
 /* Styles for CompanyInboxPage */
 
+.inbox-page {
+  min-height: calc(100vh - 57px);
+  display: flex;
+  flex-direction: column;
+}
+
+.inbox-layout {
+  display: grid;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+}
+
+@media (min-width: 1024px) {
+  .inbox-layout {
+    grid-template-columns: minmax(200px, 280px) 1fr;
+  }
+}
+
+.inbox-conversations {
+  max-height: 360px;
+}
+
+@media (min-width: 1024px) {
+  .inbox-conversations {
+    max-height: none;
+  }
+}
+
+.inbox-messages {
+  display: flex;
+  flex-direction: column;
+}
+
 .company-inbox-message-media {
   margin-top: 0.5rem;
 }
 
 .company-inbox-message-image {
   max-width: min(280px, 100%);
-  border: 1px solid #d9e1ec;
+  border: 1px solid #eeeeee;
   border-radius: 0.5rem;
 }
 
@@ -24,7 +58,35 @@
 
 .company-inbox-image-preview img {
   max-width: min(260px, 100%);
-  border: 1px solid #d9e1ec;
+  border: 1px solid #eeeeee;
   border-radius: 0.5rem;
+}
+
+.inbox-toolbar {
+  padding: 0.5rem 0;
+}
+
+.inbox-chat {
+  flex: 1;
+  min-height: 0;
+}
+
+.inbox-tags-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.inbox-tags-modal {
+  background: #fff;
+  border-radius: 0.5rem;
+  padding: 1.25rem;
+  min-width: 320px;
+  max-width: 90vw;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
 }
 

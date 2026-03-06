@@ -5,7 +5,6 @@ import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
 import api from '@/services/api';
 import realtimeClient from '@/services/realtimeClient';
-import PageHeader from '@/components/ui/PageHeader/PageHeader.jsx';
 import { useNotificationsContext } from '@/contexts/NotificationsContext';
 import { NOTIFICATION_MODULE, NOTIFICATION_REFERENCE_TYPE } from '@/constants/notifications';
 import { appendUniqueMessage, sortConversationsByActivity } from './inboxRealtimeUtils';
@@ -34,6 +33,8 @@ function CompanyInboxPage() {
   const [actionBusy, setActionBusy] = useState(false);
   const [tagInput, setTagInput] = useState('');
   const [showTemplates, setShowTemplates] = useState(false);
+  const [tagsModalOpen, setTagsModalOpen] = useState(false);
+  const [transferExpanded, setTransferExpanded] = useState(false);
   const [quickReplies, setQuickReplies] = useState([]);
   const [transferOptions, setTransferOptions] = useState(EMPTY_TRANSFER_OPTIONS);
   const [transferArea, setTransferArea] = useState('');
@@ -475,13 +476,18 @@ function CompanyInboxPage() {
   }
 
   return (
-    <Layout role="company" onLogout={logout}>
-      <PageHeader
-        title="Inbox da empresa"
-        subtitle="Acompanhe atendimento em tempo real, organize tags e distribua conversas com mais clareza."
-      />
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[0.92fr_1.08fr]">
-        <section className="app-panel">
+    <Layout role="company" onLogout={logout} fullWidth>
+      <div className="inbox-page">
+        <div className="inbox-header px-4 py-4 lg:px-6">
+          <h1 className="text-lg font-semibold text-[#171717]">Inbox da empresa</h1>
+          <p className="text-sm text-[#737373]">Acompanhe atendimento em tempo real.</p>
+        </div>
+      <div className="inbox-layout grid grid-cols-1 lg:grid-cols-[minmax(200px,280px)_1fr]">
+        <aside
+          className={`inbox-conversations min-h-0 overflow-y-auto bg-[#fafafa] px-4 py-4 lg:px-5 ${
+            selectedId ? 'hidden lg:block' : 'block'
+          }`}
+        >
           <h2 className="text-base font-semibold mb-3">Conversas</h2>
           {!conversations.length && <p className="text-sm text-[#706f6c]">Nenhuma conversa.</p>}
           <ul className="space-y-2 text-sm">
@@ -493,14 +499,14 @@ function CompanyInboxPage() {
                   <button
                     type="button"
                     onClick={() => openConversation(conv.id)}
-                    className={`w-full text-left px-3 py-2.5 rounded-lg border transition ${
-                      selectedId === conv.id
-                        ? 'border-[#2563eb] bg-[#eff6ff] shadow-[0_10px_20px_-22px_rgba(37,99,235,0.75)]'
+                    className={`w-full text-left px-3 py-2.5 rounded-lg transition ${
+                        selectedId === conv.id
+                        ? 'bg-[#eff6ff]'
                         : conv.status === 'closed'
-                          ? 'border-[#e3e3e0] opacity-60'
+                          ? 'opacity-70 hover:bg-white/60'
                           : hasUnread
-                            ? 'border-[#fca5a5] bg-[#fff1f2] hover:border-[#f87171] hover:bg-[#ffe4e6]'
-                            : 'border-[#d9e1ec] hover:border-[#c5d1e1] hover:bg-[#f8fafc]'
+                            ? 'bg-red-50/80 hover:bg-red-50'
+                            : 'hover:bg-white'
                     }`}
                   >
                     <div className="font-medium text-[#0f172a]">
@@ -529,216 +535,122 @@ function CompanyInboxPage() {
               );
             })}
           </ul>
-        </section>
+        </aside>
 
-        <section className="app-panel">
+        <section
+          className={`inbox-messages flex flex-col min-h-[400px] lg:min-h-[600px] bg-white px-4 py-4 lg:px-6 overflow-y-auto ${
+            selectedId ? 'block' : 'hidden lg:flex'
+          }`}
+        >
+          {selectedId && (
+            <button
+              type="button"
+              onClick={() => setSelectedId(null)}
+              className="lg:hidden flex items-center gap-2 text-sm text-[#525252] hover:text-[#171717] mb-4"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M19 12H5M12 19l-7-7 7-7" />
+              </svg>
+              Voltar às conversas
+            </button>
+          )}
           <h2 className="text-base font-semibold mb-3">Mensagens</h2>
-          {detailLoading && <p className="text-sm text-[#706f6c]">Carregando conversa...</p>}
+          {detailLoading && <p className="text-sm text-[#737373]">Carregando conversa...</p>}
           {detailError && <p className="text-sm text-red-600">{detailError}</p>}
           {!detailLoading && !detail && !detailError && (
             <p className="text-sm text-[#706f6c]">Selecione uma conversa.</p>
           )}
           {!!detail && (
-            <>
-              <div className="mb-4 text-xs text-[#526175]">
-                Modo: <strong>{detail.handling_mode === 'human' ? 'Manual' : 'Bot'}</strong>
-                {detail.assigned_user ? ` | Responsavel: ${detail.assigned_user.name}` : ''}
-                {detail.current_area?.name ? ` | Area: ${detail.current_area.name}` : ''}
-              </div>
-
-              <div className="mb-4 border border-[#d9e1ec] rounded-lg p-3.5 bg-[#fcfdff]">
-                <p className="text-xs text-[#706f6c] mb-2">Contato do cliente</p>
-                <div className="flex flex-col md:flex-row gap-2">
+            <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="inbox-toolbar flex flex-wrap items-center gap-2 mb-3 shrink-0">
+                <span className="text-xs text-[#525252]">
+                  Modo: <strong>{detail.handling_mode === 'human' ? 'Manual' : 'Bot'}</strong>
+                  {detail.assigned_user ? ` · ${detail.assigned_user.name}` : ''}
+                  {detail.current_area?.name ? ` · ${detail.current_area.name}` : ''}
+                </span>
+                <div className="flex items-center gap-1.5">
                   <input
                     type="text"
                     value={contactNameInput}
-                    onChange={(event) => {
-                      setContactNameInput(event.target.value);
-                      setContactSuccess('');
-                      setContactError('');
-                    }}
-                    placeholder="Nome do contato"
-                    className="flex-1 rounded border border-[#d5d5d2] px-3 py-2 bg-white dark:bg-[#161615] text-sm"
+                    onChange={(e) => { setContactNameInput(e.target.value); setContactSuccess(''); setContactError(''); }}
+                    placeholder="Nome"
+                    className="w-32 app-input text-xs py-1.5"
                   />
-                  <button
-                    type="button"
-                    onClick={saveContactName}
-                    disabled={contactBusy}
-                    className="app-btn-secondary"
-                  >
-                    {contactBusy ? 'Salvando...' : 'Salvar contato'}
+                  <button type="button" onClick={saveContactName} disabled={contactBusy} className="app-btn-secondary text-xs py-1.5">
+                    {contactBusy ? '...' : 'Salvar'}
                   </button>
                 </div>
-                {contactSuccess && <p className="text-xs text-green-700 mt-2">{contactSuccess}</p>}
-                {contactError && <p className="text-xs text-red-600 mt-2">{contactError}</p>}
-              </div>
-
-              <div className="flex flex-wrap gap-2 mb-4">
-                <button
-                  type="button"
-                  onClick={assumeConversation}
-                  disabled={actionBusy}
-                  className="app-btn-secondary"
-                >
-                  Assumir
+                {contactSuccess && <span className="text-xs text-green-600">{contactSuccess}</span>}
+                {contactError && <span className="text-xs text-red-600">{contactError}</span>}
+                <div className="flex gap-1">
+                  <button type="button" onClick={assumeConversation} disabled={actionBusy} className="app-btn-secondary text-xs py-1.5">Assumir</button>
+                  <button type="button" onClick={releaseConversation} disabled={actionBusy} className="app-btn-secondary text-xs py-1.5">Soltar</button>
+                  <button type="button" onClick={closeConversation} disabled={actionBusy || detail?.status === 'closed'} className="app-btn-danger text-xs py-1.5">Encerrar</button>
+                </div>
+                <button type="button" onClick={() => setTagsModalOpen(true)} className="app-btn-secondary text-xs py-1.5">
+                  Tags {(detail.tags ?? []).length > 0 && `(${(detail.tags ?? []).length})`}
                 </button>
-                <button
-                  type="button"
-                  onClick={releaseConversation}
-                  disabled={actionBusy}
-                  className="app-btn-secondary"
-                >
-                  Soltar para bot
-                </button>
-                <button
-                  type="button"
-                  onClick={closeConversation}
-                  disabled={actionBusy || detail?.status === 'closed'}
-                  className="app-btn-danger disabled:opacity-50"
-                >
-                  Encerrar
-                </button>
-              </div>
-
-              <div className="mb-3">
-                <p className="text-xs text-[#706f6c] mb-1">Tags</p>
-                <div className="flex flex-wrap gap-1 mb-2">
-                  {(detail.tags ?? []).length === 0 && (
-                    <span className="text-xs text-[#706f6c]">Nenhuma tag.</span>
-                  )}
-                  {(detail.tags ?? []).map((tag) => (
-                    <span
-                      key={tag}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#f0f0ef] dark:bg-[#2a2a28] text-xs"
-                    >
-                      {tag}
-                      <button
-                        type="button"
-                        onClick={() => removeTag(tag)}
-                        className="text-[#706f6c] hover:text-red-600"
-                      >
-                        x
+                <div className="relative">
+                  <button type="button" onClick={() => setTransferExpanded((v) => !v)} className="app-btn-secondary text-xs py-1.5">
+                    Transferir {transferExpanded ? '▲' : '▼'}
+                  </button>
+                  {transferExpanded && (
+                    <div className="absolute top-full left-0 mt-1 z-20 w-72 p-3 bg-white rounded-lg shadow-lg border border-[#eeeeee]">
+                      <div className="space-y-2 mb-2">
+                        <label className="block text-xs">
+                          Área
+                          <select value={transferArea} onChange={(e) => { setTransferArea(e.target.value); setTransferSuccess(''); setTransferError(''); }} className="app-input text-xs mt-0.5">
+                            <option value="">Selecionar</option>
+                            {(transferOptions.areas ?? []).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                          </select>
+                        </label>
+                        <label className="block text-xs">
+                          Usuário (opcional)
+                          <select value={transferUserId} onChange={(e) => {
+                            const v = e.target.value;
+                            setTransferUserId(v);
+                            setTransferSuccess(''); setTransferError('');
+                            if (v) {
+                              const u = (transferOptions.users ?? []).find((x) => String(x.id) === v);
+                              if (u?.areas?.length && !transferArea) setTransferArea(String(u.areas[0].id));
+                            }
+                          }} className="app-input text-xs mt-0.5">
+                            <option value="">Selecionar</option>
+                            {availableUsers.map((u) => (
+                              <option key={u.id} value={u.id}>{u.name} {(u.areas ?? []).length ? `(${u.areas.map((a) => a.name).join(', ')})` : ''}</option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                      <button type="button" onClick={transferConversation} disabled={transferBusy} className="app-btn-primary text-xs w-full">
+                        {transferBusy ? 'Transferindo...' : 'Transferir'}
                       </button>
-                    </span>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={tagInput}
-                    onChange={(event) => setTagInput(event.target.value)}
-                    onKeyDown={(event) => event.key === 'Enter' && (event.preventDefault(), addTag(tagInput))}
-                    placeholder="Nova tag..."
-                    className="flex-1 rounded border border-[#d5d5d2] px-2 py-1 text-xs bg-white dark:bg-[#161615]"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => addTag(tagInput)}
-                    className="px-3 py-1 text-xs rounded border border-[#d5d5d2]"
-                  >
-                    Adicionar
-                  </button>
-                </div>
-              </div>
-
-              <div className="mb-5 border border-[#d9e1ec] rounded-lg p-3.5 space-y-3 bg-[#fcfdff]">
-                <div>
-                  <p className="text-sm font-medium">Transferir conversa</p>
-                  <p className="text-xs text-[#526175]">
-                    Escolha uma área ou um usuário específico da área. A transferência é aceita automaticamente.
-                  </p>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  <label className="text-xs text-[#706f6c]">
-                    Area destino
-                    <select
-                      value={transferArea}
-                      onChange={(event) => {
-                        setTransferArea(event.target.value);
-                        setTransferSuccess('');
-                        setTransferError('');
-                      }}
-                      className="app-input text-sm"
-                    >
-                      <option value="">Selecionar area</option>
-                      {(transferOptions.areas ?? []).map((area) => (
-                        <option key={area.id} value={area.id}>{area.name}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="text-xs text-[#706f6c]">
-                    Usuario destino (opcional)
-                    <select
-                      value={transferUserId}
-                      onChange={(event) => {
-                        const nextUserId = event.target.value;
-                        setTransferUserId(nextUserId);
-                        setTransferSuccess('');
-                        setTransferError('');
-                        if (!nextUserId) return;
-                        const user = (transferOptions.users ?? []).find(
-                          (item) => String(item.id) === String(nextUserId)
-                        );
-                        if (!transferArea && user?.areas?.length) {
-                          setTransferArea(String(user.areas[0].id));
-                        }
-                      }}
-                      className="app-input text-sm"
-                    >
-                      <option value="">Selecionar usuário</option>
-                      {availableUsers.map((user) => (
-                        <option key={user.id} value={user.id}>
-                          {user.name}{' '}
-                          {(user.areas ?? []).length
-                            ? `(${user.areas.map((area) => area.name).join(', ')})`
-                            : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={transferConversation}
-                    disabled={transferBusy}
-                    className="app-btn-secondary"
-                  >
-                    {transferBusy ? 'Transferindo...' : 'Transferir'}
-                  </button>
-                  {transferSuccess && <p className="text-xs text-green-700">{transferSuccess}</p>}
-                  {transferError && <p className="text-xs text-red-600">{transferError}</p>}
+                      {transferSuccess && <p className="text-xs text-green-600 mt-1">{transferSuccess}</p>}
+                      {transferError && <p className="text-xs text-red-600 mt-1">{transferError}</p>}
+                      {(detail.transfer_history ?? []).length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-[#eee]">
+                          <p className="text-xs text-[#737373] mb-1">Histórico</p>
+                          <ul className="space-y-1 text-xs max-h-24 overflow-y-auto">
+                            {detail.transfer_history.map((item) => {
+                              const fromLabel = item.from_user?.name || item.from_area || '—';
+                              const toLabel = item.to_user?.name || item.to_area || '—';
+                              return (
+                                <li key={item.id} className="text-[#525252]">
+                                  {fromLabel} → {toLabel}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div className="mb-4">
-                <p className="text-xs text-[#706f6c] mb-1">Historico de transferencias</p>
-                {(detail.transfer_history ?? []).length === 0 && (
-                  <p className="text-xs text-[#706f6c]">Nenhuma transferencia registrada.</p>
-                )}
-                {(detail.transfer_history ?? []).length > 0 && (
-                  <ul className="space-y-2 text-xs max-h-40 overflow-y-auto pr-1">
-                    {detail.transfer_history.map((item) => {
-                      const fromLabel = item.from_user?.name || item.from_area || 'sem origem';
-                      const toLabel = item.to_user?.name || item.to_area || 'sem destino';
-                      return (
-                        <li key={item.id} className="border border-[#e3e3e0] rounded p-2">
-                          <div>
-                            {fromLabel} {'->'} {toLabel}
-                          </div>
-                          <div className="text-[#706f6c]">
-                            por {item.transferred_by_user?.name || 'sistema'} em {formatDate(item.created_at)}
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
-
-              <ul className="space-y-2.5 text-sm mb-4 max-h-80 overflow-y-auto pr-1">
+              <ul className="inbox-chat space-y-2.5 text-sm flex-1 min-h-0 overflow-y-auto pr-1 overscroll-contain">
                 {(detail.messages ?? []).map((msg) => (
-                  <li key={msg.id} className="rounded-lg border border-[#d9e1ec] bg-white p-2.5">
+                  <li key={msg.id} className="rounded-lg bg-[#fafafa] p-2.5">
                     <strong>{msg.direction === 'in' ? 'Cliente' : 'Atendente/Bot'}:</strong>{' '}
                     {msg.content_type === 'image' ? (
                       <div className="company-inbox-message-media">
@@ -758,7 +670,7 @@ function CompanyInboxPage() {
                 ))}
               </ul>
 
-              <form onSubmit={sendManualReply} className="space-y-2">
+              <form onSubmit={sendManualReply} className="space-y-2 shrink-0">
                 <div className="relative">
                   <button
                     type="button"
@@ -769,7 +681,7 @@ function CompanyInboxPage() {
                   </button>
 
                   {showTemplates && (
-                    <div className="absolute bottom-8 left-0 z-10 w-72 bg-white dark:bg-[#161615] border border-[#e3e3e0] dark:border-[#3E3E3A] rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    <div className="absolute bottom-8 left-0 z-10 w-72 bg-white rounded-lg shadow-lg max-h-48 overflow-y-auto">
                       {!quickReplies.length && (
                         <p className="text-xs text-[#706f6c] p-3">Nenhum template cadastrado.</p>
                       )}
@@ -781,7 +693,7 @@ function CompanyInboxPage() {
                             setManualText(reply.text);
                             setShowTemplates(false);
                           }}
-                          className="w-full text-left px-3 py-2 hover:bg-[#f5f5f3] dark:hover:bg-[#2a2a28] border-b border-[#e3e3e0] dark:border-[#3E3E3A] last:border-0"
+                          className="w-full text-left px-3 py-2 hover:bg-[#f5f5f5] border-b border-[#eeeeee] last:border-0 text-[#171717]"
                         >
                           <p className="text-xs font-medium">{reply.title}</p>
                           <p className="text-xs text-[#706f6c] truncate">{reply.text}</p>
@@ -832,10 +744,46 @@ function CompanyInboxPage() {
                 </button>
                 {manualError && <p className="text-sm text-red-600">{manualError}</p>}
               </form>
-            </>
+            </div>
           )}
         </section>
       </div>
+      </div>
+
+      {tagsModalOpen && detail && (
+        <div className="inbox-tags-modal-overlay" onClick={() => setTagsModalOpen(false)}>
+          <div className="inbox-tags-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-base font-medium">Tags</h3>
+              <button type="button" onClick={() => setTagsModalOpen(false)} className="text-[#525252] hover:text-[#171717]">
+                ✕
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-1 mb-3">
+              {(detail.tags ?? []).length === 0 && <span className="text-xs text-[#737373]">Nenhuma tag.</span>}
+              {(detail.tags ?? []).map((tag) => (
+                <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#f0f0f0] text-xs">
+                  {tag}
+                  <button type="button" onClick={() => removeTag(tag)} className="text-[#706f6c] hover:text-red-600">×</button>
+                </span>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addTag(tagInput))}
+                placeholder="Nova tag..."
+                className="flex-1 app-input text-sm py-1.5"
+              />
+              <button type="button" onClick={() => addTag(tagInput)} className="app-btn-primary text-sm py-1.5">
+                Adicionar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 }

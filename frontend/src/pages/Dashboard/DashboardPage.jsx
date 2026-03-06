@@ -12,7 +12,7 @@ function DashboardPage() {
   if (loading) {
     return (
       <Layout>
-        <p className="text-sm text-[#64748b]">Carregando dashboard...</p>
+        <p className="text-sm text-[#737373]">Carregando dashboard...</p>
       </Layout>
     );
   }
@@ -62,11 +62,11 @@ function DashboardPage() {
         />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {adminItems.map((item) => (
-            <a key={item.href} href={item.href} className="group">
-              <Card className="h-full transition group-hover:-translate-y-0.5 group-hover:shadow-[0_18px_30px_-24px_rgba(15,23,42,0.95)]">
-                <p className="text-base font-semibold text-[#0f172a]">{item.title}</p>
-                <p className="mt-2 text-sm text-[#64748b]">{item.description}</p>
-                <p className="mt-4 text-xs font-medium uppercase tracking-wide text-[#2563eb]">Abrir modulo</p>
+            <a key={item.href} href={item.href} className="group block">
+              <Card className="h-full transition group-hover:-translate-y-0.5 group-hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] group-hover:border-[#e5e5e5]">
+                <p className="text-base font-semibold text-[#171717]">{item.title}</p>
+                <p className="mt-2 text-sm text-[#737373] leading-relaxed">{item.description}</p>
+                <p className="mt-4 text-xs font-medium text-[#2563eb]">Abrir módulo →</p>
               </Card>
             </a>
           ))}
@@ -119,11 +119,11 @@ function DashboardPage() {
       />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {companyItems.map((item) => (
-          <a key={item.href} href={item.href} className="group">
-            <Card className="h-full transition group-hover:-translate-y-0.5 group-hover:shadow-[0_18px_30px_-24px_rgba(15,23,42,0.95)]">
-              <p className="text-base font-semibold text-[#0f172a]">{item.title}</p>
-              <p className="mt-2 text-sm text-[#64748b]">{item.description}</p>
-              <p className="mt-4 text-xs font-medium uppercase tracking-wide text-[#2563eb]">Abrir modulo</p>
+          <a key={item.href} href={item.href} className="group block">
+            <Card className="h-full transition group-hover:-translate-y-0.5 group-hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] group-hover:border-[#e5e5e5]">
+              <p className="text-base font-semibold text-[#171717]">{item.title}</p>
+              <p className="mt-2 text-sm text-[#737373] leading-relaxed">{item.description}</p>
+              <p className="mt-4 text-xs font-medium text-[#2563eb]">Abrir módulo →</p>
             </Card>
           </a>
         ))}

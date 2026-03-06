@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Area;
 use App\Models\Company;
 use App\Models\CompanyBotSetting;
+use App\Models\Message;
+use App\Models\User;
 use App\Services\AuditLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -389,6 +391,8 @@ class CompanyController extends Controller
             return response()->json(['authenticated' => false, 'redirect' => '/entrar'], 403);
         }
 
+        $conversationIds = $company->conversations()->select('id');
+
         $byStatus = $company->conversations()
             ->selectRaw('status, count(*) as total')
             ->groupBy('status')
@@ -407,23 +411,8 @@ class CompanyController extends Controller
             ->orderBy('day')
             ->get();
 
-        $avgResponse = 0;
-
-        $conversations = $company->conversations()
-            ->with(['messages' => fn($q) => $q->orderBy('created_at')])
-            ->where('status', 'closed')
-            ->get();
-
-        $times = [];
-        foreach ($conversations as $conv) {
-            $firstIn  = $conv->messages->firstWhere('direction', 'in');
-            $firstOut = $conv->messages->firstWhere('direction', 'out');
-            if ($firstIn && $firstOut) {
-                $times[] = $firstIn->created_at->diffInMinutes($firstOut->created_at);
-            }
-        }
-
-        $avgResponse = count($times) > 0 ? round(array_sum($times) / count($times)) : 0;
+        $totalMessages = Message::whereIn('conversation_id', $conversationIds)->count();
+        $totalUsers = User::where('company_id', $company->id)->count();
 
         return response()->json([
             'authenticated' => true,
@@ -431,8 +420,9 @@ class CompanyController extends Controller
                 'by_status' => $byStatus,
                 'by_mode' => $byMode,
                 'by_day' => $byDay,
-                'avg_response_minutes' => round($avgResponse ?? 0),
                 'total' => $company->conversations()->count(),
+                'total_messages' => $totalMessages,
+                'total_users' => $totalUsers,
             ],
         ]);
     }

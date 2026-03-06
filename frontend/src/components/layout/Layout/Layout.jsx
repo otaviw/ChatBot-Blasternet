@@ -75,7 +75,7 @@ const ICON_PROFILE = (
   </svg>
 );
 
-function Layout({ children, role, companyName, onLogout }) {
+function Layout({ children, role, companyName, onLogout, fullWidth }) {
   const isLogged = Boolean(role);
   const currentPath = window.location.pathname;
   const [canManageUsers, setCanManageUsers] = useState(false);
@@ -277,7 +277,7 @@ function Layout({ children, role, companyName, onLogout }) {
   const totalUnreadCount = Number(totalUnread ?? 0);
 
   return (
-    <div className="min-h-screen relative text-[#0f172a] layout-wrapper">
+    <div className="min-h-screen relative text-[#171717] layout-wrapper">
       {hasSidebar && (
         <aside className={`layout-sidebar ${sidebarExpanded ? 'layout-sidebar--expanded' : ''}`}>
           <button
@@ -368,10 +368,10 @@ function Layout({ children, role, companyName, onLogout }) {
             href={isLogged ? '/dashboard' : '/entrar'}
             className="layout-header__logo"
           >
-            <span className="h-2.5 w-2.5 rounded-full bg-[#2563eb]" />
+            <span className="h-2 w-2 rounded-full bg-[#2563eb]" />
             Blasternet ChatBot
             {role === 'company' && companyName && (
-              <span className="hidden xl:inline text-[#64748b] text-xs">/ {companyName}</span>
+              <span className="hidden xl:inline text-[#737373] text-xs">/ {companyName}</span>
             )}
             {role === 'admin' && (
               <span className="rounded-full bg-[#dbeafe] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#1d4ed8]">Admin</span>
@@ -456,7 +456,7 @@ function Layout({ children, role, companyName, onLogout }) {
           )}
         </header>
 
-        <main className="layout-main__content">{children}</main>
+        <main className={`layout-main__content ${fullWidth ? 'layout-main__content--full' : ''}`}>{children}</main>
       </div>
 
       {isLogged && notificationsPanelOpen && (
