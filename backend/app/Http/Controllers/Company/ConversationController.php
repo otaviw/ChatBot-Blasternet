@@ -37,6 +37,10 @@ class ConversationController extends Controller
         }
 
         $companyId = (int) $user->company_id;
+        $search = trim((string) $request->query('search', ''));
+        $page = max(1, (int) $request->query('page', 1));
+        $perPage = min(50, max(5, (int) $request->query('per_page', 15)));
+
         $lastMessageIdSubquery = Message::query()
             ->select('id')
             ->whereColumn('messages.conversation_id', 'conversations.id')
@@ -49,7 +53,7 @@ class ConversationController extends Controller
             ->latest('id')
             ->limit(1);
 
-        $conversations = Conversation::query()
+        $query = Conversation::query()
             ->where('company_id', $companyId)
             ->addSelect([
                 'last_message_id' => $lastMessageIdSubquery,
@@ -59,16 +63,29 @@ class ConversationController extends Controller
             ->withCount('messages')
             ->orderByRaw("COALESCE(({$lastMessageAtSubquery->toSql()}), conversations.created_at) DESC")
             ->addBinding($lastMessageAtSubquery->getBindings(), 'order')
-            ->orderByDesc('conversations.id')
-            ->limit(100)
-            ->get();
+            ->orderByDesc('conversations.id');
 
-        $conversations->each(fn(Conversation $conversation) => $this->normalizeConversationAssignmentRelations($conversation));
+        if ($search !== '') {
+            $term = '%' . preg_replace('/\s+/', '%', $search) . '%';
+            $query->where(function ($q) use ($term) {
+                $q->where('conversations.customer_phone', 'like', $term)
+                    ->orWhere('conversations.customer_name', 'like', $term);
+            });
+        }
+
+        $paginator = $query->paginate($perPage, ['*'], 'page', $page);
+        $paginator->getCollection()->each(fn(Conversation $conversation) => $this->normalizeConversationAssignmentRelations($conversation));
 
         return response()->json([
             'authenticated' => true,
             'role' => 'company',
-            'conversations' => $conversations,
+            'conversations' => $paginator->items(),
+            'conversations_pagination' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+            ],
         ]);
     }
 
@@ -83,14 +100,13 @@ class ConversationController extends Controller
         }
 
         $companyId = (int) $user->company_id;
+        $messagesPerPage = min(50, max(10, (int) $request->query('messages_per_page', 25)));
+        $messagesPageParam = $request->query('messages_page');
+
         $conversation = Conversation::query()
             ->where('company_id', $companyId)
             ->whereKey($conversationId)
-            ->with([
-                'messages' => fn($query) => $query->oldest(),
-                'assignedUser:id,name,email',
-                'currentArea:id,name',
-            ])
+            ->with(['assignedUser:id,name,email', 'currentArea:id,name'])
             ->first();
 
         if (! $conversation) {
@@ -98,6 +114,15 @@ class ConversationController extends Controller
                 'message' => 'Conversa nao encontrada para esta empresa.',
             ], 404);
         }
+
+        $messagesQuery = $conversation->messages()->orderBy('id', 'asc');
+        $totalMessages = $conversation->messages()->count();
+        $lastMessagesPage = $totalMessages > 0 ? (int) ceil($totalMessages / $messagesPerPage) : 1;
+        $messagesPage = $messagesPageParam !== null && $messagesPageParam !== ''
+            ? max(1, min((int) $messagesPageParam, $lastMessagesPage))
+            : $lastMessagesPage;
+        $messagesPaginator = $messagesQuery->paginate($messagesPerPage, ['*'], 'messages_page', $messagesPage);
+        $conversation->setRelation('messages', $messagesPaginator->getCollection());
 
         $this->normalizeConversationAssignmentRelations($conversation);
         $transferHistory = $this->loadTransferHistory($conversation);
@@ -108,6 +133,12 @@ class ConversationController extends Controller
             'conversation' => $conversation,
             'transfer_history' => $transferHistory,
             'transfer_options' => $this->transferService->transferOptions($companyId),
+            'messages_pagination' => [
+                'current_page' => $messagesPaginator->currentPage(),
+                'last_page' => $messagesPaginator->lastPage(),
+                'per_page' => $messagesPaginator->perPage(),
+                'total' => $messagesPaginator->total(),
+            ],
         ]);
     }
 

@@ -12,12 +12,21 @@ import useInboxRealtimeSync from './useInboxRealtimeSync';
 
 const EMPTY_TRANSFER_OPTIONS = { areas: [], users: [] };
 
+const CONV_PER_PAGE = 15;
+const MSG_PER_PAGE = 25;
+
 function CompanyInboxPage() {
-  const { data, loading, error } = usePageData('/minha-conta/conversas');
+  const [convPage, setConvPage] = useState(1);
+  const [convSearch, setConvSearch] = useState('');
+  const convQuery = `page=${convPage}${convSearch ? `&search=${encodeURIComponent(convSearch)}` : ''}`;
+  const { data, loading, error } = usePageData(`/minha-conta/conversas?${convQuery}`);
   const { logout } = useLogout();
   const { markReadByReference, unreadConversationIds } = useNotificationsContext();
   const [conversations, setConversations] = useState([]);
+  const [conversationsPagination, setConversationsPagination] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
+  const [messagesPage, setMessagesPage] = useState(null);
+  const [messagesPagination, setMessagesPagination] = useState(null);
   const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
@@ -60,6 +69,7 @@ function CompanyInboxPage() {
 
   useEffect(() => {
     setConversations(sortConversationsByActivity(data?.conversations ?? []));
+    setConversationsPagination(data?.conversations_pagination ?? null);
   }, [data]);
 
   useEffect(() => {
@@ -92,9 +102,10 @@ function CompanyInboxPage() {
   }, [selectedId]);
 
   const refreshConversations = useCallback(async () => {
-    const response = await api.get('/minha-conta/conversas');
+    const response = await api.get(`/minha-conta/conversas?${convQuery}`);
     setConversations(sortConversationsByActivity(response.data?.conversations ?? []));
-  }, []);
+    setConversationsPagination(response.data?.conversations_pagination ?? null);
+  }, [convQuery]);
 
   const touchConversationPresence = useCallback(async (conversationId) => {
     const id = Number.parseInt(String(conversationId), 10);
@@ -122,18 +133,32 @@ function CompanyInboxPage() {
     }
   }, []);
 
+  const loadMessagesPage = useCallback(async (page) => {
+    const id = selectedIdRef.current;
+    if (!id) return;
+    try {
+      const response = await api.get(`/minha-conta/conversas/${id}?messages_page=${page}&messages_per_page=${MSG_PER_PAGE}`);
+      const conversation = response.data?.conversation ?? null;
+      if (!conversation || Number(selectedIdRef.current) !== id) return;
+      setDetail((prev) => ({
+        ...(prev ?? {}),
+        ...conversation,
+        messages: Array.isArray(conversation.messages) ? conversation.messages : prev?.messages ?? [],
+        transfer_history: response.data?.transfer_history ?? prev?.transfer_history ?? [],
+      }));
+      setMessagesPagination(response.data?.messages_pagination ?? null);
+      setMessagesPage(page);
+    } catch (_err) {}
+  }, []);
+
   const refreshConversationDetail = useCallback(async (conversationId) => {
     const id = Number.parseInt(String(conversationId), 10);
-    if (!id) {
-      return;
-    }
+    if (!id) return;
 
     try {
       const response = await api.get(`/minha-conta/conversas/${id}`);
       const conversation = response.data?.conversation ?? null;
-      if (!conversation || Number(selectedIdRef.current) !== id) {
-        return;
-      }
+      if (!conversation || Number(selectedIdRef.current) !== id) return;
 
       setDetail((prev) => ({
         ...(prev ?? {}),
@@ -141,6 +166,7 @@ function CompanyInboxPage() {
         messages: Array.isArray(conversation.messages) ? conversation.messages : prev?.messages ?? [],
         transfer_history: response.data?.transfer_history ?? prev?.transfer_history ?? [],
       }));
+      setMessagesPagination(response.data?.messages_pagination ?? null);
       setTransferOptions(response.data?.transfer_options ?? EMPTY_TRANSFER_OPTIONS);
       setContactNameInput(conversation.customer_name ?? '');
     } catch (_error) {
@@ -180,6 +206,8 @@ function CompanyInboxPage() {
             }
           : null
       );
+      setMessagesPagination(response.data?.messages_pagination ?? null);
+      setMessagesPage(null);
       setContactNameInput(conversation?.customer_name ?? '');
       setTransferOptions(response.data?.transfer_options ?? EMPTY_TRANSFER_OPTIONS);
       setTransferArea(conversation?.assigned_type === 'area' ? String(conversation.assigned_id ?? '') : '');
@@ -478,19 +506,25 @@ function CompanyInboxPage() {
   return (
     <Layout role="company" onLogout={logout} fullWidth>
       <div className="inbox-page">
-        <div className="inbox-header px-4 py-4 lg:px-6">
-          <h1 className="text-lg font-semibold text-[#171717]">Inbox da empresa</h1>
-          <p className="text-sm text-[#737373]">Acompanhe atendimento em tempo real.</p>
+        <div className="inbox-header">
+          <h1 className="inbox-title">Inbox da empresa - Acompanhe atendimento em tempo real.</h1>
         </div>
       <div className="inbox-layout grid grid-cols-1 lg:grid-cols-[minmax(200px,280px)_1fr]">
         <aside
-          className={`inbox-conversations min-h-0 overflow-y-auto bg-[#fafafa] px-4 py-4 lg:px-5 ${
-            selectedId ? 'hidden lg:block' : 'block'
-          }`}
+          className={`inbox-conversations ${selectedId ? 'hidden lg:flex' : 'flex'} flex-col`}
         >
-          <h2 className="text-base font-semibold mb-3">Conversas</h2>
-          {!conversations.length && <p className="text-sm text-[#706f6c]">Nenhuma conversa.</p>}
-          <ul className="space-y-2 text-sm">
+          <div className="inbox-conversations-header">
+            <h2 className="inbox-conversations-title">Conversas</h2>
+            <input
+              type="search"
+              value={convSearch}
+              onChange={(e) => { setConvSearch(e.target.value); setConvPage(1); }}
+              placeholder="Buscar contatos..."
+              className="inbox-search-input app-input"
+            />
+          </div>
+          <ul className="inbox-conversations-list space-y-2 text-sm">
+            {!conversations.length && <li className="text-[#706f6c] py-4">Nenhuma conversa.</li>}
             {conversations.map((conv) => {
               const hasUnread = unreadConversationSet.has(Number(conv.id));
 
@@ -535,34 +569,53 @@ function CompanyInboxPage() {
               );
             })}
           </ul>
+          {conversationsPagination && conversationsPagination.last_page > 1 && (
+            <div className="inbox-conversations-pagination">
+              <button
+                type="button"
+                onClick={() => setConvPage((p) => Math.max(1, p - 1))}
+                disabled={conversationsPagination.current_page <= 1}
+                className="app-btn-secondary text-xs"
+              >
+                Anterior
+              </button>
+              <span className="text-xs text-[#737373]">
+                Pág. {conversationsPagination.current_page} / {conversationsPagination.last_page}
+              </span>
+              <button
+                type="button"
+                onClick={() => setConvPage((p) => Math.min(conversationsPagination.last_page, p + 1))}
+                disabled={conversationsPagination.current_page >= conversationsPagination.last_page}
+                className="app-btn-secondary text-xs"
+              >
+                Próxima
+              </button>
+            </div>
+          )}
         </aside>
 
         <section
-          className={`inbox-messages flex flex-col min-h-[400px] lg:min-h-[600px] bg-white px-4 py-4 lg:px-6 overflow-y-auto ${
-            selectedId ? 'block' : 'hidden lg:flex'
-          }`}
+          className={`inbox-messages ${selectedId ? 'flex' : 'hidden lg:flex'} flex-col`}
         >
           {selectedId && (
             <button
               type="button"
               onClick={() => setSelectedId(null)}
-              className="lg:hidden flex items-center gap-2 text-sm text-[#525252] hover:text-[#171717] mb-4"
+              className="lg:hidden inbox-back-btn"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M19 12H5M12 19l-7-7 7-7" />
               </svg>
               Voltar às conversas
             </button>
-          )}
-          <h2 className="text-base font-semibold mb-3">Mensagens</h2>
-          {detailLoading && <p className="text-sm text-[#737373]">Carregando conversa...</p>}
-          {detailError && <p className="text-sm text-red-600">{detailError}</p>}
+          {detailLoading && <p className="inbox-empty-state text-sm text-[#737373]">Carregando conversa...</p>}
+          {detailError && <p className="inbox-empty-state text-sm text-red-600">{detailError}</p>}
           {!detailLoading && !detail && !detailError && (
-            <p className="text-sm text-[#706f6c]">Selecione uma conversa.</p>
+            <p className="inbox-empty-state text-sm text-[#706f6c]">Selecione uma conversa.</p>
           )}
           {!!detail && (
-            <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-              <div className="inbox-toolbar flex flex-wrap items-center gap-2 mb-3 shrink-0">
+            <div className="inbox-detail-layout">
+              <div className="inbox-toolbar shrink-0 flex flex-wrap items-center gap-2">
                 <span className="text-xs text-[#525252]">
                   Modo: <strong>{detail.handling_mode === 'human' ? 'Manual' : 'Bot'}</strong>
                   {detail.assigned_user ? ` · ${detail.assigned_user.name}` : ''}
@@ -590,12 +643,12 @@ function CompanyInboxPage() {
                 <button type="button" onClick={() => setTagsModalOpen(true)} className="app-btn-secondary text-xs py-1.5">
                   Tags {(detail.tags ?? []).length > 0 && `(${(detail.tags ?? []).length})`}
                 </button>
-                <div className="relative">
+                <div className="inbox-transfer-wrap relative">
                   <button type="button" onClick={() => setTransferExpanded((v) => !v)} className="app-btn-secondary text-xs py-1.5">
                     Transferir {transferExpanded ? '▲' : '▼'}
                   </button>
                   {transferExpanded && (
-                    <div className="absolute top-full left-0 mt-1 z-20 w-72 p-3 bg-white rounded-lg shadow-lg border border-[#eeeeee]">
+                    <div className="inbox-transfer-dropdown">
                       <div className="space-y-2 mb-2">
                         <label className="block text-xs">
                           Área
@@ -648,10 +701,37 @@ function CompanyInboxPage() {
                 </div>
               </div>
 
-              <ul className="inbox-chat space-y-2.5 text-sm flex-1 min-h-0 overflow-y-auto pr-1 overscroll-contain">
+              {messagesPagination && messagesPagination.last_page > 1 && (
+                <div className="inbox-messages-pagination shrink-0 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => loadMessagesPage(messagesPagination.current_page - 1)}
+                    disabled={messagesPagination.current_page <= 1}
+                    className="app-btn-secondary text-xs"
+                  >
+                    Anterior
+                  </button>
+                  <span className="text-xs text-[#737373]">
+                    Msgs pág. {messagesPagination.current_page} / {messagesPagination.last_page}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => loadMessagesPage(messagesPagination.current_page + 1)}
+                    disabled={messagesPagination.current_page >= messagesPagination.last_page}
+                    className="app-btn-secondary text-xs"
+                  >
+                    Próxima
+                  </button>
+                </div>
+              )}
+
+              <ul className="inbox-chat space-y-2.5 text-sm flex-1 min-h-0 overflow-y-auto overscroll-contain">
                 {(detail.messages ?? []).map((msg) => (
-                  <li key={msg.id} className="rounded-lg bg-[#fafafa] p-2.5">
-                    <strong>{msg.direction === 'in' ? 'Cliente' : 'Atendente/Bot'}:</strong>{' '}
+                  <li
+                    key={msg.id}
+                    className={`inbox-message-bubble inbox-message-${msg.direction === 'in' ? 'in' : 'out'}`}
+                  >
+                    <span className="inbox-message-label">{msg.direction === 'in' ? 'Cliente' : 'Atendente/Bot'}</span>
                     {msg.content_type === 'image' ? (
                       <div className="company-inbox-message-media">
                         <a href={getMessageImageUrl(msg)} target="_blank" rel="noreferrer">
@@ -664,13 +744,13 @@ function CompanyInboxPage() {
                         {msg.text ? <p className="company-inbox-message-caption">{msg.text}</p> : null}
                       </div>
                     ) : (
-                      <span>{msg.text}</span>
+                      <span className="inbox-message-text">{msg.text}</span>
                     )}
                   </li>
                 ))}
               </ul>
 
-              <form onSubmit={sendManualReply} className="space-y-2 shrink-0">
+              <form onSubmit={sendManualReply} className="inbox-reply-form shrink-0 space-y-2">
                 <div className="relative">
                   <button
                     type="button"
