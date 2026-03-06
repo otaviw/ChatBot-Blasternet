@@ -277,6 +277,7 @@ export default function UsersPage({ scope = "company" }) {
 
   const loadingAny = loading || extraLoading;
   const pageError = error || extraError;
+  const pageErrorMessage = pageError?.response?.data?.message || "Não foi possível carregar usuários.";
 
   if (loadingAny) {
     return (
@@ -297,7 +298,7 @@ export default function UsersPage({ scope = "company" }) {
         companyName={isAdminScope ? null : companyName}
         onLogout={logout}
       >
-        <p className="text-sm text-red-600">Não foi possível carregar usuários.</p>
+        <p className="text-sm text-red-600">{pageErrorMessage}</p>
       </Layout>
     );
   }

@@ -33,6 +33,23 @@ export function appendUniqueMessage(messages, message) {
   return exists ? messages : [...messages, message];
 }
 
+export function mergeMessagesChronologically(currentMessages, incomingMessages) {
+  const mergedById = new Map();
+
+  [...(currentMessages ?? []), ...(incomingMessages ?? [])].forEach((message) => {
+    if (!message?.id) {
+      return;
+    }
+
+    mergedById.set(Number(message.id), {
+      ...(mergedById.get(Number(message.id)) ?? {}),
+      ...message,
+    });
+  });
+
+  return Array.from(mergedById.values()).sort((a, b) => Number(a.id ?? 0) - Number(b.id ?? 0));
+}
+
 export function normalizeEventConversation(payload) {
   if (!payload || typeof payload !== 'object') {
     return null;

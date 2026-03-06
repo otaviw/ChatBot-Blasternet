@@ -103,7 +103,9 @@ function DashboardPage() {
     },
   ];
 
-  if (data.can_manage_users) {
+  const canManageUsers = Boolean(data.can_manage_users || data.user_role === 'company_admin');
+
+  if (canManageUsers) {
     companyItems.push({
       href: '/minha-conta/usuarios',
       title: 'Usuarios',

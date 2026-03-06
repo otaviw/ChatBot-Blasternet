@@ -7,26 +7,37 @@ import api from '@/services/api';
 import realtimeClient from '@/services/realtimeClient';
 import { useNotificationsContext } from '@/contexts/NotificationsContext';
 import { NOTIFICATION_MODULE, NOTIFICATION_REFERENCE_TYPE } from '@/constants/notifications';
-import { appendUniqueMessage, sortConversationsByActivity } from './inboxRealtimeUtils';
+import {
+  appendUniqueMessage,
+  mergeMessagesChronologically,
+  sortConversationsByActivity,
+} from './inboxRealtimeUtils';
 import useInboxRealtimeSync from './useInboxRealtimeSync';
 
 const EMPTY_TRANSFER_OPTIONS = { areas: [], users: [] };
 
-const CONV_PER_PAGE = 15;
+const CONV_PER_PAGE = 25;
 const MSG_PER_PAGE = 25;
 
 function CompanyInboxPage() {
-  const [convPage, setConvPage] = useState(1);
+  const [, setConvPage] = useState(1);
   const [convSearch, setConvSearch] = useState('');
-  const convQuery = `page=${convPage}${convSearch ? `&search=${encodeURIComponent(convSearch)}` : ''}`;
-  const { data, loading, error } = usePageData(`/minha-conta/conversas?${convQuery}`);
+  const buildConversationsUrl = useCallback(
+    (page = 1) =>
+      `/minha-conta/conversas?page=${page}&per_page=${CONV_PER_PAGE}${
+        convSearch ? `&search=${encodeURIComponent(convSearch)}` : ''
+      }`,
+    [convSearch]
+  );
+  const { data, loading, error } = usePageData(buildConversationsUrl(1));
   const { logout } = useLogout();
   const { markReadByReference, unreadConversationIds } = useNotificationsContext();
   const [conversations, setConversations] = useState([]);
   const [conversationsPagination, setConversationsPagination] = useState(null);
+  const [conversationsLoadingMore, setConversationsLoadingMore] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
-  const [messagesPage, setMessagesPage] = useState(null);
   const [messagesPagination, setMessagesPagination] = useState(null);
+  const [messagesLoadingOlder, setMessagesLoadingOlder] = useState(false);
   const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
@@ -53,6 +64,12 @@ function CompanyInboxPage() {
   const [transferSuccess, setTransferSuccess] = useState('');
   const selectedIdRef = useRef(null);
   const queryConversationHandledRef = useRef(false);
+  const conversationListRef = useRef(null);
+  const chatListRef = useRef(null);
+  const loadedConversationPageRef = useRef(1);
+  const pendingMessageScrollRestoreRef = useRef(null);
+  const shouldScrollChatToBottomRef = useRef(false);
+  const wasChatNearBottomRef = useRef(true);
 
   const unreadConversationSet = useMemo(
     () => new Set((unreadConversationIds ?? []).map((value) => Number(value))),
@@ -70,6 +87,12 @@ function CompanyInboxPage() {
   useEffect(() => {
     setConversations(sortConversationsByActivity(data?.conversations ?? []));
     setConversationsPagination(data?.conversations_pagination ?? null);
+    setConversationsLoadingMore(false);
+    loadedConversationPageRef.current = 1;
+
+    if (conversationListRef.current) {
+      conversationListRef.current.scrollTop = 0;
+    }
   }, [data]);
 
   useEffect(() => {
@@ -101,11 +124,115 @@ function CompanyInboxPage() {
     selectedIdRef.current = selectedId;
   }, [selectedId]);
 
+  const upsertConversationInList = useCallback((conversation) => {
+    if (!conversation?.id) {
+      return;
+    }
+
+    setConversations((prev) => {
+      let found = false;
+      const next = prev.map((item) => {
+        if (Number(item.id) !== Number(conversation.id)) {
+          return item;
+        }
+
+        found = true;
+        return {
+          ...item,
+          ...conversation,
+        };
+      });
+
+      return sortConversationsByActivity(found ? next : [conversation, ...next]);
+    });
+  }, []);
+
   const refreshConversations = useCallback(async () => {
-    const response = await api.get(`/minha-conta/conversas?${convQuery}`);
-    setConversations(sortConversationsByActivity(response.data?.conversations ?? []));
-    setConversationsPagination(response.data?.conversations_pagination ?? null);
-  }, [convQuery]);
+    const response = await api.get(buildConversationsUrl(1));
+    const incomingConversations = sortConversationsByActivity(response.data?.conversations ?? []);
+    const incomingPagination = response.data?.conversations_pagination ?? null;
+
+    setConversations((prev) => {
+      if (loadedConversationPageRef.current <= 1 || convSearch) {
+        return incomingConversations;
+      }
+
+      const merged = new Map(prev.map((item) => [Number(item.id), item]));
+      incomingConversations.forEach((conversation) => {
+        const existing = merged.get(Number(conversation.id));
+        merged.set(Number(conversation.id), {
+          ...(existing ?? {}),
+          ...conversation,
+        });
+      });
+
+      return sortConversationsByActivity(Array.from(merged.values()));
+    });
+    setConversationsPagination((prev) => {
+      if (!incomingPagination) {
+        return prev;
+      }
+
+      return {
+        ...incomingPagination,
+        current_page: Math.max(loadedConversationPageRef.current, Number(incomingPagination.current_page ?? 1)),
+      };
+    });
+  }, [buildConversationsUrl, convSearch]);
+
+  const loadMoreConversations = useCallback(async () => {
+    if (loading || conversationsLoadingMore || !conversationsPagination) {
+      return;
+    }
+
+    const lastPage = Number(conversationsPagination.last_page ?? 1);
+    if (loadedConversationPageRef.current >= lastPage) {
+      return;
+    }
+
+    const nextPage = loadedConversationPageRef.current + 1;
+    setConversationsLoadingMore(true);
+
+    try {
+      const response = await api.get(buildConversationsUrl(nextPage));
+      const incomingConversations = response.data?.conversations ?? [];
+      const incomingPagination = response.data?.conversations_pagination ?? null;
+
+      setConversations((prev) => {
+        const merged = new Map(prev.map((item) => [Number(item.id), item]));
+        incomingConversations.forEach((conversation) => {
+          const existing = merged.get(Number(conversation.id));
+          merged.set(Number(conversation.id), {
+            ...(existing ?? {}),
+            ...conversation,
+          });
+        });
+
+        return sortConversationsByActivity(Array.from(merged.values()));
+      });
+      setConversationsPagination((prev) => ({
+        ...(prev ?? {}),
+        ...(incomingPagination ?? {}),
+        current_page: nextPage,
+      }));
+      loadedConversationPageRef.current = nextPage;
+    } catch (_error) {
+      // Falha ao carregar mais conversas nao deve quebrar a inbox.
+    } finally {
+      setConversationsLoadingMore(false);
+    }
+  }, [buildConversationsUrl, conversationsLoadingMore, conversationsPagination, loading]);
+
+  const handleConversationsScroll = useCallback(
+    (event) => {
+      const element = event.currentTarget;
+      const remaining = element.scrollHeight - element.scrollTop - element.clientHeight;
+      if (remaining <= 120) {
+        void loadMoreConversations();
+      }
+    },
+    [loadMoreConversations]
+  );
 
   const touchConversationPresence = useCallback(async (conversationId) => {
     const id = Number.parseInt(String(conversationId), 10);
@@ -133,23 +260,52 @@ function CompanyInboxPage() {
     }
   }, []);
 
-  const loadMessagesPage = useCallback(async (page) => {
+  const loadOlderMessages = useCallback(async () => {
     const id = selectedIdRef.current;
-    if (!id) return;
+    const currentPage = Number(messagesPagination?.current_page ?? 1);
+
+    if (!id || messagesLoadingOlder || currentPage <= 1) return;
+
+    const previousMetrics = chatListRef.current
+      ? {
+          conversationId: id,
+          scrollHeight: chatListRef.current.scrollHeight,
+          scrollTop: chatListRef.current.scrollTop,
+        }
+      : null;
+
+    setMessagesLoadingOlder(true);
+
     try {
-      const response = await api.get(`/minha-conta/conversas/${id}?messages_page=${page}&messages_per_page=${MSG_PER_PAGE}`);
+      const response = await api.get(
+        `/minha-conta/conversas/${id}?messages_page=${currentPage - 1}&messages_per_page=${MSG_PER_PAGE}`
+      );
       const conversation = response.data?.conversation ?? null;
       if (!conversation || Number(selectedIdRef.current) !== id) return;
+
+      pendingMessageScrollRestoreRef.current = previousMetrics;
       setDetail((prev) => ({
         ...(prev ?? {}),
         ...conversation,
-        messages: Array.isArray(conversation.messages) ? conversation.messages : prev?.messages ?? [],
+        messages: mergeMessagesChronologically(conversation.messages ?? [], prev?.messages ?? []),
         transfer_history: response.data?.transfer_history ?? prev?.transfer_history ?? [],
       }));
       setMessagesPagination(response.data?.messages_pagination ?? null);
-      setMessagesPage(page);
-    } catch (_err) {}
-  }, []);
+    } catch (_err) {
+      // Falha ao carregar mensagens antigas nao deve interromper a conversa atual.
+    } finally {
+      setMessagesLoadingOlder(false);
+    }
+  }, [messagesLoadingOlder, messagesPagination]);
+
+  const loadMessagesPage = useCallback(
+    async (page) => {
+      if (page < Number(messagesPagination?.current_page ?? 1)) {
+        await loadOlderMessages();
+      }
+    },
+    [loadOlderMessages, messagesPagination]
+  );
 
   const refreshConversationDetail = useCallback(async (conversationId) => {
     const id = Number.parseInt(String(conversationId), 10);
@@ -163,10 +319,24 @@ function CompanyInboxPage() {
       setDetail((prev) => ({
         ...(prev ?? {}),
         ...conversation,
-        messages: Array.isArray(conversation.messages) ? conversation.messages : prev?.messages ?? [],
+        messages: mergeMessagesChronologically(prev?.messages ?? [], conversation.messages ?? []),
         transfer_history: response.data?.transfer_history ?? prev?.transfer_history ?? [],
       }));
-      setMessagesPagination(response.data?.messages_pagination ?? null);
+      setMessagesPagination((prev) => {
+        const incoming = response.data?.messages_pagination ?? null;
+        if (!incoming) {
+          return prev;
+        }
+
+        if (!prev) {
+          return incoming;
+        }
+
+        return {
+          ...incoming,
+          current_page: Math.min(Number(prev.current_page ?? incoming.current_page), Number(incoming.current_page ?? prev.current_page)),
+        };
+      });
       setTransferOptions(response.data?.transfer_options ?? EMPTY_TRANSFER_OPTIONS);
       setContactNameInput(conversation.customer_name ?? '');
     } catch (_error) {
@@ -194,6 +364,9 @@ function CompanyInboxPage() {
     setContactNameInput('');
     setContactError('');
     setContactSuccess('');
+    pendingMessageScrollRestoreRef.current = null;
+    shouldScrollChatToBottomRef.current = true;
+    wasChatNearBottomRef.current = true;
 
     try {
       const response = await api.get(`/minha-conta/conversas/${conversationId}`);
@@ -207,7 +380,6 @@ function CompanyInboxPage() {
           : null
       );
       setMessagesPagination(response.data?.messages_pagination ?? null);
-      setMessagesPage(null);
       setContactNameInput(conversation?.customer_name ?? '');
       setTransferOptions(response.data?.transfer_options ?? EMPTY_TRANSFER_OPTIONS);
       setTransferArea(conversation?.assigned_type === 'area' ? String(conversation.assigned_id ?? '') : '');
@@ -266,6 +438,55 @@ function CompanyInboxPage() {
     setDetail,
   });
 
+  const handleChatScroll = useCallback(
+    (event) => {
+      const element = event.currentTarget;
+      const remaining = element.scrollHeight - element.scrollTop - element.clientHeight;
+      wasChatNearBottomRef.current = remaining <= 72;
+
+      if (element.scrollTop <= 80) {
+        void loadOlderMessages();
+      }
+    },
+    [loadOlderMessages]
+  );
+
+  useEffect(() => {
+    const chatElement = chatListRef.current;
+    const pendingRestore = pendingMessageScrollRestoreRef.current;
+
+    if (!chatElement || !detail?.id) {
+      return;
+    }
+
+    if (pendingRestore && Number(pendingRestore.conversationId) === Number(detail.id)) {
+      pendingMessageScrollRestoreRef.current = null;
+      requestAnimationFrame(() => {
+        const element = chatListRef.current;
+        if (!element) {
+          return;
+        }
+
+        element.scrollTop = element.scrollHeight - pendingRestore.scrollHeight + pendingRestore.scrollTop;
+        wasChatNearBottomRef.current = false;
+      });
+      return;
+    }
+
+    if (shouldScrollChatToBottomRef.current || wasChatNearBottomRef.current) {
+      shouldScrollChatToBottomRef.current = false;
+      requestAnimationFrame(() => {
+        const element = chatListRef.current;
+        if (!element) {
+          return;
+        }
+
+        element.scrollTop = element.scrollHeight;
+        wasChatNearBottomRef.current = true;
+      });
+    }
+  }, [detail?.id, detail?.messages?.length]);
+
   const assumeConversation = async () => {
     if (!detail?.id) return;
     setActionBusy(true);
@@ -273,6 +494,7 @@ function CompanyInboxPage() {
     try {
       const response = await api.post(`/minha-conta/conversas/${detail.id}/assumir`);
       setDetail((prev) => ({ ...(prev ?? {}), ...response.data?.conversation }));
+      upsertConversationInList(response.data?.conversation);
       await refreshConversations();
     } catch (err) {
       setDetailError(err.response?.data?.message || 'Falha ao assumir conversa.');
@@ -288,6 +510,7 @@ function CompanyInboxPage() {
     try {
       const response = await api.post(`/minha-conta/conversas/${detail.id}/soltar`);
       setDetail((prev) => ({ ...(prev ?? {}), ...response.data?.conversation }));
+      upsertConversationInList(response.data?.conversation);
       await refreshConversations();
     } catch (err) {
       setDetailError(err.response?.data?.message || 'Falha ao soltar conversa.');
@@ -303,6 +526,7 @@ function CompanyInboxPage() {
     try {
       const response = await api.post(`/minha-conta/conversas/${detail.id}/encerrar`);
       setDetail((prev) => ({ ...(prev ?? {}), ...response.data?.conversation }));
+      upsertConversationInList(response.data?.conversation);
       await refreshConversations();
     } catch (err) {
       setDetailError(err.response?.data?.message || 'Falha ao encerrar conversa.');
@@ -333,12 +557,15 @@ function CompanyInboxPage() {
 
       const autoMessage = response.data?.message ?? null;
       const transferHistory = response.data?.transfer_history ?? [];
+      shouldScrollChatToBottomRef.current = true;
+      wasChatNearBottomRef.current = true;
       setDetail((prev) => ({
         ...(prev ?? {}),
         ...response.data?.conversation,
         transfer_history: transferHistory.length ? transferHistory : prev?.transfer_history ?? [],
         messages: autoMessage ? appendUniqueMessage(prev?.messages ?? [], autoMessage) : prev?.messages ?? [],
       }));
+      upsertConversationInList(response.data?.conversation);
 
       setTransferSuccess('Transferencia realizada com sucesso.');
       await refreshConversations();
@@ -401,11 +628,14 @@ function CompanyInboxPage() {
       }
 
       const message = response.data?.message;
+      shouldScrollChatToBottomRef.current = true;
+      wasChatNearBottomRef.current = true;
       setDetail((prev) => ({
         ...(prev ?? {}),
         ...response.data?.conversation,
         messages: appendUniqueMessage(prev?.messages ?? [], message),
       }));
+      upsertConversationInList(response.data?.conversation);
       setManualText('');
       if (manualImagePreviewUrl) {
         URL.revokeObjectURL(manualImagePreviewUrl);
@@ -458,13 +688,7 @@ function CompanyInboxPage() {
       if (updatedConversation) {
         setDetail((prev) => ({ ...(prev ?? {}), ...updatedConversation }));
         setContactNameInput(updatedConversation.customer_name ?? '');
-        setConversations((prev) =>
-          prev.map((item) =>
-            Number(item.id) === Number(updatedConversation.id)
-              ? { ...item, customer_name: updatedConversation.customer_name ?? null }
-              : item
-          )
-        );
+        upsertConversationInList(updatedConversation);
       }
 
       setContactSuccess('Contato salvo.');
@@ -518,12 +742,16 @@ function CompanyInboxPage() {
             <input
               type="search"
               value={convSearch}
-              onChange={(e) => { setConvSearch(e.target.value); setConvPage(1); }}
+              onChange={(e) => setConvSearch(e.target.value)}
               placeholder="Buscar contatos..."
               className="inbox-search-input app-input"
             />
           </div>
-          <ul className="inbox-conversations-list space-y-2 text-sm">
+          <ul
+            ref={conversationListRef}
+            onScroll={handleConversationsScroll}
+            className="inbox-conversations-list space-y-2 text-sm"
+          >
             {!conversations.length && <li className="text-[#706f6c] py-4">Nenhuma conversa.</li>}
             {conversations.map((conv) => {
               const hasUnread = unreadConversationSet.has(Number(conv.id));
@@ -571,14 +799,6 @@ function CompanyInboxPage() {
           </ul>
           {conversationsPagination && conversationsPagination.last_page > 1 && (
             <div className="inbox-conversations-pagination">
-              <button
-                type="button"
-                onClick={() => setConvPage((p) => Math.max(1, p - 1))}
-                disabled={conversationsPagination.current_page <= 1}
-                className="app-btn-secondary text-xs"
-              >
-                Anterior
-              </button>
               <span className="text-xs text-[#737373]">
                 Pág. {conversationsPagination.current_page} / {conversationsPagination.last_page}
               </span>
@@ -592,6 +812,20 @@ function CompanyInboxPage() {
               </button>
             </div>
           )}
+          <div className="inbox-conversations-status">
+            {conversationsLoadingMore ? (
+              <span className="text-xs text-[#737373]">Carregando mais conversas...</span>
+            ) : conversationsPagination && loadedConversationPageRef.current < Number(conversationsPagination.last_page ?? 1) ? (
+              <span className="text-xs text-[#737373]">Role para carregar mais conversas.</span>
+            ) : (
+              <span className="text-xs text-[#a3a3a3]">Fim da lista.</span>
+            )}
+            {conversationsPagination?.total ? (
+              <span className="text-xs text-[#a3a3a3]">
+                {conversations.length} / {conversationsPagination.total}
+              </span>
+            ) : null}
+          </div>
         </aside>
 
         <section
@@ -726,7 +960,16 @@ function CompanyInboxPage() {
                 </div>
               )}
 
-              <ul className="inbox-chat space-y-2.5 text-sm flex-1 min-h-0 overflow-y-auto overscroll-contain">
+              <ul
+                ref={chatListRef}
+                onScroll={handleChatScroll}
+                className="inbox-chat space-y-2.5 text-sm flex-1 min-h-0 overflow-y-auto overscroll-contain"
+              >
+                {messagesLoadingOlder ? (
+                  <li className="inbox-chat-loader">Carregando mensagens anteriores...</li>
+                ) : messagesPagination && Number(messagesPagination.current_page ?? 1) > 1 ? (
+                  <li className="inbox-chat-loader">Role para cima para carregar mensagens anteriores.</li>
+                ) : null}
                 {(detail.messages ?? []).map((msg) => (
                   <li
                     key={msg.id}
@@ -751,78 +994,92 @@ function CompanyInboxPage() {
                 ))}
               </ul>
 
-              <form onSubmit={sendManualReply} className="inbox-reply-form shrink-0 space-y-2">
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setShowTemplates((prev) => !prev)}
-                    className="app-btn-secondary text-xs"
-                  >
-                    Respostas rapidas v
-                  </button>
-
-                  {showTemplates && (
-                    <div className="absolute bottom-8 left-0 z-10 w-72 bg-white rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                      {!quickReplies.length && (
-                        <p className="text-xs text-[#706f6c] p-3">Nenhum template cadastrado.</p>
-                      )}
-                      {quickReplies.map((reply) => (
-                        <button
-                          key={reply.id}
-                          type="button"
-                          onClick={() => {
-                            setManualText(reply.text);
-                            setShowTemplates(false);
-                          }}
-                          className="w-full text-left px-3 py-2 hover:bg-[#f5f5f5] border-b border-[#eeeeee] last:border-0 text-[#171717]"
-                        >
-                          <p className="text-xs font-medium">{reply.title}</p>
-                          <p className="text-xs text-[#706f6c] truncate">{reply.text}</p>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <textarea
-                  value={manualText}
-                  onChange={(event) => setManualText(event.target.value)}
-                  rows={3}
-                  placeholder="Digite resposta manual ou use um template..."
-                  className="app-input"
-                />
-                <div className="company-inbox-upload-row">
-                  <label className="app-btn-secondary text-xs cursor-pointer">
-                    Anexar imagem
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleManualImageChange}
-                      className="hidden"
-                    />
-                  </label>
-                  {manualImageFile ? (
+              <form onSubmit={sendManualReply} className="inbox-reply-form shrink-0 space-y-3">
+                <div className="inbox-reply-actions">
+                  <div className="inbox-reply-template-wrap relative">
                     <button
                       type="button"
-                      onClick={removeManualImage}
-                      className="app-btn-danger text-xs"
+                      onClick={() => setShowTemplates((prev) => !prev)}
+                      className="app-btn-secondary text-xs inbox-reply-action-btn"
                     >
-                      Remover imagem
+                      Respostas rapidas v
                     </button>
-                  ) : null}
+
+                    {showTemplates && (
+                      <div className="absolute bottom-10 left-0 z-10 w-72 bg-white rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        {!quickReplies.length && (
+                          <p className="text-xs text-[#706f6c] p-3">Nenhum template cadastrado.</p>
+                        )}
+                        {quickReplies.map((reply) => (
+                          <button
+                            key={reply.id}
+                            type="button"
+                            onClick={() => {
+                              setManualText(reply.text);
+                              setShowTemplates(false);
+                            }}
+                            className="w-full text-left px-3 py-2 hover:bg-[#f5f5f5] border-b border-[#eeeeee] last:border-0 text-[#171717]"
+                          >
+                            <p className="text-xs font-medium">{reply.title}</p>
+                            <p className="text-xs text-[#706f6c] truncate">{reply.text}</p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="company-inbox-upload-row">
+                    <label className="app-btn-secondary text-xs cursor-pointer inbox-reply-action-btn">
+                      Anexar imagem
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleManualImageChange}
+                        className="hidden"
+                      />
+                    </label>
+                    {manualImageFile ? (
+                      <button
+                        type="button"
+                        onClick={removeManualImage}
+                        className="app-btn-danger text-xs"
+                      >
+                        Remover imagem
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+
+                {manualImageFile ? (
+                  <div className="inbox-reply-attachment">
+                    <span className="inbox-reply-attachment-label">Imagem selecionada</span>
+                    <span className="inbox-reply-attachment-name" title={manualImageFile.name}>
+                      {manualImageFile.name}
+                    </span>
+                  </div>
+                ) : null}
+
+                <div className="inbox-reply-compose">
+                  <textarea
+                    value={manualText}
+                    onChange={(event) => setManualText(event.target.value)}
+                    rows={2}
+                    placeholder="Digite resposta manual ou use um template..."
+                    className="app-input inbox-reply-input"
+                  />
+                  <button
+                    type="submit"
+                    disabled={manualBusy || (!manualText.trim() && !manualImageFile)}
+                    className="app-btn-primary inbox-reply-submit"
+                  >
+                    {manualBusy ? 'Enviando...' : 'Enviar'}
+                  </button>
                 </div>
                 {manualImagePreviewUrl ? (
                   <div className="company-inbox-image-preview">
                     <img src={manualImagePreviewUrl} alt="Prévia da imagem anexada" />
                   </div>
                 ) : null}
-                <button
-                  type="submit"
-                  disabled={manualBusy || (!manualText.trim() && !manualImageFile)}
-                  className="app-btn-primary"
-                >
-                  {manualBusy ? 'Enviando...' : 'Enviar resposta manual'}
-                </button>
                 {manualError && <p className="text-sm text-red-600">{manualError}</p>}
               </form>
             </div>

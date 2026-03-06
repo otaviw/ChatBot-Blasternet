@@ -176,7 +176,8 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
     api.get('/me')
       .then((response) => {
         if (canceled) return;
-        setCanManageUsers(Boolean(response.data?.user?.can_manage_users));
+        const user = response.data?.user;
+        setCanManageUsers(Boolean(user?.can_manage_users || (user?.role === 'company_admin' && user?.company_id)));
       })
       .catch(() => {
         if (canceled) return;

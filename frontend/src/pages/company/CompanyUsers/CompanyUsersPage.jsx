@@ -5,8 +5,11 @@ import usePageData from "@/hooks/usePageData";
 import useLogout from "@/hooks/useLogout";
 
 export default function CompanyUsersPage() {
-  const { data, loading, error } = usePageData('/dashboard');
+  const { data, loading, error } = usePageData('/me');
   const { logout } = useLogout();
+  const canManageUsers = Boolean(
+    data?.user?.can_manage_users || (data?.user?.role === 'company_admin' && data?.user?.company_id)
+  );
 
   if (loading) {
     return (
@@ -24,9 +27,9 @@ export default function CompanyUsersPage() {
     );
   }
 
-  if (!data?.can_manage_users) {
+  if (!canManageUsers) {
     return (
-      <Layout role="company" companyName={data.companyName} onLogout={logout}>
+      <Layout role="company" companyName={data?.user?.company_name} onLogout={logout}>
         <p className="text-sm text-[#64748b]">Acesso restrito a admin da empresa.</p>
       </Layout>
     );

@@ -72,6 +72,68 @@ class CompanyUserManagementTest extends TestCase
         $response->assertStatus(404);
     }
 
+    public function test_company_admin_creation_ignores_company_id_from_payload(): void
+    {
+        $companyA = Company::create(['name' => 'Empresa A']);
+        $companyB = Company::create(['name' => 'Empresa B']);
+        $companyAdmin = User::create([
+            'name' => 'Admin Empresa A',
+            'email' => 'company-admin-a-scope@test.local',
+            'password' => 'secret123',
+            'role' => User::ROLE_COMPANY_ADMIN,
+            'company_id' => $companyA->id,
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($companyAdmin)->postJson('/api/minha-conta/users', [
+            'name' => 'Usuario Escopo Empresa A',
+            'email' => 'company-scope-a@test.local',
+            'password' => 'secret123',
+            'role' => User::ROLE_AGENT,
+            'company_id' => $companyB->id,
+            'is_active' => true,
+        ]);
+
+        $response->assertStatus(201);
+        $response->assertJsonPath('user.company_id', $companyA->id);
+        $this->assertDatabaseHas('users', [
+            'email' => 'company-scope-a@test.local',
+            'role' => User::ROLE_AGENT,
+            'company_id' => $companyA->id,
+            'is_active' => 1,
+        ]);
+        $this->assertDatabaseMissing('users', [
+            'email' => 'company-scope-a@test.local',
+            'company_id' => $companyB->id,
+        ]);
+    }
+
+    public function test_company_admin_cannot_create_system_admin(): void
+    {
+        $company = Company::create(['name' => 'Empresa A']);
+        $companyAdmin = User::create([
+            'name' => 'Admin Empresa A',
+            'email' => 'company-admin-a-no-super@test.local',
+            'password' => 'secret123',
+            'role' => User::ROLE_COMPANY_ADMIN,
+            'company_id' => $company->id,
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($companyAdmin)->postJson('/api/minha-conta/users', [
+            'name' => 'Tentativa Superadmin',
+            'email' => 'blocked-superadmin@test.local',
+            'password' => 'secret123',
+            'role' => User::ROLE_SYSTEM_ADMIN,
+            'is_active' => true,
+        ]);
+
+        $response->assertStatus(422);
+        $this->assertDatabaseMissing('users', [
+            'email' => 'blocked-superadmin@test.local',
+        ]);
+    }
+
     public function test_agent_cannot_manage_company_users(): void
     {
         $company = Company::create(['name' => 'Empresa X']);
