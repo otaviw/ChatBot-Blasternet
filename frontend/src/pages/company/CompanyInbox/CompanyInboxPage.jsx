@@ -608,6 +608,7 @@ function CompanyInboxPage() {
               </svg>
               Voltar às conversas
             </button>
+          )}
           {detailLoading && <p className="inbox-empty-state text-sm text-[#737373]">Carregando conversa...</p>}
           {detailError && <p className="inbox-empty-state text-sm text-red-600">{detailError}</p>}
           {!detailLoading && !detail && !detailError && (
