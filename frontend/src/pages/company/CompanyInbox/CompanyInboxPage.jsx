@@ -722,7 +722,7 @@ function CompanyInboxPage() {
   if (error || !data?.authenticated) {
     return (
       <Layout>
-        <p className="text-sm text-red-600 dark:text-red-400">Nao foi possivel carregar a inbox.</p>
+        <p className="text-sm text-red-600 dark:text-red-400">Não foi possível carregar a inbox.</p>
       </Layout>
     );
   }
@@ -787,7 +787,7 @@ function CompanyInboxPage() {
                           nova msg
                         </span>
                       ) : null}
-                      {conv.current_area?.name ? <span className="ml-2">area: {conv.current_area.name}</span> : null}
+                      {conv.current_area?.name ? <span className="ml-2">área: {conv.current_area.name}</span> : null}
                       {(conv.tags ?? []).length > 0 && (
                         <span className="ml-2">{conv.tags.join(', ')}</span>
                       )}
@@ -1002,7 +1002,7 @@ function CompanyInboxPage() {
                       onClick={() => setShowTemplates((prev) => !prev)}
                       className="app-btn-secondary text-xs inbox-reply-action-btn"
                     >
-                      Respostas rapidas v
+                      Respostas rápidas v
                     </button>
 
                     {showTemplates && (

@@ -3,14 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Models\SupportTicket;
+use App\Models\SupportTicketAttachment;
 use App\Services\AuditLogService;
+use App\Services\MessageMediaStorageService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class SupportTicketController extends Controller
 {
     public function __construct(
-        private AuditLogService $auditLog
+        private AuditLogService $auditLog,
+        private MessageMediaStorageService $mediaStorage
     ) {}
 
     public function store(Request $request): JsonResponse
@@ -26,6 +29,8 @@ class SupportTicketController extends Controller
         $validated = $request->validate([
             'subject' => ['required', 'string', 'max:190'],
             'message' => ['required', 'string', 'max:8000'],
+            'images' => ['nullable', 'array'],
+            'images.*' => ['image', 'max:' . (config('whatsapp.media_max_size_kb', 5120))],
         ]);
 
         $ticket = SupportTicket::create([
@@ -47,11 +52,33 @@ class SupportTicketController extends Controller
             $ticket->save();
         }
 
+        $images = $request->file('images') ?? [];
+        foreach ($images as $file) {
+            if (! $file || ! $file->isValid()) {
+                continue;
+            }
+            try {
+                $stored = $this->mediaStorage->storeSupportTicketImage($file);
+                SupportTicketAttachment::create([
+                    'support_ticket_id' => $ticket->id,
+                    'storage_provider' => $stored['provider'],
+                    'storage_key' => $stored['key'],
+                    'url' => $stored['url'] ?? null,
+                    'mime_type' => $stored['mime_type'],
+                    'size_bytes' => $stored['size_bytes'],
+                ]);
+            } catch (\Throwable) {
+                // Ignora falha em uma imagem; ticket já foi criado.
+            }
+        }
+
         $this->auditLog->record($request, 'support.ticket.created', $ticket->company_id, [
             'ticket_id' => $ticket->id,
             'ticket_number' => $ticket->ticket_number,
             'subject' => $ticket->subject,
         ]);
+
+        $ticket->load('attachments');
 
         return response()->json([
             'ok' => true,
@@ -70,7 +97,7 @@ class SupportTicketController extends Controller
         }
 
         $tickets = SupportTicket::query()
-            ->with(['company:id,name', 'managedBy:id,name,email'])
+            ->with(['company:id,name', 'managedBy:id,name,email', 'attachments'])
             ->where('requester_user_id', (int) $user->id)
             ->latest('id')
             ->limit(500)
@@ -115,7 +142,7 @@ class SupportTicketController extends Controller
             ], 403);
         }
 
-        $ticket->load(['company:id,name', 'managedBy:id,name,email']);
+        $ticket->load(['company:id,name', 'managedBy:id,name,email', 'attachments']);
 
         return response()->json([
             'authenticated' => true,
@@ -130,6 +157,14 @@ class SupportTicketController extends Controller
      */
     private function serializeTicket(SupportTicket $ticket): array
     {
+        $attachments = $ticket->relationLoaded('attachments')
+            ? $ticket->attachments->map(fn ($a) => [
+                'id' => (int) $a->id,
+                'url' => $a->url,
+                'mime_type' => $a->mime_type,
+            ])->values()->all()
+            : [];
+
         return [
             'id' => (int) $ticket->id,
             'ticket_number' => (int) ($ticket->ticket_number ?: $ticket->id),
@@ -147,6 +182,7 @@ class SupportTicketController extends Controller
             'closed_at' => $ticket->closed_at,
             'created_at' => $ticket->created_at,
             'updated_at' => $ticket->updated_at,
+            'attachments' => $attachments,
         ];
     }
 }

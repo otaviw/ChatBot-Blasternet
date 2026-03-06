@@ -64,7 +64,7 @@ const ICONS = {
 };
 
 const iconKey = (label) => {
-  const map = { Dashboard: 'dashboard', Empresas: 'empresas', Usuarios: 'usuarios', Inbox: 'inbox', Suporte: 'suporte', Solicitacoes: 'suporte', 'Abrir suporte': 'suporte', Notificacoes: 'notificacoes', Simulador: 'simulador', Bot: 'bot', Respostas: 'respostas' };
+  const map = { Dashboard: 'dashboard', Empresas: 'empresas', Usuarios: 'usuarios', Inbox: 'inbox', Suporte: 'suporte', Solicitações: 'suporte', 'Abrir suporte': 'suporte', Notificações: 'notificações', Simulador: 'simulador', Bot: 'bot', Respostas: 'respostas' };
   return map[label] || 'dashboard';
 };
 
@@ -79,7 +79,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
   const isLogged = Boolean(role);
   const currentPath = window.location.pathname;
   const [canManageUsers, setCanManageUsers] = useState(false);
-  const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [sidebarHovered, setSidebarHovered] = useState(false);
   const [supportAccordionOpen, setSupportAccordionOpen] = useState(false);
   const [notificationsPanelOpen, setNotificationsPanelOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -220,13 +220,13 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
   const adminMainLinks = [
     { href: '/dashboard', label: 'Dashboard' },
     { href: '/admin/empresas', label: 'Empresas' },
-    { href: '/admin/usuarios', label: 'Usuarios' },
+    { href: '/admin/usuarios', label: 'Usuários' },
     { href: '/admin/conversas', label: 'Inbox', module: NOTIFICATION_MODULE.INBOX },
     { href: '/admin/simulador', label: 'Simulador' },
   ];
 
   const adminSupportLinks = [
-    { href: '/admin/suporte', label: 'Solicitacoes', module: NOTIFICATION_MODULE.SUPPORT },
+    { href: '/admin/suporte', label: 'Solicitações', module: NOTIFICATION_MODULE.SUPPORT },
     { href: '/suporte', label: 'Abrir suporte', module: NOTIFICATION_MODULE.SUPPORT },
   ];
 
@@ -238,13 +238,13 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
       { href: '/minha-conta/simulador', label: 'Simulador' },
       { href: '/minha-conta/respostas-rapidas', label: 'Respostas' },
     ];
-    if (canManageUsers) links.push({ href: '/minha-conta/usuarios', label: 'Usuarios' });
+    if (canManageUsers) links.push({ href: '/minha-conta/usuarios', label: 'Usuários' });
     return links;
   }, [canManageUsers]);
 
   const companySupportLinks = [
     { href: '/suporte', label: 'Suporte', module: NOTIFICATION_MODULE.SUPPORT },
-    { href: '/minha-conta/suporte/solicitacoes', label: 'Solicitacoes', module: NOTIFICATION_MODULE.SUPPORT },
+    { href: '/minha-conta/suporte/solicitacoes', label: 'Solicitações', module: NOTIFICATION_MODULE.SUPPORT },
   ];
 
   const mainLinks = role === 'admin' ? adminMainLinks : role === 'company' ? companyMainLinks : [];
@@ -280,19 +280,11 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
   return (
     <div className="min-h-screen relative text-[#171717] layout-wrapper">
       {hasSidebar && (
-        <aside className={`layout-sidebar ${sidebarExpanded ? 'layout-sidebar--expanded' : ''}`}>
-          <button
-            type="button"
-            className="layout-sidebar__toggle"
-            onClick={() => setSidebarExpanded((v) => !v)}
-            title={sidebarExpanded ? 'Recolher menu' : 'Expandir menu'}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="3" y1="12" x2="21" y2="12" />
-              <line x1="3" y1="6" x2="21" y2="6" />
-              <line x1="3" y1="18" x2="21" y2="18" />
-            </svg>
-          </button>
+        <aside
+          className={`layout-sidebar ${sidebarHovered ? 'layout-sidebar--expanded' : ''}`}
+          onMouseEnter={() => setSidebarHovered(true)}
+          onMouseLeave={() => setSidebarHovered(false)}
+        >
           <nav className="layout-sidebar__nav">
             {mainLinks.map((item) => {
               const unreadCount = unreadCountForLink(item);
@@ -316,10 +308,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
                 <button
                   type="button"
                   className={`layout-sidebar__accordion-trigger ${supportAccordionOpen || isAnySupportActive() ? 'layout-sidebar__accordion-trigger--active' : ''}`}
-                  onClick={() => {
-                    setSupportAccordionOpen((v) => !v);
-                    if (!sidebarExpanded) setSidebarExpanded(true);
-                  }}
+                  onClick={() => setSupportAccordionOpen((v) => !v)}
                   title="Suporte"
                 >
                   <span className="layout-sidebar__icon">{ICONS.suporte}</span>

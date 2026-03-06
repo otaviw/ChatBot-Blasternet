@@ -321,7 +321,7 @@ function validateStatefulMenuEditor(editor) {
         errors.push(`${optionLabel}: label obrigatória.`);
       }
 
-      errors.push(...validateAction(option?.action, `${optionLabel} (acao)`));
+      errors.push(...validateAction(option?.action, `${optionLabel} (ação)`));
     }
   }
 

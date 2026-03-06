@@ -457,7 +457,7 @@ function AdminCompanyShowPage({ companyId }) {
             </label>
 
             <label className="block text-sm">
-              Fallback (quando nao entende)
+              Fallback (quando não entende)
               <textarea
                 value={settings.fallback_message || ''}
                 onChange={(e) => updateMessageField('fallback_message', e.target.value)}
@@ -496,7 +496,7 @@ function AdminCompanyShowPage({ companyId }) {
                   }}
                   className="app-btn-secondary"
                 >
-                  Usar menu padrao automatico
+                  Usar menu padrão automático
                 </button>
               </div>
             </div>
@@ -518,7 +518,7 @@ function AdminCompanyShowPage({ companyId }) {
                   enableCustomMenuBuilder();
                 }}
               />
-              Usar menu padrao automatico (sem customizacao manual)
+              Usar menu padrão automático (sem customização manual)
             </label>
 
             {!useDefaultStatefulMenu && (

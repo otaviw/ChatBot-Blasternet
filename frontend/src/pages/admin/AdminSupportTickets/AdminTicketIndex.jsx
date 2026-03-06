@@ -90,7 +90,7 @@ function AdminSupportTicketShowPage({ ticketId }) {
       <div className="flex items-start justify-between gap-3 mb-4">
         <div>
           <h1 className="text-xl font-medium">
-            Solicitacao #{formatTicketNumber(ticket.ticket_number)}
+            Solicitação #{formatTicketNumber(ticket.ticket_number)}
           </h1>
           <p className="text-sm text-[#64748b] mt-1">
             {ticket.subject ?? '(sem assunto)'}

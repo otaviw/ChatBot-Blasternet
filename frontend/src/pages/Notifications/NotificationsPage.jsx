@@ -128,7 +128,7 @@ function NotificationsPage() {
   if (error || !data?.authenticated) {
     return (
       <Layout>
-        <p className="text-sm text-red-600">Nao foi possivel carregar as notificacoes.</p>
+        <p className="text-sm text-red-600">Não foi possível carregar as notificações.</p>
       </Layout>
     );
   }
@@ -143,7 +143,7 @@ function NotificationsPage() {
       <section className="app-panel space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="text-sm text-[#334155]">
-            Nao lidas: <strong>{totalUnread}</strong>
+            Não lidas: <strong>{totalUnread}</strong>
           </div>
           <button
             type="button"
@@ -160,7 +160,7 @@ function NotificationsPage() {
         ) : null}
 
         {!notifications.length ? (
-          <p className="text-sm text-[#64748b]">Nenhuma notificacao no momento.</p>
+          <p className="text-sm text-[#64748b]">Nenhuma notificação no momento.</p>
         ) : (
           <ul className="space-y-2">
             {notifications.map((notification) => {

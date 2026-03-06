@@ -118,7 +118,7 @@ function AdminSupportTicketsPage() {
       setClosedTickets(response.data?.closed_tickets ?? []);
       setCompanies(response.data?.companies ?? []);
     } catch (err) {
-      setActionError(err.response?.data?.message || 'Falha ao carregar solicitacoes.');
+      setActionError(err.response?.data?.message || 'Falha ao carregar solicitações.');
     } finally {
       setBusy(false);
     }
@@ -144,7 +144,7 @@ function AdminSupportTicketsPage() {
       });
       await loadTickets(companyFilter, statusFilter);
     } catch (err) {
-      setActionError(err.response?.data?.message || 'Falha ao atualizar status da solicitacao.');
+      setActionError(err.response?.data?.message || 'Falha ao atualizar status da solicitação.');
     } finally {
       setActionBusyId(null);
     }
@@ -161,7 +161,7 @@ function AdminSupportTicketsPage() {
   if (error || !data?.authenticated) {
     return (
       <Layout>
-        <p className="text-sm text-red-600">Nao foi possivel carregar as solicitacoes de suporte.</p>
+        <p className="text-sm text-red-600">Não foi possível carregar as solicitações de suporte.</p>
       </Layout>
     );
   }
@@ -229,7 +229,7 @@ function AdminSupportTicketsPage() {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <TicketSection
           title={`Abertas (${openTickets.length})`}
-          emptyText="Nenhuma solicitacao aberta para os filtros atuais."
+          emptyText="Nenhuma solicitação aberta para os filtros atuais."
           tickets={openTickets}
           actionBusyId={actionBusyId}
           onToggleStatus={toggleStatus}
@@ -237,7 +237,7 @@ function AdminSupportTicketsPage() {
 
         <TicketSection
           title={`Fechadas (${closedTickets.length})`}
-          emptyText="Nenhuma solicitacao fechada para os filtros atuais."
+          emptyText="Nenhuma solicitação fechada para os filtros atuais."
           tickets={closedTickets}
           actionBusyId={actionBusyId}
           onToggleStatus={toggleStatus}

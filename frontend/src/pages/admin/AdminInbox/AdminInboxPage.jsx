@@ -46,7 +46,7 @@ function AdminInboxPage() {
         setConversations(response.data?.conversations ?? []);
         if (response.data?.privacy_mode) {
           setPrivacyMessage(
-            'Modo privacidade ativo: mensagens e dados pessoais do cliente nao sao exibidos para superadmin.'
+            'Modo privacidade ativo: mensagens e dados pessoais do cliente não são exibidos para superadmin.'
           );
         }
       })

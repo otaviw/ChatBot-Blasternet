@@ -184,7 +184,7 @@ export default function useNotifications(options = {}) {
 
       return response;
     } catch (err) {
-      setError(err?.response?.data?.message || 'Falha ao marcar notificacao como lida.');
+      setError(err?.response?.data?.message || 'Falha ao marcar notificação como lida.');
       return null;
     }
   }, [applyUnreadCounters, enabled]);

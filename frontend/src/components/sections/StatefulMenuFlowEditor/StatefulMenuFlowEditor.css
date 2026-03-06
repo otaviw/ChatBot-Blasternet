@@ -1,2 +1,34 @@
-/* Styles for StatefulMenuFlowEditor */
+/* Garantir legibilidade - fundo claro e texto escuro em todo o editor */
+.stateful-flow-editor article,
+.stateful-flow-editor details,
+.stateful-flow-editor .stateful-flow-panel {
+  background-color: #fafafa !important;
+  border-color: #e5e5e5 !important;
+}
+
+.stateful-flow-editor input,
+.stateful-flow-editor select,
+.stateful-flow-editor textarea {
+  color: #171717 !important;
+  background-color: #ffffff !important;
+  border-color: #d5d5d2;
+}
+
+.stateful-flow-editor input::placeholder,
+.stateful-flow-editor textarea::placeholder {
+  color: #737373 !important;
+}
+
+.stateful-flow-editor select option {
+  color: #171717;
+  background: #ffffff;
+}
+
+.stateful-flow-editor summary p,
+.stateful-flow-editor summary span,
+.stateful-flow-editor label,
+.stateful-flow-editor h4,
+.stateful-flow-editor p {
+  color: #171717 !important;
+}
 

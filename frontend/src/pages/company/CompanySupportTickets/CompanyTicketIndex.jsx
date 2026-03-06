@@ -97,12 +97,41 @@ function CompanyTicketIndex({ ticketId }) {
         </ul>
       </section>
 
-      <section className="border border-[#e3e3e0] rounded-lg p-4">
+      <section className="border border-[#e3e3e0] rounded-lg p-4 mb-6">
         <h2 className="font-medium mb-3">Descrição</h2>
         <div className="text-sm whitespace-pre-wrap leading-relaxed text-[#1f1f1e]">
           {ticket.message ?? '(sem mensagem)'}
         </div>
       </section>
+
+      {(ticket.attachments ?? []).length > 0 && (
+        <section className="border border-[#e3e3e0] rounded-lg p-4">
+          <h2 className="font-medium mb-3">Anexos ({ticket.attachments.length})</h2>
+          <div className="flex flex-wrap gap-3">
+            {ticket.attachments.map((att) => (
+              <a
+                key={att.id}
+                href={att.url}
+                target="_blank"
+                rel="noreferrer"
+                className="block"
+              >
+                {(att.mime_type ?? '').startsWith('image/') ? (
+                  <img
+                    src={att.url}
+                    alt="Anexo"
+                    className="w-24 h-24 object-cover rounded-lg border border-[#e5e5e5] hover:border-[#2563eb]"
+                  />
+                ) : (
+                  <div className="w-24 h-24 rounded-lg border border-[#e5e5e5] flex items-center justify-center text-xs text-[#737373]">
+                    Arquivo
+                  </div>
+                )}
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
     </Layout>
   );
 }

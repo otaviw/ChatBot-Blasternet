@@ -25,7 +25,7 @@ class RealtimeClient {
 
   on(eventName, handler) {
     if (!SUPPORTED_EVENTS.has(eventName)) {
-      throw new Error(`Realtime event nao suportado: ${eventName}`);
+      throw new Error(`Realtime event não suportado: ${eventName}`);
     }
 
     if (!this.handlers.has(eventName)) {

@@ -14,11 +14,11 @@ function normalizeStepKey(flow, step) {
 
 function actionSummary(action) {
   if (!action) {
-    return 'Acao nao configurada';
+    return 'Ação não configurada';
   }
 
   if (action.kind === 'handoff') {
-    return `Handoff -> ${action.target_area_name || 'area nao definida'}`;
+    return `Handoff -> ${action.target_area_name || 'área não definida'}`;
   }
 
   return `Ir para -> ${action.flow || 'flow'} . ${action.step || 'step'}`;
@@ -52,15 +52,15 @@ function ActionEditor({ action, onChange, serviceAreas = [] }) {
   };
 
   return (
-    <div className="rounded border border-[#e3e3e0] dark:border-[#3E3E3A] p-3 space-y-3">
+    <div className="stateful-flow-panel rounded border border-[#e3e3e0] p-3 space-y-3">
       <p className="text-xs text-[#706f6c]">{actionSummary(safeAction)}</p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <label className="text-sm">
-          Tipo da acao
+          Tipo da ação
           <select
             value={safeAction.kind}
             onChange={(e) => changeKind(e.target.value)}
-            className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615]"
+            className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white text-[#171717]"
           >
             <option value="go_to">Ir para outro passo</option>
             <option value="handoff">Transferir para area</option>
@@ -68,26 +68,26 @@ function ActionEditor({ action, onChange, serviceAreas = [] }) {
         </label>
 
         <label className="text-sm">
-          Resposta da acao (opcional)
+          Resposta da ação (opcional)
           <input
             type="text"
             value={safeAction.reply_text || ''}
             onChange={(e) => onChange({ ...safeAction, reply_text: e.target.value })}
-            className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615]"
+            className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white text-[#171717]"
           />
         </label>
       </div>
 
       {safeAction.kind === 'handoff' ? (
         <label className="text-sm block">
-          Area de handoff
+          Área de handoff
           <input
             type="text"
             list="stateful-flow-areas"
             value={safeAction.target_area_name || ''}
             onChange={(e) => onChange({ ...safeAction, target_area_name: e.target.value })}
             placeholder="Ex.: Suporte"
-            className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615]"
+            className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white text-[#171717]"
           />
           <datalist id="stateful-flow-areas">
             {(serviceAreas ?? []).map((area) => (
@@ -104,7 +104,7 @@ function ActionEditor({ action, onChange, serviceAreas = [] }) {
               value={safeAction.flow || ''}
               onChange={(e) => onChange({ ...safeAction, flow: e.target.value })}
               placeholder="Ex.: support"
-              className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615]"
+              className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white text-[#171717]"
             />
           </label>
           <label className="text-sm">
@@ -114,7 +114,7 @@ function ActionEditor({ action, onChange, serviceAreas = [] }) {
               value={safeAction.step || ''}
               onChange={(e) => onChange({ ...safeAction, step: e.target.value })}
               placeholder="Ex.: issue_menu"
-              className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615]"
+              className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white text-[#171717]"
             />
           </label>
         </div>
@@ -300,7 +300,7 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
 
     return (
       <article
-        className={`rounded-lg border border-[#d9d9d5] dark:border-[#3E3E3A] bg-white dark:bg-[#141413] ${
+        className={`stateful-flow-panel rounded-lg border border-[#d9d9d5] bg-[#fafafa] ${
           depth > 0 ? 'ml-3' : ''
         }`}
       >
@@ -345,7 +345,7 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
                   value={step.flow || ''}
                   onChange={(e) => updateStep(step.id, (current) => ({ ...current, flow: e.target.value }))}
                   placeholder="Ex.: support"
-                  className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615]"
+                  className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white text-[#171717]"
                 />
               </label>
 
@@ -356,7 +356,7 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
                   value={step.step || ''}
                   onChange={(e) => updateStep(step.id, (current) => ({ ...current, step: e.target.value }))}
                   placeholder="Ex.: issue_menu"
-                  className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615]"
+                  className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white text-[#171717]"
                 />
               </label>
 
@@ -379,7 +379,7 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
                       };
                     })
                   }
-                  className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615]"
+                  className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white text-[#171717]"
                 >
                   <option value="numeric_menu">Menu numerado</option>
                   <option value="free_text">Texto livre</option>
@@ -393,14 +393,14 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
                 value={step.reply_text || ''}
                 onChange={(e) => updateStep(step.id, (current) => ({ ...current, reply_text: e.target.value }))}
                 rows={3}
-                className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615]"
+                className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white text-[#171717]"
               />
             </label>
 
             {step.type === 'numeric_menu' ? (
               <div className="space-y-3">
                 <label className="text-sm block">
-                  Mensagem de opcao invalida (opcional)
+                  Mensagem de opção inválida (opcional)
                   <input
                     type="text"
                     value={step.invalid_option_text || ''}
@@ -408,18 +408,18 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
                       updateStep(step.id, (current) => ({ ...current, invalid_option_text: e.target.value }))
                     }
                     placeholder="Se vazio, o sistema gera automaticamente"
-                    className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615]"
+                    className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white text-[#171717]"
                   />
                 </label>
 
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-medium">Opcoes do menu</p>
+                  <p className="text-sm font-medium">Opções do menu</p>
                   <button
                     type="button"
                     onClick={() => addOption(step.id)}
                     className="px-3 py-1.5 text-sm rounded border border-[#d5d5d2]"
                   >
-                    Adicionar opcao
+                    Adicionar opção
                   </button>
                 </div>
 
@@ -432,11 +432,11 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
                     return (
                       <details
                         key={option.id}
-                        className="rounded border border-[#e3e3e0] dark:border-[#3E3E3A] bg-white dark:bg-[#141413]"
+                        className="stateful-flow-panel rounded border border-[#e3e3e0] bg-[#fafafa]"
                       >
                         <summary className="cursor-pointer px-3 py-2">
                           <div className="flex items-center justify-between gap-2">
-                            <p className="text-sm font-medium">Opcao {optionIndex + 1}</p>
+                            <p className="text-sm font-medium">Opção {optionIndex + 1}</p>
                             <span className="text-xs text-[#706f6c]">
                               {(option.key || '?').trim()} - {(option.label || 'Sem label').trim()}
                             </span>
@@ -451,29 +451,29 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
                               onClick={() => removeOption(step.id, option.id)}
                               className="px-3 py-1 text-sm rounded border border-red-300 text-red-700"
                             >
-                              Remover opcao
+                              Remover opção
                             </button>
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <label className="text-sm">
-                              Numero da opcao
+                              Número da opção
                               <input
                                 type="text"
                                 value={option.key || ''}
                                 onChange={(e) => updateOption(step.id, option.id, (item) => ({ ...item, key: e.target.value }))}
                                 placeholder="Ex.: 1"
-                                className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615]"
+                                className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white text-[#171717]"
                               />
                             </label>
                             <label className="text-sm">
-                              Label da opcao
+                              Label da opção
                               <input
                                 type="text"
                                 value={option.label || ''}
                                 onChange={(e) => updateOption(step.id, option.id, (item) => ({ ...item, label: e.target.value }))}
                                 placeholder="Ex.: Financeiro"
-                                className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615]"
+                                className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white text-[#171717]"
                               />
                             </label>
                           </div>
@@ -485,8 +485,8 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
                           />
 
                           {showNestedStep && (
-                            <div className="space-y-2 rounded border border-dashed border-[#d5d5d2] dark:border-[#3E3E3A] p-3">
-                              <p className="text-xs text-[#706f6c]">Submenu aberto por esta opcao</p>
+                            <div className="space-y-2 rounded border border-dashed border-[#d5d5d2] p-3">
+                              <p className="text-xs text-[#706f6c]">Submenu aberto por esta opção</p>
                               {hasCycle ? (
                                 <p className="text-xs text-amber-700">
                                   Referencia circular detectada para {targetKey}.
@@ -513,12 +513,12 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
                       updateStep(step.id, (current) => ({ ...current, empty_input_reply_text: e.target.value }))
                     }
                     placeholder="Se vazio, usa o texto principal do passo"
-                    className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615]"
+                    className="mt-1 w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white text-[#171717]"
                   />
                 </label>
 
                 <div>
-                  <p className="text-sm font-medium mb-2">Acao ao receber texto do cliente</p>
+                  <p className="text-sm font-medium mb-2">Ação ao receber texto do cliente</p>
                   <ActionEditor
                     action={step.on_text}
                     serviceAreas={serviceAreas}
@@ -527,7 +527,7 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
                 </div>
 
                 {showFreeTextNested && (
-                  <div className="space-y-2 rounded border border-dashed border-[#d5d5d2] dark:border-[#3E3E3A] p-3">
+                  <div className="space-y-2 rounded border border-dashed border-[#d5d5d2] p-3">
                     <p className="text-xs text-[#706f6c]">Submenu aberto apos o texto livre</p>
                     {freeTextHasCycle ? (
                       <p className="text-xs text-amber-700">
@@ -547,7 +547,7 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="stateful-flow-editor space-y-5">
       <section className="space-y-3">
         <h4 className="font-medium text-sm">Comandos globais para reiniciar</h4>
         <p className="text-xs text-[#706f6c]">
@@ -561,7 +561,7 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
                 value={command}
                 onChange={(e) => updateCommand(index, e.target.value)}
                 placeholder="Ex.: # ou menu"
-                className="flex-1 rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615]"
+                className="flex-1 rounded border border-[#d5d5d2] px-2 py-1 bg-white text-[#171717]"
               />
               <button
                 type="button"
@@ -594,7 +594,7 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
               initial_step: rest.join('.'),
             });
           }}
-          className="w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white dark:bg-[#161615]"
+          className="w-full rounded border border-[#d5d5d2] px-2 py-1 bg-white text-[#171717]"
         >
           {!stepOptions.length && <option value="">Adicione um passo para selecionar o inicial</option>}
           {stepOptions.map((stepItem) => (
@@ -640,7 +640,7 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
 
           {disconnectedSteps.length > 0 && (
             <div className="space-y-2">
-              <p className="text-xs text-[#706f6c]">Passos adicionais nao conectados ao caminho inicial</p>
+              <p className="text-xs text-[#706f6c]">Passos adicionais não conectados ao caminho inicial</p>
               <div className="space-y-3">
                 {disconnectedSteps.map((step) => (
                   <div key={step.id}>{renderStepAccordion(step, 0, [])}</div>

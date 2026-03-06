@@ -41,5 +41,10 @@ class SupportTicket extends Model
     {
         return $this->belongsTo(User::class, 'managed_by_user_id');
     }
+
+    public function attachments()
+    {
+        return $this->hasMany(SupportTicketAttachment::class);
+    }
 }
 

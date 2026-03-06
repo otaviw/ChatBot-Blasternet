@@ -306,7 +306,7 @@ export default function UsersPage({ scope = "company" }) {
   const pageTitle = isAdminScope ? "Usuarios" : "Usuarios da empresa";
   const pageSubtitle = isAdminScope
     ? "Gerencie acessos globais com perfis e areas alinhadas por empresa."
-    : "Crie, edite e organize o time por perfil e areas de atuacao.";
+    : "Crie, edite e organize o time por perfil e áreas de atuação.";
 
   const createAreaMessage = isAdminScope
     ? createForm.company_id

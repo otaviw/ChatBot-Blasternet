@@ -11,6 +11,32 @@ class MessageMediaStorageService
     /**
      * @param  array{provider:string, key:string, url:?string, mime_type:string, size_bytes:?int, width:?int, height:?int}  $result
      */
+    /**
+     * @return array{provider:string, key:string, url:?string, mime_type:string, size_bytes:int}
+     */
+    public function storeSupportTicketImage(UploadedFile $file): array
+    {
+        $disk = (string) config('whatsapp.media_disk', 'public');
+        $mime = $this->normalizeMimeType($file->getMimeType());
+        $extension = $this->resolveExtension($mime, $file->getClientOriginalExtension());
+        $directory = 'support/attachments';
+        $fileName = Str::uuid()->toString().'.'.$extension;
+        $key = "{$directory}/{$fileName}";
+
+        Storage::disk($disk)->put($key, file_get_contents($file->getRealPath()), ['visibility' => 'public']);
+
+        return [
+            'provider' => $disk,
+            'key' => $key,
+            'url' => $this->resolveUrl($disk, $key),
+            'mime_type' => $mime,
+            'size_bytes' => (int) $file->getSize(),
+        ];
+    }
+
+    /**
+     * @param  array{provider:string, key:string, url:?string, mime_type:string, size_bytes:?int, width:?int, height:?int}  $result
+     */
     public function storeUploadedImage(UploadedFile $file, ?int $companyId = null): array
     {
         $binary = file_get_contents($file->getRealPath());

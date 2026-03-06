@@ -214,37 +214,44 @@ function CompanyBotPage() {
 
   return (
     <Layout role="company" companyName={company.name} onLogout={logout}>
-      <h1 className="app-page-title">Configurações do bot - {company.name}</h1>
-      <p className="app-page-subtitle mb-6">
-        Defina mensagens, horarios e respostas por palavra-chave.
-      </p>
+      <div className="bot-config-header">
+        <h1 className="app-page-title">Configurações do bot</h1>
+        <p className="app-page-subtitle">
+          Defina mensagens, horários e respostas por palavra-chave.
+        </p>
+      </div>
 
-      <form onSubmit={saveSettings} className="space-y-8 max-w-4xl">
-        <section className="app-panel space-y-4">
-          <h2 className="font-medium">Estado e contexto</h2>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={settings.is_active}
-              onChange={(e) => updateMessageField('is_active', e.target.checked)}
-            />
-            Bot ativo
-          </label>
-
-          <label className="block text-sm">
-            Timezone
-            <input
-              type="text"
-              value={settings.timezone}
-              onChange={(e) => updateMessageField('timezone', e.target.value)}
-              className="app-input"
-            />
-          </label>
+      <form onSubmit={saveSettings} className="bot-config-form">
+        <section className="bot-config-section">
+          <h2 className="bot-config-section-title">Estado e contexto</h2>
+          <div className="bot-config-grid-2">
+            <label className="bot-config-field">
+              <span className="bot-config-label">Bot ativo</span>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={settings.is_active}
+                  onChange={(e) => updateMessageField('is_active', e.target.checked)}
+                />
+                <span className="text-sm">Ativar respostas automáticas</span>
+              </label>
+            </label>
+            <label className="bot-config-field">
+              <span className="bot-config-label">Timezone</span>
+              <input
+                type="text"
+                value={settings.timezone}
+                onChange={(e) => updateMessageField('timezone', e.target.value)}
+                placeholder="Ex: America/Sao_Paulo"
+                className="app-input"
+              />
+            </label>
+          </div>
         </section>
 
-        <section className="app-panel space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="font-medium">Áreas de atendimento</h2>
+        <section className="bot-config-section">
+          <div className="bot-config-section-header">
+            <h2 className="bot-config-section-title">Áreas de atendimento</h2>
             <button
               type="button"
               onClick={addServiceArea}
@@ -253,10 +260,11 @@ function CompanyBotPage() {
               Adicionar área
             </button>
           </div>
+          <p className="bot-config-hint">Ex.: Suporte, Vendas, Financeiro</p>
           {!settings.service_areas?.length && (
             <p className="text-sm text-[#706f6c]">Nenhuma área cadastrada.</p>
           )}
-          <div className="space-y-2">
+          <div className="bot-config-list">
             {(settings.service_areas ?? []).map((area, index) => (
               <div key={index} className="flex gap-2">
                 <input
@@ -278,53 +286,56 @@ function CompanyBotPage() {
           </div>
         </section>
 
-        <section className="app-panel space-y-4">
-          <h2 className="font-medium">Mensagens</h2>
-          <label className="block text-sm">
-            Boas-vindas
-            <textarea
-              value={settings.welcome_message || ''}
-              onChange={(e) => updateMessageField('welcome_message', e.target.value)}
-              rows={3}
-              className="app-input"
-            />
-          </label>
-
-          <label className="block text-sm">
-            Fallback (quando nao entende)
-            <textarea
-              value={settings.fallback_message || ''}
-              onChange={(e) => updateMessageField('fallback_message', e.target.value)}
-              rows={3}
-              className="app-input"
-            />
-          </label>
-
-          <label className="block text-sm">
-            Fora de horário
-            <textarea
-              value={settings.out_of_hours_message || ''}
-              onChange={(e) => updateMessageField('out_of_hours_message', e.target.value)}
-              rows={3}
-              className="app-input"
-            />
-          </label>
-          <label className="block text-sm">
-            Fechar conversa inativa após (horas)
+        <section className="bot-config-section">
+          <h2 className="bot-config-section-title">Mensagens</h2>
+          <div className="bot-config-messages-grid">
+            <label className="bot-config-field">
+              <span className="bot-config-label">Boas-vindas</span>
+              <textarea
+                value={settings.welcome_message || ''}
+                onChange={(e) => updateMessageField('welcome_message', e.target.value)}
+                rows={3}
+                placeholder="Primeira mensagem enviada ao cliente"
+                className="app-input"
+              />
+            </label>
+            <label className="bot-config-field">
+              <span className="bot-config-label">Fallback (quando não entende)</span>
+              <textarea
+                value={settings.fallback_message || ''}
+                onChange={(e) => updateMessageField('fallback_message', e.target.value)}
+                rows={3}
+                placeholder="Mensagem quando o bot não reconhece"
+                className="app-input"
+              />
+            </label>
+            <label className="bot-config-field">
+              <span className="bot-config-label">Fora de horário</span>
+              <textarea
+                value={settings.out_of_hours_message || ''}
+                onChange={(e) => updateMessageField('out_of_hours_message', e.target.value)}
+                rows={3}
+                placeholder="Mensagem fora do expediente"
+                className="app-input"
+              />
+            </label>
+          </div>
+          <label className="bot-config-field bot-config-field--inline">
+            <span className="bot-config-label">Fechar conversa inativa após (horas)</span>
             <input
               type="number"
               min="1"
               max="720"
               value={settings.inactivity_close_hours ?? 24}
               onChange={(e) => updateMessageField('inactivity_close_hours', Number(e.target.value))}
-              className="app-input"
+              className="app-input w-24"
             />
           </label>
         </section>
 
-        <section className="app-panel space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="font-medium">Menu numerado (stateful)</h2>
+        <section className="bot-config-section">
+          <div className="bot-config-section-header">
+            <h2 className="bot-config-section-title">Menu numerado (stateful)</h2>
             <div className="flex gap-2">
               <button
                 type="button"
@@ -341,13 +352,13 @@ function CompanyBotPage() {
                 }}
                 className="app-btn-secondary"
               >
-                Usar menu padrao automatico
+                Usar menu padrão automático
               </button>
             </div>
           </div>
 
-          <p className="text-sm text-[#706f6c]">
-            O menu inicia automaticamente na primeira mensagem. O comando <strong>#</strong> continua resetando para o início.
+          <p className="bot-config-hint">
+            O menu inicia automaticamente na primeira mensagem. O comando <strong>#</strong> reseta para o início.
           </p>
 
           <label className="flex items-center gap-2 text-sm">
@@ -363,7 +374,7 @@ function CompanyBotPage() {
                 enableCustomMenuBuilder();
               }}
             />
-            Usar menu padrao automatico (sem customizacao manual)
+            Usar menu padrão automático (sem customização manual)
           </label>
 
           {!useDefaultStatefulMenu && (
@@ -377,8 +388,8 @@ function CompanyBotPage() {
           {menuFlowError && <p className="text-sm text-red-600">{menuFlowError}</p>}
         </section>
 
-        <section className="app-panel space-y-4">
-          <h2 className="font-medium">Horario por dia</h2>
+        <section className="bot-config-section">
+          <h2 className="bot-config-section-title">Horário por dia</h2>
           <div className="space-y-3">
             {DAY_KEYS.map((day) => {
               const cfg = settings.business_hours[day] || { enabled: false, start: '', end: '' };
@@ -394,7 +405,7 @@ function CompanyBotPage() {
                   </label>
 
                   <label className="text-sm">
-                    Inicio
+                    Início
                     <input
                       type="time"
                       value={cfg.start || ''}
@@ -420,9 +431,9 @@ function CompanyBotPage() {
           </div>
         </section>
 
-        <section className="app-panel space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="font-medium">Respostas por palavra-chave</h2>
+        <section className="bot-config-section">
+          <div className="bot-config-section-header">
+            <h2 className="bot-config-section-title">Respostas por palavra-chave</h2>
             <button
               type="button"
               onClick={addKeywordReply}
@@ -473,7 +484,7 @@ function CompanyBotPage() {
           </div>
         </section>
 
-        <div className="flex items-center gap-3">
+        <div className="bot-config-actions">
           <button
             type="submit"
             disabled={saveState === 'saving'}

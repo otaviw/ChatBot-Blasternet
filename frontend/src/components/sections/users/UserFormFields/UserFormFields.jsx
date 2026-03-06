@@ -14,7 +14,7 @@ function UserFormFields({
   showAreas = false,
   availableAreas = [],
   onToggleArea,
-  areaEmptyMessage = 'Nenhuma area disponivel.',
+  areaEmptyMessage = 'Nenhuma área disponível.',
 }) {
   const updateForm = (patch) => {
     setForm((prev) => ({ ...prev, ...patch }));

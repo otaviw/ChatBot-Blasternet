@@ -79,7 +79,7 @@ function CompanySimulatorPage() {
 
       <MessageSimulatorCard
         title="Enviar mensagem de teste"
-        subtitle="Use este formulario para validar fluxo automatico e fallback."
+        subtitle="Use este formulário para validar fluxo automático e fallback."
         from={from}
         onFromChange={setFrom}
         text={text}
