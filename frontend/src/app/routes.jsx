@@ -17,7 +17,6 @@ import CompanyUsersPage from "@/pages/company/CompanyUsers/CompanyUsersPage.jsx"
 import CompanySupportTicketPage from "@/pages/company/CompanySupportTickets/CompanySupportTicketPage.jsx";
 import CompanyTicketIndex from "@/pages/company/CompanySupportTickets/CompanyTicketIndex.jsx";
 import SupportRequestPage from "@/pages/support/SupportRequest/SupportRequestPage.jsx";
-import NotificationsPage from "@/pages/Notifications/NotificationsPage.jsx";
 
 function AppRoutes() {
   const path = window.location.pathname;
@@ -99,10 +98,6 @@ function AppRoutes() {
 
   if (path === "/suporte") {
     return <SupportRequestPage />;
-  }
-
-  if (path === "/notificacoes") {
-    return <NotificationsPage />;
   }
 
   return <NotFoundPage />;

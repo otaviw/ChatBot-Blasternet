@@ -61,6 +61,25 @@ class AuthController extends Controller
         ]);
     }
 
+    public function updateProfile(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (! $user) {
+            return response()->json(['message' => 'Não autenticado.'], 403);
+        }
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+        ]);
+
+        $user->name = $validated['name'];
+        $user->save();
+
+        return response()->json([
+            'user' => $this->userPayload($user->loadMissing('company')),
+        ]);
+    }
+
     public function logout(Request $request): JsonResponse
     {
         Auth::logout();

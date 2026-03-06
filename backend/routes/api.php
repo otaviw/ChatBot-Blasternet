@@ -33,6 +33,7 @@ Route::middleware('web')->group(function () {
     Route::middleware('auth')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/me', [AuthController::class, 'me']);
+        Route::patch('/me', [AuthController::class, 'updateProfile'])->middleware('throttle:10,1');
         Route::post('/realtime/token', [RealtimeTokenController::class, 'issueSocketToken'])
             ->middleware('throttle:realtime-token');
         Route::post('/realtime/conversations/{conversation}/join-token', [RealtimeTokenController::class, 'issueConversationJoinToken'])
