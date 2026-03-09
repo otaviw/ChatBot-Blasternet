@@ -22,14 +22,15 @@ const MSG_PER_PAGE = 25;
 function CompanyInboxPage() {
   const [, setConvPage] = useState(1);
   const [convSearch, setConvSearch] = useState('');
+  const [convSearchInput, setConvSearchInput] = useState('');
   const buildConversationsUrl = useCallback(
-    (page = 1) =>
+    (page = 1, search = convSearch) =>
       `/minha-conta/conversas?page=${page}&per_page=${CONV_PER_PAGE}${
-        convSearch ? `&search=${encodeURIComponent(convSearch)}` : ''
+        search ? `&search=${encodeURIComponent(search)}` : ''
       }`,
     [convSearch]
   );
-  const { data, loading, error } = usePageData(buildConversationsUrl(1));
+  const { data, loading, error } = usePageData(`/minha-conta/conversas?page=1&per_page=${CONV_PER_PAGE}`);
   const { logout } = useLogout();
   const { markReadByReference, unreadConversationIds } = useNotificationsContext();
   const [conversations, setConversations] = useState([]);
@@ -75,6 +76,35 @@ function CompanyInboxPage() {
     () => new Set((unreadConversationIds ?? []).map((value) => Number(value))),
     [unreadConversationIds]
   );
+
+  useEffect(() => {
+    let canceled = false;
+    const handle = setTimeout(async () => {
+      const search = convSearchInput.trim();
+      setConvSearch(search);
+      loadedConversationPageRef.current = 1;
+
+      try {
+        const response = await api.get(buildConversationsUrl(1, search));
+        if (canceled) return;
+        const incomingConversations = sortConversationsByActivity(response.data?.conversations ?? []);
+        setConversations(incomingConversations);
+        setConversationsPagination(response.data?.conversations_pagination ?? null);
+        setConversationsLoadingMore(false);
+        if (conversationListRef.current) {
+          conversationListRef.current.scrollTop = 0;
+        }
+      } catch (_error) {
+        if (canceled) return;
+        // Erro na busca não deve quebrar a inbox.
+      }
+    }, 350);
+
+    return () => {
+      canceled = true;
+      clearTimeout(handle);
+    };
+  }, [buildConversationsUrl, convSearchInput]);
 
   useEffect(() => {
     return () => {
@@ -741,8 +771,15 @@ function CompanyInboxPage() {
             <h2 className="inbox-conversations-title">Conversas</h2>
             <input
               type="search"
-              value={convSearch}
-              onChange={(e) => setConvSearch(e.target.value)}
+              value={convSearchInput}
+              onChange={(e) => setConvSearchInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  setConvSearch(convSearchInput.trim());
+                  loadedConversationPageRef.current = 1;
+                }
+              }}
               placeholder="Buscar contatos..."
               className="inbox-search-input app-input"
             />

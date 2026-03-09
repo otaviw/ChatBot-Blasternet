@@ -27,6 +27,9 @@ function AdminSupportTicketShowPage({ ticketId }) {
   const [ticket, setTicket] = useState(null);
   const [actionState, setActionState] = useState('idle');
   const [actionError, setActionError] = useState('');
+  const [previewAttachment, setPreviewAttachment] = useState(null);
+
+  const getAttachmentUrl = (att) => `/api/support/attachments/${att.id}/media`;
 
   useEffect(() => {
     if (!data?.ticket) return;
@@ -157,6 +160,62 @@ function AdminSupportTicketShowPage({ ticketId }) {
           {ticket.message ?? '(sem mensagem)'}
         </div>
       </section>
+
+      {(ticket.attachments ?? []).length > 0 && (
+        <section className="border border-[#e3e3e0] rounded-lg p-4 mt-4">
+          <h2 className="font-medium mb-3">Anexos ({ticket.attachments.length})</h2>
+          <div className="flex flex-wrap gap-3">
+            {ticket.attachments.map((att) => (
+              <button
+                type="button"
+                key={att.id}
+                onClick={() => setPreviewAttachment(att)}
+                className="block"
+              >
+                {(att.mime_type ?? '').startsWith('image/') ? (
+                  <img
+                    src={getAttachmentUrl(att)}
+                    alt="Anexo"
+                    className="w-24 h-24 object-cover rounded-lg border border-[#e5e5e5] hover:border-[#2563eb]"
+                  />
+                ) : (
+                  <div className="w-24 h-24 rounded-lg border border-[#e5e5e5] flex items-center justify-center text-xs text-[#737373]">
+                    Arquivo
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {previewAttachment && (previewAttachment.mime_type ?? '').startsWith('image/') && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center"
+          onClick={() => setPreviewAttachment(null)}
+        >
+          <div
+            className="bg-white rounded-lg p-3 max-w-[90vw] max-h-[90vh] flex flex-col gap-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center gap-2">
+              <p className="text-sm text-[#171717] font-medium truncate">Visualizar anexo</p>
+              <button
+                type="button"
+                onClick={() => setPreviewAttachment(null)}
+                className="px-2 py-1 text-xs rounded border border-[#d5d5d2]"
+              >
+                Fechar
+              </button>
+            </div>
+            <img
+              src={getAttachmentUrl(previewAttachment)}
+              alt="Anexo"
+              className="max-w-[80vw] max-h-[70vh] object-contain rounded border border-[#e5e5e5]"
+            />
+          </div>
+        </div>
+      )}
     </Layout>
   );
 }

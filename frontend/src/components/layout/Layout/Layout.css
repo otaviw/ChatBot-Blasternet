@@ -13,7 +13,8 @@
   background: #fafafa;
   border-right: 1px solid #eeeeee;
   transition: width 0.2s ease;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
 }
@@ -266,6 +267,20 @@
   padding: 0;
   margin: 0;
   width: 100%;
+}
+
+@media (max-width: 768px) {
+  .layout-header {
+    padding: 10px 12px;
+  }
+
+  .layout-header__logo {
+    font-size: 13px;
+  }
+
+  .layout-main__content {
+    padding: 20px 16px;
+  }
 }
 
 .layout-profile__dropdown {

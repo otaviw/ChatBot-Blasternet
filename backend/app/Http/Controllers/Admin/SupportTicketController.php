@@ -35,7 +35,7 @@ class SupportTicketController extends Controller
         $statusFilter = trim((string) ($validated['status'] ?? ''));
 
         $query = SupportTicket::query()
-            ->with(['company:id,name', 'requester:id,name,email', 'managedBy:id,name,email'])
+            ->with(['company:id,name', 'requester:id,name,email', 'managedBy:id,name,email', 'attachments'])
             ->latest('id');
 
         if ($companyFilter !== '') {
@@ -97,7 +97,7 @@ class SupportTicketController extends Controller
             ], 403);
         }
 
-        $ticket->load(['company:id,name', 'requester:id,name,email', 'managedBy:id,name,email']);
+        $ticket->load(['company:id,name', 'requester:id,name,email', 'managedBy:id,name,email', 'attachments']);
 
         return response()->json([
             'authenticated' => true,
@@ -151,6 +151,14 @@ class SupportTicketController extends Controller
      */
     private function serializeTicket(SupportTicket $ticket): array
     {
+        $attachments = $ticket->relationLoaded('attachments')
+            ? $ticket->attachments->map(fn ($a) => [
+                'id' => (int) $a->id,
+                'url' => $a->url,
+                'mime_type' => $a->mime_type,
+            ])->values()->all()
+            : [];
+
         return [
             'id' => (int) $ticket->id,
             'ticket_number' => (int) ($ticket->ticket_number ?: $ticket->id),
@@ -168,6 +176,7 @@ class SupportTicketController extends Controller
             'closed_at' => $ticket->closed_at,
             'created_at' => $ticket->created_at,
             'updated_at' => $ticket->updated_at,
+            'attachments' => $attachments,
         ];
     }
 }

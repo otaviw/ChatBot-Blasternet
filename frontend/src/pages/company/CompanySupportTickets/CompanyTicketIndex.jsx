@@ -23,6 +23,9 @@ function CompanyTicketIndex({ ticketId }) {
   const { logout } = useLogout();
   const { data, loading, error } = usePageData(`/suporte/minhas-solicitacoes/${ticketId}`);
   const [ticket, setTicket] = useState(null);
+  const [previewAttachment, setPreviewAttachment] = useState(null);
+
+  const getAttachmentUrl = (att) => `/api/support/attachments/${att.id}/media`;
 
   useEffect(() => {
     if (!data?.ticket) return;
@@ -109,16 +112,15 @@ function CompanyTicketIndex({ ticketId }) {
           <h2 className="font-medium mb-3">Anexos ({ticket.attachments.length})</h2>
           <div className="flex flex-wrap gap-3">
             {ticket.attachments.map((att) => (
-              <a
+              <button
+                type="button"
                 key={att.id}
-                href={att.url}
-                target="_blank"
-                rel="noreferrer"
+                onClick={() => setPreviewAttachment(att)}
                 className="block"
               >
                 {(att.mime_type ?? '').startsWith('image/') ? (
                   <img
-                    src={att.url}
+                    src={getAttachmentUrl(att)}
                     alt="Anexo"
                     className="w-24 h-24 object-cover rounded-lg border border-[#e5e5e5] hover:border-[#2563eb]"
                   />
@@ -127,10 +129,38 @@ function CompanyTicketIndex({ ticketId }) {
                     Arquivo
                   </div>
                 )}
-              </a>
+              </button>
             ))}
           </div>
         </section>
+      )}
+
+      {previewAttachment && (previewAttachment.mime_type ?? '').startsWith('image/') && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center"
+          onClick={() => setPreviewAttachment(null)}
+        >
+          <div
+            className="bg-white rounded-lg p-3 max-w-[90vw] max-h-[90vh] flex flex-col gap-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center gap-2">
+              <p className="text-sm text-[#171717] font-medium truncate">Visualizar anexo</p>
+              <button
+                type="button"
+                onClick={() => setPreviewAttachment(null)}
+                className="px-2 py-1 text-xs rounded border border-[#d5d5d2]"
+              >
+                Fechar
+              </button>
+            </div>
+            <img
+              src={getAttachmentUrl(previewAttachment)}
+              alt="Anexo"
+              className="max-w-[80vw] max-h-[70vh] object-contain rounded border border-[#e5e5e5]"
+            />
+          </div>
+        </div>
       )}
     </Layout>
   );

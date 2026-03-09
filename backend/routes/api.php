@@ -18,6 +18,7 @@ use App\Http\Controllers\Company\BotController;
 use App\Http\Controllers\Company\ConversationController as CompanyConversationController;
 use App\Http\Controllers\Company\QuickReplyController;
 use App\Http\Controllers\Company\UserController as CompanyUserController;
+use App\Http\Controllers\SupportTicketAttachmentController;
 
 Route::get('/webhooks/whatsapp', [WebhookController::class, 'verify']);
 Route::post('/webhooks/whatsapp', [WebhookController::class, 'handle']);
@@ -144,5 +145,8 @@ Route::middleware('web')->group(function () {
 
         Route::post('/simular/mensagem', [SimulatedMessageController::class, 'store'])
             ->middleware('throttle:simulation');
+
+        Route::get('/support/attachments/{attachment}/media', [SupportTicketAttachmentController::class, 'media'])
+            ->middleware('throttle:inbox-read');
     });
 });
