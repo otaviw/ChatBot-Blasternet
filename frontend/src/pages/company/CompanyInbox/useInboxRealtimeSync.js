@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import realtimeClient from '@/services/realtimeClient';
 import {
   appendUniqueMessage,
@@ -15,7 +15,32 @@ export default function useInboxRealtimeSync({
   setConversations,
   setDetail,
 }) {
+  const conversationsRefreshTimerRef = useRef(null);
+  const detailRefreshTimerRef = useRef(null);
+
   useEffect(() => {
+    const scheduleConversationsRefresh = () => {
+      if (conversationsRefreshTimerRef.current) {
+        return;
+      }
+
+      conversationsRefreshTimerRef.current = setTimeout(() => {
+        conversationsRefreshTimerRef.current = null;
+        void refreshConversations();
+      }, 650);
+    };
+
+    const scheduleConversationDetailRefresh = (conversationId) => {
+      if (detailRefreshTimerRef.current) {
+        clearTimeout(detailRefreshTimerRef.current);
+      }
+
+      detailRefreshTimerRef.current = setTimeout(() => {
+        detailRefreshTimerRef.current = null;
+        void refreshConversationDetail(conversationId);
+      }, 550);
+    };
+
     const unsubscribeMessageCreated = realtimeClient.on('message.created', (envelope) => {
       const payload = envelope?.payload ?? {};
       const conversationId = Number.parseInt(String(payload.conversationId ?? ''), 10);
@@ -57,6 +82,7 @@ export default function useInboxRealtimeSync({
       });
 
       if (Number(selectedIdRef.current) !== conversationId) {
+        scheduleConversationsRefresh();
         return;
       }
 
@@ -84,6 +110,9 @@ export default function useInboxRealtimeSync({
 
         return merged;
       });
+
+      scheduleConversationsRefresh();
+      scheduleConversationDetailRefresh(conversationId);
     });
 
     const unsubscribeConversationTransferred = realtimeClient.on('conversation.transferred', (envelope) => {
@@ -145,6 +174,14 @@ export default function useInboxRealtimeSync({
     return () => {
       unsubscribeMessageCreated();
       unsubscribeConversationTransferred();
+      if (conversationsRefreshTimerRef.current) {
+        clearTimeout(conversationsRefreshTimerRef.current);
+        conversationsRefreshTimerRef.current = null;
+      }
+      if (detailRefreshTimerRef.current) {
+        clearTimeout(detailRefreshTimerRef.current);
+        detailRefreshTimerRef.current = null;
+      }
 
       if (selectedIdRef.current) {
         realtimeClient.leaveConversation(selectedIdRef.current);
