@@ -7,6 +7,17 @@ import {
   sortConversationsByActivity,
 } from './inboxRealtimeUtils';
 
+const parsePositiveInt = (...values) => {
+  for (const value of values) {
+    const parsed = Number.parseInt(String(value ?? ''), 10);
+    if (parsed > 0) {
+      return parsed;
+    }
+  }
+
+  return null;
+};
+
 export default function useInboxRealtimeSync({
   clearConversationPresence,
   refreshConversationDetail,
@@ -43,11 +54,11 @@ export default function useInboxRealtimeSync({
 
     const unsubscribeMessageCreated = realtimeClient.on('message.created', (envelope) => {
       const payload = envelope?.payload ?? {};
-      const conversationId = Number.parseInt(String(payload.conversationId ?? ''), 10);
-      const messageId = Number.parseInt(String(payload.messageId ?? ''), 10);
+      const conversationId = parsePositiveInt(payload.conversationId, payload.conversation_id);
+      const messageId = parsePositiveInt(payload.messageId, payload.message_id, payload.id);
       const eventConversation = normalizeEventConversation(payload.conversation);
 
-      if (!conversationId || !messageId) {
+      if (conversationId === null || messageId === null) {
         return;
       }
 
@@ -63,7 +74,11 @@ export default function useInboxRealtimeSync({
             ...conversation,
             ...(eventConversation ?? {}),
             last_message_id: messageId,
-            last_message_at: payload.createdAt ?? eventConversation?.last_message_at ?? conversation.last_message_at,
+            last_message_at:
+              payload.createdAt ??
+              payload.created_at ??
+              eventConversation?.last_message_at ??
+              conversation.last_message_at,
           };
 
           if (!eventConversation || eventConversation.messages_count == null) {
@@ -101,7 +116,11 @@ export default function useInboxRealtimeSync({
           ...(eventConversation ?? {}),
           messages: nextMessages,
           last_message_id: messageId,
-          last_message_at: payload.createdAt ?? eventConversation?.last_message_at ?? prev.last_message_at,
+          last_message_at:
+            payload.createdAt ??
+            payload.created_at ??
+            eventConversation?.last_message_at ??
+            prev.last_message_at,
         };
 
         if ((!eventConversation || eventConversation.messages_count == null) && messageWasInserted) {
@@ -117,9 +136,9 @@ export default function useInboxRealtimeSync({
 
     const unsubscribeConversationTransferred = realtimeClient.on('conversation.transferred', (envelope) => {
       const payload = envelope?.payload ?? {};
-      const conversationId = Number.parseInt(String(payload.conversationId ?? ''), 10);
+      const conversationId = parsePositiveInt(payload.conversationId, payload.conversation_id);
       const eventConversation = normalizeEventConversation(payload.conversation);
-      if (!conversationId) {
+      if (conversationId === null) {
         return;
       }
 
@@ -136,10 +155,13 @@ export default function useInboxRealtimeSync({
             ...(eventConversation ?? {}),
             handling_mode: 'human',
             status: 'in_progress',
-            assigned_type: payload.toAssignedType ?? conversation.assigned_type,
-            assigned_id: payload.toAssignedId ?? conversation.assigned_id,
+            assigned_type: payload.toAssignedType ?? payload.to_assigned_type ?? conversation.assigned_type,
+            assigned_id: payload.toAssignedId ?? payload.to_assigned_id ?? conversation.assigned_id,
             last_message_at:
-              eventConversation?.last_message_at ?? payload.createdAt ?? conversation.last_message_at,
+              eventConversation?.last_message_at ??
+              payload.createdAt ??
+              payload.created_at ??
+              conversation.last_message_at,
           };
         });
 
@@ -162,8 +184,8 @@ export default function useInboxRealtimeSync({
             ...(eventConversation ?? {}),
             handling_mode: 'human',
             status: 'in_progress',
-            assigned_type: payload.toAssignedType ?? prev.assigned_type,
-            assigned_id: payload.toAssignedId ?? prev.assigned_id,
+            assigned_type: payload.toAssignedType ?? payload.to_assigned_type ?? prev.assigned_type,
+            assigned_id: payload.toAssignedId ?? payload.to_assigned_id ?? prev.assigned_id,
           };
         });
 

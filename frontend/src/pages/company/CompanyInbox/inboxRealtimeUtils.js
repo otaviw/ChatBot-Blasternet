@@ -55,7 +55,7 @@ export function normalizeEventConversation(payload) {
     return null;
   }
 
-  const id = Number.parseInt(String(payload.id ?? ''), 10);
+  const id = Number.parseInt(String(payload.id ?? payload.conversation_id ?? ''), 10);
   if (!id) {
     return null;
   }
@@ -73,12 +73,12 @@ export function buildRealtimeMessage(payload, conversationId, messageId) {
     direction: payload.direction ?? 'out',
     type: payload.type ?? 'system',
     text: payload.text ?? '',
-    content_type: payload.contentType ?? 'text',
-    media_url: payload.mediaUrl ?? null,
-    media_mime_type: payload.mediaMimeType ?? null,
-    media_size_bytes: payload.mediaSizeBytes ?? null,
-    media_width: payload.mediaWidth ?? null,
-    media_height: payload.mediaHeight ?? null,
-    created_at: payload.createdAt ?? null,
+    content_type: payload.contentType ?? payload.content_type ?? 'text',
+    media_url: payload.mediaUrl ?? payload.media_url ?? null,
+    media_mime_type: payload.mediaMimeType ?? payload.media_mime_type ?? null,
+    media_size_bytes: payload.mediaSizeBytes ?? payload.media_size_bytes ?? null,
+    media_width: payload.mediaWidth ?? payload.media_width ?? null,
+    media_height: payload.mediaHeight ?? payload.media_height ?? null,
+    created_at: payload.createdAt ?? payload.created_at ?? null,
   };
 }

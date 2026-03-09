@@ -11,6 +11,21 @@ const SUPPORTED_EVENTS = new Set([
 const MAX_SEEN_ITEMS = 1500;
 const SEEN_TTL_MS = 5 * 60 * 1000;
 
+const readPositiveInt = (source, keys) => {
+  if (!source || typeof source !== 'object') {
+    return null;
+  }
+
+  for (const key of keys) {
+    const parsed = Number.parseInt(String(source[key] ?? ''), 10);
+    if (parsed > 0) {
+      return parsed;
+    }
+  }
+
+  return null;
+};
+
 class RealtimeClient {
   constructor() {
     this.socket = null;
@@ -342,7 +357,7 @@ class RealtimeClient {
     this.pruneSeen(this.seenMessageIds, now);
     this.pruneSeen(this.seenTransferIds, now);
 
-    const requestId = String(envelope?.meta?.requestId ?? '').trim();
+    const requestId = String(envelope?.meta?.requestId ?? envelope?.meta?.request_id ?? '').trim();
     if (requestId !== '') {
       const scopedRequestKey = `${eventName}:${requestId}:${this.buildRequestDedupeKey(eventName, envelope?.payload)}`;
       if (this.seenRequestIds.has(scopedRequestKey)) {
@@ -352,8 +367,8 @@ class RealtimeClient {
     }
 
     if (eventName === 'message.created') {
-      const messageId = Number.parseInt(String(envelope?.payload?.messageId ?? ''), 10);
-      if (messageId > 0) {
+      const messageId = readPositiveInt(envelope?.payload, ['messageId', 'message_id', 'id']);
+      if (messageId !== null) {
         if (this.seenMessageIds.has(messageId)) {
           return true;
         }
@@ -362,8 +377,8 @@ class RealtimeClient {
     }
 
     if (eventName === 'conversation.transferred') {
-      const transferId = Number.parseInt(String(envelope?.payload?.transferId ?? ''), 10);
-      if (transferId > 0) {
+      const transferId = readPositiveInt(envelope?.payload, ['transferId', 'transfer_id', 'id']);
+      if (transferId !== null) {
         if (this.seenTransferIds.has(transferId)) {
           return true;
         }
@@ -380,22 +395,22 @@ class RealtimeClient {
     }
 
     if (eventName === 'message.created') {
-      const messageId = Number.parseInt(String(payload.messageId ?? ''), 10);
-      return messageId > 0 ? `message:${messageId}` : 'message:unknown';
+      const messageId = readPositiveInt(payload, ['messageId', 'message_id', 'id']);
+      return messageId !== null ? `message:${messageId}` : 'message:unknown';
     }
 
     if (eventName === 'conversation.transferred') {
-      const transferId = Number.parseInt(String(payload.transferId ?? ''), 10);
-      return transferId > 0 ? `transfer:${transferId}` : 'transfer:unknown';
+      const transferId = readPositiveInt(payload, ['transferId', 'transfer_id', 'id']);
+      return transferId !== null ? `transfer:${transferId}` : 'transfer:unknown';
     }
 
     if (eventName === 'notification.created') {
-      const notificationId = Number.parseInt(String(payload?.notification?.id ?? ''), 10);
-      return notificationId > 0 ? `notification:${notificationId}` : 'notification:unknown';
+      const notificationId = readPositiveInt(payload?.notification, ['id']);
+      return notificationId !== null ? `notification:${notificationId}` : 'notification:unknown';
     }
 
-    const companyId = Number.parseInt(String(payload.companyId ?? ''), 10);
-    if (companyId > 0) {
+    const companyId = readPositiveInt(payload, ['companyId', 'company_id']);
+    if (companyId !== null) {
       return `company:${companyId}`;
     }
 
