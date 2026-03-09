@@ -54,11 +54,35 @@ export default function useInboxRealtimeSync({
 
     const unsubscribeMessageCreated = realtimeClient.on('message.created', (envelope) => {
       const payload = envelope?.payload ?? {};
-      const conversationId = parsePositiveInt(payload.conversationId, payload.conversation_id);
-      const messageId = parsePositiveInt(payload.messageId, payload.message_id, payload.id);
+      const rawMessage =
+        payload?.message && typeof payload.message === 'object' ? payload.message : null;
+      const conversationId = parsePositiveInt(
+        payload.conversationId,
+        payload.conversation_id,
+        payload?.conversation?.id,
+        payload?.conversation?.conversation_id,
+        rawMessage?.conversationId,
+        rawMessage?.conversation_id
+      );
+      const messageId = parsePositiveInt(
+        payload.messageId,
+        payload.message_id,
+        payload.id,
+        rawMessage?.id,
+        rawMessage?.messageId,
+        rawMessage?.message_id
+      );
       const eventConversation = normalizeEventConversation(payload.conversation);
 
-      if (conversationId === null || messageId === null) {
+      if (conversationId === null) {
+        return;
+      }
+
+      if (messageId === null) {
+        scheduleConversationsRefresh();
+        if (Number(selectedIdRef.current) === conversationId) {
+          scheduleConversationDetailRefresh(conversationId);
+        }
         return;
       }
 

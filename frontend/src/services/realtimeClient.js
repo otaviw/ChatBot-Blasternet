@@ -26,6 +26,15 @@ const readPositiveInt = (source, keys) => {
   return null;
 };
 
+const readMessagePayload = (payload) => {
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+
+  const nested = payload.message;
+  return nested && typeof nested === 'object' ? nested : null;
+};
+
 class RealtimeClient {
   constructor() {
     this.socket = null;
@@ -367,7 +376,10 @@ class RealtimeClient {
     }
 
     if (eventName === 'message.created') {
-      const messageId = readPositiveInt(envelope?.payload, ['messageId', 'message_id', 'id']);
+      const messagePayload = readMessagePayload(envelope?.payload);
+      const messageId =
+        readPositiveInt(envelope?.payload, ['messageId', 'message_id', 'id']) ??
+        readPositiveInt(messagePayload, ['id', 'messageId', 'message_id']);
       if (messageId !== null) {
         if (this.seenMessageIds.has(messageId)) {
           return true;
@@ -395,8 +407,46 @@ class RealtimeClient {
     }
 
     if (eventName === 'message.created') {
-      const messageId = readPositiveInt(payload, ['messageId', 'message_id', 'id']);
-      return messageId !== null ? `message:${messageId}` : 'message:unknown';
+      const messagePayload = readMessagePayload(payload);
+      const messageId =
+        readPositiveInt(payload, ['messageId', 'message_id', 'id']) ??
+        readPositiveInt(messagePayload, ['id', 'messageId', 'message_id']);
+      if (messageId !== null) {
+        return `message:${messageId}`;
+      }
+
+      const conversationId =
+        readPositiveInt(payload, ['conversationId', 'conversation_id']) ??
+        readPositiveInt(payload?.conversation, ['id', 'conversationId', 'conversation_id']) ??
+        readPositiveInt(messagePayload, ['conversationId', 'conversation_id']);
+      const createdAt = String(
+        payload?.createdAt ??
+          payload?.created_at ??
+          messagePayload?.created_at ??
+          messagePayload?.createdAt ??
+          ''
+      ).trim();
+      const direction = String(payload?.direction ?? messagePayload?.direction ?? '').trim();
+      const type = String(payload?.type ?? messagePayload?.type ?? '').trim();
+      const contentType = String(
+        payload?.contentType ??
+          payload?.content_type ??
+          messagePayload?.content_type ??
+          messagePayload?.contentType ??
+          ''
+      ).trim();
+      const mediaUrl = String(
+        payload?.mediaUrl ??
+          payload?.media_url ??
+          messagePayload?.media_url ??
+          messagePayload?.mediaUrl ??
+          ''
+      ).trim();
+      const text = String(payload?.text ?? messagePayload?.text ?? '')
+        .trim()
+        .slice(0, 80);
+
+      return `message-signature:${conversationId ?? 'na'}|${createdAt}|${direction}|${type}|${contentType}|${mediaUrl}|${text}`;
     }
 
     if (eventName === 'conversation.transferred') {

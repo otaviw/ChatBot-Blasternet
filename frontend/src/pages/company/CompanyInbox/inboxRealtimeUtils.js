@@ -67,18 +67,41 @@ export function normalizeEventConversation(payload) {
 }
 
 export function buildRealtimeMessage(payload, conversationId, messageId) {
+  const nestedMessage =
+    payload?.message && typeof payload.message === 'object' ? payload.message : null;
+
   return {
     id: messageId,
     conversation_id: conversationId,
-    direction: payload.direction ?? 'out',
-    type: payload.type ?? 'system',
-    text: payload.text ?? '',
-    content_type: payload.contentType ?? payload.content_type ?? 'text',
-    media_url: payload.mediaUrl ?? payload.media_url ?? null,
-    media_mime_type: payload.mediaMimeType ?? payload.media_mime_type ?? null,
-    media_size_bytes: payload.mediaSizeBytes ?? payload.media_size_bytes ?? null,
-    media_width: payload.mediaWidth ?? payload.media_width ?? null,
-    media_height: payload.mediaHeight ?? payload.media_height ?? null,
-    created_at: payload.createdAt ?? payload.created_at ?? null,
+    direction: payload.direction ?? nestedMessage?.direction ?? 'out',
+    type: payload.type ?? nestedMessage?.type ?? 'system',
+    text: payload.text ?? nestedMessage?.text ?? '',
+    content_type:
+      payload.contentType ??
+      payload.content_type ??
+      nestedMessage?.contentType ??
+      nestedMessage?.content_type ??
+      'text',
+    media_url: payload.mediaUrl ?? payload.media_url ?? nestedMessage?.mediaUrl ?? nestedMessage?.media_url ?? null,
+    media_mime_type:
+      payload.mediaMimeType ??
+      payload.media_mime_type ??
+      nestedMessage?.mediaMimeType ??
+      nestedMessage?.media_mime_type ??
+      null,
+    media_size_bytes:
+      payload.mediaSizeBytes ??
+      payload.media_size_bytes ??
+      nestedMessage?.mediaSizeBytes ??
+      nestedMessage?.media_size_bytes ??
+      null,
+    media_width: payload.mediaWidth ?? payload.media_width ?? nestedMessage?.mediaWidth ?? nestedMessage?.media_width ?? null,
+    media_height:
+      payload.mediaHeight ??
+      payload.media_height ??
+      nestedMessage?.mediaHeight ??
+      nestedMessage?.media_height ??
+      null,
+    created_at: payload.createdAt ?? payload.created_at ?? nestedMessage?.createdAt ?? nestedMessage?.created_at ?? null,
   };
 }
