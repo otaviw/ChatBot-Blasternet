@@ -228,6 +228,8 @@ const subscriber = new Redis(config.redis.url, {
 });
 
 let isSubscribed = false;
+const redisChannelSuffix = String(config.redis.channel ?? 'realtime.events').trim() || 'realtime.events';
+const redisChannelPattern = `*${redisChannelSuffix}`;
 
 subscriber.on('ready', async () => {
   if (isSubscribed) {
@@ -235,20 +237,21 @@ subscriber.on('ready', async () => {
   }
 
   try {
-    await subscriber.subscribe(config.redis.channel);
+    await subscriber.psubscribe(redisChannelPattern);
     isSubscribed = true;
-    logger.info('redis.subscribed', {
-      channel: config.redis.channel,
+    logger.info('redis.psubscribed', {
+      channelSuffix: redisChannelSuffix,
+      pattern: redisChannelPattern,
     });
   } catch (error) {
-    logger.error('redis.subscribe_failed', {
+    logger.error('redis.psubscribe_failed', {
       error: error instanceof Error ? error.message : 'unknown_error',
     });
   }
 });
 
-subscriber.on('message', (channel, message) => {
-  if (channel !== config.redis.channel) {
+subscriber.on('pmessage', (pattern, channel, message) => {
+  if (!String(channel).endsWith(redisChannelSuffix)) {
     return;
   }
 
@@ -257,6 +260,7 @@ subscriber.on('message', (channel, message) => {
     handleIncomingEnvelope(payload, 'redis');
   } catch (error) {
     logger.error('redis.message_invalid_json', {
+      pattern,
       channel,
       error: error instanceof Error ? error.message : 'unknown_error',
     });
@@ -289,7 +293,8 @@ server.listen(config.port, config.host, () => {
     host: config.host,
     port: config.port,
     nodeEnv: config.nodeEnv,
-    channel: config.redis.channel,
+    channelSuffix: redisChannelSuffix,
+    channelPattern: redisChannelPattern,
     corsOrigins: config.corsOrigins,
   });
 });

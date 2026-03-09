@@ -8,6 +8,7 @@ Serviço Socket.IO desacoplado para notificações em tempo real.
 - Emitir eventos para rooms autorizadas
 - Nao executa comandos de negocio
 - Nao valida regras de dominio (isso continua no Laravel)
+- Assinatura Redis por sufixo (`*realtime.events`) para compatibilidade com `REDIS_PREFIX` do Laravel
 
 ## Fluxo oficial
 
@@ -39,6 +40,11 @@ Serviço Socket.IO desacoplado para notificações em tempo real.
 - Redis Pub/Sub como barramento de eventos entre backend e realtime
 - Estrutura pronta para multiplas instancias: cada instancia assina o mesmo canal e entrega eventos localmente
 - Para casos avancados de comunicacao inter-node Socket.IO (acks cross-node e estado compartilhado), evoluir para `@socket.io/redis-adapter`
+
+Observacao sobre canal Redis:
+
+- Configure `REALTIME_REDIS_CHANNEL` com o sufixo base (ex.: `realtime.events`)
+- O serviço assina `*REALTIME_REDIS_CHANNEL`, entao captura tanto `realtime.events` quanto canais prefixados (ex.: `laravel-database-realtime.events`)
 
 ## Desenvolvimento local
 
