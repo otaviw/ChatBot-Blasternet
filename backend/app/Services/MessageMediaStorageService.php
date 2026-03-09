@@ -5,6 +5,7 @@ namespace App\Services;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 class MessageMediaStorageService
 {
@@ -16,19 +17,24 @@ class MessageMediaStorageService
      */
     public function storeSupportTicketImage(UploadedFile $file): array
     {
-        $disk = (string) config('whatsapp.media_disk', 'public');
+        $disk = (string) config('whatsapp.support_attachments_disk', 'local');
         $mime = $this->normalizeMimeType($file->getMimeType());
         $extension = $this->resolveExtension($mime, $file->getClientOriginalExtension());
-        $directory = 'support/attachments';
+        $directory = trim((string) config('whatsapp.support_attachments_prefix', 'support/attachments'), '/');
         $fileName = Str::uuid()->toString().'.'.$extension;
         $key = "{$directory}/{$fileName}";
 
-        Storage::disk($disk)->put($key, file_get_contents($file->getRealPath()), ['visibility' => 'public']);
+        $binary = file_get_contents($file->getRealPath());
+        if ($binary === false) {
+            throw new RuntimeException('Nao foi possivel ler o arquivo de anexo.');
+        }
+
+        Storage::disk($disk)->put($key, $binary, ['visibility' => 'private']);
 
         return [
             'provider' => $disk,
             'key' => $key,
-            'url' => $this->resolveUrl($disk, $key),
+            'url' => null,
             'mime_type' => $mime,
             'size_bytes' => (int) $file->getSize(),
         ];

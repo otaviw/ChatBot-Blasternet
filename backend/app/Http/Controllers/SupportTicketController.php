@@ -62,7 +62,7 @@ class SupportTicketController extends Controller
                     'support_ticket_id' => $ticket->id,
                     'storage_provider' => $stored['provider'],
                     'storage_key' => $stored['key'],
-                    'url' => $stored['url'] ?? null,
+                    'url' => null,
                     'mime_type' => $stored['mime_type'],
                     'size_bytes' => $stored['size_bytes'],
                 ]);
@@ -159,8 +159,9 @@ class SupportTicketController extends Controller
         $attachments = $ticket->relationLoaded('attachments')
             ? $ticket->attachments->map(fn ($a) => [
                 'id' => (int) $a->id,
-                'url' => $a->url,
+                'url' => null,
                 'mime_type' => $a->mime_type,
+                'size_bytes' => $a->size_bytes ? (int) $a->size_bytes : null,
             ])->values()->all()
             : [];
 

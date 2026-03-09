@@ -154,8 +154,9 @@ class SupportTicketController extends Controller
         $attachments = $ticket->relationLoaded('attachments')
             ? $ticket->attachments->map(fn ($a) => [
                 'id' => (int) $a->id,
-                'url' => $a->url,
+                'url' => null,
                 'mime_type' => $a->mime_type,
+                'size_bytes' => $a->size_bytes ? (int) $a->size_bytes : null,
             ])->values()->all()
             : [];
 
