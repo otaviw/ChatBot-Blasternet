@@ -1,6 +1,7 @@
 import './CompanyInboxPage.css';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Layout from '@/components/layout/Layout/Layout.jsx';
+import InboxBackButton from '@/components/ui/InboxBackButton/InboxBackButton.jsx';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
 import api from '@/services/api';
@@ -13,6 +14,11 @@ import {
   sortConversationsByActivity,
 } from './inboxRealtimeUtils';
 import useInboxRealtimeSync from './useInboxRealtimeSync';
+import ConversationsSidebar from './components/ConversationsSidebar.jsx';
+import ConversationToolbar from './components/ConversationToolbar.jsx';
+import MessagesPanel from './components/MessagesPanel.jsx';
+import ReplyComposer from './components/ReplyComposer.jsx';
+import TagsModal from './components/TagsModal.jsx';
 
 const EMPTY_TRANSFER_OPTIONS = { areas: [], users: [] };
 
@@ -729,11 +735,39 @@ function CompanyInboxPage() {
     }
   };
 
-  const formatDate = (value) => {
-    if (!value) return '-';
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return '-';
-    return date.toLocaleString('pt-BR');
+  const handleConversationsSearchEnter = () => {
+    setConvSearch(convSearchInput.trim());
+    loadedConversationPageRef.current = 1;
+  };
+
+  const handleContactNameInputChange = (value) => {
+    setContactNameInput(value);
+    setContactSuccess('');
+    setContactError('');
+  };
+
+  const handleTransferAreaChange = (value) => {
+    setTransferArea(value);
+    setTransferSuccess('');
+    setTransferError('');
+  };
+
+  const handleTransferUserChange = (value) => {
+    setTransferUserId(value);
+    setTransferSuccess('');
+    setTransferError('');
+
+    if (value) {
+      const selectedUser = (transferOptions.users ?? []).find((user) => String(user.id) === String(value));
+      if (selectedUser?.areas?.length && !transferArea) {
+        setTransferArea(String(selectedUser.areas[0].id));
+      }
+    }
+  };
+
+  const handleApplyQuickReply = (text) => {
+    setManualText(text);
+    setShowTemplates(false);
   };
 
   const getMessageImageUrl = (msg) => {
@@ -763,402 +797,109 @@ function CompanyInboxPage() {
         <div className="inbox-header">
           <h1 className="inbox-title">Inbox da empresa - Acompanhe atendimento em tempo real.</h1>
         </div>
-      <div className="inbox-layout grid grid-cols-1 lg:grid-cols-[minmax(200px,280px)_1fr]">
-        <aside
-          className={`inbox-conversations ${selectedId ? 'hidden lg:flex' : 'flex'} flex-col`}
-        >
-          <div className="inbox-conversations-header">
-            <h2 className="inbox-conversations-title">Conversas</h2>
-            <input
-              type="search"
-              value={convSearchInput}
-              onChange={(e) => setConvSearchInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  setConvSearch(convSearchInput.trim());
-                  loadedConversationPageRef.current = 1;
-                }
-              }}
-              placeholder="Buscar contatos..."
-              className="inbox-search-input app-input"
-            />
-          </div>
-          <ul
-            ref={conversationListRef}
-            onScroll={handleConversationsScroll}
-            className="inbox-conversations-list space-y-2 text-sm"
+        <div className="inbox-layout grid grid-cols-1 lg:grid-cols-[minmax(200px,280px)_1fr]">
+          <ConversationsSidebar
+            selectedId={selectedId}
+            convSearchInput={convSearchInput}
+            onConvSearchInputChange={setConvSearchInput}
+            onConvSearchEnter={handleConversationsSearchEnter}
+            conversationListRef={conversationListRef}
+            onConversationsScroll={handleConversationsScroll}
+            conversations={conversations}
+            unreadConversationSet={unreadConversationSet}
+            onOpenConversation={openConversation}
+            conversationsPagination={conversationsPagination}
+            onNextConversationPage={() => {
+              if (!conversationsPagination) {
+                return;
+              }
+
+              setConvPage((page) => Math.min(conversationsPagination.last_page, page + 1));
+            }}
+            conversationsLoadingMore={conversationsLoadingMore}
+            loadedConversationPage={loadedConversationPageRef.current}
+          />
+
+          <section
+            className={`inbox-messages ${selectedId ? 'flex' : 'hidden lg:flex'} flex-col`}
           >
-            {!conversations.length && <li className="text-[#706f6c] py-4">Nenhuma conversa.</li>}
-            {conversations.map((conv) => {
-              const hasUnread = unreadConversationSet.has(Number(conv.id));
-
-              return (
-                <li key={conv.id}>
-                  <button
-                    type="button"
-                    onClick={() => openConversation(conv.id)}
-                    className={`w-full text-left px-3 py-2.5 rounded-lg transition ${
-                        selectedId === conv.id
-                        ? 'bg-[#eff6ff]'
-                        : conv.status === 'closed'
-                          ? 'opacity-70 hover:bg-white/60'
-                          : hasUnread
-                            ? 'bg-red-50/80 hover:bg-red-50'
-                            : 'hover:bg-white'
-                    }`}
-                  >
-                    <div className="font-medium text-[#0f172a]">
-                      {conv.customer_name ? `${conv.customer_name} (${conv.customer_phone})` : conv.customer_phone}
-                      {' - '}
-                      {conv.status} ({conv.messages_count ?? 0} msg)
-                    </div>
-                    <div className="text-xs text-[#526175] mt-1">
-                      {conv.status === 'closed'
-                        ? 'encerrada'
-                        : conv.handling_mode === 'human'
-                          ? 'manual'
-                          : 'bot'}
-                      {hasUnread ? (
-                        <span className="ml-2 rounded-full bg-[#dc2626] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
-                          nova msg
-                        </span>
-                      ) : null}
-                      {conv.current_area?.name ? <span className="ml-2">área: {conv.current_area.name}</span> : null}
-                      {(conv.tags ?? []).length > 0 && (
-                        <span className="ml-2">{conv.tags.join(', ')}</span>
-                      )}
-                    </div>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-          {conversationsPagination && conversationsPagination.last_page > 1 && (
-            <div className="inbox-conversations-pagination">
-              <span className="text-xs text-[#737373]">
-                Pág. {conversationsPagination.current_page} / {conversationsPagination.last_page}
-              </span>
-              <button
-                type="button"
-                onClick={() => setConvPage((p) => Math.min(conversationsPagination.last_page, p + 1))}
-                disabled={conversationsPagination.current_page >= conversationsPagination.last_page}
-                className="app-btn-secondary text-xs"
-              >
-                Próxima
-              </button>
-            </div>
-          )}
-          <div className="inbox-conversations-status">
-            {conversationsLoadingMore ? (
-              <span className="text-xs text-[#737373]">Carregando mais conversas...</span>
-            ) : conversationsPagination && loadedConversationPageRef.current < Number(conversationsPagination.last_page ?? 1) ? (
-              <span className="text-xs text-[#737373]">Role para carregar mais conversas.</span>
-            ) : (
-              <span className="text-xs text-[#a3a3a3]">Fim da lista.</span>
+            {selectedId && (
+              <InboxBackButton onClick={() => setSelectedId(null)} />
             )}
-            {conversationsPagination?.total ? (
-              <span className="text-xs text-[#a3a3a3]">
-                {conversations.length} / {conversationsPagination.total}
-              </span>
-            ) : null}
-          </div>
-        </aside>
+            {detailLoading && <p className="inbox-empty-state text-sm text-[#737373]">Carregando conversa...</p>}
+            {detailError && <p className="inbox-empty-state text-sm text-red-600">{detailError}</p>}
+            {!detailLoading && !detail && !detailError && (
+              <p className="inbox-empty-state text-sm text-[#706f6c]">Selecione uma conversa.</p>
+            )}
+            {!!detail && (
+              <div className="inbox-detail-layout">
+                <ConversationToolbar
+                  detail={detail}
+                  contactNameInput={contactNameInput}
+                  onContactNameChange={handleContactNameInputChange}
+                  onSaveContactName={saveContactName}
+                  contactBusy={contactBusy}
+                  contactSuccess={contactSuccess}
+                  contactError={contactError}
+                  actionBusy={actionBusy}
+                  onAssumeConversation={assumeConversation}
+                  onReleaseConversation={releaseConversation}
+                  onCloseConversation={closeConversation}
+                  onOpenTagsModal={() => setTagsModalOpen(true)}
+                  transferExpanded={transferExpanded}
+                  onToggleTransferExpanded={() => setTransferExpanded((value) => !value)}
+                  transferArea={transferArea}
+                  onTransferAreaChange={handleTransferAreaChange}
+                  transferOptions={transferOptions}
+                  transferUserId={transferUserId}
+                  onTransferUserChange={handleTransferUserChange}
+                  availableUsers={availableUsers}
+                  onTransferConversation={transferConversation}
+                  transferBusy={transferBusy}
+                  transferSuccess={transferSuccess}
+                  transferError={transferError}
+                />
 
-        <section
-          className={`inbox-messages ${selectedId ? 'flex' : 'hidden lg:flex'} flex-col`}
-        >
-          {selectedId && (
-            <button
-              type="button"
-              onClick={() => setSelectedId(null)}
-              className="lg:hidden inbox-back-btn"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M19 12H5M12 19l-7-7 7-7" />
-              </svg>
-              Voltar às conversas
-            </button>
-          )}
-          {detailLoading && <p className="inbox-empty-state text-sm text-[#737373]">Carregando conversa...</p>}
-          {detailError && <p className="inbox-empty-state text-sm text-red-600">{detailError}</p>}
-          {!detailLoading && !detail && !detailError && (
-            <p className="inbox-empty-state text-sm text-[#706f6c]">Selecione uma conversa.</p>
-          )}
-          {!!detail && (
-            <div className="inbox-detail-layout">
-              <div className="inbox-toolbar shrink-0 flex flex-wrap items-center gap-2">
-                <span className="text-xs text-[#525252]">
-                  Modo: <strong>{detail.handling_mode === 'human' ? 'Manual' : 'Bot'}</strong>
-                  {detail.assigned_user ? ` · ${detail.assigned_user.name}` : ''}
-                  {detail.current_area?.name ? ` · ${detail.current_area.name}` : ''}
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <input
-                    type="text"
-                    value={contactNameInput}
-                    onChange={(e) => { setContactNameInput(e.target.value); setContactSuccess(''); setContactError(''); }}
-                    placeholder="Nome"
-                    className="w-32 app-input text-xs py-1.5"
-                  />
-                  <button type="button" onClick={saveContactName} disabled={contactBusy} className="app-btn-secondary text-xs py-1.5">
-                    {contactBusy ? '...' : 'Salvar'}
-                  </button>
-                </div>
-                {contactSuccess && <span className="text-xs text-green-600">{contactSuccess}</span>}
-                {contactError && <span className="text-xs text-red-600">{contactError}</span>}
-                <div className="flex gap-1">
-                  <button type="button" onClick={assumeConversation} disabled={actionBusy} className="app-btn-secondary text-xs py-1.5">Assumir</button>
-                  <button type="button" onClick={releaseConversation} disabled={actionBusy} className="app-btn-secondary text-xs py-1.5">Soltar</button>
-                  <button type="button" onClick={closeConversation} disabled={actionBusy || detail?.status === 'closed'} className="app-btn-danger text-xs py-1.5">Encerrar</button>
-                </div>
-                <button type="button" onClick={() => setTagsModalOpen(true)} className="app-btn-secondary text-xs py-1.5">
-                  Tags {(detail.tags ?? []).length > 0 && `(${(detail.tags ?? []).length})`}
-                </button>
-                <div className="inbox-transfer-wrap relative">
-                  <button type="button" onClick={() => setTransferExpanded((v) => !v)} className="app-btn-secondary text-xs py-1.5">
-                    Transferir {transferExpanded ? '▲' : '▼'}
-                  </button>
-                  {transferExpanded && (
-                    <div className="inbox-transfer-dropdown">
-                      <div className="space-y-2 mb-2">
-                        <label className="block text-xs">
-                          Área
-                          <select value={transferArea} onChange={(e) => { setTransferArea(e.target.value); setTransferSuccess(''); setTransferError(''); }} className="app-input text-xs mt-0.5">
-                            <option value="">Selecionar</option>
-                            {(transferOptions.areas ?? []).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                          </select>
-                        </label>
-                        <label className="block text-xs">
-                          Usuário (opcional)
-                          <select value={transferUserId} onChange={(e) => {
-                            const v = e.target.value;
-                            setTransferUserId(v);
-                            setTransferSuccess(''); setTransferError('');
-                            if (v) {
-                              const u = (transferOptions.users ?? []).find((x) => String(x.id) === v);
-                              if (u?.areas?.length && !transferArea) setTransferArea(String(u.areas[0].id));
-                            }
-                          }} className="app-input text-xs mt-0.5">
-                            <option value="">Selecionar</option>
-                            {availableUsers.map((u) => (
-                              <option key={u.id} value={u.id}>{u.name} {(u.areas ?? []).length ? `(${u.areas.map((a) => a.name).join(', ')})` : ''}</option>
-                            ))}
-                          </select>
-                        </label>
-                      </div>
-                      <button type="button" onClick={transferConversation} disabled={transferBusy} className="app-btn-primary text-xs w-full">
-                        {transferBusy ? 'Transferindo...' : 'Transferir'}
-                      </button>
-                      {transferSuccess && <p className="text-xs text-green-600 mt-1">{transferSuccess}</p>}
-                      {transferError && <p className="text-xs text-red-600 mt-1">{transferError}</p>}
-                      {(detail.transfer_history ?? []).length > 0 && (
-                        <div className="mt-2 pt-2 border-t border-[#eee]">
-                          <p className="text-xs text-[#737373] mb-1">Histórico</p>
-                          <ul className="space-y-1 text-xs max-h-24 overflow-y-auto">
-                            {detail.transfer_history.map((item) => {
-                              const fromLabel = item.from_user?.name || item.from_area || '—';
-                              const toLabel = item.to_user?.name || item.to_area || '—';
-                              return (
-                                <li key={item.id} className="text-[#525252]">
-                                  {fromLabel} → {toLabel}
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
+                <MessagesPanel
+                  detail={detail}
+                  messagesPagination={messagesPagination}
+                  onLoadMessagesPage={loadMessagesPage}
+                  chatListRef={chatListRef}
+                  onChatScroll={handleChatScroll}
+                  messagesLoadingOlder={messagesLoadingOlder}
+                  getMessageImageUrl={getMessageImageUrl}
+                />
+
+                <ReplyComposer
+                  onSendManualReply={sendManualReply}
+                  showTemplates={showTemplates}
+                  onToggleTemplates={() => setShowTemplates((prev) => !prev)}
+                  quickReplies={quickReplies}
+                  onApplyQuickReply={handleApplyQuickReply}
+                  onManualImageChange={handleManualImageChange}
+                  manualImageFile={manualImageFile}
+                  onRemoveManualImage={removeManualImage}
+                  manualText={manualText}
+                  onManualTextChange={setManualText}
+                  manualBusy={manualBusy}
+                  manualImagePreviewUrl={manualImagePreviewUrl}
+                  manualError={manualError}
+                />
               </div>
-
-              {messagesPagination && messagesPagination.last_page > 1 && (
-                <div className="inbox-messages-pagination shrink-0 flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => loadMessagesPage(messagesPagination.current_page - 1)}
-                    disabled={messagesPagination.current_page <= 1}
-                    className="app-btn-secondary text-xs"
-                  >
-                    Anterior
-                  </button>
-                  <span className="text-xs text-[#737373]">
-                    Msgs pág. {messagesPagination.current_page} / {messagesPagination.last_page}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => loadMessagesPage(messagesPagination.current_page + 1)}
-                    disabled={messagesPagination.current_page >= messagesPagination.last_page}
-                    className="app-btn-secondary text-xs"
-                  >
-                    Próxima
-                  </button>
-                </div>
-              )}
-
-              <ul
-                ref={chatListRef}
-                onScroll={handleChatScroll}
-                className="inbox-chat space-y-2.5 text-sm flex-1 min-h-0 overflow-y-auto overscroll-contain"
-              >
-                {messagesLoadingOlder ? (
-                  <li className="inbox-chat-loader">Carregando mensagens anteriores...</li>
-                ) : messagesPagination && Number(messagesPagination.current_page ?? 1) > 1 ? (
-                  <li className="inbox-chat-loader">Role para cima para carregar mensagens anteriores.</li>
-                ) : null}
-                {(detail.messages ?? []).map((msg) => (
-                  <li
-                    key={msg.id}
-                    className={`inbox-message-bubble inbox-message-${msg.direction === 'in' ? 'in' : 'out'}`}
-                  >
-                    <span className="inbox-message-label">{msg.direction === 'in' ? 'Cliente' : 'Atendente/Bot'}</span>
-                    {msg.content_type === 'image' ? (
-                      <div className="company-inbox-message-media">
-                        <a href={getMessageImageUrl(msg)} target="_blank" rel="noreferrer">
-                          <img
-                            src={getMessageImageUrl(msg)}
-                            alt="Imagem enviada na conversa"
-                            className="company-inbox-message-image"
-                          />
-                        </a>
-                        {msg.text ? <p className="company-inbox-message-caption">{msg.text}</p> : null}
-                      </div>
-                    ) : (
-                      <span className="inbox-message-text">{msg.text}</span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-
-              <form onSubmit={sendManualReply} className="inbox-reply-form shrink-0 space-y-3">
-                <div className="inbox-reply-actions">
-                  <div className="inbox-reply-template-wrap relative">
-                    <button
-                      type="button"
-                      onClick={() => setShowTemplates((prev) => !prev)}
-                      className="app-btn-secondary text-xs inbox-reply-action-btn"
-                    >
-                      Respostas rápidas v
-                    </button>
-
-                    {showTemplates && (
-                      <div className="absolute bottom-10 left-0 z-10 w-72 bg-white rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                        {!quickReplies.length && (
-                          <p className="text-xs text-[#706f6c] p-3">Nenhum template cadastrado.</p>
-                        )}
-                        {quickReplies.map((reply) => (
-                          <button
-                            key={reply.id}
-                            type="button"
-                            onClick={() => {
-                              setManualText(reply.text);
-                              setShowTemplates(false);
-                            }}
-                            className="w-full text-left px-3 py-2 hover:bg-[#f5f5f5] border-b border-[#eeeeee] last:border-0 text-[#171717]"
-                          >
-                            <p className="text-xs font-medium">{reply.title}</p>
-                            <p className="text-xs text-[#706f6c] truncate">{reply.text}</p>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="company-inbox-upload-row">
-                    <label className="app-btn-secondary text-xs cursor-pointer inbox-reply-action-btn">
-                      Anexar imagem
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleManualImageChange}
-                        className="hidden"
-                      />
-                    </label>
-                    {manualImageFile ? (
-                      <button
-                        type="button"
-                        onClick={removeManualImage}
-                        className="app-btn-danger text-xs"
-                      >
-                        Remover imagem
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-
-                {manualImageFile ? (
-                  <div className="inbox-reply-attachment">
-                    <span className="inbox-reply-attachment-label">Imagem selecionada</span>
-                    <span className="inbox-reply-attachment-name" title={manualImageFile.name}>
-                      {manualImageFile.name}
-                    </span>
-                  </div>
-                ) : null}
-
-                <div className="inbox-reply-compose">
-                  <textarea
-                    value={manualText}
-                    onChange={(event) => setManualText(event.target.value)}
-                    rows={2}
-                    placeholder="Digite resposta manual ou use um template..."
-                    className="app-input inbox-reply-input"
-                  />
-                  <button
-                    type="submit"
-                    disabled={manualBusy || (!manualText.trim() && !manualImageFile)}
-                    className="app-btn-primary inbox-reply-submit"
-                  >
-                    {manualBusy ? 'Enviando...' : 'Enviar'}
-                  </button>
-                </div>
-                {manualImagePreviewUrl ? (
-                  <div className="company-inbox-image-preview">
-                    <img src={manualImagePreviewUrl} alt="Prévia da imagem anexada" />
-                  </div>
-                ) : null}
-                {manualError && <p className="text-sm text-red-600">{manualError}</p>}
-              </form>
-            </div>
-          )}
-        </section>
-      </div>
-      </div>
-
-      {tagsModalOpen && detail && (
-        <div className="inbox-tags-modal-overlay" onClick={() => setTagsModalOpen(false)}>
-          <div className="inbox-tags-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-base font-medium">Tags</h3>
-              <button type="button" onClick={() => setTagsModalOpen(false)} className="text-[#525252] hover:text-[#171717]">
-                ✕
-              </button>
-            </div>
-            <div className="flex flex-wrap gap-1 mb-3">
-              {(detail.tags ?? []).length === 0 && <span className="text-xs text-[#737373]">Nenhuma tag.</span>}
-              {(detail.tags ?? []).map((tag) => (
-                <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#f0f0f0] text-xs">
-                  {tag}
-                  <button type="button" onClick={() => removeTag(tag)} className="text-[#706f6c] hover:text-red-600">×</button>
-                </span>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addTag(tagInput))}
-                placeholder="Nova tag..."
-                className="flex-1 app-input text-sm py-1.5"
-              />
-              <button type="button" onClick={() => addTag(tagInput)} className="app-btn-primary text-sm py-1.5">
-                Adicionar
-              </button>
-            </div>
-          </div>
+            )}
+          </section>
         </div>
-      )}
+      </div>
+
+      <TagsModal
+        open={tagsModalOpen}
+        detail={detail}
+        tagInput={tagInput}
+        onTagInputChange={setTagInput}
+        onAddTag={() => addTag(tagInput)}
+        onRemoveTag={removeTag}
+        onClose={() => setTagsModalOpen(false)}
+      />
     </Layout>
   );
 }

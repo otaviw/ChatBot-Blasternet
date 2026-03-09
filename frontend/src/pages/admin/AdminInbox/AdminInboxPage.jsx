@@ -5,6 +5,7 @@ import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
 import api from '@/services/api';
 import PageHeader from '@/components/ui/PageHeader/PageHeader.jsx';
+import InboxBackButton from '@/components/ui/InboxBackButton/InboxBackButton.jsx';
 
 function AdminInboxPage() {
   const { data, loading, error } = usePageData('/admin/empresas');
@@ -209,16 +210,11 @@ function AdminInboxPage() {
           }`}
         >
           {selectedId && (
-            <button
-              type="button"
+            <InboxBackButton
               onClick={() => setSelectedId(null)}
               className="lg:hidden flex items-center gap-2 text-sm text-[#525252] hover:text-[#171717] mb-4"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M19 12H5M12 19l-7-7 7-7" />
-              </svg>
-              Voltar às conversas
-            </button>
+              label="Voltar às conversas"
+            />
           )}
           <h2 className="text-base font-semibold mb-3">Mensagens</h2>
           {detailLoading && <p className="text-sm text-[#737373]">Carregando conversa...</p>}
