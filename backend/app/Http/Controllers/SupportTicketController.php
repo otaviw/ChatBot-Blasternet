@@ -46,7 +46,6 @@ class SupportTicketController extends Controller
             'closed_at' => null,
         ]);
 
-        // Usa o id autoincremental como numero do ticket.
         if (! $ticket->ticket_number) {
             $ticket->ticket_number = (int) $ticket->id;
             $ticket->save();

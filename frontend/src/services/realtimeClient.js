@@ -160,6 +160,45 @@ class RealtimeClient {
     if (forceRefresh && socket.connected) {
       this.rejoinConversationRooms();
     }
+
+    await this.waitForSocketConnection(socket);
+  }
+
+  waitForSocketConnection(socket) {
+    if (!socket) {
+      return Promise.reject(new Error('Socket indisponível para conexão.'));
+    }
+
+    if (socket.connected) {
+      return Promise.resolve();
+    }
+
+    return new Promise((resolve, reject) => {
+      const timeoutMs = 7500;
+      const timeout = setTimeout(() => {
+        cleanup();
+        reject(new Error('Timeout ao conectar no realtime.'));
+      }, timeoutMs);
+
+      const cleanup = () => {
+        clearTimeout(timeout);
+        socket.off('connect', onConnect);
+        socket.off('connect_error', onError);
+      };
+
+      const onConnect = () => {
+        cleanup();
+        resolve();
+      };
+
+      const onError = (error) => {
+        cleanup();
+        reject(error instanceof Error ? error : new Error('Falha ao conectar no realtime.'));
+      };
+
+      socket.on('connect', onConnect);
+      socket.on('connect_error', onError);
+    });
   }
 
   async reconnectWithFreshToken() {

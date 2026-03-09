@@ -40,14 +40,18 @@ export const normalizeEnvelope = (input) => {
 };
 
 export const emitEnvelope = (io, envelope) => {
-  let target = io;
-  for (const room of envelope.rooms) {
-    target = target.to(room);
-  }
+  // let target = io;
+  // for (const room of envelope.rooms) {
+  //   target = target.to(room);
+  // }
 
-  target.emit(envelope.event, {
+  const message = {
     event: envelope.event,
     payload: envelope.payload,
     meta: envelope.meta,
-  });
+  }
+
+  for (const room of envelope.rooms) {
+    io.to(room).emit(envelope.event, message);
+  }
 };
