@@ -75,8 +75,11 @@ function NotificationsPage() {
     error: notificationsError,
     refresh,
     markAsRead,
+    markAllRead,
+    deleteMany,
   } = useNotificationsContext();
   const [busyById, setBusyById] = useState({});
+  const [selectedIds, setSelectedIds] = useState([]);
 
   const uiRole = useMemo(() => resolveUiRole(data?.user?.role), [data?.user?.role]);
 
@@ -117,6 +120,35 @@ function NotificationsPage() {
     window.location.href = targetHref;
   };
 
+  const handleToggleSelected = (notificationId) => {
+    const id = Number.parseInt(String(notificationId ?? ''), 10);
+    if (!id) {
+      return;
+    }
+
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (!notifications.length) return;
+    const allIds = notifications.map((n) => Number(n.id));
+    const allSelected = selectedIds.length === allIds.length;
+    setSelectedIds(allSelected ? [] : allIds);
+  };
+
+  const handleMarkAllRead = async () => {
+    await markAllRead();
+    setSelectedIds([]);
+  };
+
+  const handleDeleteSelected = async () => {
+    if (!selectedIds.length) return;
+    await deleteMany(selectedIds);
+    setSelectedIds([]);
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -142,8 +174,35 @@ function NotificationsPage() {
 
       <section className="app-panel space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="text-sm text-[#334155]">
-            Não lidas: <strong>{totalUnread}</strong>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="text-sm text-[#334155]">
+              Não lidas: <strong>{totalUnread}</strong>
+            </div>
+            <button
+              type="button"
+              onClick={handleMarkAllRead}
+              className="app-btn-secondary text-xs"
+              disabled={notificationsLoading || !notifications.length}
+            >
+              Marcar todas como lidas
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteSelected}
+              className="app-btn-danger text-xs disabled:opacity-60"
+              disabled={!selectedIds.length}
+            >
+              Apagar selecionadas
+            </button>
+            {notifications.length > 0 && (
+              <button
+                type="button"
+                onClick={handleSelectAll}
+                className="text-xs text-[#2563eb] underline-offset-2 hover:underline"
+              >
+                {selectedIds.length === notifications.length ? 'Limpar seleção' : 'Selecionar todas'}
+              </button>
+            )}
           </div>
           <button
             type="button"
@@ -166,6 +225,7 @@ function NotificationsPage() {
             {notifications.map((notification) => {
               const targetHref = buildNotificationTarget(notification, uiRole);
               const isBusy = Boolean(busyById[notification.id]);
+              const isSelected = selectedIds.includes(Number(notification.id));
 
               return (
                 <li
@@ -179,6 +239,12 @@ function NotificationsPage() {
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleToggleSelected(notification.id)}
+                          className="h-4 w-4"
+                        />
                         <span className="rounded-full bg-[#e2e8f0] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#334155]">
                           {moduleLabel(notification.module)}
                         </span>

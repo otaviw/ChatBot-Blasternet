@@ -189,6 +189,63 @@ export default function useNotifications(options = {}) {
     }
   }, [applyUnreadCounters, enabled]);
 
+  const markAllRead = useCallback(async () => {
+    if (!enabled) {
+      return null;
+    }
+
+    try {
+      const response = await notificationService.markAllRead();
+      const nowIso = new Date().toISOString();
+
+      setNotifications((prev) =>
+        prev.map((item) =>
+          item.is_read
+            ? item
+            : {
+                ...item,
+                is_read: true,
+                read_at: item.read_at ?? nowIso,
+              }
+        )
+      );
+
+      applyUnreadCounters(response.unread_by_module, response.total_unread);
+
+      return response;
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Falha ao marcar todas as notificações como lidas.');
+      return null;
+    }
+  }, [applyUnreadCounters, enabled]);
+
+  const deleteMany = useCallback(
+    async (ids) => {
+      if (!enabled) {
+        return null;
+      }
+
+      const normalizedIds = [...new Set((ids ?? []).map((value) => Number.parseInt(String(value ?? ''), 10)).filter((id) => id > 0))];
+      if (!normalizedIds.length) {
+        return null;
+      }
+
+      try {
+        const response = await notificationService.deleteMany(normalizedIds);
+        const idSet = new Set(normalizedIds);
+
+        setNotifications((prev) => prev.filter((item) => !idSet.has(Number(item.id))));
+        applyUnreadCounters(response.unread_by_module, response.total_unread);
+
+        return response;
+      } catch (err) {
+        setError(err?.response?.data?.message || 'Falha ao apagar notificações.');
+        return null;
+      }
+    },
+    [applyUnreadCounters, enabled]
+  );
+
   const markReadByReference = useCallback(async (module, referenceType, referenceId) => {
     const normalizedModule = String(module ?? '').trim();
     const normalizedReferenceType = String(referenceType ?? '').trim();
@@ -299,6 +356,8 @@ export default function useNotifications(options = {}) {
     refresh,
     markAsRead,
     markReadByReference,
+    markAllRead,
+    deleteMany,
     setNotifications,
   };
 }

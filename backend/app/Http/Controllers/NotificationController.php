@@ -112,6 +112,47 @@ class NotificationController extends Controller
         ]);
     }
 
+    public function markAllRead(Request $request): JsonResponse
+    {
+        $user = $this->resolveAuthenticatedUser($request);
+        if (! $user instanceof User) {
+            return $this->unauthenticatedResponse();
+        }
+
+        $updated = $this->notificationService->markAllAsReadForUser($user);
+        $byModule = $this->notificationService->unreadCountByModule($user);
+
+        return response()->json([
+            'ok' => true,
+            'updated' => $updated,
+            'unread_by_module' => $byModule,
+            'total_unread' => $this->notificationService->totalUnread($byModule),
+        ]);
+    }
+
+    public function destroyMany(Request $request): JsonResponse
+    {
+        $user = $this->resolveAuthenticatedUser($request);
+        if (! $user instanceof User) {
+            return $this->unauthenticatedResponse();
+        }
+
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer', 'min:1'],
+        ]);
+
+        $deleted = $this->notificationService->deleteManyForUser($user, $validated['ids']);
+        $byModule = $this->notificationService->unreadCountByModule($user);
+
+        return response()->json([
+            'ok' => true,
+            'deleted' => $deleted,
+            'unread_by_module' => $byModule,
+            'total_unread' => $this->notificationService->totalUnread($byModule),
+        ]);
+    }
+
     private function resolveAuthenticatedUser(Request $request): ?User
     {
         $user = $request->user();

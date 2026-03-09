@@ -71,6 +71,44 @@ class NotificationService
             ]);
     }
 
+    public function markAllAsReadForUser(User|int $user): int
+    {
+        $userId = $user instanceof User ? (int) $user->id : (int) $user;
+        if ($userId <= 0) {
+            return 0;
+        }
+
+        return Notification::query()
+            ->where('user_id', $userId)
+            ->where('is_read', false)
+            ->update([
+                'is_read' => true,
+                'read_at' => Carbon::now(),
+                'updated_at' => Carbon::now(),
+            ]);
+    }
+
+    /**
+     * @param  array<int, int>  $ids
+     */
+    public function deleteManyForUser(User|int $user, array $ids): int
+    {
+        $userId = $user instanceof User ? (int) $user->id : (int) $user;
+        $uniqueIds = array_values(array_unique(array_filter(array_map(
+            fn ($value) => (int) $value,
+            $ids
+        ), fn ($id) => $id > 0)));
+
+        if ($userId <= 0 || $uniqueIds === []) {
+            return 0;
+        }
+
+        return Notification::query()
+            ->where('user_id', $userId)
+            ->whereIn('id', $uniqueIds)
+            ->delete();
+    }
+
     /**
      * @return Collection<int, Notification>
      */

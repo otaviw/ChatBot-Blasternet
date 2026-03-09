@@ -30,6 +30,18 @@ const notificationService = {
     return response.data ?? { ok: false };
   },
 
+  async markAllRead() {
+    const response = await api.post('/notifications/read-all');
+    return response.data ?? { ok: false };
+  },
+
+  async deleteMany(ids) {
+    const response = await api.delete('/notifications/bulk', {
+      data: { ids },
+    });
+    return response.data ?? { ok: false };
+  },
+
   async markReadByReference({ module, referenceType, referenceId }) {
     const response = await api.post('/notifications/read-by-reference', {
       module,

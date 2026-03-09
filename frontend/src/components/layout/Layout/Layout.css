@@ -632,3 +632,70 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+.layout-toast {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 60;
+}
+
+.layout-toast__content {
+  max-width: 320px;
+  background: #111827;
+  color: #f9fafb;
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+}
+
+.layout-toast__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.layout-toast__title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.layout-toast__close {
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.layout-toast__close:hover {
+  color: #e5e7eb;
+}
+
+.layout-toast__text {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #e5e7eb;
+}
+
+.layout-toast__actions {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.layout-toast__btn {
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 999px;
+  border: none;
+  background: #2563eb;
+  color: white;
+  cursor: pointer;
+}
+
+.layout-toast__btn:hover {
+  background: #1d4ed8;
+}

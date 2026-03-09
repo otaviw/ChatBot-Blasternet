@@ -90,6 +90,8 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
   const [userData, setUserData] = useState(null);
   const [notificationBusyById, setNotificationBusyById] = useState({});
   const profileRef = useRef(null);
+  const lastToastNotificationIdRef = useRef(null);
+  const [toastNotification, setToastNotification] = useState(null);
   const {
     unreadByModule,
     totalUnread,
@@ -227,7 +229,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
 
   const adminSupportLinks = [
     { href: '/admin/suporte', label: 'Solicitações', module: NOTIFICATION_MODULE.SUPPORT },
-    { href: '/suporte', label: 'Abrir suporte', module: NOTIFICATION_MODULE.SUPPORT },
+    { href: '/suporte', label: 'Abrir suporte' },
   ];
 
   const companyMainLinks = useMemo(() => {
@@ -243,7 +245,8 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
   }, [canManageUsers]);
 
   const companySupportLinks = [
-    { href: '/suporte', label: 'Suporte', module: NOTIFICATION_MODULE.SUPPORT },
+    // Apenas \"Solicitações\" recebe badge de notificação de suporte.
+    { href: '/suporte', label: 'Suporte' },
     { href: '/minha-conta/suporte/solicitacoes', label: 'Solicitações', module: NOTIFICATION_MODULE.SUPPORT },
   ];
 
@@ -276,6 +279,34 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
   };
 
   const totalUnreadCount = Number(totalUnread ?? 0);
+
+  useEffect(() => {
+    if (!notifications.length || notificationsLoading) {
+      return;
+    }
+
+    const latest = notifications[0];
+    if (!latest || latest.is_read) {
+      return;
+    }
+
+    if (notificationsPanelOpen) {
+      return;
+    }
+
+    if (lastToastNotificationIdRef.current === latest.id) {
+      return;
+    }
+
+    lastToastNotificationIdRef.current = latest.id;
+    setToastNotification(latest);
+
+    const timer = setTimeout(() => {
+      setToastNotification(null);
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [notifications, notificationsLoading, notificationsPanelOpen]);
 
   return (
     <div className="min-h-screen relative text-[#171717] layout-wrapper">
@@ -448,6 +479,39 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
 
         <main className={`layout-main__content ${fullWidth ? 'layout-main__content--full' : ''}`}>{children}</main>
       </div>
+
+      {toastNotification && (
+        <div className="layout-toast">
+          <div className="layout-toast__content">
+            <div className="layout-toast__header">
+              <span className="layout-toast__title">{toastNotification.title || 'Nova notificação'}</span>
+              <button
+                type="button"
+                className="layout-toast__close"
+                onClick={() => setToastNotification(null)}
+              >
+                ×
+              </button>
+            </div>
+            <p className="layout-toast__text">{toastNotification.text}</p>
+            <div className="layout-toast__actions">
+              <button
+                type="button"
+                className="layout-toast__btn"
+                onClick={() => {
+                  const target = buildNotificationTarget(toastNotification, uiRole);
+                  setToastNotification(null);
+                  if (target) {
+                    void handleNotificationOpenTarget(toastNotification);
+                  }
+                }}
+              >
+                Ver
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isLogged && notificationsPanelOpen && (
         <>

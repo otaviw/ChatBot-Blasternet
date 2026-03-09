@@ -58,6 +58,10 @@ Route::middleware('web')->group(function () {
             ->middleware('throttle:bot-write');
         Route::post('/notifications/read-by-reference', [NotificationController::class, 'markReadByReference'])
             ->middleware('throttle:bot-write');
+        Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])
+            ->middleware('throttle:bot-write');
+        Route::delete('/notifications/bulk', [NotificationController::class, 'destroyMany'])
+            ->middleware('throttle:bot-write');
         Route::get('/areas', [AreaController::class, 'index'])->middleware('throttle:inbox-read');
         Route::get('/areas/{area}/users', [AreaController::class, 'users'])->middleware('throttle:inbox-read');
         Route::post('/conversations/{conversation}/transfer', [ConversationTransferController::class, 'store'])
