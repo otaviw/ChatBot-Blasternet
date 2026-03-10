@@ -23,6 +23,14 @@ function buildNotificationTarget(notification, uiRole) {
     return '/admin/conversas';
   }
 
+  if (referenceType === NOTIFICATION_REFERENCE_TYPE.CHAT_CONVERSATION && referenceId > 0) {
+    if (uiRole === 'company') {
+      return `/minha-conta/chat-interno?conversationId=${referenceId}`;
+    }
+
+    return `/admin/chat-interno?conversationId=${referenceId}`;
+  }
+
   if (referenceType === NOTIFICATION_REFERENCE_TYPE.SUPPORT_TICKET && referenceId > 0) {
     if (uiRole === 'admin') {
       return `/admin/suporte/solicitacoes/${referenceId}`;
@@ -33,6 +41,10 @@ function buildNotificationTarget(notification, uiRole) {
 
   if (module === NOTIFICATION_MODULE.INBOX) {
     return uiRole === 'company' ? '/minha-conta/conversas' : '/admin/conversas';
+  }
+
+  if (module === NOTIFICATION_MODULE.INTERNAL_CHAT) {
+    return uiRole === 'company' ? '/minha-conta/chat-interno' : '/admin/chat-interno';
   }
 
   if (module === NOTIFICATION_MODULE.SUPPORT) {
@@ -46,6 +58,7 @@ function moduleLabel(module) {
   const value = String(module ?? '').trim();
 
   if (value === NOTIFICATION_MODULE.INBOX) return 'Inbox';
+  if (value === NOTIFICATION_MODULE.INTERNAL_CHAT) return 'Chat interno';
   if (value === NOTIFICATION_MODULE.SUPPORT) return 'Suporte';
   if (value === NOTIFICATION_MODULE.GENERAL) return 'Geral';
 

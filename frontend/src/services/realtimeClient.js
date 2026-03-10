@@ -3,6 +3,7 @@ import api from './api';
 
 const SUPPORTED_EVENTS = new Set([
   'message.created',
+  'message.updated',
   'bot.updated',
   'conversation.transferred',
   'notification.created',
@@ -41,6 +42,7 @@ class RealtimeClient {
     this.connectPromise = null;
     this.handlers = new Map();
     this.joinedConversations = new Set();
+    this.joinedChatConversations = new Set();
     this.seenRequestIds = new Map();
     this.seenMessageIds = new Map();
     this.seenTransferIds = new Map();
@@ -75,7 +77,11 @@ class RealtimeClient {
       this.handlers.delete(eventName);
     }
 
-    if (this.handlers.size === 0 && this.joinedConversations.size === 0) {
+    if (
+      this.handlers.size === 0 &&
+      this.joinedConversations.size === 0 &&
+      this.joinedChatConversations.size === 0
+    ) {
       this.disconnect();
     }
   }
@@ -138,6 +144,7 @@ class RealtimeClient {
 
     socket.on('connect', () => {
       this.rejoinConversationRooms();
+      this.rejoinChatConversationRooms();
     });
 
     socket.on('auth.expired', () => {
@@ -152,7 +159,11 @@ class RealtimeClient {
     });
 
     socket.on('disconnect', () => {
-      if (this.handlers.size > 0 || this.joinedConversations.size > 0) {
+      if (
+        this.handlers.size > 0 ||
+        this.joinedConversations.size > 0 ||
+        this.joinedChatConversations.size > 0
+      ) {
         this.scheduleReconnect();
       }
     });
@@ -183,6 +194,7 @@ class RealtimeClient {
 
     if (forceRefresh && socket.connected) {
       this.rejoinConversationRooms();
+      this.rejoinChatConversationRooms();
     }
 
     await this.waitForSocketConnection(socket);
@@ -287,7 +299,58 @@ class RealtimeClient {
       this.socket.emit('conversation.leave', { conversationId: id });
     }
 
-    if (this.handlers.size === 0 && this.joinedConversations.size === 0) {
+    if (
+      this.handlers.size === 0 &&
+      this.joinedConversations.size === 0 &&
+      this.joinedChatConversations.size === 0
+    ) {
+      this.disconnect();
+    }
+  }
+
+  async joinChatConversation(conversationId) {
+    const id = Number.parseInt(String(conversationId), 10);
+    if (!id || id <= 0) {
+      return false;
+    }
+
+    this.joinedChatConversations.add(id);
+    try {
+      await this.ensureConnected();
+    } catch (error) {
+      console.error('Realtime chat join failed to connect', error);
+      return false;
+    }
+
+    if (!this.socket) {
+      return false;
+    }
+
+    const joinToken = await this.fetchChatJoinToken(id);
+    if (!joinToken) {
+      return false;
+    }
+
+    return this.emitJoinChatConversation(id, joinToken);
+  }
+
+  leaveChatConversation(conversationId) {
+    const id = Number.parseInt(String(conversationId), 10);
+    if (!id || id <= 0) {
+      return;
+    }
+
+    this.joinedChatConversations.delete(id);
+
+    if (this.socket?.connected) {
+      this.socket.emit('chat.conversation.leave', { conversationId: id });
+    }
+
+    if (
+      this.handlers.size === 0 &&
+      this.joinedConversations.size === 0 &&
+      this.joinedChatConversations.size === 0
+    ) {
       this.disconnect();
     }
   }
@@ -302,6 +365,20 @@ class RealtimeClient {
         await this.emitJoinConversation(conversationId, joinToken);
       } catch (_error) {
         // Falha de rejoin não deve derrubar o restante da conexão.
+      }
+    }
+  }
+
+  async rejoinChatConversationRooms() {
+    for (const conversationId of this.joinedChatConversations) {
+      try {
+        const joinToken = await this.fetchChatJoinToken(conversationId);
+        if (!joinToken) {
+          continue;
+        }
+        await this.emitJoinChatConversation(conversationId, joinToken);
+      } catch (_error) {
+        // Falha de rejoin de chat nao deve derrubar o restante da conexao.
       }
     }
   }
@@ -329,6 +406,29 @@ class RealtimeClient {
     });
   }
 
+  async emitJoinChatConversation(conversationId, joinToken) {
+    if (!this.socket) {
+      return false;
+    }
+
+    return new Promise((resolve) => {
+      this.socket.timeout(5000).emit(
+        'chat.conversation.join',
+        {
+          conversationId,
+          token: joinToken,
+        },
+        (error, response) => {
+          if (error || !response?.ok) {
+            resolve(false);
+            return;
+          }
+          resolve(true);
+        }
+      );
+    });
+  }
+
   async fetchSocketToken() {
     const response = await api.post('/realtime/token');
     return response.data ?? null;
@@ -337,6 +437,15 @@ class RealtimeClient {
   async fetchJoinToken(conversationId) {
     try {
       const response = await api.post(`/realtime/conversations/${conversationId}/join-token`);
+      return response.data?.token ?? null;
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  async fetchChatJoinToken(conversationId) {
+    try {
+      const response = await api.post(`/realtime/chat-conversations/${conversationId}/join-token`);
       return response.data?.token ?? null;
     } catch (_error) {
       return null;
@@ -375,16 +484,20 @@ class RealtimeClient {
       this.seenRequestIds.set(scopedRequestKey, now);
     }
 
-    if (eventName === 'message.created') {
+    if (eventName === 'message.created' || eventName === 'message.updated') {
       const messagePayload = readMessagePayload(envelope?.payload);
       const messageId =
         readPositiveInt(envelope?.payload, ['messageId', 'message_id', 'id']) ??
         readPositiveInt(messagePayload, ['id', 'messageId', 'message_id']);
       if (messageId !== null) {
-        if (this.seenMessageIds.has(messageId)) {
+        const messageKey =
+          eventName === 'message.updated'
+            ? this.buildMessageUpdateDedupeKey(envelope?.payload, messagePayload, messageId)
+            : this.buildMessageDedupeKey(envelope?.payload, messagePayload, messageId);
+        if (this.seenMessageIds.has(messageKey)) {
           return true;
         }
-        this.seenMessageIds.set(messageId, now);
+        this.seenMessageIds.set(messageKey, now);
       }
     }
 
@@ -406,19 +519,29 @@ class RealtimeClient {
       return 'empty';
     }
 
-    if (eventName === 'message.created') {
+    if (eventName === 'message.created' || eventName === 'message.updated') {
       const messagePayload = readMessagePayload(payload);
       const messageId =
         readPositiveInt(payload, ['messageId', 'message_id', 'id']) ??
         readPositiveInt(messagePayload, ['id', 'messageId', 'message_id']);
       if (messageId !== null) {
-        return `message:${messageId}`;
+        if (eventName === 'message.updated') {
+          return this.buildMessageUpdateDedupeKey(payload, messagePayload, messageId);
+        }
+        return this.buildMessageDedupeKey(payload, messagePayload, messageId);
       }
 
       const conversationId =
         readPositiveInt(payload, ['conversationId', 'conversation_id']) ??
         readPositiveInt(payload?.conversation, ['id', 'conversationId', 'conversation_id']) ??
         readPositiveInt(messagePayload, ['conversationId', 'conversation_id']);
+      const updatedAt = String(
+        payload?.updatedAt ??
+          payload?.updated_at ??
+          messagePayload?.updated_at ??
+          messagePayload?.updatedAt ??
+          ''
+      ).trim();
       const createdAt = String(
         payload?.createdAt ??
           payload?.created_at ??
@@ -446,7 +569,7 @@ class RealtimeClient {
         .trim()
         .slice(0, 80);
 
-      return `message-signature:${conversationId ?? 'na'}|${createdAt}|${direction}|${type}|${contentType}|${mediaUrl}|${text}`;
+      return `message-signature:${eventName}:${conversationId ?? 'na'}|${createdAt}|${updatedAt}|${direction}|${type}|${contentType}|${mediaUrl}|${text}`;
     }
 
     if (eventName === 'conversation.transferred') {
@@ -465,6 +588,48 @@ class RealtimeClient {
     }
 
     return 'generic';
+  }
+
+  buildMessageDedupeKey(payload, messagePayload, messageId) {
+    const conversationId =
+      readPositiveInt(payload, ['conversationId', 'conversation_id']) ??
+      readPositiveInt(payload?.conversation, ['id', 'conversationId', 'conversation_id']) ??
+      readPositiveInt(messagePayload, ['conversationId', 'conversation_id']);
+    const senderId =
+      readPositiveInt(payload, ['senderId', 'sender_id']) ??
+      readPositiveInt(payload?.sender, ['id', 'senderId', 'sender_id']) ??
+      readPositiveInt(messagePayload, ['senderId', 'sender_id']);
+    const direction = String(payload?.direction ?? messagePayload?.direction ?? '').trim();
+    const channel = senderId ? 'chat' : direction ? 'inbox' : 'unknown';
+
+    return `message:${channel}:${conversationId ?? 'na'}:${senderId ?? 'na'}:${messageId}`;
+  }
+
+  buildMessageUpdateDedupeKey(payload, messagePayload, messageId) {
+    const base = this.buildMessageDedupeKey(payload, messagePayload, messageId);
+    const updatedAt = String(
+      payload?.updatedAt ??
+        payload?.updated_at ??
+        messagePayload?.updatedAt ??
+        messagePayload?.updated_at ??
+        ''
+    ).trim();
+    const editedAt = String(
+      payload?.editedAt ??
+        payload?.edited_at ??
+        messagePayload?.editedAt ??
+        messagePayload?.edited_at ??
+        ''
+    ).trim();
+    const deletedAt = String(
+      payload?.deletedAt ??
+        payload?.deleted_at ??
+        messagePayload?.deletedAt ??
+        messagePayload?.deleted_at ??
+        ''
+    ).trim();
+
+    return `${base}:${updatedAt}:${editedAt}:${deletedAt}`;
   }
 
   pruneSeen(map, now) {

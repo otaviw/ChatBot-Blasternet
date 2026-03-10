@@ -17,6 +17,7 @@ import CompanyUsersPage from "@/pages/company/CompanyUsers/CompanyUsersPage.jsx"
 import CompanySupportTicketPage from "@/pages/company/CompanySupportTickets/CompanySupportTicketPage.jsx";
 import CompanyTicketIndex from "@/pages/company/CompanySupportTickets/CompanyTicketIndex.jsx";
 import SupportRequestPage from "@/pages/support/SupportRequest/SupportRequestPage.jsx";
+import InternalChatPage from "@/pages/shared/InternalChat/InternalChatPage.jsx";
 
 function AppRoutes() {
   const path = window.location.pathname;
@@ -40,6 +41,10 @@ function AppRoutes() {
 
   if (path === "/admin/conversas") {
     return <AdminInboxPage />;
+  }
+
+  if (path === "/admin/chat-interno") {
+    return <InternalChatPage />;
   }
 
   if (path === "/admin/usuarios") {
@@ -69,6 +74,10 @@ function AppRoutes() {
 
   if (path === "/minha-conta/conversas") {
     return <CompanyInboxPage />;
+  }
+
+  if (path === "/minha-conta/chat-interno") {
+    return <InternalChatPage />;
   }
 
   if (path === "/minha-conta/bot") {

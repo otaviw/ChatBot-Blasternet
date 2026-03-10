@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-const ROOM_PATTERN = /^(company|user|conversation):\d+$/;
+const ROOM_PATTERN = /^((company|user|conversation):\d+|chat:(conversation|user):\d+)$/;
 
 const normalizeRooms = (rooms) => {
   if (!Array.isArray(rooms)) {

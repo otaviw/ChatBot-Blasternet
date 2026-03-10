@@ -5,6 +5,7 @@ use App\Http\Controllers\WebhookController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AreaController;
 use App\Http\Controllers\ConversationTransferController;
+use App\Http\Controllers\Chat\ConversationController as ChatConversationController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\RealtimeTokenController;
@@ -39,10 +40,28 @@ Route::middleware('web')->group(function () {
             ->middleware('throttle:realtime-token');
         Route::post('/realtime/conversations/{conversation}/join-token', [RealtimeTokenController::class, 'issueConversationJoinToken'])
             ->middleware('throttle:realtime-join');
+        Route::post('/realtime/chat-conversations/{chatConversation}/join-token', [RealtimeTokenController::class, 'issueChatConversationJoinToken'])
+            ->middleware('throttle:realtime-join');
         Route::post('/realtime/conversations/{conversation}/presence', [RealtimeTokenController::class, 'touchConversationPresence'])
             ->middleware('throttle:realtime-join');
         Route::delete('/realtime/conversations/{conversation}/presence', [RealtimeTokenController::class, 'clearConversationPresence'])
             ->middleware('throttle:realtime-join');
+        Route::get('/chat/users', [ChatConversationController::class, 'users'])
+            ->middleware('throttle:inbox-read');
+        Route::get('/chat/conversations', [ChatConversationController::class, 'index'])
+            ->middleware('throttle:inbox-read');
+        Route::post('/chat/conversations', [ChatConversationController::class, 'store'])
+            ->middleware('throttle:bot-write');
+        Route::get('/chat/conversations/{conversation}', [ChatConversationController::class, 'show'])
+            ->middleware('throttle:inbox-read');
+        Route::post('/chat/conversations/{conversation}/messages', [ChatConversationController::class, 'sendMessage'])
+            ->middleware('throttle:bot-write');
+        Route::patch('/chat/conversations/{conversation}/messages/{message}', [ChatConversationController::class, 'updateMessage'])
+            ->middleware('throttle:bot-write');
+        Route::delete('/chat/conversations/{conversation}/messages/{message}', [ChatConversationController::class, 'deleteMessage'])
+            ->middleware('throttle:bot-write');
+        Route::post('/chat/conversations/{conversation}/read', [ChatConversationController::class, 'markRead'])
+            ->middleware('throttle:bot-write');
         Route::post('/suporte/solicitacoes', [SupportTicketController::class, 'store'])
             ->middleware('throttle:bot-write');
         Route::get('/suporte/minhas-solicitacoes', [SupportTicketController::class, 'mine'])

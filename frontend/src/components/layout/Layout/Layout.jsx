@@ -32,6 +32,13 @@ const ICONS = {
       <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
     </svg>
   ),
+  chatInterno: (
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M7 10h10" />
+      <path d="M7 14h7" />
+      <path d="M21 12a8 8 0 0 1-8 8H4l-1 1V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z" />
+    </svg>
+  ),
   suporte: (
     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
@@ -64,8 +71,25 @@ const ICONS = {
 };
 
 const iconKey = (label) => {
-  const map = { Dashboard: 'dashboard', Empresas: 'empresas', Usuarios: 'usuarios', Inbox: 'inbox', Suporte: 'suporte', Solicitações: 'suporte', 'Abrir suporte': 'suporte', Notificações: 'notificações', Simulador: 'simulador', Bot: 'bot', Respostas: 'respostas' };
-  return map[label] || 'dashboard';
+  const normalizedLabel = String(label ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+  const map = {
+    Dashboard: 'dashboard',
+    Empresas: 'empresas',
+    Usuarios: 'usuarios',
+    Inbox: 'inbox',
+    'Chat interno': 'chatInterno',
+    Suporte: 'suporte',
+    Solicitacoes: 'suporte',
+    'Abrir suporte': 'suporte',
+    Notificacoes: 'notificacoes',
+    Simulador: 'simulador',
+    Bot: 'bot',
+    Respostas: 'respostas',
+  };
+  return map[normalizedLabel] || 'dashboard';
 };
 
 const ICON_PROFILE = (
@@ -117,10 +141,16 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
     if (referenceType === NOTIFICATION_REFERENCE_TYPE.CONVERSATION && referenceId > 0) {
       return uiRole === 'company' ? `/minha-conta/conversas?conversationId=${referenceId}` : '/admin/conversas';
     }
+    if (referenceType === NOTIFICATION_REFERENCE_TYPE.CHAT_CONVERSATION && referenceId > 0) {
+      return uiRole === 'company'
+        ? `/minha-conta/chat-interno?conversationId=${referenceId}`
+        : `/admin/chat-interno?conversationId=${referenceId}`;
+    }
     if (referenceType === NOTIFICATION_REFERENCE_TYPE.SUPPORT_TICKET && referenceId > 0) {
       return uiRole === 'admin' ? `/admin/suporte/solicitacoes/${referenceId}` : `/minha-conta/suporte/solicitacoes/${referenceId}`;
     }
     if (module === NOTIFICATION_MODULE.INBOX) return uiRole === 'company' ? '/minha-conta/conversas' : '/admin/conversas';
+    if (module === NOTIFICATION_MODULE.INTERNAL_CHAT) return uiRole === 'company' ? '/minha-conta/chat-interno' : '/admin/chat-interno';
     if (module === NOTIFICATION_MODULE.SUPPORT) return uiRole === 'admin' ? '/admin/suporte' : '/minha-conta/suporte/solicitacoes';
     return null;
   };
@@ -128,6 +158,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
   const notificationModuleLabel = (module) => {
     const v = String(module ?? '').trim();
     if (v === NOTIFICATION_MODULE.INBOX) return 'Inbox';
+    if (v === NOTIFICATION_MODULE.INTERNAL_CHAT) return 'Chat interno';
     if (v === NOTIFICATION_MODULE.SUPPORT) return 'Suporte';
     if (v === NOTIFICATION_MODULE.GENERAL) return 'Geral';
     return v || 'Geral';
@@ -224,6 +255,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
     { href: '/admin/empresas', label: 'Empresas' },
     { href: '/admin/usuarios', label: 'Usuários' },
     { href: '/admin/conversas', label: 'Inbox', module: NOTIFICATION_MODULE.INBOX },
+    { href: '/admin/chat-interno', label: 'Chat interno', module: NOTIFICATION_MODULE.INTERNAL_CHAT },
     { href: '/admin/simulador', label: 'Simulador' },
   ];
 
@@ -237,6 +269,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
       { href: '/dashboard', label: 'Dashboard' },
       { href: '/minha-conta/bot', label: 'Bot' },
       { href: '/minha-conta/conversas', label: 'Inbox', module: NOTIFICATION_MODULE.INBOX },
+      { href: '/minha-conta/chat-interno', label: 'Chat interno', module: NOTIFICATION_MODULE.INTERNAL_CHAT },
       { href: '/minha-conta/simulador', label: 'Simulador' },
       { href: '/minha-conta/respostas-rapidas', label: 'Respostas' },
     ];
@@ -609,3 +642,4 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
 }
 
 export default Layout;
+

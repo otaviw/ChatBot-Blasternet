@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ChatConversation;
 use App\Models\Conversation;
 use App\Models\User;
 use App\Services\ConversationPresenceService;
@@ -89,6 +90,45 @@ class RealtimeTokenController extends Controller
         ]);
     }
 
+    public function issueChatConversationJoinToken(Request $request, ChatConversation $chatConversation): JsonResponse
+    {
+        $user = $this->resolveAuthenticatedUser($request);
+        if (! $user instanceof User) {
+            return $this->unauthenticatedResponse();
+        }
+
+        if (! $this->canJoinChatConversation($user, $chatConversation)) {
+            return response()->json([
+                'message' => 'Sem permissao para entrar na room deste chat.',
+            ], 403);
+        }
+
+        try {
+            $ttl = max(5, (int) config('realtime.jwt.join_token_ttl_seconds', 45));
+            $role = User::normalizeRole($user->role);
+            $companyId = (int) ($user->company_id ?? 0);
+
+            $result = $this->jwt->createToken([
+                'sub' => (string) $user->id,
+                'companyId' => $companyId,
+                'roles' => [$role],
+                'type' => 'chat_conversation_join',
+                'conversationId' => (int) $chatConversation->id,
+            ], $ttl);
+        } catch (RuntimeException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], 500);
+        }
+
+        return response()->json([
+            'conversation_id' => (int) $chatConversation->id,
+            'token' => $result['token'],
+            'ttl_seconds' => $ttl,
+            'expires_at' => now()->setTimestamp($result['expires_at'])->toISOString(),
+        ]);
+    }
+
     public function touchConversationPresence(Request $request, Conversation $conversation): JsonResponse
     {
         $user = $this->resolveAuthenticatedUser($request);
@@ -135,6 +175,13 @@ class RealtimeTokenController extends Controller
     {
         return $user->isCompanyUser()
             && (int) $user->company_id === (int) $conversation->company_id;
+    }
+
+    private function canJoinChatConversation(User $user, ChatConversation $conversation): bool
+    {
+        return $conversation->participants()
+            ->where('user_id', $user->id)
+            ->exists();
     }
 
     private function resolveAuthenticatedUser(Request $request): ?User

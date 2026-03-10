@@ -4,10 +4,15 @@ import Redis from 'ioredis';
 import { Server } from 'socket.io';
 import { config } from './config.js';
 import { logger } from './logger.js';
-import { verifyConversationJoinToken, verifySocketToken } from './auth.js';
+import { verifyChatConversationJoinToken, verifyConversationJoinToken, verifySocketToken } from './auth.js';
 import { emitEnvelope, normalizeEnvelope } from './envelope.js';
 
-const ALLOWED_CLIENT_EVENTS = new Set(['conversation.join', 'conversation.leave']);
+const ALLOWED_CLIENT_EVENTS = new Set([
+  'conversation.join',
+  'conversation.leave',
+  'chat.conversation.join',
+  'chat.conversation.leave',]);
+
 const ADMIN_ROLES = new Set(['system_admin', 'admin']);
 
 const app = express();
@@ -113,9 +118,11 @@ io.use((socket, next) => {
 io.on('connection', (socket) => {
   const user = socket.data.user;
   const userRoom = `user:${user.userId}`;
+  const chatUserRoom = `chat:user:${user.userId}`;
   const companyRoom = `company:${user.companyId}`;
 
   socket.join(userRoom);
+  socket.join(chatUserRoom);
   socket.join(companyRoom);
 
   logger.info('socket.connected', {
@@ -123,7 +130,7 @@ io.on('connection', (socket) => {
     userId: user.userId,
     companyId: user.companyId,
     roles: user.roles,
-    joinedRooms: [companyRoom, userRoom],
+    joinedRooms: [companyRoom, userRoom, chatUserRoom],
   });
 
   const msUntilExpiry = Math.max(0, user.exp * 1000 - Date.now());
@@ -218,6 +225,74 @@ io.on('connection', (socket) => {
       userId: user.userId,
       reason,
     });
+  });
+
+  socket.on('chat.conversation.join', (payload = {}, callback) => {
+    try {
+      const conversationId = Number.parseInt(
+        String(payload.conversationId ?? ''), 10
+      );
+      const joinToken = String(payload.token ?? '');
+
+      if (!conversationId || !joinToken) {
+        throw new Error('invalid_chat_join_payload');
+      }
+
+      const joinClaims = verifyChatConversationJoinToken(joinToken);
+      if (joinClaims.userId !== user.userId) {
+        throw new Error('chat_join_user_mismatch');
+      }
+
+      if (joinClaims.conversationId !== conversationId) {
+        throw new Error('chat_join_conversation_mismatch');
+      }
+
+      if (user.companyId > 0 && joinClaims.companyId > 0 && joinClaims.companyId !== user.companyId) {
+        throw new Error('chat_join_company_mismatch');
+      }
+
+      const room = `chat:conversation:${conversationId}`;
+      socket.join(room);
+
+      logger.info('socket.chat_join', {
+        socketId: socket.id,
+        userId: user.userId,
+        conversationId,
+      });
+
+      if (typeof callback === 'function') {
+        callback({ ok: true });
+      }
+    } catch (error) {
+      logger.warn('socket.chat_join_denied', {
+        socketId: socket.id,
+        userId: user.userId,
+        error: error instanceof Error ? error.message : 'unknown_error',
+      });
+
+      if (typeof callback === 'function') {
+        callback({ ok: false, message: 'join_denied' });
+      }
+    }
+  });
+
+  socket.on('chat.conversation.leave', (payload = {}, callback) => {
+    const conversationId = Number.parseInt(
+      String(payload.conversationId ?? ''), 10
+    );
+
+    if (!conversationId) {
+      if (typeof callback === 'function') {
+        callback({ ok: false, message: 'invalid_conversation_id' });
+      }
+      return;
+    }
+
+    socket.leave(`chat:conversation:${conversationId}`);
+
+    if (typeof callback === 'function') {
+      callback({ ok: true });
+    }
   });
 });
 

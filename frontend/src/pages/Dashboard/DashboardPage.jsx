@@ -43,6 +43,11 @@ function DashboardPage() {
         description: 'Visualize chamados abertos/fechados e atualize o status de resolucao.',
       },
       {
+        href: '/admin/chat-interno',
+        title: 'Chat interno',
+        description: 'Converse em tempo real com usuarios da plataforma sem sair do sistema.',
+      },
+      {
         href: '/admin/simulador',
         title: 'Simulador',
         description: 'Teste comportamento do bot sem depender de canais externos.',
@@ -90,6 +95,11 @@ function DashboardPage() {
       href: '/minha-conta/conversas',
       title: 'Inbox',
       description: 'Acompanhe conversas, tags e transferencias da equipe.',
+    },
+    {
+      href: '/minha-conta/chat-interno',
+      title: 'Chat interno',
+      description: 'Canal rapido para falar com administradores e colegas em tempo real.',
     },
     {
       href: '/suporte',

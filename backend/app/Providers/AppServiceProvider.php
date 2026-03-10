@@ -4,17 +4,21 @@ namespace App\Providers;
 
 use App\Models\CompanyBotSetting;
 use App\Models\Area;
+use App\Models\ChatConversation;
+use App\Models\ChatMessage;
 use App\Models\Conversation;
 use App\Models\ConversationTransfer;
 use App\Models\Message;
 use App\Models\Notification;
 use App\Models\SupportTicket;
+use App\Observers\ChatMessageObserver;
 use App\Observers\CompanyBotSettingObserver;
 use App\Observers\ConversationTransferObserver;
 use App\Observers\MessageObserver;
 use App\Observers\NotificationObserver;
 use App\Observers\SupportTicketObserver;
 use App\Policies\AreaPolicy;
+use App\Policies\ChatPolicy;
 use App\Policies\ConversationPolicy;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -69,6 +73,9 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute((int) env('RATE_LIMIT_REALTIME_JOIN', 120))
                 ->by($this->realtimeLimiterKey($request));
         });
+
+        Gate::policy(ChatConversation::class, ChatPolicy::class);
+        ChatMessage::observe(ChatMessageObserver::class);
     }
 
     private function limiterKey(Request $request): string

@@ -86,3 +86,35 @@ export const verifyConversationJoinToken = (token) => {
     exp,
   };
 };
+
+export const verifyChatConversationJoinToken = (token) => {
+  const payload = verifyBaseToken(token);
+  if (payload?.type !== 'chat_conversation_join') {
+    throw new Error('invalid_chat_join_token_type');
+  }
+
+  const userId = parseInteger(payload.sub, null);
+  const conversationId = parseInteger(payload.conversationId, null);
+  const companyId = parseInteger(payload.companyId, 0) ?? 0;
+  const exp = parseInteger(payload.exp, null);
+
+  if (!userId || userId <= 0) {
+    throw new Error('invalid_chat_join_user');
+  }
+
+  if (!conversationId || conversationId <= 0) {
+    throw new Error('invalid_chat_join_conversation');
+  }
+
+  if (!exp) {
+    throw new Error('invalid_chat_join_exp');
+  }
+
+  return {
+    userId,
+    conversationId,
+    companyId: companyId > 0 ? companyId : 0,
+    roles: normalizeRoles(payload.roles),
+    exp,
+  };
+};

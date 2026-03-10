@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\ChatMessage;
 use App\Models\Conversation;
 use App\Models\ConversationTransfer;
 use App\Models\Message;
@@ -149,6 +150,57 @@ class NotificationDispatchService
         }
     }
 
+    public function dispatchInternalChatMessageNotification(ChatMessage $message): void
+    {
+        $message->loadMissing([
+            'sender:id,name,is_active',
+            'conversation',
+            'conversation.participants:id,is_active',
+            'attachments:id,message_id',
+        ]);
+
+        $conversation = $message->conversation;
+        if (! $conversation) {
+            return;
+        }
+
+        $sender = $message->sender;
+        $senderName = trim((string) ($sender?->name ?? 'Usuario'));
+        $title = $senderName === ''
+            ? 'Nova mensagem no chat interno'
+            : "Nova mensagem de {$senderName}";
+        $text = $this->internalChatNotificationText($message);
+
+        $recipientIds = $conversation->participants
+            ->filter(function (User $participant) use ($message): bool {
+                return (int) $participant->id !== (int) $message->sender_id
+                    && (bool) $participant->is_active;
+            })
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        foreach ($recipientIds as $recipientId) {
+            $this->notificationService->createForUser($recipientId, [
+                'type' => 'internal_chat_message',
+                'module' => 'internal_chat',
+                'title' => $title,
+                'text' => $text,
+                'reference_type' => 'chat_conversation',
+                'reference_id' => (int) $conversation->id,
+                'reference_meta' => [
+                    'conversation_id' => (int) $conversation->id,
+                    'message_id' => (int) $message->id,
+                    'sender_id' => (int) $message->sender_id,
+                    'sender_name' => $senderName,
+                ],
+            ]);
+        }
+    }
+
     /**
      * @return array<int, int>
      */
@@ -201,5 +253,32 @@ class NotificationDispatchService
         }
 
         return 'Cliente enviou uma nova mensagem.';
+    }
+
+    private function internalChatNotificationText(ChatMessage $message): string
+    {
+        $text = trim((string) ($message->content ?? ''));
+
+        if ((string) $message->type === 'image') {
+            return $text !== ''
+                ? 'Enviou uma imagem: '.mb_substr($text, 0, 220)
+                : 'Enviou uma imagem no chat interno.';
+        }
+
+        if ((string) $message->type === 'file') {
+            return $text !== ''
+                ? 'Enviou um arquivo: '.mb_substr($text, 0, 220)
+                : 'Enviou um arquivo no chat interno.';
+        }
+
+        if ($text !== '') {
+            return mb_substr($text, 0, 240);
+        }
+
+        if ($message->attachments()->exists()) {
+            return 'Enviou um anexo no chat interno.';
+        }
+
+        return 'Voce recebeu uma nova mensagem no chat interno.';
     }
 }
