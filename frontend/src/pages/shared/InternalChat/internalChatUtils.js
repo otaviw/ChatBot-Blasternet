@@ -1,0 +1,32 @@
+const toTimestamp = (value) => {
+  if (!value) {
+    return 0;
+  }
+
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const formatDateTime = (value) => {
+  const timestamp = toTimestamp(value);
+  if (!timestamp) {
+    return '';
+  }
+
+  return new Date(timestamp).toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+const parseRoleFromUser = (user) => {
+  const normalized = String(user?.role ?? '').trim().toLowerCase();
+  return normalized === 'system_admin' ? 'admin' : 'company';
+};
+
+const parseErrorMessage = (error, fallbackText) =>
+  String(error?.response?.data?.message ?? fallbackText);
+
+export { formatDateTime, parseErrorMessage, parseRoleFromUser, toTimestamp };
