@@ -5,38 +5,63 @@ const PREFIXES_BY_ROLE = Object.freeze({
   company: ['/minha-conta', '', '/admin'],
 });
 
-const ACTION_TEMPLATES = Object.freeze({
-  listConversations: ['/chat/conversations', '/chat/conversas'],
-  getConversation: ['/chat/conversations/:conversationId', '/chat/conversas/:conversationId'],
-  createConversation: ['/chat/conversations', '/chat/conversas'],
-  sendMessage: [
-    '/chat/conversations/:conversationId/messages',
-    '/chat/conversas/:conversationId/mensagens',
-    '/chat/messages',
-    '/chat/mensagens',
-  ],
+// Canonical API contract: exactly one route template per action.
+const CANONICAL_ACTION_TEMPLATES = Object.freeze({
+  listConversations: '/chat/conversations',
+  getConversation: '/chat/conversations/:conversationId',
+  createConversation: '/chat/conversations',
+  sendMessage: '/chat/conversations/:conversationId/messages',
+  updateMessage: '/chat/conversations/:conversationId/messages/:messageId',
+  deleteMessage: '/chat/conversations/:conversationId/messages/:messageId',
+  markRead: '/chat/conversations/:conversationId/read',
+  listRecipients: '/chat/users',
+});
+
+// Temporary compatibility switch for legacy aliases.
+// Phase-out plan:
+// 1) enabled (default): canonical first + deprecated aliases as fallback.
+// 2) disabled: canonical only.
+const LEGACY_ENDPOINT_COMPAT_ENABLED = !new Set(['0', 'false', 'off', 'no']).has(
+  String(import.meta.env.VITE_INTERNAL_CHAT_ENABLE_LEGACY_ENDPOINTS ?? '1')
+    .trim()
+    .toLowerCase()
+);
+
+// Deprecated aliases kept temporarily for migration safety.
+// Remove these aliases after backend rollout is fully completed.
+const LEGACY_ACTION_ALIASES = Object.freeze({
+  // DEPRECATED alias for listConversations
+  listConversations: ['/chat/conversas'],
+  // DEPRECATED alias for getConversation
+  getConversation: ['/chat/conversas/:conversationId'],
+  // DEPRECATED alias for createConversation
+  createConversation: ['/chat/conversas'],
+  // DEPRECATED aliases for sendMessage
+  sendMessage: ['/chat/conversas/:conversationId/mensagens', '/chat/messages', '/chat/mensagens'],
+  // DEPRECATED aliases for updateMessage
   updateMessage: [
-    '/chat/conversations/:conversationId/messages/:messageId',
     '/chat/conversas/:conversationId/mensagens/:messageId',
     '/chat/messages/:messageId',
     '/chat/mensagens/:messageId',
   ],
+  // DEPRECATED aliases for deleteMessage
   deleteMessage: [
-    '/chat/conversations/:conversationId/messages/:messageId',
     '/chat/conversas/:conversationId/mensagens/:messageId',
     '/chat/messages/:messageId',
     '/chat/mensagens/:messageId',
   ],
+  // DEPRECATED aliases for markRead
   markRead: [
-    '/chat/conversations/:conversationId/read',
     '/chat/conversas/:conversationId/lido',
     '/chat/conversations/:conversationId/mark-read',
     '/chat/conversas/:conversationId/marcar-lido',
   ],
-  listRecipients: ['/chat/users', '/chat/usuarios', '/chat/recipients', '/chat/destinatarios'],
+  // DEPRECATED aliases for listRecipients
+  listRecipients: ['/chat/usuarios', '/chat/recipients', '/chat/destinatarios'],
 });
 
-const FALLBACK_RECIPIENT_TEMPLATES = Object.freeze({
+// DEPRECATED role-specific recipient fallback paths.
+const LEGACY_RECIPIENT_FALLBACKS_BY_ROLE = Object.freeze({
   admin: ['/admin/users'],
   company: ['/minha-conta/users', '/admin/users'],
 });
@@ -99,16 +124,42 @@ const applyParams = (template, params = {}) => {
   return value;
 };
 
-const buildActionTemplates = (role, action) => {
-  const baseTemplates = ACTION_TEMPLATES[action] ?? [];
+const buildExpandedTemplates = (role, templates) => {
   const prefixes = PREFIXES_BY_ROLE[role] ?? PREFIXES_BY_ROLE.company;
-  const expanded = prefixes.flatMap((prefix) => baseTemplates.map((template) => withPrefix(prefix, template)));
+  return prefixes.flatMap((prefix) => templates.map((template) => withPrefix(prefix, template)));
+};
 
-  if (action === 'listRecipients') {
-    return unique([...expanded, ...(FALLBACK_RECIPIENT_TEMPLATES[role] ?? [])]);
+const buildCanonicalActionTemplates = (role, action) => {
+  const canonicalTemplate = CANONICAL_ACTION_TEMPLATES[action];
+  if (!canonicalTemplate) {
+    return [];
   }
 
-  return unique(expanded);
+  return unique(buildExpandedTemplates(role, [canonicalTemplate]));
+};
+
+const buildActionTemplates = (role, action) => {
+  const canonicalTemplates = buildCanonicalActionTemplates(role, action);
+  if (canonicalTemplates.length === 0) {
+    return [];
+  }
+
+  if (!LEGACY_ENDPOINT_COMPAT_ENABLED) {
+    return canonicalTemplates;
+  }
+
+  const legacyAliases = LEGACY_ACTION_ALIASES[action] ?? [];
+  const legacyTemplates = buildExpandedTemplates(role, legacyAliases);
+
+  if (action === 'listRecipients') {
+    return unique([
+      ...canonicalTemplates,
+      ...legacyTemplates,
+      ...(LEGACY_RECIPIENT_FALLBACKS_BY_ROLE[role] ?? []),
+    ]);
+  }
+
+  return unique([...canonicalTemplates, ...legacyTemplates]);
 };
 
 const shouldRetryWithNextTemplate = (error) => {
@@ -290,10 +341,25 @@ const requestWithFallback = async ({
 }) => {
   const cacheKey = buildCacheKey(role, action);
   const cachedTemplate = resolvedTemplateCache.get(cacheKey);
+  const canonicalTemplates = buildCanonicalActionTemplates(role, action);
   const actionTemplates = buildActionTemplates(role, action);
-  const templates = cachedTemplate
-    ? [cachedTemplate, ...actionTemplates.filter((template) => template !== cachedTemplate)]
-    : actionTemplates;
+  const nonCanonicalTemplates = actionTemplates.filter(
+    (template) => !canonicalTemplates.includes(template)
+  );
+
+  let templates = [...canonicalTemplates, ...nonCanonicalTemplates];
+  if (cachedTemplate) {
+    const cachedIsCanonical = canonicalTemplates.includes(cachedTemplate);
+    if (cachedIsCanonical) {
+      templates = [cachedTemplate, ...templates.filter((template) => template !== cachedTemplate)];
+    } else if (templates.includes(cachedTemplate)) {
+      templates = [
+        ...canonicalTemplates,
+        cachedTemplate,
+        ...nonCanonicalTemplates.filter((template) => template !== cachedTemplate),
+      ];
+    }
+  }
 
   let lastError = null;
 
