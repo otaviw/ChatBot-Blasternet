@@ -8,6 +8,7 @@ use App\Actions\Chat\ListConversationsAction;
 use App\Actions\Chat\MarkConversationReadAction;
 use App\Actions\Chat\SendMessageAction;
 use App\Actions\Chat\ShowConversationAction;
+use App\Actions\Chat\ToggleReactionAction;
 use App\Actions\Chat\UpdateMessageAction;
 use App\Http\Controllers\Controller;
 use App\Models\ChatConversation;
@@ -28,6 +29,7 @@ class ConversationController extends Controller
         private readonly UpdateMessageAction $updateMessageAction,
         private readonly DeleteMessageAction $deleteMessageAction,
         private readonly MarkConversationReadAction $markConversationReadAction,
+        private readonly ToggleReactionAction $toggleReactionAction,
         private readonly ChatPolicy $chatPolicy,
         private readonly InternalChatConversationService $chatService
     ) {}
@@ -65,6 +67,11 @@ class ConversationController extends Controller
     public function markRead(Request $request, ChatConversation $conversation): JsonResponse
     {
         return $this->markConversationReadAction->handle($request, $conversation);
+    }
+
+    public function toggleReaction(Request $request, ChatConversation $conversation, ChatMessage $message): JsonResponse
+    {
+        return $this->toggleReactionAction->handle($request, $conversation, $message);
     }
 
     public function users(Request $request): JsonResponse

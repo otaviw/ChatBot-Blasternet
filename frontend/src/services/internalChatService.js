@@ -14,6 +14,7 @@ const CANONICAL_ACTION_TEMPLATES = Object.freeze({
   updateMessage: '/chat/conversations/:conversationId/messages/:messageId',
   deleteMessage: '/chat/conversations/:conversationId/messages/:messageId',
   markRead: '/chat/conversations/:conversationId/read',
+  toggleReaction: '/chat/conversations/:conversationId/messages/:messageId/reactions',
   listRecipients: '/chat/users',
 });
 
@@ -56,6 +57,7 @@ const LEGACY_ACTION_ALIASES = Object.freeze({
     '/chat/conversations/:conversationId/mark-read',
     '/chat/conversas/:conversationId/marcar-lido',
   ],
+  toggleReaction: [],
   // DEPRECATED aliases for listRecipients
   listRecipients: ['/chat/usuarios', '/chat/recipients', '/chat/destinatarios'],
 });
@@ -267,6 +269,11 @@ const normalizeMessage = (raw) => {
   const isDeleted = Boolean(raw.is_deleted ?? raw.isDeleted ?? deletedAt);
   const content = String(raw.content ?? raw.text ?? '');
 
+  const metadata = raw.metadata && typeof raw.metadata === 'object' ? raw.metadata : {};
+  const reactions = raw.reactions && typeof raw.reactions === 'object' && !Array.isArray(raw.reactions)
+    ? raw.reactions
+    : (metadata.reactions && typeof metadata.reactions === 'object' ? metadata.reactions : {});
+
   return {
     id,
     conversation_id: conversationId,
@@ -274,7 +281,10 @@ const normalizeMessage = (raw) => {
     sender_name: String(raw.sender_name ?? sender?.name ?? raw.user_name ?? 'Usuario'),
     type,
     content,
-    metadata: raw.metadata && typeof raw.metadata === 'object' ? raw.metadata : {},
+    metadata,
+    reactions,
+    read_by_count: toInteger(raw.read_by_count, raw.readByCount) ?? 0,
+    participant_count: toInteger(raw.participant_count, raw.participantCount) ?? 0,
     attachments: isDeleted ? [] : attachments,
     created_at: raw.created_at ?? raw.createdAt ?? null,
     updated_at: raw.updated_at ?? raw.updatedAt ?? null,
@@ -572,6 +582,76 @@ export async function createInternalDirectConversation({ role, recipientId, init
     conversation,
     message,
   };
+}
+
+export async function createInternalGroupConversation({ role, participantIds = [], initialText = '' }) {
+  if (!Array.isArray(participantIds) || participantIds.length < 2) {
+    throw new Error('Selecione pelo menos 2 participantes para criar um grupo.');
+  }
+
+  const ids = participantIds.map((id) => Number.parseInt(String(id), 10)).filter((id) => id > 0);
+  const text = String(initialText ?? '').trim();
+
+  const payload = {
+    type: 'group',
+    participant_ids: ids,
+    participantIds: ids,
+    participants: ids,
+    content: text || undefined,
+    text: text || undefined,
+  };
+
+  const response = await requestWithFallback({
+    role,
+    action: 'createConversation',
+    method: 'post',
+    data: payload,
+  });
+
+  const body = response.data ?? {};
+  const conversation = normalizeConversation(
+    pickObject(body.conversation, body.chat_conversation, body.data?.conversation, body.data)
+  );
+  const message = normalizeMessage(
+    pickObject(body.message, body.chat_message, body.data?.message, body.data?.chat_message)
+  );
+
+  return { conversation, message };
+}
+
+export async function toggleInternalChatReaction({ role, conversationId, messageId, emoji }) {
+  const chatConversationId = toPositiveInt(conversationId);
+  const chatMessageId = toPositiveInt(messageId);
+  if (!chatConversationId || !chatMessageId) {
+    throw new Error('IDs de conversa/mensagem invalidos.');
+  }
+
+  if (!emoji || !String(emoji).trim()) {
+    throw new Error('Informe um emoji para reagir.');
+  }
+
+  const response = await requestWithFallback({
+    role,
+    action: 'toggleReaction',
+    method: 'post',
+    params: {
+      conversationId: chatConversationId,
+      messageId: chatMessageId,
+    },
+    data: {
+      emoji: String(emoji).trim(),
+    },
+  });
+
+  const body = response.data ?? {};
+  const message = normalizeMessage(
+    pickObject(body.message, body.chat_message, body.data?.message, body.data?.chat_message, body.data)
+  );
+  const conversation = normalizeConversation(
+    pickObject(body.conversation, body.chat_conversation, body.data?.conversation)
+  );
+
+  return { message, conversation };
 }
 
 export async function sendInternalChatMessage({ role, conversationId, text = '', file = null }) {

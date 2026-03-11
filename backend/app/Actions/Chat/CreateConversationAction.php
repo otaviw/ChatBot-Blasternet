@@ -26,6 +26,17 @@ class CreateConversationAction
             return $this->chatService->unauthenticatedResponse();
         }
 
+        $type = trim((string) ($request->input('type') ?? 'direct'));
+
+        if ($type === 'group') {
+            return $this->handleGroupCreation($request, $sender);
+        }
+
+        return $this->handleDirectCreation($request, $sender);
+    }
+
+    private function handleDirectCreation(Request $request, User $sender): JsonResponse
+    {
         $recipientId = $this->chatService->resolveRecipientId($request);
         if ($recipientId <= 0) {
             throw ValidationException::withMessages([
@@ -103,5 +114,103 @@ class CreateConversationAction
             'conversation' => $this->chatService->serializeConversationSummary($conversation, $sender),
             'message' => $message ? $this->chatService->serializeMessage($message) : null,
         ], $isNewConversation ? 201 : 200);
+    }
+
+    private function handleGroupCreation(Request $request, User $sender): JsonResponse
+    {
+        $rawIds = $request->input('participant_ids')
+            ?? $request->input('participantIds')
+            ?? $request->input('participants')
+            ?? [];
+
+        if (! is_array($rawIds)) {
+            $rawIds = [];
+        }
+
+        $participantIds = array_values(array_unique(array_filter(
+            array_map(fn ($v) => (int) $v, $rawIds),
+            fn (int $id) => $id > 0 && $id !== (int) $sender->id
+        )));
+
+        if (count($participantIds) < 2) {
+            throw ValidationException::withMessages([
+                'participant_ids' => ['Selecione pelo menos 2 participantes para criar um grupo.'],
+            ]);
+        }
+
+        $users = User::query()
+            ->whereIn('id', $participantIds)
+            ->where('is_active', true)
+            ->get();
+
+        if ($users->count() < 2) {
+            throw ValidationException::withMessages([
+                'participant_ids' => ['Pelo menos 2 participantes validos e ativos sao necessarios.'],
+            ]);
+        }
+
+        foreach ($users as $recipient) {
+            if (! $this->chatPolicy->canMessage($sender, $recipient)) {
+                throw ValidationException::withMessages([
+                    'participant_ids' => ["Sem permissao para conversar com {$recipient->name}."],
+                ]);
+            }
+        }
+
+        $content = trim((string) ($request->input('content') ?? $request->input('text') ?? ''));
+        $now = now();
+        $conversation = null;
+
+        DB::transaction(function () use (&$conversation, $sender, $users, $content, $now): void {
+            $senderCompanyId = (int) ($sender->company_id ?? 0);
+            $companyId = $senderCompanyId > 0 ? $senderCompanyId : null;
+
+            $conversation = ChatConversation::query()->create([
+                'type' => 'group',
+                'created_by' => (int) $sender->id,
+                'company_id' => $companyId,
+            ]);
+
+            $attachData = [
+                (int) $sender->id => [
+                    'joined_at' => $now,
+                    'last_read_at' => $now,
+                ],
+            ];
+
+            foreach ($users as $user) {
+                $attachData[(int) $user->id] = [
+                    'joined_at' => $now,
+                    'last_read_at' => null,
+                ];
+            }
+
+            $conversation->participants()->attach($attachData);
+
+            if ($content !== '') {
+                ChatMessage::query()->create([
+                    'conversation_id' => (int) $conversation->id,
+                    'sender_id' => (int) $sender->id,
+                    'type' => 'text',
+                    'content' => $content,
+                    'metadata' => null,
+                ]);
+            }
+        });
+
+        $conversation->refresh();
+        $this->chatService->loadConversationSummaryRelations($conversation);
+
+        $message = null;
+        if ($content !== '') {
+            $message = $conversation->lastMessage;
+        }
+
+        return response()->json([
+            'ok' => true,
+            'created' => true,
+            'conversation' => $this->chatService->serializeConversationSummary($conversation, $sender),
+            'message' => $message ? $this->chatService->serializeMessage($message) : null,
+        ], 201);
     }
 }

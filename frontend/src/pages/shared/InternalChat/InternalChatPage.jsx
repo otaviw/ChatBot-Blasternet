@@ -7,6 +7,7 @@ import useLogout from '@/hooks/useLogout';
 import {
   buildConversationTitle,
   createInternalDirectConversation,
+  createInternalGroupConversation,
   listInternalChatRecipients,
   upsertConversationInList,
 } from '@/services/internalChatService';
@@ -23,11 +24,13 @@ function InternalChatPage() {
   const { logout } = useLogout();
   const { markReadByReference } = useNotificationsContext();
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [createType, setCreateType] = useState('direct');
   const [recipients, setRecipients] = useState([]);
   const [recipientsLoading, setRecipientsLoading] = useState(false);
   const [recipientsError, setRecipientsError] = useState('');
   const [recipientSearch, setRecipientSearch] = useState('');
   const [selectedRecipientId, setSelectedRecipientId] = useState('');
+  const [selectedGroupIds, setSelectedGroupIds] = useState([]);
   const [createBusy, setCreateBusy] = useState(false);
   const [createError, setCreateError] = useState('');
   const queryConversationHandledRef = useRef(false);
@@ -92,6 +95,7 @@ function InternalChatPage() {
     handleMessageEditSave,
     handleMessageFileChange,
     handleSendMessage,
+    handleToggleReaction,
     messageActionBusyId,
     messageActionError,
     messageFile,
@@ -172,16 +176,18 @@ function InternalChatPage() {
     }
   }, [authenticated, openConversation]);
 
-  const openCreateModal = async () => {
+  const openCreateModal = async (type = 'direct') => {
     if (!authenticated) {
       return;
     }
 
     setCreateModalOpen(true);
+    setCreateType(type);
     setCreateError('');
     setRecipientsError('');
     setRecipientSearch('');
     setSelectedRecipientId('');
+    setSelectedGroupIds([]);
 
     if (recipients.length > 0) {
       return;
@@ -245,6 +251,56 @@ function InternalChatPage() {
     } finally {
       setCreateBusy(false);
     }
+  };
+
+  const handleCreateGroupConversation = async () => {
+    if (selectedGroupIds.length < 2) {
+      setCreateError('Selecione pelo menos 2 participantes para criar o grupo.');
+      return;
+    }
+
+    setCreateBusy(true);
+    setCreateError('');
+
+    try {
+      const response = await createInternalGroupConversation({
+        role,
+        participantIds: selectedGroupIds,
+      });
+
+      if (!response.conversation?.id) {
+        throw new Error('Resposta da API nao retornou a conversa criada.');
+      }
+
+      setConversations((previous) =>
+        upsertConversationInList(previous, response.conversation)
+      );
+      setCreateModalOpen(false);
+      await openConversation(response.conversation.id);
+
+      scheduleConversationsRefresh(() => {
+        void loadConversations({ silent: true });
+      });
+    } catch (requestError) {
+      setCreateError(
+        parseErrorMessage(
+          requestError,
+          'Nao foi possivel criar o grupo.'
+        )
+      );
+    } finally {
+      setCreateBusy(false);
+    }
+  };
+
+  const handleToggleGroupParticipant = (participantId) => {
+    const id = Number(participantId);
+    setSelectedGroupIds((previous) =>
+      previous.includes(id)
+        ? previous.filter((existing) => existing !== id)
+        : [...previous, id]
+    );
+    setCreateError('');
   };
 
   const filteredRecipients = useMemo(() => {
@@ -317,7 +373,8 @@ function InternalChatPage() {
             onConversationsScroll={handleConversationsScroll}
             onNextConversationPage={handleNextConversationPage}
             onOpenConversation={openConversation}
-            onOpenCreateModal={openCreateModal}
+            onOpenCreateModal={() => void openCreateModal('direct')}
+            onOpenCreateGroupModal={() => void openCreateModal('group')}
             loadedConversationPage={loadedConversationPageRef.current}
             selectedConversationId={selectedConversationId}
             sidebarVisibleOnMobile={sidebarVisibleOnMobile}
@@ -357,6 +414,7 @@ function InternalChatPage() {
             onRefresh={refreshSelectedConversation}
             onStartMessageEditing={startMessageEditing}
             onToggleMessageOptions={handleToggleMessageOptions}
+            onToggleReaction={handleToggleReaction}
             onUpdateEditingMessageText={setEditingMessageText}
             openMessageOptionsId={openMessageOptionsId}
             selectedConversation={selectedConversation}
@@ -370,7 +428,7 @@ function InternalChatPage() {
         <div className="internal-chat-modal-overlay" role="dialog" aria-modal="true">
           <div className="internal-chat-modal">
             <header className="internal-chat-modal-header">
-              <h3>Nova conversa interna</h3>
+              <h3>{createType === 'group' ? 'Novo grupo' : 'Nova conversa interna'}</h3>
               <button
                 type="button"
                 className="app-btn-ghost"
@@ -379,6 +437,13 @@ function InternalChatPage() {
                 Fechar
               </button>
             </header>
+
+            {createType === 'group' ? (
+              <p className="internal-chat-modal-hint">
+                Selecione pelo menos 2 participantes para criar o grupo.
+                {selectedGroupIds.length > 0 ? ` (${selectedGroupIds.length} selecionado${selectedGroupIds.length > 1 ? 's' : ''})` : ''}
+              </p>
+            ) : null}
 
             <input
               type="search"
@@ -399,24 +464,32 @@ function InternalChatPage() {
                 </p>
               ) : null}
 
-              {filteredRecipients.map((recipient) => (
-                <button
-                  key={recipient.id}
-                  type="button"
-                  className={`internal-chat-recipient-item ${
-                    Number(selectedRecipientId) === Number(recipient.id)
-                      ? 'internal-chat-recipient-item--active'
-                      : ''
-                  }`}
-                  onClick={() => {
-                    setSelectedRecipientId(String(recipient.id));
-                    setCreateError('');
-                  }}
-                >
-                  <span className="internal-chat-recipient-name">{recipient.name}</span>
-                  <span className="internal-chat-recipient-email">{recipient.email}</span>
-                </button>
-              ))}
+              {filteredRecipients.map((recipient) => {
+                const isSelectedDirect = createType === 'direct' && Number(selectedRecipientId) === Number(recipient.id);
+                const isSelectedGroup = createType === 'group' && selectedGroupIds.includes(Number(recipient.id));
+                const isActive = isSelectedDirect || isSelectedGroup;
+
+                return (
+                  <button
+                    key={recipient.id}
+                    type="button"
+                    className={`internal-chat-recipient-item ${isActive ? 'internal-chat-recipient-item--active' : ''}`}
+                    onClick={() => {
+                      if (createType === 'group') {
+                        handleToggleGroupParticipant(recipient.id);
+                      } else {
+                        setSelectedRecipientId(String(recipient.id));
+                        setCreateError('');
+                      }
+                    }}
+                  >
+                    <span className="internal-chat-recipient-name">
+                      {isSelectedGroup ? '✓ ' : ''}{recipient.name}
+                    </span>
+                    <span className="internal-chat-recipient-email">{recipient.email}</span>
+                  </button>
+                );
+              })}
             </div>
 
             {recipientsError ? <p className="internal-chat-error-inline">{recipientsError}</p> : null}
@@ -434,10 +507,16 @@ function InternalChatPage() {
               <button
                 type="button"
                 className="app-btn-primary"
-                onClick={() => void handleCreateDirectConversation()}
+                onClick={() => {
+                  if (createType === 'group') {
+                    void handleCreateGroupConversation();
+                  } else {
+                    void handleCreateDirectConversation();
+                  }
+                }}
                 disabled={createBusy}
               >
-                {createBusy ? 'Criando...' : 'Criar conversa'}
+                {createBusy ? 'Criando...' : createType === 'group' ? 'Criar grupo' : 'Criar conversa'}
               </button>
             </footer>
           </div>

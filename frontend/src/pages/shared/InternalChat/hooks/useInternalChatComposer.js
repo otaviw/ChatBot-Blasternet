@@ -5,6 +5,7 @@ import {
   editInternalChatMessage,
   markInternalChatConversationRead,
   sendInternalChatMessage,
+  toggleInternalChatReaction,
   upsertConversationInList,
 } from '@/services/internalChatService';
 import { parseErrorMessage } from '../internalChatUtils';
@@ -354,6 +355,45 @@ export default function useInternalChatComposer({
     [cancelMessageEditing, editingMessageId, role, selectedConversationId, setConversations, setDetail]
   );
 
+  const handleToggleReaction = useCallback(
+    async (messageId, emoji) => {
+      const conversationId = Number.parseInt(String(selectedConversationId ?? ''), 10);
+      const id = Number.parseInt(String(messageId ?? ''), 10);
+      if (!conversationId || !id || !emoji) {
+        return;
+      }
+
+      try {
+        const response = await toggleInternalChatReaction({
+          role,
+          conversationId,
+          messageId: id,
+          emoji,
+        });
+
+        if (response.message) {
+          setDetail((previous) => {
+            if (!previous || Number(previous.id) !== conversationId) {
+              return previous;
+            }
+
+            return {
+              ...previous,
+              messages: appendUniqueChatMessage(previous.messages ?? [], response.message),
+            };
+          });
+        }
+
+        if (response.conversation) {
+          setConversations((previous) => upsertConversationInList(previous, response.conversation));
+        }
+      } catch (_error) {
+        // silently ignore reaction errors
+      }
+    },
+    [role, selectedConversationId, setConversations, setDetail]
+  );
+
   const resetMessageInteractionState = useCallback(() => {
     setSendError('');
     setMessageActionError('');
@@ -364,6 +404,7 @@ export default function useInternalChatComposer({
   }, []);
 
   return {
+    handleToggleReaction,
     cancelMessageEditing,
     clearMessageFileState,
     editingMessageId,

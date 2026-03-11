@@ -146,10 +146,12 @@ class InternalChatConversationService
     {
         $summary = $this->serializeConversationSummary($conversation, $viewer);
 
-        $summary['messages'] = $conversation->messages
+        $serializedMessages = $conversation->messages
             ->map(fn (ChatMessage $message): array => $this->serializeMessage($message))
             ->values()
             ->all();
+
+        $summary['messages'] = $this->enrichMessagesWithReadStatus($serializedMessages, $conversation);
 
         return $summary;
     }
@@ -182,6 +184,9 @@ class InternalChatConversationService
                 ->values()
                 ->all();
 
+        $metadata = is_array($message->metadata) ? $message->metadata : [];
+        $reactions = $metadata['reactions'] ?? [];
+
         return [
             'id' => (int) $message->id,
             'conversation_id' => (int) $message->conversation_id,
@@ -189,7 +194,8 @@ class InternalChatConversationService
             'sender_name' => (string) ($message->sender?->name ?? 'Usuario'),
             'type' => (string) $message->type,
             'content' => $isDeleted ? 'Mensagem apagada' : (string) ($message->content ?? ''),
-            'metadata' => is_array($message->metadata) ? $message->metadata : [],
+            'metadata' => $metadata,
+            'reactions' => $reactions,
             'attachments' => $serializedAttachments,
             'created_at' => $message->created_at?->toISOString(),
             'updated_at' => $message->updated_at?->toISOString(),
@@ -197,6 +203,47 @@ class InternalChatConversationService
             'deleted_at' => $message->deleted_at?->toISOString(),
             'is_deleted' => $isDeleted,
         ];
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $serializedMessages
+     * @return array<int, array<string, mixed>>
+     */
+    public function enrichMessagesWithReadStatus(array $serializedMessages, ChatConversation $conversation): array
+    {
+        $participants = $conversation->participants;
+        $totalParticipants = $participants->count();
+
+        return array_map(static function (array $msg) use ($participants, $totalParticipants): array {
+            $senderId = (int) ($msg['sender_id'] ?? 0);
+            $createdAt = $msg['created_at'] ?? null;
+
+            if (! $createdAt || $senderId <= 0) {
+                $msg['read_by_count'] = 0;
+                $msg['participant_count'] = $totalParticipants;
+
+                return $msg;
+            }
+
+            $messageTimestamp = strtotime($createdAt);
+            $readByCount = 0;
+
+            foreach ($participants as $participant) {
+                if ((int) $participant->id === $senderId) {
+                    continue;
+                }
+
+                $lastReadAt = $participant->pivot?->last_read_at;
+                if ($lastReadAt && strtotime((string) $lastReadAt) >= $messageTimestamp) {
+                    $readByCount++;
+                }
+            }
+
+            $msg['read_by_count'] = $readByCount;
+            $msg['participant_count'] = $totalParticipants;
+
+            return $msg;
+        }, $serializedMessages);
     }
 
     /**

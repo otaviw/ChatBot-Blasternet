@@ -15,6 +15,7 @@ function InternalChatSidebar({
   onNextConversationPage,
   onOpenConversation,
   onOpenCreateModal,
+  onOpenCreateGroupModal,
   loadedConversationPage,
   selectedConversationId,
   sidebarVisibleOnMobile,
@@ -26,13 +27,22 @@ function InternalChatSidebar({
       }`}
     >
       <div className="internal-chat-sidebar-top">
-        <button
-          type="button"
-          className="app-btn-primary internal-chat-new-btn"
-          onClick={() => void onOpenCreateModal()}
-        >
-          Nova conversa
-        </button>
+        <div className="internal-chat-sidebar-btn-row">
+          <button
+            type="button"
+            className="app-btn-primary internal-chat-new-btn"
+            onClick={() => void onOpenCreateModal()}
+          >
+            Nova conversa
+          </button>
+          <button
+            type="button"
+            className="app-btn-secondary internal-chat-new-btn"
+            onClick={() => void onOpenCreateGroupModal()}
+          >
+            Novo grupo
+          </button>
+        </div>
         <input
           type="search"
           className="app-input internal-chat-search"

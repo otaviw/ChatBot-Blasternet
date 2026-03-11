@@ -24,6 +24,8 @@ Route::middleware(['web', 'auth'])->group(function () {
         ->middleware('throttle:bot-write');
     Route::post('/chat/conversations/{conversation}/read', [ChatConversationController::class, 'markRead'])
         ->middleware('throttle:bot-write');
+    Route::post('/chat/conversations/{conversation}/messages/{message}/reactions', [ChatConversationController::class, 'toggleReaction'])
+        ->middleware('throttle:bot-write');
     Route::get('/chat/attachments/{attachment}/media', [ChatAttachmentController::class, 'media'])
         ->middleware('throttle:inbox-read');
 

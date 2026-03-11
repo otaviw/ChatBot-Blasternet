@@ -1,5 +1,77 @@
+import { useState } from 'react';
 import InboxBackButton from '@/components/ui/InboxBackButton/InboxBackButton.jsx';
 import InternalChatComposer from './InternalChatComposer.jsx';
+
+const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+
+function MessageReactions({ reactions, currentUserId, onToggleReaction, messageId }) {
+  const entries = Object.entries(reactions ?? {});
+  if (!entries.length) {
+    return null;
+  }
+
+  return (
+    <div className="internal-chat-reactions">
+      {entries.map(([emoji, userIds]) => {
+        const count = Array.isArray(userIds) ? userIds.length : 0;
+        if (count === 0) return null;
+        const iReacted = Array.isArray(userIds) && userIds.includes(Number(currentUserId));
+
+        return (
+          <button
+            key={emoji}
+            type="button"
+            className={`internal-chat-reaction-pill ${iReacted ? 'internal-chat-reaction-pill--mine' : ''}`}
+            onClick={() => onToggleReaction(messageId, emoji)}
+            title={`${emoji} (${count})`}
+          >
+            <span>{emoji}</span>
+            <span className="internal-chat-reaction-count">{count}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ReactionPicker({ onPick }) {
+  return (
+    <div className="internal-chat-reaction-picker">
+      {QUICK_EMOJIS.map((emoji) => (
+        <button
+          key={emoji}
+          type="button"
+          className="internal-chat-reaction-picker-btn"
+          onClick={() => onPick(emoji)}
+        >
+          {emoji}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ReadStatusLabel({ message, currentUserId }) {
+  const isMine = currentUserId && Number(message.sender_id) === Number(currentUserId);
+  if (!isMine) return null;
+
+  const readByCount = Number(message.read_by_count ?? 0);
+  const participantCount = Number(message.participant_count ?? 0);
+  const othersCount = Math.max(0, participantCount - 1);
+
+  if (othersCount <= 0) return null;
+
+  let label;
+  if (readByCount >= othersCount) {
+    label = 'Lida';
+  } else if (readByCount > 0) {
+    label = `Lida por ${readByCount}/${othersCount}`;
+  } else {
+    label = 'Enviada';
+  }
+
+  return <span className="internal-chat-read-status">{label}</span>;
+}
 
 function InternalChatMessagesPanel({
   chatListRef,
@@ -25,12 +97,22 @@ function InternalChatMessagesPanel({
   onRefresh,
   onStartMessageEditing,
   onToggleMessageOptions,
+  onToggleReaction,
   onUpdateEditingMessageText,
   openMessageOptionsId,
   selectedConversation,
   selectedConversationId,
   sidebarVisibleOnMobile,
 }) {
+  const [reactionPickerOpenId, setReactionPickerOpenId] = useState(null);
+
+  const handlePickReaction = (messageId, emoji) => {
+    setReactionPickerOpenId(null);
+    if (onToggleReaction) {
+      void onToggleReaction(messageId, emoji);
+    }
+  };
+
   return (
     <section
       className={`internal-chat-main ${
@@ -122,6 +204,7 @@ function InternalChatMessagesPanel({
               const isMessageActionBusy =
                 Number(messageActionBusyId ?? 0) > 0 &&
                 Number(messageActionBusyId) === Number(message.id);
+              const reactions = message.reactions ?? {};
 
               return (
                 <li
@@ -221,45 +304,77 @@ function InternalChatMessagesPanel({
                     </div>
                   ) : null}
 
+                  {!isDeleted ? (
+                    <MessageReactions
+                      reactions={reactions}
+                      currentUserId={currentUserId}
+                      onToggleReaction={handlePickReaction}
+                      messageId={message.id}
+                    />
+                  ) : null}
+
                   <div className="internal-chat-message-footer">
                     <span className="internal-chat-message-time">
                       {formatDateTime(message.created_at)}
+                      <ReadStatusLabel message={message} currentUserId={currentUserId} />
                     </span>
 
-                    {isMine && !isDeleted && !isEditing ? (
-                      <div
-                        className="internal-chat-message-options"
-                        data-chat-message-options="true"
-                      >
-                        <button
-                          type="button"
-                          className="internal-chat-message-options-trigger"
-                          disabled={isMessageActionBusy}
-                          onClick={() => onToggleMessageOptions(message.id)}
-                          aria-label="Opcoes da mensagem"
-                          title="Opcoes"
-                        >
-                          <span aria-hidden="true" className="internal-chat-message-options-icon" />
-                        </button>
+                    {!isDeleted && !isEditing ? (
+                      <div className="internal-chat-message-actions-row">
+                        <div className="internal-chat-reaction-toggle-wrapper">
+                          <button
+                            type="button"
+                            className="internal-chat-reaction-toggle-btn"
+                            onClick={() =>
+                              setReactionPickerOpenId((prev) =>
+                                Number(prev) === Number(message.id) ? null : Number(message.id)
+                              )
+                            }
+                            title="Reagir"
+                          >
+                            😊
+                          </button>
+                          {Number(reactionPickerOpenId) === Number(message.id) ? (
+                            <ReactionPicker onPick={(emoji) => handlePickReaction(message.id, emoji)} />
+                          ) : null}
+                        </div>
 
-                        {Number(openMessageOptionsId) === Number(message.id) ? (
-                          <div className="internal-chat-message-options-popover">
+                        {isMine ? (
+                          <div
+                            className="internal-chat-message-options"
+                            data-chat-message-options="true"
+                          >
                             <button
                               type="button"
-                              className="internal-chat-message-options-item"
+                              className="internal-chat-message-options-trigger"
                               disabled={isMessageActionBusy}
-                              onClick={() => onStartMessageEditing(message)}
+                              onClick={() => onToggleMessageOptions(message.id)}
+                              aria-label="Opcoes da mensagem"
+                              title="Opcoes"
                             >
-                              Editar
+                              <span aria-hidden="true" className="internal-chat-message-options-icon" />
                             </button>
-                            <button
-                              type="button"
-                              className="internal-chat-message-options-item internal-chat-message-options-item--danger"
-                              disabled={isMessageActionBusy}
-                              onClick={() => void onMessageDelete(message.id)}
-                            >
-                              {isMessageActionBusy ? 'Apagando...' : 'Apagar'}
-                            </button>
+
+                            {Number(openMessageOptionsId) === Number(message.id) ? (
+                              <div className="internal-chat-message-options-popover">
+                                <button
+                                  type="button"
+                                  className="internal-chat-message-options-item"
+                                  disabled={isMessageActionBusy}
+                                  onClick={() => onStartMessageEditing(message)}
+                                >
+                                  Editar
+                                </button>
+                                <button
+                                  type="button"
+                                  className="internal-chat-message-options-item internal-chat-message-options-item--danger"
+                                  disabled={isMessageActionBusy}
+                                  onClick={() => void onMessageDelete(message.id)}
+                                >
+                                  {isMessageActionBusy ? 'Apagando...' : 'Apagar'}
+                                </button>
+                              </div>
+                            ) : null}
                           </div>
                         ) : null}
                       </div>
