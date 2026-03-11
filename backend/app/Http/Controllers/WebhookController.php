@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Company;
 use App\Models\Message;
+use App\Models\MessageReaction;
 use App\Services\InboundMessageService;
+use App\Services\RealtimePublisher;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
@@ -12,7 +14,8 @@ use Illuminate\Support\Facades\Log;
 class WebhookController extends Controller
 {
     public function __construct(
-        private InboundMessageService $inboundMessage
+        private InboundMessageService $inboundMessage,
+        private RealtimePublisher $realtimePublisher
     ) {}
 
     /**
@@ -107,6 +110,12 @@ class WebhookController extends Controller
             $contactName = $contactNameByWaId[$from] ?? null;
 
             if (trim($from) === '') {
+                continue;
+            }
+
+            if ($messageType === 'reaction') {
+                $this->processReaction($company, $msg);
+
                 continue;
             }
 
@@ -302,6 +311,133 @@ class WebhookController extends Controller
             'from_status' => $beforeStatus,
             'to_status' => (string) $message->delivery_status,
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $messagePayload
+     */
+    private function processReaction(Company $company, array $messagePayload): void
+    {
+        $reactorPhone = $this->normalizePhone((string) ($messagePayload['from'] ?? ''));
+        $reactionPayload = is_array($messagePayload['reaction'] ?? null)
+            ? $messagePayload['reaction']
+            : [];
+        $targetWhatsappMessageId = trim((string) ($reactionPayload['message_id'] ?? ''));
+        $emoji = trim((string) ($reactionPayload['emoji'] ?? ''));
+
+        if ($reactorPhone === '' || $targetWhatsappMessageId === '') {
+            Log::warning('Webhook reaction ignorado por payload incompleto.', [
+                'company_id' => (int) $company->id,
+                'from' => $messagePayload['from'] ?? null,
+                'reaction_message_id' => $reactionPayload['message_id'] ?? null,
+                'reaction_emoji' => $reactionPayload['emoji'] ?? null,
+            ]);
+
+            return;
+        }
+
+        $message = Message::query()
+            ->where('whatsapp_message_id', $targetWhatsappMessageId)
+            ->whereHas('conversation', function ($query) use ($company) {
+                $query->where('company_id', (int) $company->id);
+            })
+            ->first();
+
+        if (! $message) {
+            Log::warning('Webhook reaction recebido sem mensagem correspondente.', [
+                'company_id' => (int) $company->id,
+                'reactor_phone' => $reactorPhone,
+                'target_whatsapp_message_id' => $targetWhatsappMessageId,
+                'message_type' => $messagePayload['type'] ?? null,
+                'message_id' => $messagePayload['id'] ?? null,
+            ]);
+
+            return;
+        }
+
+        if ($emoji === '') {
+            $reaction = MessageReaction::query()
+                ->where('message_id', (int) $message->id)
+                ->where('reactor_phone', $reactorPhone)
+                ->first();
+
+            if (! $reaction) {
+                return;
+            }
+
+            $reaction->delete();
+            $this->publishMessageReactionsUpdated($company, $message);
+
+            return;
+        }
+
+        MessageReaction::updateOrCreate(
+            [
+                'message_id' => (int) $message->id,
+                'reactor_phone' => $reactorPhone,
+            ],
+            [
+                'whatsapp_message_id' => $targetWhatsappMessageId,
+                'emoji' => $emoji,
+                'reacted_at' => $this->resolveMetaTimestamp($messagePayload['timestamp'] ?? null),
+                'meta' => [
+                    'source' => 'webhook_reaction',
+                    'message_id' => $messagePayload['id'] ?? null,
+                    'reaction' => $reactionPayload,
+                ],
+            ]
+        );
+
+        $this->publishMessageReactionsUpdated($company, $message);
+    }
+
+    private function publishMessageReactionsUpdated(Company $company, Message $message): void
+    {
+        $reactions = MessageReaction::query()
+            ->where('message_id', (int) $message->id)
+            ->orderBy('id')
+            ->get(['reactor_phone', 'emoji', 'reacted_at'])
+            ->map(function (MessageReaction $reaction): array {
+                return [
+                    'reactor_phone' => (string) $reaction->reactor_phone,
+                    'emoji' => (string) ($reaction->emoji ?? ''),
+                    'reacted_at' => $reaction->reacted_at?->toISOString(),
+                ];
+            })
+            ->values()
+            ->all();
+
+        $this->realtimePublisher->publish(
+            'message.reactions.updated',
+            [
+                "company:{$company->id}",
+                "conversation:{$message->conversation_id}",
+            ],
+            [
+                'conversation_id' => (int) $message->conversation_id,
+                'message_id' => (int) $message->id,
+                'reactions' => $reactions,
+            ]
+        );
+    }
+
+    private function normalizePhone(string $phone): string
+    {
+        return preg_replace('/\D/', '', $phone) ?? '';
+    }
+
+    private function resolveMetaTimestamp(mixed $rawTimestamp): ?\Illuminate\Support\Carbon
+    {
+        if (! is_numeric($rawTimestamp)) {
+            return null;
+        }
+
+        $timestamp = (int) $rawTimestamp;
+        if ($timestamp > 9999999999) {
+            $timestamp = (int) floor($timestamp / 1000);
+        }
+
+        return now()->setTimestamp($timestamp);
     }
 
     private function formatStatusError(mixed $errors): ?string

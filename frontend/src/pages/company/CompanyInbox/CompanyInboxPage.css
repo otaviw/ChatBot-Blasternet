@@ -220,6 +220,31 @@
   color: #b91c1c;
 }
 
+.inbox-message-reactions {
+  margin-top: 0.35rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.28rem;
+}
+
+.inbox-message-reaction-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  padding: 0.1rem 0.42rem;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  background: #f8fafc;
+  font-size: 0.72rem;
+  line-height: 1.3;
+}
+
+.inbox-message-reaction-count {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #475569;
+}
+
 .company-inbox-message-media {
   margin-top: 0.5rem;
 }

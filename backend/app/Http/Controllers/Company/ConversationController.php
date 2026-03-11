@@ -117,7 +117,12 @@ class ConversationController extends Controller
             ], 404);
         }
 
-        $messagesQuery = $conversation->messages()->orderBy('id', 'asc');
+        $messagesQuery = $conversation->messages()
+            ->with(['reactions' => function ($query) {
+                $query->orderBy('id')
+                    ->select(['id', 'message_id', 'reactor_phone', 'emoji', 'reacted_at']);
+            }])
+            ->orderBy('id', 'asc');
         $totalMessages = $conversation->messages()->count();
         $lastMessagesPage = $totalMessages > 0 ? (int) ceil($totalMessages / $messagesPerPage) : 1;
         $messagesPage = $messagesPageParam !== null && $messagesPageParam !== ''

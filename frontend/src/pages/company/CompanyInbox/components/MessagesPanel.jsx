@@ -15,6 +15,28 @@ function normalizeOutboundStatus(message) {
   return null;
 }
 
+function groupReactionsByEmoji(reactions) {
+  if (!Array.isArray(reactions) || reactions.length === 0) {
+    return [];
+  }
+
+  const grouped = new Map();
+
+  reactions.forEach((reaction) => {
+    const emoji = String(reaction?.emoji ?? '').trim();
+    if (!emoji) {
+      return;
+    }
+
+    grouped.set(emoji, Number(grouped.get(emoji) ?? 0) + 1);
+  });
+
+  return Array.from(grouped.entries()).map(([emoji, count]) => ({
+    emoji,
+    count,
+  }));
+}
+
 function MessagesPanel({
   detail,
   messagesPagination,
@@ -62,6 +84,7 @@ function MessagesPanel({
         ) : null}
         {(detail.messages ?? []).map((msg) => {
           const outboundStatus = msg.direction === 'out' ? normalizeOutboundStatus(msg) : null;
+          const reactionGroups = groupReactionsByEmoji(msg.reactions ?? []);
 
           return (
             <li
@@ -87,6 +110,20 @@ function MessagesPanel({
                 <span className={`inbox-message-status inbox-message-status-${outboundStatus}`}>
                   {OUTBOUND_STATUS_LABELS[outboundStatus]}
                 </span>
+              ) : null}
+              {reactionGroups.length > 0 ? (
+                <div className="inbox-message-reactions">
+                  {reactionGroups.map((item) => (
+                    <span
+                      key={`${msg.id}-${item.emoji}`}
+                      className="inbox-message-reaction-pill"
+                      title={`${item.emoji} (${item.count})`}
+                    >
+                      <span>{item.emoji}</span>
+                      <span className="inbox-message-reaction-count">{item.count}</span>
+                    </span>
+                  ))}
+                </div>
               ) : null}
             </li>
           );

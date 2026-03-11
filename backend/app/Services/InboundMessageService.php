@@ -71,6 +71,7 @@ class InboundMessageService
             'type' => 'user',
             'content_type' => 'text',
             'text' => $normalizedText,
+            'whatsapp_message_id' => $this->extractWhatsAppMessageId($inMeta),
             'meta' => $inMeta,
         ]);
 
@@ -246,6 +247,7 @@ class InboundMessageService
             'media_size_bytes' => $storedMedia['size_bytes'] ?? null,
             'media_width' => $storedMedia['width'] ?? null,
             'media_height' => $storedMedia['height'] ?? null,
+            'whatsapp_message_id' => $this->extractWhatsAppMessageId($meta),
             'meta' => $meta,
         ]);
 
@@ -319,6 +321,7 @@ class InboundMessageService
             'media_size_bytes' => $storedMedia['size_bytes'] ?? null,
             'media_width' => $storedMedia['width'] ?? null,
             'media_height' => $storedMedia['height'] ?? null,
+            'whatsapp_message_id' => $this->extractWhatsAppMessageId($meta),
             'meta' => $meta,
         ]);
 
@@ -340,6 +343,21 @@ class InboundMessageService
     private function normalizePhone(string $phone): string
     {
         return preg_replace('/\D/', '', $phone) ?? '';
+    }
+
+    /**
+     * @param  array<string, mixed>  $meta
+     */
+    private function extractWhatsAppMessageId(array $meta): ?string
+    {
+        foreach (['wamid', 'whatsapp_message_id', 'message_id'] as $key) {
+            $value = trim((string) ($meta[$key] ?? ''));
+            if ($value !== '') {
+                return $value;
+            }
+        }
+
+        return null;
     }
 
     private function normalizeContactName(?string $contactName): ?string

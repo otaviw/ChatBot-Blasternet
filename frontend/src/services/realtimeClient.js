@@ -5,6 +5,7 @@ const SUPPORTED_EVENTS = new Set([
   'message.created',
   'message.updated',
   'message.status.updated',
+  'message.reactions.updated',
   'bot.updated',
   'conversation.transferred',
   'notification.created',
@@ -513,6 +514,17 @@ class RealtimeClient {
       }
     }
 
+    if (eventName === 'message.reactions.updated') {
+      const messageId = readPositiveInt(envelope?.payload, ['messageId', 'message_id', 'id']);
+      if (messageId !== null) {
+        const messageKey = this.buildMessageReactionsDedupeKey(envelope?.payload, messageId);
+        if (this.seenMessageIds.has(messageKey)) {
+          return true;
+        }
+        this.seenMessageIds.set(messageKey, now);
+      }
+    }
+
     if (eventName === 'conversation.transferred') {
       const transferId = readPositiveInt(envelope?.payload, ['transferId', 'transfer_id', 'id']);
       if (transferId !== null) {
@@ -592,6 +604,14 @@ class RealtimeClient {
       return 'message-status:unknown';
     }
 
+    if (eventName === 'message.reactions.updated') {
+      const messageId = readPositiveInt(payload, ['messageId', 'message_id', 'id']);
+      if (messageId !== null) {
+        return this.buildMessageReactionsDedupeKey(payload, messageId);
+      }
+      return 'message-reactions:unknown';
+    }
+
     if (eventName === 'conversation.transferred') {
       const transferId = readPositiveInt(payload, ['transferId', 'transfer_id', 'id']);
       return transferId !== null ? `transfer:${transferId}` : 'transfer:unknown';
@@ -661,6 +681,34 @@ class RealtimeClient {
     const failedAt = String(payload?.failedAt ?? payload?.failed_at ?? '').trim();
 
     return `message-status:${conversationId ?? 'na'}:${messageId}:${deliveryStatus}:${sentAt}:${deliveredAt}:${readAt}:${failedAt}`;
+  }
+
+  buildMessageReactionsDedupeKey(payload, messageId) {
+    const conversationId = readPositiveInt(payload, ['conversationId', 'conversation_id']);
+    const normalizedReactions = Array.isArray(payload?.reactions)
+      ? payload.reactions
+          .map((reaction) => {
+            if (!reaction || typeof reaction !== 'object') {
+              return null;
+            }
+
+            const reactorPhone = String(
+              reaction?.reactor_phone ?? reaction?.reactorPhone ?? ''
+            ).trim();
+            const emoji = String(reaction?.emoji ?? '').trim();
+            const reactedAt = String(reaction?.reacted_at ?? reaction?.reactedAt ?? '').trim();
+
+            if (!emoji) {
+              return null;
+            }
+
+            return `${reactorPhone}|${emoji}|${reactedAt}`;
+          })
+          .filter(Boolean)
+          .sort()
+      : [];
+
+    return `message-reactions:${conversationId ?? 'na'}:${messageId}:${normalizedReactions.join(',')}`;
   }
 
   pruneSeen(map, now) {

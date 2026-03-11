@@ -66,6 +66,38 @@ export function normalizeEventConversation(payload) {
   };
 }
 
+export function normalizeMessageReactions(reactions) {
+  if (!Array.isArray(reactions)) {
+    return [];
+  }
+
+  return reactions
+    .map((reaction) => {
+      if (!reaction || typeof reaction !== 'object') {
+        return null;
+      }
+
+      const emoji = String(reaction.emoji ?? '').trim();
+      if (!emoji) {
+        return null;
+      }
+
+      const reactorPhone = String(
+        reaction.reactor_phone ?? reaction.reactorPhone ?? ''
+      ).trim();
+      const reactedAtRaw = reaction.reacted_at ?? reaction.reactedAt ?? null;
+      const reactedAt = reactedAtRaw ? String(reactedAtRaw) : null;
+
+      return {
+        id: Number.parseInt(String(reaction.id ?? ''), 10) || null,
+        reactor_phone: reactorPhone,
+        emoji,
+        reacted_at: reactedAt,
+      };
+    })
+    .filter(Boolean);
+}
+
 export function buildRealtimeMessage(payload, conversationId, messageId) {
   const nestedMessage =
     payload?.message && typeof payload.message === 'object' ? payload.message : null;
@@ -120,6 +152,9 @@ export function buildRealtimeMessage(payload, conversationId, messageId) {
     read_at: payload.readAt ?? payload.read_at ?? nestedMessage?.readAt ?? nestedMessage?.read_at ?? null,
     failed_at: payload.failedAt ?? payload.failed_at ?? nestedMessage?.failedAt ?? nestedMessage?.failed_at ?? null,
     created_at: payload.createdAt ?? payload.created_at ?? nestedMessage?.createdAt ?? nestedMessage?.created_at ?? null,
+    reactions: normalizeMessageReactions(
+      payload.reactions ?? payload.message_reactions ?? nestedMessage?.reactions ?? []
+    ),
   };
 }
 
@@ -133,5 +168,13 @@ export function buildRealtimeMessageStatusPatch(payload, conversationId, message
     delivered_at: payload?.deliveredAt ?? payload?.delivered_at ?? null,
     read_at: payload?.readAt ?? payload?.read_at ?? null,
     failed_at: payload?.failedAt ?? payload?.failed_at ?? null,
+  };
+}
+
+export function buildRealtimeMessageReactionsPatch(payload, conversationId, messageId) {
+  return {
+    id: messageId,
+    conversation_id: conversationId,
+    reactions: normalizeMessageReactions(payload?.reactions ?? []),
   };
 }

@@ -3,6 +3,7 @@ import realtimeClient from '@/services/realtimeClient';
 import {
   appendUniqueMessage,
   buildRealtimeMessage,
+  buildRealtimeMessageReactionsPatch,
   buildRealtimeMessageStatusPatch,
   normalizeEventConversation,
   sortConversationsByActivity,
@@ -260,10 +261,53 @@ export default function useInboxRealtimeSync({
       });
     });
 
+    const unsubscribeMessageReactionsUpdated = realtimeClient.on('message.reactions.updated', (envelope) => {
+      const payload = envelope?.payload ?? {};
+      const conversationId = parsePositiveInt(payload.conversationId, payload.conversation_id);
+      const messageId = parsePositiveInt(payload.messageId, payload.message_id, payload.id);
+      if (conversationId === null || messageId === null) {
+        return;
+      }
+
+      if (Number(selectedIdRef.current) !== conversationId) {
+        return;
+      }
+
+      const reactionsPatch = buildRealtimeMessageReactionsPatch(payload, conversationId, messageId);
+      setDetail((prev) => {
+        if (!prev || Number(prev.id) !== conversationId) {
+          return prev;
+        }
+
+        let hasMatch = false;
+        const nextMessages = (prev.messages ?? []).map((message) => {
+          if (Number(message.id) !== messageId) {
+            return message;
+          }
+
+          hasMatch = true;
+          return {
+            ...message,
+            reactions: reactionsPatch.reactions,
+          };
+        });
+
+        if (!hasMatch) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          messages: nextMessages,
+        };
+      });
+    });
+
     return () => {
       unsubscribeMessageCreated();
       unsubscribeConversationTransferred();
       unsubscribeMessageStatusUpdated();
+      unsubscribeMessageReactionsUpdated();
       if (conversationsRefreshTimerRef.current) {
         clearTimeout(conversationsRefreshTimerRef.current);
         conversationsRefreshTimerRef.current = null;
