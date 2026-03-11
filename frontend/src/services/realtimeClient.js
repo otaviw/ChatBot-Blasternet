@@ -4,6 +4,7 @@ import api from './api';
 const SUPPORTED_EVENTS = new Set([
   'message.created',
   'message.updated',
+  'message.status.updated',
   'bot.updated',
   'conversation.transferred',
   'notification.created',
@@ -501,6 +502,17 @@ class RealtimeClient {
       }
     }
 
+    if (eventName === 'message.status.updated') {
+      const messageId = readPositiveInt(envelope?.payload, ['messageId', 'message_id', 'id']);
+      if (messageId !== null) {
+        const messageKey = this.buildMessageStatusDedupeKey(envelope?.payload, messageId);
+        if (this.seenMessageIds.has(messageKey)) {
+          return true;
+        }
+        this.seenMessageIds.set(messageKey, now);
+      }
+    }
+
     if (eventName === 'conversation.transferred') {
       const transferId = readPositiveInt(envelope?.payload, ['transferId', 'transfer_id', 'id']);
       if (transferId !== null) {
@@ -572,6 +584,14 @@ class RealtimeClient {
       return `message-signature:${eventName}:${conversationId ?? 'na'}|${createdAt}|${updatedAt}|${direction}|${type}|${contentType}|${mediaUrl}|${text}`;
     }
 
+    if (eventName === 'message.status.updated') {
+      const messageId = readPositiveInt(payload, ['messageId', 'message_id', 'id']);
+      if (messageId !== null) {
+        return this.buildMessageStatusDedupeKey(payload, messageId);
+      }
+      return 'message-status:unknown';
+    }
+
     if (eventName === 'conversation.transferred') {
       const transferId = readPositiveInt(payload, ['transferId', 'transfer_id', 'id']);
       return transferId !== null ? `transfer:${transferId}` : 'transfer:unknown';
@@ -630,6 +650,17 @@ class RealtimeClient {
     ).trim();
 
     return `${base}:${updatedAt}:${editedAt}:${deletedAt}`;
+  }
+
+  buildMessageStatusDedupeKey(payload, messageId) {
+    const conversationId = readPositiveInt(payload, ['conversationId', 'conversation_id']);
+    const deliveryStatus = String(payload?.deliveryStatus ?? payload?.delivery_status ?? '').trim();
+    const sentAt = String(payload?.sentAt ?? payload?.sent_at ?? '').trim();
+    const deliveredAt = String(payload?.deliveredAt ?? payload?.delivered_at ?? '').trim();
+    const readAt = String(payload?.readAt ?? payload?.read_at ?? '').trim();
+    const failedAt = String(payload?.failedAt ?? payload?.failed_at ?? '').trim();
+
+    return `message-status:${conversationId ?? 'na'}:${messageId}:${deliveryStatus}:${sentAt}:${deliveredAt}:${readAt}:${failedAt}`;
   }
 
   pruneSeen(map, now) {

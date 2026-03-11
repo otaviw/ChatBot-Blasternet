@@ -193,6 +193,33 @@
   white-space: pre-wrap;
 }
 
+.inbox-message-status {
+  margin-top: 0.35rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.inbox-message-status-pending {
+  color: #6b7280;
+}
+
+.inbox-message-status-sent {
+  color: #1d4ed8;
+}
+
+.inbox-message-status-delivered {
+  color: #047857;
+}
+
+.inbox-message-status-read {
+  color: #0f766e;
+}
+
+.inbox-message-status-failed {
+  color: #b91c1c;
+}
+
 .company-inbox-message-media {
   margin-top: 0.5rem;
 }

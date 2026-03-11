@@ -25,6 +25,7 @@ Importante:
 ## Eventos realtime implementados
 
 - `message.created`
+- `message.status.updated`
 - `bot.updated`
 - `conversation.transferred`
 

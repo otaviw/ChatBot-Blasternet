@@ -102,6 +102,36 @@ export function buildRealtimeMessage(payload, conversationId, messageId) {
       nestedMessage?.mediaHeight ??
       nestedMessage?.media_height ??
       null,
+    whatsapp_message_id:
+      payload.whatsappMessageId ??
+      payload.whatsapp_message_id ??
+      nestedMessage?.whatsappMessageId ??
+      nestedMessage?.whatsapp_message_id ??
+      null,
+    delivery_status:
+      payload.deliveryStatus ??
+      payload.delivery_status ??
+      nestedMessage?.deliveryStatus ??
+      nestedMessage?.delivery_status ??
+      null,
+    sent_at: payload.sentAt ?? payload.sent_at ?? nestedMessage?.sentAt ?? nestedMessage?.sent_at ?? null,
+    delivered_at:
+      payload.deliveredAt ?? payload.delivered_at ?? nestedMessage?.deliveredAt ?? nestedMessage?.delivered_at ?? null,
+    read_at: payload.readAt ?? payload.read_at ?? nestedMessage?.readAt ?? nestedMessage?.read_at ?? null,
+    failed_at: payload.failedAt ?? payload.failed_at ?? nestedMessage?.failedAt ?? nestedMessage?.failed_at ?? null,
     created_at: payload.createdAt ?? payload.created_at ?? nestedMessage?.createdAt ?? nestedMessage?.created_at ?? null,
+  };
+}
+
+export function buildRealtimeMessageStatusPatch(payload, conversationId, messageId) {
+  return {
+    id: messageId,
+    conversation_id: conversationId,
+    whatsapp_message_id: payload?.whatsappMessageId ?? payload?.whatsapp_message_id ?? null,
+    delivery_status: payload?.deliveryStatus ?? payload?.delivery_status ?? null,
+    sent_at: payload?.sentAt ?? payload?.sent_at ?? null,
+    delivered_at: payload?.deliveredAt ?? payload?.delivered_at ?? null,
+    read_at: payload?.readAt ?? payload?.read_at ?? null,
+    failed_at: payload?.failedAt ?? payload?.failed_at ?? null,
   };
 }

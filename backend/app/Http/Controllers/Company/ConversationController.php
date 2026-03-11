@@ -9,6 +9,7 @@ use App\Models\ConversationTransfer;
 use App\Models\Message;
 use App\Models\User;
 use App\Services\AuditLogService;
+use App\Services\MessageDeliveryStatusService;
 use App\Services\MessageMediaStorageService;
 use App\Services\TransferConversationService;
 use App\Services\WhatsAppSendService;
@@ -21,6 +22,7 @@ class ConversationController extends Controller
 {
     public function __construct(
         private WhatsAppSendService $whatsAppSend,
+        private MessageDeliveryStatusService $deliveryStatus,
         private MessageMediaStorageService $mediaStorage,
         private AuditLogService $auditLog,
         private TransferConversationService $transferService
@@ -335,6 +337,7 @@ class ConversationController extends Controller
             'media_size_bytes' => $storedMedia['size_bytes'] ?? null,
             'media_width' => $storedMedia['width'] ?? null,
             'media_height' => $storedMedia['height'] ?? null,
+            'delivery_status' => 'pending',
             'meta' => [
                 'source' => 'manual',
                 'actor_user_id' => $user->id,
@@ -342,22 +345,26 @@ class ConversationController extends Controller
         ]);
 
         $sendOutbound = (bool) ($validated['send_outbound'] ?? true);
+        $sendResult = null;
         $wasSent = false;
         if ($sendOutbound) {
             if ($contentType === 'image') {
-                $wasSent = $this->whatsAppSend->sendImage(
+                $sendResult = $this->whatsAppSend->sendImage(
                     $conversation->company,
                     $conversation->customer_phone,
                     (string) ($message->media_url ?? ''),
                     $message->text
                 );
             } else {
-                $wasSent = $this->whatsAppSend->sendText(
+                $sendResult = $this->whatsAppSend->sendText(
                     $conversation->company,
                     $conversation->customer_phone,
                     (string) $message->text
                 );
             }
+
+            $wasSent = (bool) ($sendResult['ok'] ?? false);
+            $this->deliveryStatus->applySendResult($message, $sendResult, 'manual_reply');
         }
 
         $this->auditLog->record($request, 'company.conversation.manual_reply', $conversation->company_id, [
@@ -366,6 +373,7 @@ class ConversationController extends Controller
             'sent' => $wasSent,
         ]);
 
+        $message->refresh();
         $conversation->load(['assignedUser:id,name,email', 'currentArea:id,name']);
         $this->normalizeConversationAssignmentRelations($conversation);
 

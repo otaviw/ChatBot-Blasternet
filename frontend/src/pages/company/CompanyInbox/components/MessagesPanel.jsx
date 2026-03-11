@@ -1,3 +1,20 @@
+const OUTBOUND_STATUS_LABELS = {
+  pending: 'Pendente',
+  sent: 'Enviada',
+  delivered: 'Entregue',
+  read: 'Lida',
+  failed: 'Falhou',
+};
+
+function normalizeOutboundStatus(message) {
+  const raw = String(message?.delivery_status ?? '').trim().toLowerCase();
+  if (raw && OUTBOUND_STATUS_LABELS[raw]) {
+    return raw;
+  }
+
+  return null;
+}
+
 function MessagesPanel({
   detail,
   messagesPagination,
@@ -43,28 +60,37 @@ function MessagesPanel({
         ) : messagesPagination && Number(messagesPagination.current_page ?? 1) > 1 ? (
           <li className="inbox-chat-loader">Role para cima para carregar mensagens anteriores.</li>
         ) : null}
-        {(detail.messages ?? []).map((msg) => (
-          <li
-            key={msg.id}
-            className={`inbox-message-bubble inbox-message-${msg.direction === 'in' ? 'in' : 'out'}`}
-          >
-            <span className="inbox-message-label">{msg.direction === 'in' ? 'Cliente' : 'Atendente/Bot'}</span>
-            {msg.content_type === 'image' ? (
-              <div className="company-inbox-message-media">
-                <a href={getMessageImageUrl(msg)} target="_blank" rel="noreferrer">
-                  <img
-                    src={getMessageImageUrl(msg)}
-                    alt="Imagem enviada na conversa"
-                    className="company-inbox-message-image"
-                  />
-                </a>
-                {msg.text ? <p className="company-inbox-message-caption">{msg.text}</p> : null}
-              </div>
-            ) : (
-              <span className="inbox-message-text">{msg.text}</span>
-            )}
-          </li>
-        ))}
+        {(detail.messages ?? []).map((msg) => {
+          const outboundStatus = msg.direction === 'out' ? normalizeOutboundStatus(msg) : null;
+
+          return (
+            <li
+              key={msg.id}
+              className={`inbox-message-bubble inbox-message-${msg.direction === 'in' ? 'in' : 'out'}`}
+            >
+              <span className="inbox-message-label">{msg.direction === 'in' ? 'Cliente' : 'Atendente/Bot'}</span>
+              {msg.content_type === 'image' ? (
+                <div className="company-inbox-message-media">
+                  <a href={getMessageImageUrl(msg)} target="_blank" rel="noreferrer">
+                    <img
+                      src={getMessageImageUrl(msg)}
+                      alt="Imagem enviada na conversa"
+                      className="company-inbox-message-image"
+                    />
+                  </a>
+                  {msg.text ? <p className="company-inbox-message-caption">{msg.text}</p> : null}
+                </div>
+              ) : (
+                <span className="inbox-message-text">{msg.text}</span>
+              )}
+              {outboundStatus ? (
+                <span className={`inbox-message-status inbox-message-status-${outboundStatus}`}>
+                  {OUTBOUND_STATUS_LABELS[outboundStatus]}
+                </span>
+              ) : null}
+            </li>
+          );
+        })}
       </ul>
     </>
   );

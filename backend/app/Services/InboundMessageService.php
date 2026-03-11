@@ -17,7 +17,8 @@ class InboundMessageService
         private BotReplyService $botReply,
         private WhatsAppSendService $whatsAppSend,
         private StatefulBotService $statefulBot,
-        private MessageMediaStorageService $mediaStorage
+        private MessageMediaStorageService $mediaStorage,
+        private MessageDeliveryStatusService $deliveryStatus
     ) {}
 
     public function handleIncomingText(
@@ -133,6 +134,7 @@ class InboundMessageService
                 'type' => 'bot',
                 'content_type' => 'text',
                 'text' => $reply,
+                'delivery_status' => 'pending',
                 'meta' => $outMeta,
             ]);
 
@@ -147,9 +149,15 @@ class InboundMessageService
             return [$outMessage, $lockedConversation];
         });
 
-        $wasSent = $sendOutbound
+        $sendResult = $sendOutbound
             ? $this->whatsAppSend->sendText($company, $from, $reply)
-            : false;
+            : null;
+        $wasSent = (bool) ($sendResult['ok'] ?? false);
+
+        if ($sendResult !== null) {
+            $this->deliveryStatus->applySendResult($outMessage, $sendResult, 'bot_auto_reply');
+            $outMessage->refresh();
+        }
 
         if ($sendOutbound && ! $wasSent) {
             Log::warning('Falha ao enviar resposta automatica para WhatsApp.', [

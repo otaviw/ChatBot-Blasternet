@@ -12,8 +12,16 @@ class WhatsAppSendService
     /**
      * Envia texto para um numero WhatsApp.
      * Prioriza credenciais da company e usa env como fallback single-tenant.
+     *
+     * @return array{
+     *     ok:bool,
+     *     whatsapp_message_id:?string,
+     *     status:'sent'|'failed',
+     *     error:mixed,
+     *     response:array<mixed>|null
+     * }
      */
-    public function sendText(?Company $company, string $toPhone, string $text): bool
+    public function sendText(?Company $company, string $toPhone, string $text): array
     {
         $phoneNumberId = $this->resolvePhoneNumberId($company);
         $accessToken = $this->resolveAccessToken($company);
@@ -25,7 +33,7 @@ class WhatsAppSendService
                 'to_original' => $toPhone,
             ]);
 
-            return false;
+            return $this->failedResult('destinatario_invalido');
         }
 
         if ($phoneNumberId === '' || $accessToken === '') {
@@ -36,7 +44,9 @@ class WhatsAppSendService
                 'text' => $text,
             ]);
 
-            return true;
+            return $this->successResult(null, [
+                'simulated' => true,
+            ]);
         }
 
         $url = $this->messagesUrl($phoneNumberId);
@@ -56,20 +66,34 @@ class WhatsAppSendService
             ->post($url, $body);
 
         $this->logResponseDiagnostics('text', $response);
+        $responseJson = $this->responseJson($response);
+        $graphMessageId = $this->normalizeGraphMessageId($response->json('messages.0.id'));
 
         if (! $response->successful()) {
             Log::warning('WhatsApp API erro ao enviar.', [
                 'status' => $response->status(),
-                'body' => $response->json(),
+                'body' => $responseJson,
             ]);
 
-            return false;
+            return $this->failedResult(
+                $response->json('error') ?? $responseJson ?? $response->body(),
+                $responseJson
+            );
         }
 
-        return true;
+        return $this->successResult($graphMessageId, $responseJson);
     }
 
-    public function sendImage(?Company $company, string $toPhone, string $imageUrl, ?string $caption = null): bool
+    /**
+     * @return array{
+     *     ok:bool,
+     *     whatsapp_message_id:?string,
+     *     status:'sent'|'failed',
+     *     error:mixed,
+     *     response:array<mixed>|null
+     * }
+     */
+    public function sendImage(?Company $company, string $toPhone, string $imageUrl, ?string $caption = null): array
     {
         $phoneNumberId = $this->resolvePhoneNumberId($company);
         $accessToken = $this->resolveAccessToken($company);
@@ -84,7 +108,7 @@ class WhatsAppSendService
                 'to' => $toPhone,
             ]);
 
-            return false;
+            return $this->failedResult('imagem_url_vazia');
         }
 
         if ($normalizedTo === '') {
@@ -93,7 +117,7 @@ class WhatsAppSendService
                 'to_original' => $toPhone,
             ]);
 
-            return false;
+            return $this->failedResult('destinatario_invalido');
         }
 
         if ($phoneNumberId === '' || $accessToken === '') {
@@ -105,7 +129,9 @@ class WhatsAppSendService
                 'caption' => $caption,
             ]);
 
-            return true;
+            return $this->successResult(null, [
+                'simulated' => true,
+            ]);
         }
 
         $url = $this->messagesUrl($phoneNumberId);
@@ -130,17 +156,22 @@ class WhatsAppSendService
             ->post($url, $body);
 
         $this->logResponseDiagnostics('image', $response);
+        $responseJson = $this->responseJson($response);
+        $graphMessageId = $this->normalizeGraphMessageId($response->json('messages.0.id'));
 
         if (! $response->successful()) {
             Log::warning('WhatsApp API erro ao enviar imagem.', [
                 'status' => $response->status(),
-                'body' => $response->json(),
+                'body' => $responseJson,
             ]);
 
-            return false;
+            return $this->failedResult(
+                $response->json('error') ?? $responseJson ?? $response->body(),
+                $responseJson
+            );
         }
 
-        return true;
+        return $this->successResult($graphMessageId, $responseJson);
     }
 
     /**
@@ -274,5 +305,64 @@ class WhatsAppSendService
         }
 
         Log::warning('WhatsApp API response diagnostico com erro.', $payload);
+    }
+
+    /**
+     * @return array<mixed>|null
+     */
+    private function responseJson(Response $response): ?array
+    {
+        $json = $response->json();
+
+        return is_array($json) ? $json : null;
+    }
+
+    private function normalizeGraphMessageId(mixed $value): ?string
+    {
+        $id = trim((string) $value);
+
+        return $id !== '' ? $id : null;
+    }
+
+    /**
+     * @param  array<mixed>|null  $response
+     * @return array{
+     *     ok:bool,
+     *     whatsapp_message_id:?string,
+     *     status:'sent'|'failed',
+     *     error:mixed,
+     *     response:array<mixed>|null
+     * }
+     */
+    private function successResult(?string $whatsappMessageId, ?array $response = null): array
+    {
+        return [
+            'ok' => true,
+            'whatsapp_message_id' => $whatsappMessageId,
+            'status' => 'sent',
+            'error' => null,
+            'response' => $response,
+        ];
+    }
+
+    /**
+     * @param  array<mixed>|null  $response
+     * @return array{
+     *     ok:bool,
+     *     whatsapp_message_id:?string,
+     *     status:'sent'|'failed',
+     *     error:mixed,
+     *     response:array<mixed>|null
+     * }
+     */
+    private function failedResult(mixed $error, ?array $response = null): array
+    {
+        return [
+            'ok' => false,
+            'whatsapp_message_id' => null,
+            'status' => 'failed',
+            'error' => $error,
+            'response' => $response,
+        ];
     }
 }

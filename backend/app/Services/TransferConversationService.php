@@ -13,7 +13,8 @@ use Illuminate\Validation\ValidationException;
 class TransferConversationService
 {
     public function __construct(
-        private WhatsAppSendService $whatsAppSend
+        private WhatsAppSendService $whatsAppSend,
+        private MessageDeliveryStatusService $deliveryStatus
     ) {}
 
     public function transfer(
@@ -90,6 +91,7 @@ class TransferConversationService
                 'direction' => 'out',
                 'type' => 'system',
                 'text' => $text,
+                'delivery_status' => 'pending',
                 'meta' => [
                     'source' => 'transfer',
                     'from_assigned_type' => $fromAssignedType,
@@ -100,9 +102,14 @@ class TransferConversationService
                 ],
             ]);
 
-            $wasSent = $sendOutbound
+            $sendResult = $sendOutbound
                 ? $this->whatsAppSend->sendText($lockedConversation->company, $lockedConversation->customer_phone, $text)
-                : false;
+                : null;
+            $wasSent = (bool) ($sendResult['ok'] ?? false);
+
+            if ($sendResult !== null) {
+                $this->deliveryStatus->applySendResult($message, $sendResult, 'conversation_transfer');
+            }
 
             $meta = $message->meta ?? [];
             $meta['send_outbound'] = $sendOutbound;

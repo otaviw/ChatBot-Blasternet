@@ -63,6 +63,12 @@ class MessageObserver implements ShouldHandleEventsAfterCommit
                 'mediaSizeBytes' => $message->media_size_bytes !== null ? (int) $message->media_size_bytes : null,
                 'mediaWidth' => $message->media_width !== null ? (int) $message->media_width : null,
                 'mediaHeight' => $message->media_height !== null ? (int) $message->media_height : null,
+                'whatsappMessageId' => $message->whatsapp_message_id,
+                'deliveryStatus' => (string) ($message->delivery_status ?: 'pending'),
+                'sentAt' => $message->sent_at?->toISOString(),
+                'deliveredAt' => $message->delivered_at?->toISOString(),
+                'readAt' => $message->read_at?->toISOString(),
+                'failedAt' => $message->failed_at?->toISOString(),
                 'createdAt' => $message->created_at?->toISOString(),
                 'conversation' => $this->serializeConversation(
                     $conversation,
@@ -72,6 +78,48 @@ class MessageObserver implements ShouldHandleEventsAfterCommit
             ],
             [
                 'actorId' => isset($meta['actor_user_id']) ? (int) $meta['actor_user_id'] : null,
+            ]
+        );
+    }
+
+    public function updated(Message $message): void
+    {
+        if (! $message->wasChanged([
+            'delivery_status',
+            'whatsapp_message_id',
+            'sent_at',
+            'delivered_at',
+            'read_at',
+            'failed_at',
+            'status_error',
+            'status_meta',
+        ])) {
+            return;
+        }
+
+        $conversation = Conversation::query()
+            ->whereKey($message->conversation_id)
+            ->first(['id', 'company_id']);
+
+        if (! $conversation || ! $conversation->company_id) {
+            return;
+        }
+
+        $this->publisher->publish(
+            'message.status.updated',
+            [
+                "company:{$conversation->company_id}",
+                "conversation:{$message->conversation_id}",
+            ],
+            [
+                'conversation_id' => (int) $message->conversation_id,
+                'message_id' => (int) $message->id,
+                'whatsapp_message_id' => $message->whatsapp_message_id,
+                'delivery_status' => (string) ($message->delivery_status ?: 'pending'),
+                'sent_at' => $message->sent_at?->toISOString(),
+                'delivered_at' => $message->delivered_at?->toISOString(),
+                'read_at' => $message->read_at?->toISOString(),
+                'failed_at' => $message->failed_at?->toISOString(),
             ]
         );
     }
