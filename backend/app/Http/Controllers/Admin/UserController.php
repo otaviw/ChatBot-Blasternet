@@ -187,6 +187,36 @@ class UserController extends Controller
         ]);
     }
 
+    public function destroy(Request $request, User $user): JsonResponse
+    {
+        $actor = $request->user();
+        if (! $actor || ! $actor->isSystemAdmin()) {
+            return response()->json([
+                'authenticated' => false,
+                'redirect' => '/entrar',
+            ], 403);
+        }
+
+        if ((int) $actor->id === (int) $user->id) {
+            return response()->json([
+                'message' => 'Você não pode excluir o próprio usuário.',
+            ], 422);
+        }
+
+        $companyId = $user->company_id ? (int) $user->company_id : null;
+
+        $userId = $user->id;
+        $user->delete();
+
+        $this->auditLog->record($request, 'admin.user.deleted', $companyId, [
+            'target_user_id' => $userId,
+        ]);
+
+        return response()->json([
+            'ok' => true,
+        ]);
+    }
+
     /**
      * @param  mixed  $rawCompanyId
      */

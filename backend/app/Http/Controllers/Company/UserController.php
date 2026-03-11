@@ -190,6 +190,47 @@ class UserController extends Controller
         ]);
     }
 
+    public function destroy(Request $request, User $user): JsonResponse
+    {
+        $actor = $request->user();
+        if (! $actor) {
+            return response()->json([
+                'authenticated' => false,
+                'redirect' => '/entrar',
+            ], 403);
+        }
+        if (! $actor->isCompanyAdmin()) {
+            return response()->json([
+                'authenticated' => true,
+                'message' => 'Somente admin da empresa pode gerenciar usuários.',
+            ], 403);
+        }
+
+        $companyId = (int) $actor->company_id;
+        if ((int) $user->company_id !== $companyId || ! in_array($user->role, User::companyRoleValues(), true)) {
+            return response()->json([
+                'message' => 'Usuario nao pertence a empresa.',
+            ], 404);
+        }
+
+        if ((int) $actor->id === (int) $user->id) {
+            return response()->json([
+                'message' => 'Você não pode excluir o próprio usuário.',
+            ], 422);
+        }
+
+        $userId = $user->id;
+        $user->delete();
+
+        $this->auditLog->record($request, 'company.user.deleted', $companyId, [
+            'user_id' => $userId,
+        ]);
+
+        return response()->json([
+            'ok' => true,
+        ]);
+    }
+
     /**
      * @param  array<string, mixed>  $validated
      * @return array<int, int>

@@ -116,10 +116,10 @@ function AdminCompaniesPage() {
       ) : (
         <ul className="rounded-xl border border-[#eeeeee] overflow-hidden bg-white divide-y divide-[#eeeeee]">
           {companies.map((company) => (
-            <li key={company.id}>
+            <li key={company.id} className="px-5 py-4 flex items-center justify-between gap-3 hover:bg-[#fafafa] transition">
               <a
                 href={`/admin/empresas/${company.id}`}
-                className="block px-5 py-4 transition hover:bg-[#fafafa]"
+                className="flex-1 min-w-0"
               >
                 <span className="font-medium text-[#171717]">{company.name}</span>
                 <span className="text-sm text-[#737373] ml-2">
@@ -129,6 +129,24 @@ function AdminCompaniesPage() {
                   · bot {company.bot_setting ? 'configurado' : 'padrão'}
                 </span>
               </a>
+              <button
+                type="button"
+                className="app-btn-danger text-xs px-3 py-1.5"
+                onClick={async () => {
+                  if (!window.confirm(`Tem certeza que deseja excluir a empresa "${company.name}"?`)) {
+                    return;
+                  }
+                  try {
+                    await api.delete(`/admin/empresas/${company.id}`);
+                    setCompanies((prev) => prev.filter((c) => c.id !== company.id));
+                  } catch (err) {
+                    // mensagem simples para não quebrar UX
+                    alert(err.response?.data?.message || 'Falha ao excluir empresa.');
+                  }
+                }}
+              >
+                Excluir
+              </button>
             </li>
           ))}
         </ul>

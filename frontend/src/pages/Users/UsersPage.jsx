@@ -275,6 +275,19 @@ export default function UsersPage({ scope = "company" }) {
     }
   }
 
+  async function handleDelete(userId) {
+    if (!userId) return;
+    if (!window.confirm("Tem certeza que deseja excluir este usuário?")) return;
+
+    try {
+      await api.delete(`${usersEndpoint}/${userId}`);
+      await refreshUsers();
+    } catch (err) {
+      // Reuso simples da mensagem principal de erro
+      alert(err.response?.data?.message || "Falha ao excluir usuário.");
+    }
+  }
+
   const loadingAny = loading || extraLoading;
   const pageError = error || extraError;
   const pageErrorMessage = pageError?.response?.data?.message || "Não foi possível carregar usuários.";
@@ -373,6 +386,7 @@ export default function UsersPage({ scope = "company" }) {
             users={users}
             roleLabel={roleLabel}
             onEdit={beginEdit}
+            onDelete={handleDelete}
             showCompany={isAdminScope}
           />
 

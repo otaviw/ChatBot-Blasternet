@@ -95,10 +95,13 @@ Route::middleware('web')->group(function () {
             Route::put('/empresas/{company}', [CompanyController::class, 'update'])->middleware('throttle:bot-write');
             Route::put('/empresas/{company}/bot', [CompanyController::class, 'updateBotSettings'])
                 ->middleware('throttle:bot-write');
+            Route::delete('/empresas/{company}', [CompanyController::class, 'destroy'])
+                ->middleware('throttle:bot-write');
 
             Route::get('/users', [AdminUserController::class, 'index'])->middleware('throttle:inbox-read');
             Route::post('/users', [AdminUserController::class, 'store'])->middleware('throttle:bot-write');
             Route::put('/users/{user}', [AdminUserController::class, 'update'])->middleware('throttle:bot-write');
+            Route::delete('/users/{user}', [AdminUserController::class, 'destroy'])->middleware('throttle:bot-write');
 
             Route::get('/conversas', [AdminConversationController::class, 'index'])
                 ->middleware('throttle:inbox-read');
@@ -164,6 +167,7 @@ Route::middleware('web')->group(function () {
             Route::get('/users', [CompanyUserController::class, 'index'])->middleware('throttle:inbox-read');
             Route::post('/users', [CompanyUserController::class, 'store'])->middleware('throttle:bot-write');
             Route::put('/users/{user}', [CompanyUserController::class, 'update'])->middleware('throttle:bot-write');
+            Route::delete('/users/{user}', [CompanyUserController::class, 'destroy'])->middleware('throttle:bot-write');
         });
 
         Route::post('/simular/mensagem', [SimulatedMessageController::class, 'store'])

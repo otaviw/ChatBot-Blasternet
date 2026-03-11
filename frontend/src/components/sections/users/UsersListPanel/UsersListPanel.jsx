@@ -1,7 +1,7 @@
 import './UsersListPanel.css';
 import Button from '@/components/ui/Button/Button.jsx';
 
-function UsersListPanel({ users, roleLabel, onEdit, showCompany = false }) {
+function UsersListPanel({ users, roleLabel, onEdit, onDelete, showCompany = false }) {
   if (!users.length) {
     return <p className="text-sm text-[#64748b]">Nenhum usuário cadastrado.</p>;
   }
@@ -25,9 +25,21 @@ function UsersListPanel({ users, roleLabel, onEdit, showCompany = false }) {
                 {Array.isArray(user.areas) && user.areas.length ? user.areas.join(', ') : '-'}
               </p>
             </div>
-            <Button type="button" variant="secondary" className="px-3 py-1.5" onClick={() => onEdit(user)}>
-              Editar
-            </Button>
+            <div className="flex flex-col items-end gap-1 flex-shrink-0">
+              <Button type="button" variant="secondary" className="px-3 py-1.5" onClick={() => onEdit(user)}>
+                Editar
+              </Button>
+              {onDelete ? (
+                <Button
+                  type="button"
+                  variant="danger"
+                  className="px-3 py-1 text-xs"
+                  onClick={() => onDelete(user.id)}
+                >
+                  Excluir
+                </Button>
+              ) : null}
+            </div>
           </div>
         </li>
       ))}

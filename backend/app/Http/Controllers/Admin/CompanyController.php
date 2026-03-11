@@ -234,6 +234,35 @@ class CompanyController extends Controller
         ]);
     }
 
+    public function destroy(Request $request, Company $company): JsonResponse
+    {
+        $user = $request->user();
+        if (! $user || ! $user->isAdmin()) {
+            return response()->json([
+                'authenticated' => false,
+                'redirect' => '/entrar',
+            ], 403);
+        }
+
+        $companyId = $company->id;
+        $companyName = $company->name;
+
+        $company->delete();
+
+        $this->auditLog->record(
+            $request,
+            'admin.company.deleted',
+            $companyId,
+            [
+                'name' => $companyName,
+            ]
+        );
+
+        return response()->json([
+            'ok' => true,
+        ]);
+    }
+
     /**
      * @param  array<string, mixed>  $validated
      */
