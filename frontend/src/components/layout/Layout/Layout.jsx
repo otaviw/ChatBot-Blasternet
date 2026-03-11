@@ -104,8 +104,10 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
   const currentPath = window.location.pathname;
   const [canManageUsers, setCanManageUsers] = useState(false);
   const [sidebarHovered, setSidebarHovered] = useState(false);
+  const [sidebarMobileOpen, setSidebarMobileOpen] = useState(false);
   const [supportAccordionOpen, setSupportAccordionOpen] = useState(false);
   const [notificationsPanelOpen, setNotificationsPanelOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileEditName, setProfileEditName] = useState(false);
   const [profileName, setProfileName] = useState('');
@@ -305,6 +307,13 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
     if (isAnySupportActive()) setSupportAccordionOpen(true);
   }, [currentPath, role]);
 
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth <= 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
   const unreadCountForLink = (item) => {
     if (!item?.module) return 0;
     if (item.module === NOTIFICATION_MODULE.CENTER) return Number(totalUnread ?? 0);
@@ -341,9 +350,12 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
     return () => clearTimeout(timer);
   }, [notifications, notificationsLoading, notificationsPanelOpen]);
 
+  const openSidebarMobile = () => setSidebarMobileOpen(true);
+  const closeSidebarMobile = () => setSidebarMobileOpen(false);
+
   return (
     <div className="min-h-screen relative text-[#171717] layout-wrapper">
-      {hasSidebar && (
+      {hasSidebar && !isMobile && (
         <aside
           className={`layout-sidebar ${sidebarHovered ? 'layout-sidebar--expanded' : ''}`}
           onMouseEnter={() => setSidebarHovered(true)}
@@ -416,21 +428,132 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
         </aside>
       )}
 
+      {hasSidebar && isMobile && (
+        <>
+          {sidebarMobileOpen && (
+            <div
+              className="layout-sidebar__backdrop"
+              onClick={closeSidebarMobile}
+              aria-hidden
+            />
+          )}
+          <aside
+            className={`layout-sidebar layout-sidebar--mobile ${sidebarMobileOpen ? 'layout-sidebar--mobile-open' : ''}`}
+          >
+            <div className="layout-sidebar__mobile-header">
+              <span className="layout-sidebar__mobile-title">Menu</span>
+              <button
+                type="button"
+                className="layout-sidebar__mobile-close"
+                onClick={closeSidebarMobile}
+                title="Fechar menu"
+                aria-label="Fechar menu"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <nav className="layout-sidebar__nav">
+              {mainLinks.map((item) => {
+                const unreadCount = unreadCountForLink(item);
+                return (
+                  <a
+                    key={item.href}
+                    href={item.href}
+                    className={`layout-sidebar__link ${isActive(item.href) ? 'layout-sidebar__link--active' : ''}`}
+                    title={item.label}
+                    onClick={closeSidebarMobile}
+                  >
+                    <span className="layout-sidebar__icon">{ICONS[iconKey(item.label)]}</span>
+                    <span className="layout-sidebar__label">{item.label}</span>
+                    {unreadCount > 0 && (
+                      <span className="layout-sidebar__badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+                    )}
+                  </a>
+                );
+              })}
+              {supportLinks.length > 0 && (
+                <div className="layout-sidebar__accordion">
+                  <button
+                    type="button"
+                    className={`layout-sidebar__accordion-trigger ${supportAccordionOpen || isAnySupportActive() ? 'layout-sidebar__accordion-trigger--active' : ''}`}
+                    onClick={() => setSupportAccordionOpen((v) => !v)}
+                    title="Suporte"
+                  >
+                    <span className="layout-sidebar__icon">{ICONS.suporte}</span>
+                    <span className="layout-sidebar__label">Suporte</span>
+                    {(() => {
+                      const total = supportLinks.reduce((sum, i) => sum + unreadCountForLink(i), 0);
+                      return total > 0 ? (
+                        <span className="layout-sidebar__badge">{total > 99 ? '99+' : total}</span>
+                      ) : null;
+                    })()}
+                    <span className={`layout-sidebar__accordion-chevron ${supportAccordionOpen ? 'layout-sidebar__accordion-chevron--open' : ''}`}>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg>
+                    </span>
+                  </button>
+                  <div className={`layout-sidebar__accordion-content ${supportAccordionOpen ? 'layout-sidebar__accordion-content--open' : ''}`}>
+                    <div>
+                      {supportLinks.map((item) => {
+                        const unreadCount = unreadCountForLink(item);
+                        return (
+                          <a
+                            key={item.href}
+                            href={item.href}
+                            className={`layout-sidebar__link layout-sidebar__link--nested ${isActive(item.href) ? 'layout-sidebar__link--active' : ''}`}
+                            title={item.label}
+                            onClick={closeSidebarMobile}
+                          >
+                            <span className="layout-sidebar__icon">{ICONS[iconKey(item.label)]}</span>
+                            <span className="layout-sidebar__label">{item.label}</span>
+                            {unreadCount > 0 && (
+                              <span className="layout-sidebar__badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+                            )}
+                          </a>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </nav>
+          </aside>
+        </>
+      )}
+
       <div className="layout-main">
         <header className="layout-header">
-          <a
-            href={isLogged ? '/dashboard' : '/entrar'}
-            className="layout-header__logo"
-          >
-            <span className="h-2 w-2 rounded-full bg-[#2563eb]" />
-            Blasternet ChatBot
-            {role === 'company' && companyName && (
-              <span className="hidden xl:inline text-[#737373] text-xs">/ {companyName}</span>
+          <div className="layout-header__left">
+            {hasSidebar && isMobile && (
+              <button
+                type="button"
+                className="layout-header__hamburger"
+                onClick={openSidebarMobile}
+                title="Abrir menu"
+                aria-label="Abrir menu"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
+                </svg>
+              </button>
             )}
-            {role === 'admin' && (
-              <span className="rounded-full bg-[#dbeafe] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#1d4ed8]">Admin</span>
-            )}
-          </a>
+            <a
+              href={isLogged ? '/dashboard' : '/entrar'}
+              className="layout-header__logo"
+            >
+              <span className="h-2 w-2 rounded-full bg-[#2563eb]" />
+              Blasternet ChatBot
+              {role === 'company' && companyName && (
+                <span className="hidden xl:inline text-[#737373] text-xs">/ {companyName}</span>
+              )}
+              {role === 'admin' && (
+                <span className="rounded-full bg-[#dbeafe] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#1d4ed8]">Admin</span>
+              )}
+            </a>
+          </div>
 
           {isLogged && (
             <div className="layout-header__actions">
