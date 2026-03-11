@@ -282,7 +282,15 @@ function InternalChatPage() {
     >
       <div className="internal-chat-page">
         <div className="internal-chat-header">
-          <h1 className="internal-chat-title">Chat interno</h1>
+          <div className="internal-chat-header-row">
+            <h1 className="internal-chat-title">Chat interno</h1>
+            <a
+              href={role === 'admin' ? '/admin/suporte' : '/suporte'}
+              className="app-btn-secondary internal-chat-support-link"
+            >
+              Suporte
+            </a>
+          </div>
         </div>
 
         <div className="internal-chat-layout">
