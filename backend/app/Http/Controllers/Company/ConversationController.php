@@ -298,6 +298,8 @@ class ConversationController extends Controller
             return response()->json([
                 'message' => 'Conversa destinada para outra área de atendimento.',
             ], 409);
+        } elseif ($conversation->assigned_type === 'area') {
+            $this->assignConversationToCurrentUser($conversation, $user, (int) ($conversation->assigned_id ?? 0));
         } elseif (in_array($conversation->assigned_type, ['bot', 'unassigned'], true)) {
             $this->assignConversationToCurrentUser($conversation, $user);
         }
@@ -618,9 +620,18 @@ class ConversationController extends Controller
         ]);
     }
 
-    private function assignConversationToCurrentUser(Conversation $conversation, User $user): void
+    private function assignConversationToCurrentUser(Conversation $conversation, User $user, ?int $preferredAreaId = null): void
     {
-        $firstArea = $user->areas()->orderBy('name')->first(['areas.id', 'areas.name']);
+        $areas = $user->areas()->get(['areas.id', 'areas.name']);
+        $firstArea = null;
+
+        if ($preferredAreaId && $preferredAreaId > 0) {
+            $firstArea = $areas->first(fn(Area $area) => (int) $area->id === $preferredAreaId);
+        }
+
+        if (! $firstArea) {
+            $firstArea = $areas->sortBy('name')->first();
+        }
 
         $conversation->handling_mode = 'human';
         $conversation->assigned_type = 'user';

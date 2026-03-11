@@ -22,7 +22,7 @@ const CANONICAL_ACTION_TEMPLATES = Object.freeze({
 // 1) enabled (default): canonical first + deprecated aliases as fallback.
 // 2) disabled: canonical only.
 const LEGACY_ENDPOINT_COMPAT_ENABLED = !new Set(['0', 'false', 'off', 'no']).has(
-  String(import.meta.env.VITE_INTERNAL_CHAT_ENABLE_LEGACY_ENDPOINTS ?? '1')
+  String(import.meta.env.VITE_INTERNAL_CHAT_ENABLE_LEGACY_ENDPOINTS ?? '0')
     .trim()
     .toLowerCase()
 );

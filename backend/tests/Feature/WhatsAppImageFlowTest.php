@@ -16,6 +16,15 @@ class WhatsAppImageFlowTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        if (! function_exists('imagecreatetruecolor')) {
+            $this->markTestSkipped('GD extension is not installed.');
+        }
+    }
+
     public function test_webhook_image_message_is_stored_with_media_reference(): void
     {
         Storage::fake('public');

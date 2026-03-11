@@ -8,6 +8,7 @@ use App\Models\ConversationTransfer;
 use App\Models\Message;
 use App\Models\SupportTicket;
 use App\Models\User;
+use App\Support\ConversationHandlingMode;
 
 class NotificationDispatchService
 {
@@ -38,7 +39,7 @@ class NotificationDispatchService
             return;
         }
 
-        if ((string) $conversation->handling_mode !== 'human') {
+        if (! ConversationHandlingMode::isHuman($conversation->handling_mode)) {
             return;
         }
 

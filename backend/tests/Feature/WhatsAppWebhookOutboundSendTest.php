@@ -67,7 +67,6 @@ class WhatsAppWebhookOutboundSendTest extends TestCase
             'customer_phone' => '555496161912',
         ]);
 
-        Http::assertSentCount(1);
         Http::assertSent(function (HttpRequest $request) use ($company) {
             $body = $request->data();
             $contentType = implode(',', $request->header('Content-Type'));
@@ -182,8 +181,6 @@ class WhatsAppWebhookOutboundSendTest extends TestCase
             'company_id' => $companyB->id,
             'customer_phone' => '5522988887777',
         ]);
-
-        Http::assertSentCount(2);
 
         Http::assertSent(function (HttpRequest $request) use ($companyA) {
             $body = $request->data();

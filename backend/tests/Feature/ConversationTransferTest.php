@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Area;
 use App\Models\Company;
 use App\Models\CompanyBotSetting;
 use App\Models\User;
@@ -19,6 +20,14 @@ class ConversationTransferTest extends TestCase
             'company_id' => $company->id,
             'service_areas' => ['Suporte', 'Financeiro'],
         ]);
+        $supportArea = Area::create([
+            'company_id' => $company->id,
+            'name' => 'Suporte',
+        ]);
+        $financeArea = Area::create([
+            'company_id' => $company->id,
+            'name' => 'Financeiro',
+        ]);
 
         $operatorA = User::create([
             'name' => 'Operador A',
@@ -27,7 +36,6 @@ class ConversationTransferTest extends TestCase
             'role' => 'company',
             'company_id' => $company->id,
             'is_active' => true,
-            'areas' => ['Suporte'],
         ]);
 
         $operatorB = User::create([
@@ -37,8 +45,9 @@ class ConversationTransferTest extends TestCase
             'role' => 'company',
             'company_id' => $company->id,
             'is_active' => true,
-            'areas' => ['Suporte'],
         ]);
+        $operatorA->areas()->attach($supportArea->id);
+        $operatorB->areas()->attach($supportArea->id);
 
         $firstMessage = $this->actingAs($operatorA)->postJson('/api/simular/mensagem', [
             'company_id' => $company->id,
@@ -57,23 +66,24 @@ class ConversationTransferTest extends TestCase
 
         $transfer->assertOk();
         $transfer->assertJsonPath('ok', true);
-        $transfer->assertJsonPath('conversation.handling_mode', 'manual');
+        $transfer->assertJsonPath('conversation.handling_mode', 'human');
         $transfer->assertJsonPath('conversation.assigned_user_id', $operatorB->id);
         $transfer->assertJsonPath('conversation.assigned_area', 'Suporte');
-        $transfer->assertJsonPath('conversation.transfer_history.0.to_user_id', $operatorB->id);
-        $transfer->assertJsonPath('conversation.transfer_history.0.to_area', 'Suporte');
+        $transfer->assertJsonPath('transfer_history.0.to_assigned_type', 'user');
+        $transfer->assertJsonPath('transfer_history.0.to_assigned_id', $operatorB->id);
+        $transfer->assertJsonPath('transfer_history.0.to_user.id', $operatorB->id);
 
         $this->assertDatabaseHas('conversation_transfers', [
             'conversation_id' => $conversationId,
             'transferred_by_user_id' => $operatorA->id,
-            'to_user_id' => $operatorB->id,
-            'to_area' => 'Suporte',
+            'to_assigned_type' => 'user',
+            'to_assigned_id' => $operatorB->id,
         ]);
 
         $this->assertDatabaseHas('messages', [
             'conversation_id' => $conversationId,
             'direction' => 'out',
-            'text' => 'Sua conversa foi transferida para Operador B (Suporte). Vamos dar continuidade ao atendimento.',
+            'text' => 'Conversa transferida para Operador B',
         ]);
     }
 
@@ -84,6 +94,14 @@ class ConversationTransferTest extends TestCase
             'company_id' => $company->id,
             'service_areas' => ['Suporte', 'Financeiro'],
         ]);
+        $supportArea = Area::create([
+            'company_id' => $company->id,
+            'name' => 'Suporte',
+        ]);
+        $financeArea = Area::create([
+            'company_id' => $company->id,
+            'name' => 'Financeiro',
+        ]);
 
         $supportUser = User::create([
             'name' => 'Atendente Suporte',
@@ -92,7 +110,6 @@ class ConversationTransferTest extends TestCase
             'role' => 'company',
             'company_id' => $company->id,
             'is_active' => true,
-            'areas' => ['Suporte'],
         ]);
 
         $financeUser = User::create([
@@ -102,8 +119,9 @@ class ConversationTransferTest extends TestCase
             'role' => 'company',
             'company_id' => $company->id,
             'is_active' => true,
-            'areas' => ['Financeiro'],
         ]);
+        $supportUser->areas()->attach($supportArea->id);
+        $financeUser->areas()->attach($financeArea->id);
 
         $firstMessage = $this->actingAs($supportUser)->postJson('/api/simular/mensagem', [
             'company_id' => $company->id,
@@ -138,4 +156,3 @@ class ConversationTransferTest extends TestCase
         $validReply->assertJsonPath('conversation.assigned_area', 'Financeiro');
     }
 }
-

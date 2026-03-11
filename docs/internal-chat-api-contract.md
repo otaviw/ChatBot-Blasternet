@@ -6,7 +6,7 @@ This document defines the canonical API contract for Internal Chat used by `fron
 ## Contract Version
 - Version: `v1-canonical`
 - Frontend compatibility flag: `VITE_INTERNAL_CHAT_ENABLE_LEGACY_ENDPOINTS`
-- Default behavior: `enabled` (`1`) to keep production safe during migration.
+- Default behavior: `disabled` (`0`) to enforce canonical endpoints by default.
 
 ## Role Prefix Rules
 Canonical route templates are expanded by role prefixes in this priority order:
@@ -200,11 +200,10 @@ When `VITE_INTERNAL_CHAT_ENABLE_LEGACY_ENDPOINTS=1`, the frontend tries canonica
 | listRecipients | `/chat/users` | `/chat/usuarios`, `/chat/recipients`, `/chat/destinatarios`, role fallbacks `/admin/users`, `/minha-conta/users` |
 
 ## Safe Migration Plan (Phased)
-1. Phase A (current): Keep `VITE_INTERNAL_CHAT_ENABLE_LEGACY_ENDPOINTS=1` in production. Backend should expose canonical routes and still answer aliases.
-2. Phase B: Monitor logs/metrics for alias usage. Track calls that still hit deprecated routes.
-3. Phase C: In staging, set `VITE_INTERNAL_CHAT_ENABLE_LEGACY_ENDPOINTS=0` and validate all chat flows.
-4. Phase D: Enable `VITE_INTERNAL_CHAT_ENABLE_LEGACY_ENDPOINTS=0` in production after alias usage reaches zero.
-5. Phase E: Remove deprecated aliases from frontend service and backend.
+1. Phase A (current): Keep `VITE_INTERNAL_CHAT_ENABLE_LEGACY_ENDPOINTS=0` in production and use canonical contract only.
+2. Phase B: If rollback is needed, temporarily set `VITE_INTERNAL_CHAT_ENABLE_LEGACY_ENDPOINTS=1` while fixing backend parity.
+3. Phase C: Monitor logs/metrics for alias usage and keep it at zero.
+4. Phase D: Remove deprecated aliases from frontend service and backend.
 
 ## Notes for Backend + Frontend Teams
 - Backend should prioritize canonical response keys (`conversation`, `conversations`, `message`, `messages`, `users`, `pagination`) even while returning compatibility aliases.

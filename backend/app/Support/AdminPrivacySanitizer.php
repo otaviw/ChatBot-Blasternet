@@ -21,7 +21,7 @@ class AdminPrivacySanitizer
             'customer_name' => $conversation->customer_name,
             'customer_phone_masked' => self::maskPhone((string) $conversation->customer_phone),
             'status' => $conversation->status,
-            'handling_mode' => $conversation->handling_mode,
+            'handling_mode' => ConversationHandlingMode::normalize((string) $conversation->handling_mode),
             'assigned_type' => $conversation->assigned_type,
             'messages_count' => (int) ($conversation->messages_count ?? 0),
             'tags_count' => count($tags),

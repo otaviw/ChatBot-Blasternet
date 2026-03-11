@@ -1,5 +1,5 @@
 import './AdminCompaniesPage.css';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Layout from '@/components/layout/Layout/Layout.jsx';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
@@ -15,6 +15,11 @@ function AdminCompaniesPage() {
   const [createBusy, setCreateBusy] = useState(false);
   const [createError, setCreateError] = useState('');
   const [createSuccess, setCreateSuccess] = useState('');
+  const [companies, setCompanies] = useState([]);
+
+  useEffect(() => {
+    setCompanies(Array.isArray(data?.companies) ? data.companies : []);
+  }, [data]);
 
   const handleCreateCompany = async (event) => {
     event.preventDefault();
@@ -31,7 +36,13 @@ function AdminCompaniesPage() {
       const created = response.data?.company;
       setCreateSuccess(`Empresa criada: ${created?.name ?? payload.name}`);
       setNewCompany({ name: '', meta_phone_number_id: '' });
-      setTimeout(() => window.location.reload(), 400);
+      if (created?.id) {
+        setCompanies((previous) =>
+          [...previous, { ...created, conversations_count: 0, bot_setting: null }].sort((left, right) =>
+            String(left?.name ?? '').localeCompare(String(right?.name ?? ''), 'pt-BR')
+          )
+        );
+      }
     } catch (err) {
       setCreateError(err.response?.data?.message || 'Falha ao criar empresa.');
     } finally {
@@ -54,8 +65,6 @@ function AdminCompaniesPage() {
       </Layout>
     );
   }
-
-  const companies = data.companies ?? [];
 
   return (
     <Layout role="admin" onLogout={logout}>

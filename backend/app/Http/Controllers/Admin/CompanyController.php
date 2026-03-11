@@ -9,6 +9,7 @@ use App\Models\CompanyBotSetting;
 use App\Models\Message;
 use App\Models\User;
 use App\Services\AuditLogService;
+use App\Support\ConversationHandlingMode;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -400,9 +401,12 @@ class CompanyController extends Controller
 
         $byMode = $company->conversations()
             ->where('status', 'closed')
-            ->selectRaw('handling_mode, count(*) as total')
-            ->groupBy('handling_mode')
-            ->pluck('total', 'handling_mode');
+            ->selectRaw(
+                'CASE WHEN handling_mode = ? THEN ? ELSE handling_mode END as normalized_mode, count(*) as total',
+                [ConversationHandlingMode::LEGACY_MANUAL, ConversationHandlingMode::HUMAN]
+            )
+            ->groupBy('normalized_mode')
+            ->pluck('total', 'normalized_mode');
 
         $byDay = $company->conversations()
             ->selectRaw('DATE(created_at) as day, count(*) as total')

@@ -55,7 +55,7 @@ class TransferConversationService
                 ]);
             }
 
-            [$targetEntity, $targetLabel, $currentAreaId] = $this->resolveTarget(
+            [$targetEntity, $targetLabel, $currentAreaId, $assignedUserId, $assignedArea] = $this->resolveTarget(
                 (int) $lockedConversation->company_id,
                 $normalizedType,
                 $targetId
@@ -68,6 +68,9 @@ class TransferConversationService
             $lockedConversation->assigned_id = $targetId;
             $lockedConversation->handling_mode = 'human';
             $lockedConversation->current_area_id = $currentAreaId;
+            $lockedConversation->assigned_user_id = $assignedUserId;
+            $lockedConversation->assigned_area = $assignedArea;
+            $lockedConversation->assumed_at = now();
             $lockedConversation->status = 'in_progress';
             $lockedConversation->save();
 
@@ -166,7 +169,15 @@ class TransferConversationService
                 ]);
             }
 
-            return [$user, $user->name, null];
+            $primaryArea = $user->areas->sortBy('name')->first();
+
+            return [
+                $user,
+                $user->name,
+                $primaryArea?->id ? (int) $primaryArea->id : null,
+                (int) $user->id,
+                $primaryArea?->name ? (string) $primaryArea->name : null,
+            ];
         }
 
         $area = Area::query()
@@ -179,7 +190,7 @@ class TransferConversationService
             ]);
         }
 
-        return [$area, $area->name, (int) $area->id];
+        return [$area, $area->name, (int) $area->id, null, (string) $area->name];
     }
 
     private function normalizeTargetType(string $type): string

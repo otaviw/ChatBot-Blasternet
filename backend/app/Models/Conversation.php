@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ConversationHandlingMode;
 use Illuminate\Database\Eloquent\Model;
 
 class Conversation extends Model
@@ -66,6 +67,16 @@ class Conversation extends Model
 
     public function isManualMode(): bool
     {
-        return $this->handling_mode === 'human';
+        return ConversationHandlingMode::isHuman($this->handling_mode);
+    }
+
+    public function getHandlingModeAttribute(?string $value): string
+    {
+        return ConversationHandlingMode::normalize($value);
+    }
+
+    public function setHandlingModeAttribute(?string $value): void
+    {
+        $this->attributes['handling_mode'] = ConversationHandlingMode::normalize($value);
     }
 }

@@ -31,6 +31,7 @@ function AdminCompanyShowPage({ companyId }) {
     name: '',
     meta_phone_number_id: '',
   });
+  const [companyData, setCompanyData] = useState(null);
   const [companySaveState, setCompanySaveState] = useState('idle');
   const [companySaveError, setCompanySaveError] = useState('');
   const { data: metricsData, loading: metricsLoading } = usePageData(
@@ -46,6 +47,7 @@ function AdminCompanyShowPage({ companyId }) {
       statefulMenuFlowToEditor(normalized.stateful_menu_flow, normalized.welcome_message)
     );
     setMenuFlowError('');
+    setCompanyData(data.company);
     setCompanyForm({
       name: data.company.name ?? '',
       meta_phone_number_id: data.company.meta_phone_number_id ?? '',
@@ -65,6 +67,7 @@ function AdminCompanyShowPage({ companyId }) {
           return;
         }
 
+        setCompanyData(company);
         const normalized = normalizeSettings(company.bot_setting);
         setSettings(normalized);
         setUseDefaultStatefulMenu(!normalized.stateful_menu_flow);
@@ -215,12 +218,20 @@ function AdminCompanyShowPage({ companyId }) {
         name: companyForm.name,
         meta_phone_number_id: companyForm.meta_phone_number_id || null,
       };
-      await api.put(`/admin/empresas/${companyId}`, payload);
+      const response = await api.put(`/admin/empresas/${companyId}`, payload);
+      const updatedCompany = response.data?.company;
+      if (updatedCompany) {
+        setCompanyData((previous) => ({
+          ...(previous ?? {}),
+          ...updatedCompany,
+        }));
+        setCompanyForm({
+          name: updatedCompany.name ?? '',
+          meta_phone_number_id: updatedCompany.meta_phone_number_id ?? '',
+        });
+      }
       setCompanySaveState('saved');
-      setTimeout(() => {
-        setCompanySaveState('idle');
-        window.location.reload();
-      }, 600);
+      setTimeout(() => setCompanySaveState('idle'), 600);
     } catch (err) {
       setCompanySaveState('error');
       setCompanySaveError(err.response?.data?.message || 'Falha ao salvar dados da empresa.');
@@ -243,7 +254,7 @@ function AdminCompanyShowPage({ companyId }) {
     );
   }
 
-  const company = data.company;
+  const company = companyData ?? data.company;
   const setting = company.bot_setting;
 
   return (
@@ -345,7 +356,7 @@ function AdminCompanyShowPage({ companyId }) {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Humano</span>
-                  <span>{metricsData.metrics.by_mode?.manual ?? 0}</span>
+                  <span>{metricsData.metrics.by_mode?.human ?? metricsData.metrics.by_mode?.manual ?? 0}</span>
                 </div>
               </div>
             </div>

@@ -97,6 +97,18 @@ cd realtime
 npm run dev
 ```
 
+## Quality gate
+
+Execute antes de abrir PR:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/quality-gate.ps1
+```
+
+Referencias:
+- `docs/engineering/stability-playbook.md`
+- `docs/engineering/ai-assisted-development-checklist.md`
+
 ## Producao (baseline)
 
 1. Subir `backend`, `frontend` e `realtime` em processos isolados
