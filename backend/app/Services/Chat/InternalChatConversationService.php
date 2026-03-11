@@ -204,13 +204,27 @@ class InternalChatConversationService
      */
     public function serializeAttachment(ChatAttachment $attachment): array
     {
+        $mediaUrl = $this->chatAttachmentMediaUrl($attachment);
+
         return [
             'id' => (int) $attachment->id,
-            'url' => (string) $attachment->url,
+            'url' => $mediaUrl,
+            'media_url' => $mediaUrl,
+            'public_url' => (string) ($attachment->url ?? ''),
             'mime_type' => (string) $attachment->mime_type,
             'size_bytes' => (int) $attachment->size_bytes,
             'original_name' => (string) $attachment->original_name,
         ];
+    }
+
+    private function chatAttachmentMediaUrl(ChatAttachment $attachment): string
+    {
+        $attachmentId = (int) ($attachment->id ?? 0);
+        if ($attachmentId <= 0) {
+            return (string) ($attachment->url ?? '');
+        }
+
+        return "/api/chat/attachments/{$attachmentId}/media";
     }
 
     private function calculateUnreadCount(ChatConversation $conversation, User $viewer): int

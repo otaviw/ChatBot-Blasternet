@@ -79,13 +79,7 @@ class ChatMessageObserver implements ShouldHandleEventsAfterCommit
             'attachments' => $isDeleted
                 ? []
                 : $message->attachments
-                    ->map(fn (ChatAttachment $attachment): array => [
-                        'id' => (int) $attachment->id,
-                        'url' => (string) $attachment->url,
-                        'mime_type' => (string) $attachment->mime_type,
-                        'size_bytes' => (int) $attachment->size_bytes,
-                        'original_name' => (string) $attachment->original_name,
-                    ])
+                    ->map(fn (ChatAttachment $attachment): array => $this->serializeAttachment($attachment))
                     ->values()
                     ->all(),
             'created_at' => $message->created_at?->toISOString(),
@@ -93,6 +87,27 @@ class ChatMessageObserver implements ShouldHandleEventsAfterCommit
             'edited_at' => $message->edited_at?->toISOString(),
             'deleted_at' => $message->deleted_at?->toISOString(),
             'is_deleted' => $isDeleted,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function serializeAttachment(ChatAttachment $attachment): array
+    {
+        $attachmentId = (int) ($attachment->id ?? 0);
+        $mediaUrl = $attachmentId > 0
+            ? "/api/chat/attachments/{$attachmentId}/media"
+            : (string) ($attachment->url ?? '');
+
+        return [
+            'id' => $attachmentId,
+            'url' => $mediaUrl,
+            'media_url' => $mediaUrl,
+            'public_url' => (string) ($attachment->url ?? ''),
+            'mime_type' => (string) $attachment->mime_type,
+            'size_bytes' => (int) $attachment->size_bytes,
+            'original_name' => (string) $attachment->original_name,
         ];
     }
 }

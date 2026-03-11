@@ -1,9 +1,10 @@
 .internal-chat-page {
-  /* Segue o mesmo comportamento das outras páginas (como Dashboard):
-     deixa a altura ser controlada pelo container principal do Layout */
+  height: calc(100vh - 57px);
+  height: calc(100dvh - 57px);
   min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .internal-chat-header {
@@ -79,6 +80,39 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+.internal-chat-conversations-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-top: 1px solid #e5e5e5;
+  background: #f5f5f5;
+}
+
+.internal-chat-conversations-pagination-label {
+  font-size: 0.73rem;
+  color: #525252;
+}
+
+.internal-chat-conversations-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-top: 1px solid #e5e5e5;
+  background: #f0f0f0;
+}
+
+.internal-chat-conversations-status-text {
+  font-size: 0.71rem;
+  color: #525252;
+}
+
+.internal-chat-conversations-status-text--muted {
+  color: #737373;
 }
 
 .internal-chat-conversation-item {
@@ -181,6 +215,20 @@
 .internal-chat-toolbar-subtitle {
   margin-top: 0.2rem;
   margin-bottom: 0;
+  font-size: 0.72rem;
+  color: #64748b;
+}
+.internal-chat-messages-pagination {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1rem;
+  border-bottom: 1px solid #ececec;
+  background: #fcfcfc;
+}
+
+.internal-chat-messages-pagination-label {
   font-size: 0.72rem;
   color: #64748b;
 }
@@ -355,6 +403,23 @@
   gap: 0.2rem;
 }
 
+.internal-chat-attachment-image-link {
+  display: inline-flex;
+  border: 1px solid #dbeafe;
+  border-radius: 0.7rem;
+  overflow: hidden;
+  max-width: min(280px, 100%);
+  background: #f8fbff;
+}
+
+.internal-chat-attachment-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 260px;
+  object-fit: contain;
+}
+
 .internal-chat-attachment-link {
   font-size: 0.72rem;
   color: #1d4ed8;
@@ -365,9 +430,13 @@
 
 .internal-chat-composer {
   flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
+  z-index: 6;
   border-top: 1px solid #e8e8e8;
   background: #fafafa;
   padding: 0.85rem 1rem;
+  padding-bottom: calc(0.85rem + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
@@ -607,3 +676,4 @@
     max-width: 94%;
   }
 }
+

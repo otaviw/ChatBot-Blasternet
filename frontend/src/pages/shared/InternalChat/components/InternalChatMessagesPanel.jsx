@@ -14,9 +14,12 @@ function InternalChatMessagesPanel({
   formatDateTime,
   messageActionBusyId,
   messageActionError,
+  messagesLoadingOlder,
+  messagesPagination,
   onBack,
   onCancelMessageEditing,
   onChatScroll,
+  onLoadMessagesPage,
   onMessageDelete,
   onMessageEditSave,
   onRefresh,
@@ -71,7 +74,40 @@ function InternalChatMessagesPanel({
             </button>
           </header>
 
+          {messagesPagination && Number(messagesPagination.last_page ?? 1) > 1 ? (
+            <div className="internal-chat-messages-pagination">
+              <button
+                type="button"
+                className="app-btn-secondary text-xs"
+                onClick={() => void onLoadMessagesPage(Number(messagesPagination.current_page ?? 1) - 1)}
+                disabled={Number(messagesPagination.current_page ?? 1) <= 1}
+              >
+                Anterior
+              </button>
+              <span className="internal-chat-messages-pagination-label">
+                Msgs pag. {messagesPagination.current_page} / {messagesPagination.last_page}
+              </span>
+              <button
+                type="button"
+                className="app-btn-secondary text-xs"
+                onClick={() => void onLoadMessagesPage(Number(messagesPagination.current_page ?? 1) + 1)}
+                disabled={
+                  Number(messagesPagination.current_page ?? 1) >=
+                  Number(messagesPagination.last_page ?? 1)
+                }
+              >
+                Proxima
+              </button>
+            </div>
+          ) : null}
+
           <ul ref={chatListRef} onScroll={onChatScroll} className="internal-chat-message-list">
+            {messagesLoadingOlder ? (
+              <li className="internal-chat-list-state">Carregando mensagens anteriores...</li>
+            ) : messagesPagination && Number(messagesPagination.current_page ?? 1) > 1 ? (
+              <li className="internal-chat-list-state">Role para cima para carregar mensagens anteriores.</li>
+            ) : null}
+
             {!selectedConversation.messages?.length ? (
               <li className="internal-chat-list-state">Sem mensagens nesta conversa ainda.</li>
             ) : null}
@@ -139,22 +175,49 @@ function InternalChatMessagesPanel({
 
                   {hasAttachments ? (
                     <div className="internal-chat-attachments">
-                      {message.attachments.map((attachment) => (
-                        <a
-                          key={attachment.id ?? `${attachment.url}-${attachment.original_name}`}
-                          href={attachment.url || '#'}
-                          target={attachment.url ? '_blank' : undefined}
-                          rel={attachment.url ? 'noreferrer' : undefined}
-                          className="internal-chat-attachment-link"
-                          onClick={(event) => {
-                            if (!attachment.url) {
-                              event.preventDefault();
-                            }
-                          }}
-                        >
-                          {attachment.original_name || attachment.url || 'Anexo'}
-                        </a>
-                      ))}
+                      {message.attachments.map((attachment) => {
+                        const attachmentUrl = String(attachment?.url ?? '').trim();
+                        const isImage = String(attachment?.mime_type ?? '')
+                          .toLowerCase()
+                          .startsWith('image/');
+                        const attachmentKey =
+                          attachment.id ?? `${attachmentUrl}-${attachment.original_name}`;
+
+                        if (isImage && attachmentUrl) {
+                          return (
+                            <a
+                              key={attachmentKey}
+                              href={attachmentUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="internal-chat-attachment-image-link"
+                            >
+                              <img
+                                src={attachmentUrl}
+                                alt={attachment.original_name || 'Imagem anexada'}
+                                className="internal-chat-attachment-image"
+                              />
+                            </a>
+                          );
+                        }
+
+                        return (
+                          <a
+                            key={attachmentKey}
+                            href={attachmentUrl || '#'}
+                            target={attachmentUrl ? '_blank' : undefined}
+                            rel={attachmentUrl ? 'noreferrer' : undefined}
+                            className="internal-chat-attachment-link"
+                            onClick={(event) => {
+                              if (!attachmentUrl) {
+                                event.preventDefault();
+                              }
+                            }}
+                          >
+                            {attachment.original_name || attachmentUrl || 'Anexo'}
+                          </a>
+                        );
+                      })}
                     </div>
                   ) : null}
 

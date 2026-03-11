@@ -39,10 +39,16 @@ function InternalChatPage() {
   const authenticated = Boolean(data?.authenticated);
 
   const {
+    conversationListRef,
     conversationSearchInput,
     conversations,
     conversationsError,
     conversationsLoading,
+    conversationsLoadingMore,
+    conversationsPagination,
+    handleConversationsScroll,
+    handleNextConversationPage,
+    loadedConversationPageRef,
     loadConversations,
     scheduleConversationsRefresh,
     setConversationSearchInput,
@@ -59,6 +65,9 @@ function InternalChatPage() {
     detailError,
     detailLoading,
     handleChatScroll,
+    loadMessagesPage,
+    messagesLoadingOlder,
+    messagesPagination,
     openConversation: openConversationRaw,
     refreshSelectedConversation,
     selectedConversationId,
@@ -295,15 +304,21 @@ function InternalChatPage() {
 
         <div className="internal-chat-layout">
           <InternalChatSidebar
+            conversationListRef={conversationListRef}
             conversationSearchInput={conversationSearchInput}
             conversations={conversations}
             conversationsError={conversationsError}
             conversationsLoading={conversationsLoading}
+            conversationsLoadingMore={conversationsLoadingMore}
+            conversationsPagination={conversationsPagination}
             currentUserId={currentUserId}
             formatDateTime={formatDateTime}
             onConversationSearchInputChange={setConversationSearchInput}
+            onConversationsScroll={handleConversationsScroll}
+            onNextConversationPage={handleNextConversationPage}
             onOpenConversation={openConversation}
             onOpenCreateModal={openCreateModal}
+            loadedConversationPage={loadedConversationPageRef.current}
             selectedConversationId={selectedConversationId}
             sidebarVisibleOnMobile={sidebarVisibleOnMobile}
           />
@@ -331,9 +346,12 @@ function InternalChatPage() {
             formatDateTime={formatDateTime}
             messageActionBusyId={messageActionBusyId}
             messageActionError={messageActionError}
+            messagesLoadingOlder={messagesLoadingOlder}
+            messagesPagination={messagesPagination}
             onBack={handleBackToConversations}
             onCancelMessageEditing={cancelMessageEditing}
             onChatScroll={handleChatScroll}
+            onLoadMessagesPage={loadMessagesPage}
             onMessageDelete={handleMessageDelete}
             onMessageEditSave={handleMessageEditSave}
             onRefresh={refreshSelectedConversation}

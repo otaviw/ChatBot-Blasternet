@@ -102,6 +102,25 @@ const toTimestamp = (value) => {
 
 const unique = (items) => [...new Set(items)];
 
+const normalizeUrl = (value) => {
+  const raw = String(value ?? '').trim();
+  if (!raw) {
+    return '';
+  }
+
+  if (
+    raw.startsWith('http://') ||
+    raw.startsWith('https://') ||
+    raw.startsWith('//') ||
+    raw.startsWith('blob:') ||
+    raw.startsWith('data:')
+  ) {
+    return raw;
+  }
+
+  return raw.startsWith('/') ? raw : `/${raw}`;
+};
+
 const withPrefix = (prefix, template) => {
   if (template.startsWith('/admin/') || template.startsWith('/minha-conta/')) {
     return template;
@@ -213,10 +232,19 @@ const normalizeAttachment = (raw) => {
   }
 
   const id = toPositiveInt(raw.id, raw.attachment_id, raw.attachmentId);
+  const fallbackPublicUrl = normalizeUrl(raw.public_url ?? raw.publicUrl ?? raw.url);
+  const mediaUrl = normalizeUrl(
+    raw.media_url ??
+      raw.mediaUrl ??
+      (id ? `/api/chat/attachments/${id}/media` : '')
+  );
+  const resolvedUrl = mediaUrl || fallbackPublicUrl;
 
   return {
     id,
-    url: raw.url ? String(raw.url) : '',
+    url: resolvedUrl,
+    media_url: mediaUrl || resolvedUrl,
+    public_url: fallbackPublicUrl,
     mime_type: raw.mime_type ? String(raw.mime_type) : '',
     size_bytes: toInteger(raw.size_bytes, raw.sizeBytes),
     original_name: raw.original_name ? String(raw.original_name) : '',
@@ -391,10 +419,25 @@ const requestWithFallback = async ({
   throw new Error(`Nenhum endpoint de chat interno disponivel para: ${action}`);
 };
 
-export async function listInternalChatConversations({ role, search = '' }) {
+export async function listInternalChatConversations({
+  role,
+  search = '',
+  page = 1,
+  perPage = 25,
+}) {
   const query = {};
   if (String(search).trim() !== '') {
     query.search = String(search).trim();
+  }
+
+  const normalizedPage = toPositiveInt(page);
+  if (normalizedPage) {
+    query.page = normalizedPage;
+  }
+
+  const normalizedPerPage = toPositiveInt(perPage);
+  if (normalizedPerPage) {
+    query.per_page = Math.min(normalizedPerPage, 100);
   }
 
   const response = await requestWithFallback({
@@ -422,10 +465,31 @@ export async function listInternalChatConversations({ role, search = '' }) {
   };
 }
 
-export async function getInternalChatConversation({ role, conversationId }) {
+export async function getInternalChatConversation({
+  role,
+  conversationId,
+  messagesPage = null,
+  messagesPerPage = null,
+  messagesLimit = null,
+}) {
   const id = toPositiveInt(conversationId);
   if (!id) {
     throw new Error('ID de conversa invalido.');
+  }
+
+  const normalizedMessagesPage = toPositiveInt(messagesPage);
+  const normalizedMessagesPerPage = toPositiveInt(messagesPerPage);
+  const normalizedMessagesLimit = toPositiveInt(messagesLimit);
+  const query = {};
+
+  if (normalizedMessagesPage) {
+    query.messages_page = normalizedMessagesPage;
+  }
+
+  if (normalizedMessagesPerPage) {
+    query.messages_per_page = Math.min(normalizedMessagesPerPage, 300);
+  } else if (normalizedMessagesLimit) {
+    query.messages_limit = Math.min(normalizedMessagesLimit, 300);
   }
 
   const response = await requestWithFallback({
@@ -433,6 +497,7 @@ export async function getInternalChatConversation({ role, conversationId }) {
     action: 'getConversation',
     method: 'get',
     params: { conversationId: id },
+    query,
   });
 
   const payload = response.data ?? {};
@@ -463,6 +528,8 @@ export async function getInternalChatConversation({ role, conversationId }) {
   return {
     conversation,
     participants: conversation.participants ?? [],
+    messagesPagination:
+      payload.messages_pagination ?? payload.pagination ?? payload.data?.messages_pagination ?? null,
   };
 }
 

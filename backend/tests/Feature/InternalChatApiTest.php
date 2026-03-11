@@ -5,7 +5,9 @@ namespace Tests\Feature;
 use App\Models\Company;
 use App\Models\Notification;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class InternalChatApiTest extends TestCase
@@ -116,6 +118,140 @@ class InternalChatApiTest extends TestCase
         $listAsRecipientAfterRead = $this->actingAs($recipient)->getJson('/api/chat/conversations');
         $listAsRecipientAfterRead->assertOk();
         $listAsRecipientAfterRead->assertJsonPath('conversations.0.unread_count', 0);
+    }
+
+    public function test_show_conversation_supports_messages_pagination(): void
+    {
+        $company = Company::create(['name' => 'Empresa Chat Paginacao']);
+
+        $sender = User::create([
+            'name' => 'Remetente Paginacao',
+            'email' => 'sender-chat-pagination@test.local',
+            'password' => 'secret123',
+            'role' => User::ROLE_AGENT,
+            'company_id' => $company->id,
+            'is_active' => true,
+        ]);
+
+        $recipient = User::create([
+            'name' => 'Destinatario Paginacao',
+            'email' => 'recipient-chat-pagination@test.local',
+            'password' => 'secret123',
+            'role' => User::ROLE_COMPANY_ADMIN,
+            'company_id' => $company->id,
+            'is_active' => true,
+        ]);
+
+        $createdConversation = $this->actingAs($sender)->postJson('/api/chat/conversations', [
+            'recipient_id' => $recipient->id,
+            'content' => 'Mensagem 1',
+        ]);
+        $createdConversation->assertCreated();
+
+        $conversationId = (int) $createdConversation->json('conversation.id');
+        $this->assertGreaterThan(0, $conversationId);
+
+        for ($index = 2; $index <= 6; $index++) {
+            $sendMessage = $this->actingAs($sender)->postJson(
+                "/api/chat/conversations/{$conversationId}/messages",
+                ['content' => "Mensagem {$index}"]
+            );
+            $sendMessage->assertOk();
+        }
+
+        $latestPage = $this->actingAs($sender)->getJson(
+            "/api/chat/conversations/{$conversationId}?messages_per_page=2"
+        );
+        $latestPage->assertOk();
+        $latestPage->assertJsonPath('messages_pagination.current_page', 3);
+        $latestPage->assertJsonPath('messages_pagination.last_page', 3);
+        $latestPage->assertJsonPath('messages_pagination.per_page', 2);
+        $latestPage->assertJsonPath('messages_pagination.total', 6);
+        $latestPage->assertJsonPath('conversation.messages.0.content', 'Mensagem 5');
+        $latestPage->assertJsonPath('conversation.messages.1.content', 'Mensagem 6');
+
+        $firstPage = $this->actingAs($sender)->getJson(
+            "/api/chat/conversations/{$conversationId}?messages_page=1&messages_per_page=2"
+        );
+        $firstPage->assertOk();
+        $firstPage->assertJsonPath('messages_pagination.current_page', 1);
+        $firstPage->assertJsonPath('messages_pagination.last_page', 3);
+        $firstPage->assertJsonPath('conversation.messages.0.content', 'Mensagem 1');
+        $firstPage->assertJsonPath('conversation.messages.1.content', 'Mensagem 2');
+    }
+
+    public function test_user_can_send_attachment_and_participant_can_open_media_endpoint(): void
+    {
+        Storage::fake('public');
+
+        $company = Company::create(['name' => 'Empresa Chat Anexo']);
+        $otherCompany = Company::create(['name' => 'Empresa Chat Anexo B']);
+
+        $sender = User::create([
+            'name' => 'Remetente Anexo',
+            'email' => 'sender-chat-attachment@test.local',
+            'password' => 'secret123',
+            'role' => User::ROLE_AGENT,
+            'company_id' => $company->id,
+            'is_active' => true,
+        ]);
+
+        $recipient = User::create([
+            'name' => 'Destinatario Anexo',
+            'email' => 'recipient-chat-attachment@test.local',
+            'password' => 'secret123',
+            'role' => User::ROLE_COMPANY_ADMIN,
+            'company_id' => $company->id,
+            'is_active' => true,
+        ]);
+
+        $outsider = User::create([
+            'name' => 'Fora da Conversa',
+            'email' => 'outsider-chat-attachment@test.local',
+            'password' => 'secret123',
+            'role' => User::ROLE_AGENT,
+            'company_id' => $otherCompany->id,
+            'is_active' => true,
+        ]);
+
+        $createdConversation = $this->actingAs($sender)->postJson('/api/chat/conversations', [
+            'recipient_id' => $recipient->id,
+            'content' => 'Conversa com anexo',
+        ]);
+        $createdConversation->assertCreated();
+
+        $conversationId = (int) $createdConversation->json('conversation.id');
+        $this->assertGreaterThan(0, $conversationId);
+
+        $sendWithAttachment = $this->actingAs($sender)->post(
+            "/api/chat/conversations/{$conversationId}/messages",
+            [
+                'content' => 'Arquivo em anexo',
+                'attachment' => UploadedFile::fake()->create('evidence.txt', 12, 'text/plain'),
+            ],
+            ['Accept' => 'application/json']
+        );
+        $sendWithAttachment->assertOk();
+
+        $attachmentId = (int) $sendWithAttachment->json('message.attachments.0.id');
+        $attachmentUrl = (string) $sendWithAttachment->json('message.attachments.0.url');
+        $this->assertGreaterThan(0, $attachmentId);
+        $this->assertSame("/api/chat/attachments/{$attachmentId}/media", $attachmentUrl);
+
+        $showConversation = $this->actingAs($recipient)->getJson("/api/chat/conversations/{$conversationId}");
+        $showConversation->assertOk();
+        $showConversation->assertJsonPath('conversation.messages.1.attachments.0.id', $attachmentId);
+        $showConversation->assertJsonPath('conversation.messages.1.attachments.0.url', $attachmentUrl);
+
+        $mediaResponse = $this->actingAs($recipient)->get($attachmentUrl);
+        $mediaResponse->assertOk();
+        $this->assertTrue(
+            str_starts_with((string) $mediaResponse->headers->get('Content-Type', ''), 'text/plain'),
+            'Expected attachment media content type to start with text/plain'
+        );
+
+        $outsiderResponse = $this->actingAs($outsider)->getJson($attachmentUrl);
+        $outsiderResponse->assertForbidden();
     }
 
     public function test_non_participant_cannot_open_or_send_messages_in_conversation(): void

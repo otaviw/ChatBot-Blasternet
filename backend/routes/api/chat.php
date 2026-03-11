@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AreaController;
+use App\Http\Controllers\Chat\AttachmentController as ChatAttachmentController;
 use App\Http\Controllers\Chat\ConversationController as ChatConversationController;
 use App\Http\Controllers\ConversationTransferController;
 use App\Http\Controllers\SimulatedMessageController;
@@ -23,6 +24,8 @@ Route::middleware(['web', 'auth'])->group(function () {
         ->middleware('throttle:bot-write');
     Route::post('/chat/conversations/{conversation}/read', [ChatConversationController::class, 'markRead'])
         ->middleware('throttle:bot-write');
+    Route::get('/chat/attachments/{attachment}/media', [ChatAttachmentController::class, 'media'])
+        ->middleware('throttle:inbox-read');
 
     Route::get('/areas', [AreaController::class, 'index'])->middleware('throttle:inbox-read');
     Route::get('/areas/{area}/users', [AreaController::class, 'users'])->middleware('throttle:inbox-read');
