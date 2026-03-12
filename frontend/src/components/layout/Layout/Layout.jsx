@@ -293,7 +293,6 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
   }, [canManageUsers]);
 
   const companySupportLinks = [
-    // Apenas \"Solicitações\" recebe badge de notificação de suporte.
     { href: '/suporte', label: 'Suporte' },
     { href: '/minha-conta/suporte/solicitacoes', label: 'Solicitações', module: NOTIFICATION_MODULE.SUPPORT },
   ];

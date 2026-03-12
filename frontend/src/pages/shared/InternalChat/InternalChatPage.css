@@ -740,7 +740,6 @@
   gap: 0.35rem;
 }
 
-/* --- Reactions --- */
 .internal-chat-reactions {
   display: flex;
   flex-wrap: wrap;
@@ -840,7 +839,6 @@
   gap: 0.3rem;
 }
 
-/* --- Read status --- */
 .internal-chat-read-status {
   margin-left: 0.45rem;
   font-size: 0.63rem;
@@ -874,7 +872,6 @@
   }
 }
 
-/* Ajustes extras para telas bem pequenas (celular) */
 @media (max-width: 768px) {
   .internal-chat-layout {
     display: flex;

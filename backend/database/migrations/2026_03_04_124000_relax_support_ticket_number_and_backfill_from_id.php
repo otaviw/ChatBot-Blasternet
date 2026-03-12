@@ -17,7 +17,6 @@ return new class extends Migration
         } elseif ($driver === 'mysql') {
             DB::statement('ALTER TABLE support_tickets MODIFY ticket_number BIGINT UNSIGNED NULL');
         } else {
-            // sqlite e outros: schema novo ja nasce com nullable.
         }
 
         DB::statement('UPDATE support_tickets SET ticket_number = id WHERE ticket_number IS NULL');
@@ -37,7 +36,6 @@ return new class extends Migration
         } elseif ($driver === 'mysql') {
             DB::statement('ALTER TABLE support_tickets MODIFY ticket_number BIGINT UNSIGNED NOT NULL');
         } else {
-            // sqlite e outros: sem rollback de alter column.
         }
     }
 };

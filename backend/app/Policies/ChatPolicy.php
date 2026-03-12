@@ -16,17 +16,14 @@ class ChatPolicy
             return false;
         }
 
-        // Admin do sistema pode falar com qualquer usuário.
         if ($sender->isSystemAdmin()) {
             return true;
         }
 
-        // Qualquer usuário pode falar com admin do sistema.
         if ($recipient->isSystemAdmin()) {
             return true;
         }
 
-        // Usuários ativos da mesma empresa podem conversar.
         return $sender->company_id !== null
             && $recipient->company_id !== null
             && (int) $sender->company_id === (int) $recipient->company_id;

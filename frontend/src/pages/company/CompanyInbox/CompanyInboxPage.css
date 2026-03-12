@@ -331,8 +331,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-/* Transferir dropdown - posicionado para sempre ficar visível */
 .inbox-transfer-wrap {
   position: relative;
 }

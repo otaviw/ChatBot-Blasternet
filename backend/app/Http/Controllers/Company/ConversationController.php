@@ -2,26 +2,25 @@
 
 namespace App\Http\Controllers\Company;
 
+use App\Actions\Company\Conversation\AssumeCompanyConversationAction;
+use App\Actions\Company\Conversation\ListCompanyConversationsAction;
+use App\Actions\Company\Conversation\ServeCompanyConversationMediaAction;
+use App\Actions\Company\Conversation\ShowCompanyConversationAction;
+use App\Actions\Company\Conversation\TransferCompanyConversationAction;
 use App\Http\Controllers\Controller;
-use App\Models\Area;
 use App\Models\Conversation;
-use App\Models\ConversationTransfer;
 use App\Models\Message;
-use App\Models\User;
 use App\Services\AuditLogService;
-use App\Services\ConversationInactivityService;
+use App\Services\Company\CompanyConversationSupportService;
 use App\Services\MessageDeliveryStatusService;
 use App\Services\MessageMediaStorageService;
-use App\Services\TransferConversationService;
 use App\Services\WhatsAppSendService;
 use App\Support\ConversationAssignedType;
 use App\Support\ConversationHandlingMode;
 use App\Support\ConversationStatus;
 use App\Support\MessageDeliveryStatus;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class ConversationController extends Controller
@@ -31,11 +30,10 @@ class ConversationController extends Controller
         private MessageDeliveryStatusService $deliveryStatus,
         private MessageMediaStorageService $mediaStorage,
         private AuditLogService $auditLog,
-        private TransferConversationService $transferService,
-        private ConversationInactivityService $conversationInactivityService
+        private CompanyConversationSupportService $conversationSupport
     ) {}
 
-    public function index(Request $request): JsonResponse
+    public function index(Request $request, ListCompanyConversationsAction $action): JsonResponse
     {
         $user = $request->user();
         if (! $user || ! $user->isCompanyUser()) {
@@ -45,63 +43,10 @@ class ConversationController extends Controller
             ], 403);
         }
 
-        $companyId = (int) $user->company_id;
-        $this->conversationInactivityService->closeInactiveConversations($companyId);
-
-        $search = trim((string) $request->query('search', ''));
-        $page = max(1, (int) $request->query('page', 1));
-        $perPage = min(50, max(5, (int) $request->query('per_page', 15)));
-
-        $lastMessageIdSubquery = Message::query()
-            ->select('id')
-            ->whereColumn('messages.conversation_id', 'conversations.id')
-            ->latest('id')
-            ->limit(1);
-
-        $lastMessageAtSubquery = Message::query()
-            ->select('created_at')
-            ->whereColumn('messages.conversation_id', 'conversations.id')
-            ->latest('id')
-            ->limit(1);
-
-        $query = Conversation::query()
-            ->where('company_id', $companyId)
-            ->addSelect([
-                'last_message_id' => $lastMessageIdSubquery,
-                'last_message_at' => $lastMessageAtSubquery,
-            ])
-            ->with(['assignedUser:id,name,email', 'currentArea:id,name'])
-            ->withCount('messages')
-            ->orderByRaw("COALESCE(({$lastMessageAtSubquery->toSql()}), conversations.created_at) DESC")
-            ->addBinding($lastMessageAtSubquery->getBindings(), 'order')
-            ->orderByDesc('conversations.id');
-        $this->applyInboxVisibilityScope($query, $user);
-
-        if ($search !== '') {
-            $term = '%' . preg_replace('/\s+/', '%', $search) . '%';
-            $query->where(function ($q) use ($term) {
-                $q->where('conversations.customer_phone', 'like', $term)
-                    ->orWhere('conversations.customer_name', 'like', $term);
-            });
-        }
-
-        $paginator = $query->paginate($perPage, ['*'], 'page', $page);
-        $paginator->getCollection()->each(fn(Conversation $conversation) => $this->normalizeConversationAssignmentRelations($conversation));
-
-        return response()->json([
-            'authenticated' => true,
-            'role' => 'company',
-            'conversations' => $paginator->items(),
-            'conversations_pagination' => [
-                'current_page' => $paginator->currentPage(),
-                'last_page' => $paginator->lastPage(),
-                'per_page' => $paginator->perPage(),
-                'total' => $paginator->total(),
-            ],
-        ]);
+        return response()->json($action->handle($user, $request));
     }
 
-    public function show(Request $request, int $conversationId): JsonResponse
+    public function show(Request $request, int $conversationId, ShowCompanyConversationAction $action): JsonResponse
     {
         $user = $request->user();
         if (! $user || ! $user->isCompanyUser()) {
@@ -111,59 +56,17 @@ class ConversationController extends Controller
             ], 403);
         }
 
-        $companyId = (int) $user->company_id;
-        $this->conversationInactivityService->closeInactiveConversations($companyId);
-
-        $messagesPerPage = min(50, max(10, (int) $request->query('messages_per_page', 25)));
-        $messagesPageParam = $request->query('messages_page');
-
-        $showQuery = Conversation::query()
-            ->where('company_id', $companyId)
-            ->whereKey($conversationId)
-            ->with(['assignedUser:id,name,email', 'currentArea:id,name']);
-        $this->applyInboxVisibilityScope($showQuery, $user);
-
-        $conversation = $showQuery->first();
-
-        if (! $conversation) {
+        $payload = $action->handle($user, $conversationId, $request);
+        if (! $payload) {
             return response()->json([
                 'message' => 'Conversa nao encontrada para esta empresa.',
             ], 404);
         }
 
-        $messagesQuery = $conversation->messages()
-            ->with(['reactions' => function ($query) {
-                $query->orderBy('id')
-                    ->select(['id', 'message_id', 'reactor_phone', 'emoji', 'reacted_at']);
-            }])
-            ->orderBy('id', 'asc');
-        $totalMessages = $conversation->messages()->count();
-        $lastMessagesPage = $totalMessages > 0 ? (int) ceil($totalMessages / $messagesPerPage) : 1;
-        $messagesPage = $messagesPageParam !== null && $messagesPageParam !== ''
-            ? max(1, min((int) $messagesPageParam, $lastMessagesPage))
-            : $lastMessagesPage;
-        $messagesPaginator = $messagesQuery->paginate($messagesPerPage, ['*'], 'messages_page', $messagesPage);
-        $conversation->setRelation('messages', $messagesPaginator->getCollection());
-
-        $this->normalizeConversationAssignmentRelations($conversation);
-        $transferHistory = $this->loadTransferHistory($conversation);
-
-        return response()->json([
-            'authenticated' => true,
-            'role' => 'company',
-            'conversation' => $conversation,
-            'transfer_history' => $transferHistory,
-            'transfer_options' => $this->transferService->transferOptions($companyId),
-            'messages_pagination' => [
-                'current_page' => $messagesPaginator->currentPage(),
-                'last_page' => $messagesPaginator->lastPage(),
-                'per_page' => $messagesPaginator->perPage(),
-                'total' => $messagesPaginator->total(),
-            ],
-        ]);
+        return response()->json($payload);
     }
 
-    public function media(Request $request, int $messageId)
+    public function media(Request $request, int $messageId, ServeCompanyConversationMediaAction $action)
     {
         $user = $request->user();
         if (! $user || ! $user->isCompanyUser()) {
@@ -173,33 +76,10 @@ class ConversationController extends Controller
             ], 403);
         }
 
-        $message = Message::query()
-            ->whereKey($messageId)
-            ->where('content_type', 'image')
-            ->whereHas('conversation', function ($query) use ($user) {
-                $query->where('company_id', (int) $user->company_id);
-                $this->applyInboxVisibilityScope($query, $user);
-            })
-            ->first();
-
-        if (! $message || ! $message->media_key) {
-            return response()->json(['message' => 'Mídia não encontrada.'], 404);
-        }
-
-        $disk = $message->media_provider ?: (string) config('whatsapp.media_disk', 'public');
-        if (! Storage::disk($disk)->exists($message->media_key)) {
-            return response()->json(['message' => 'Arquivo de mídia não encontrado.'], 404);
-        }
-
-        $headers = [];
-        if ($message->media_mime_type) {
-            $headers['Content-Type'] = (string) $message->media_mime_type;
-        }
-
-        return Storage::disk($disk)->response($message->media_key, null, $headers);
+        return $action->handle($user, $messageId);
     }
 
-    public function assume(Request $request, int $conversationId): JsonResponse
+    public function assume(Request $request, int $conversationId, AssumeCompanyConversationAction $action): JsonResponse
     {
         $user = $request->user();
         if (! $user || ! $user->isCompanyUser()) {
@@ -209,35 +89,10 @@ class ConversationController extends Controller
             ], 403);
         }
 
-        $conversation = Conversation::query()
-            ->where('company_id', (int) $user->company_id)
-            ->whereKey($conversationId)
-            ->first();
-
+        $conversation = $action->handle($request, $user, $conversationId);
         if (! $conversation) {
             return response()->json(['message' => 'Conversa nao encontrada para esta empresa.'], 404);
         }
-
-        $firstArea = $user->areas()->orderBy('name')->first(['areas.id', 'areas.name']);
-
-        $conversation->handling_mode = ConversationHandlingMode::HUMAN;
-        $conversation->assigned_type = ConversationAssignedType::USER;
-        $conversation->assigned_id = (int) $user->id;
-        $conversation->current_area_id = $firstArea?->id;
-        $conversation->assigned_user_id = (int) $user->id;
-        $conversation->assigned_area = $firstArea?->name;
-        $conversation->assumed_at = now();
-        $conversation->status = ConversationStatus::IN_PROGRESS;
-        $conversation->save();
-
-        $this->auditLog->record($request, 'company.conversation.assumed', $conversation->company_id, [
-            'conversation_id' => $conversation->id,
-            'assigned_type' => ConversationAssignedType::USER,
-            'assigned_id' => $user->id,
-        ]);
-
-        $conversation->load(['assignedUser:id,name,email', 'currentArea:id,name']);
-        $this->normalizeConversationAssignmentRelations($conversation);
 
         return response()->json([
             'ok' => true,
@@ -311,7 +166,7 @@ class ConversationController extends Controller
         }
 
         if (! $conversation->isManualMode()) {
-            $this->assignConversationToCurrentUser($conversation, $user);
+            $this->conversationSupport->assignConversationToCurrentUser($conversation, $user);
         } elseif ($conversation->assigned_type === ConversationAssignedType::USER && (int) $conversation->assigned_id !== (int) $user->id) {
             return response()->json([
                 'message' => 'Conversa assumida por outro operador.',
@@ -321,9 +176,9 @@ class ConversationController extends Controller
                 'message' => 'Conversa destinada para outra área de atendimento.',
             ], 409);
         } elseif ($conversation->assigned_type === ConversationAssignedType::AREA) {
-            $this->assignConversationToCurrentUser($conversation, $user, (int) ($conversation->assigned_id ?? 0));
+            $this->conversationSupport->assignConversationToCurrentUser($conversation, $user, (int) ($conversation->assigned_id ?? 0));
         } elseif (in_array($conversation->assigned_type, [ConversationAssignedType::BOT, ConversationAssignedType::UNASSIGNED], true)) {
-            $this->assignConversationToCurrentUser($conversation, $user);
+            $this->conversationSupport->assignConversationToCurrentUser($conversation, $user);
         }
 
         $conversation->status = ConversationStatus::IN_PROGRESS;
@@ -395,7 +250,7 @@ class ConversationController extends Controller
 
         $message->refresh();
         $conversation->load(['assignedUser:id,name,email', 'currentArea:id,name']);
-        $this->normalizeConversationAssignmentRelations($conversation);
+        $this->conversationSupport->normalizeConversationAssignmentRelations($conversation);
 
         return response()->json([
             'ok' => true,
@@ -533,7 +388,7 @@ class ConversationController extends Controller
         ]);
     }
 
-    public function transfer(Request $request, int $conversationId): JsonResponse
+    public function transfer(Request $request, int $conversationId, TransferCompanyConversationAction $action): JsonResponse
     {
         $user = $request->user();
         if (! $user || ! $user->isCompanyUser()) {
@@ -551,28 +406,8 @@ class ConversationController extends Controller
             'send_outbound' => ['sometimes', 'boolean'],
         ]);
 
-        $conversation = Conversation::query()
-            ->where('company_id', (int) $user->company_id)
-            ->whereKey($conversationId)
-            ->first();
-
-        if (! $conversation) {
-            return response()->json(['message' => 'Conversa nao encontrada para esta empresa.'], 404);
-        }
-
-        [$targetType, $targetId] = $this->resolveTransferTargetFromLegacyPayload(
-            (int) $user->company_id,
-            $validated
-        );
-
         try {
-            $result = $this->transferService->transfer(
-                $conversation,
-                $user,
-                $targetType,
-                $targetId,
-                (bool) ($validated['send_outbound'] ?? true)
-            );
+            $payload = $action->handle($request, $user, $conversationId, $validated);
         } catch (ValidationException $exception) {
             $messages = $exception->errors();
 
@@ -582,207 +417,12 @@ class ConversationController extends Controller
             ], 422);
         }
 
-        $transfer = $result['transfer'];
-        $this->auditLog->record($request, 'company.conversation.transferred', $conversation->company_id, [
-            'conversation_id' => $conversation->id,
-            'from_assigned_type' => $transfer->from_assigned_type,
-            'from_assigned_id' => $transfer->from_assigned_id,
-            'to_assigned_type' => $transfer->to_assigned_type,
-            'to_assigned_id' => $transfer->to_assigned_id,
-            'auto_accepted' => true,
-        ]);
+        if (! $payload) {
+            return response()->json(['message' => 'Conversa nao encontrada para esta empresa.'], 404);
+        }
 
-        $updatedConversation = Conversation::query()
-            ->whereKey($conversation->id)
-            ->with(['assignedUser:id,name,email', 'currentArea:id,name'])
-            ->firstOrFail();
-
-        $this->normalizeConversationAssignmentRelations($updatedConversation);
-        $history = $this->loadTransferHistory($updatedConversation);
-
-        return response()->json([
-            'ok' => true,
-            'was_sent' => $result['was_sent'],
-            'message' => $result['message'],
-            'system_message' => $result['message'],
-            'transfer' => $transfer,
-            'conversation' => $updatedConversation,
-            'transfer_history' => $history,
-        ]);
+        return response()->json($payload);
     }
 
-    /**
-     * @param  array<string, mixed>  $validated
-     */
-    private function resolveTransferTargetFromLegacyPayload(int $companyId, array $validated): array
-    {
-        $type = $validated['type'] ?? null;
-        $id = $validated['id'] ?? null;
-
-        if ($type && $id) {
-            return [(string) $type, (int) $id];
-        }
-
-        if (! empty($validated['to_user_id'])) {
-            return [ConversationAssignedType::USER, (int) $validated['to_user_id']];
-        }
-
-        $toArea = trim((string) ($validated['to_area'] ?? ''));
-        if ($toArea !== '') {
-            $area = Area::query()
-                ->where('company_id', $companyId)
-                ->whereRaw('LOWER(name) = ?', [mb_strtolower($toArea)])
-                ->first();
-
-            if (! $area) {
-                throw ValidationException::withMessages([
-                    'to_area' => ['Área destino não encontrada para esta empresa.'],
-                ]);
-            }
-
-            return [ConversationAssignedType::AREA, (int) $area->id];
-        }
-
-        throw ValidationException::withMessages([
-            'type' => ['Informe destino de transferencia (user ou area).'],
-        ]);
-    }
-
-    private function assignConversationToCurrentUser(Conversation $conversation, User $user, ?int $preferredAreaId = null): void
-    {
-        $areas = $user->areas()->get(['areas.id', 'areas.name']);
-        $firstArea = null;
-
-        if ($preferredAreaId && $preferredAreaId > 0) {
-            $firstArea = $areas->first(fn(Area $area) => (int) $area->id === $preferredAreaId);
-        }
-
-        if (! $firstArea) {
-            $firstArea = $areas->sortBy('name')->first();
-        }
-
-        $conversation->handling_mode = ConversationHandlingMode::HUMAN;
-        $conversation->assigned_type = ConversationAssignedType::USER;
-        $conversation->assigned_id = (int) $user->id;
-        $conversation->current_area_id = $firstArea?->id;
-        $conversation->assigned_user_id = (int) $user->id;
-        $conversation->assigned_area = $firstArea?->name;
-        $conversation->assumed_at = now();
-    }
-
-    private function applyInboxVisibilityScope(Builder $query, User $user): void
-    {
-        if (! $user->isAgent()) {
-            return;
-        }
-
-        $userId = (int) $user->id;
-        $areaIds = $user->areas()
-            ->pluck('areas.id')
-            ->map(fn ($id) => (int) $id)
-            ->filter(fn (int $id) => $id > 0)
-            ->values()
-            ->all();
-
-        $query->where(function (Builder $scope) use ($userId, $areaIds) {
-            $scope->where(function (Builder $assignedToUser) use ($userId) {
-                $assignedToUser->where(function (Builder $directAssignment) use ($userId) {
-                    $directAssignment->where('assigned_type', ConversationAssignedType::USER)
-                        ->where('assigned_id', $userId);
-                })->orWhere('assigned_user_id', $userId);
-            });
-
-            if ($areaIds !== []) {
-                $scope->orWhere(function (Builder $unassignedAreaQueue) use ($areaIds) {
-                    $unassignedAreaQueue
-                        ->whereIn('current_area_id', $areaIds)
-                        ->whereNull('assigned_user_id')
-                        ->where(function (Builder $noAttendant) {
-                            $noAttendant
-                                ->where('assigned_type', '!=', ConversationAssignedType::USER)
-                                ->orWhereNull('assigned_id');
-                        });
-                });
-            }
-        });
-    }
-
-    private function normalizeConversationAssignmentRelations(Conversation $conversation): void
-    {
-        if ($conversation->assigned_type !== ConversationAssignedType::USER) {
-            $conversation->setRelation('assignedUser', null);
-        }
-    }
-
-    /**
-     * @return array<int, array<string, mixed>>
-     */
-    private function loadTransferHistory(Conversation $conversation): array
-    {
-        $history = ConversationTransfer::query()
-            ->where('conversation_id', $conversation->id)
-            ->latest('id')
-            ->get();
-
-        if ($history->isEmpty()) {
-            return [];
-        }
-
-        $userIds = $history
-            ->flatMap(fn(ConversationTransfer $item) => [
-                $item->transferred_by_user_id,
-                $item->from_assigned_type === ConversationAssignedType::USER ? $item->from_assigned_id : null,
-                $item->to_assigned_type === ConversationAssignedType::USER ? $item->to_assigned_id : null,
-            ])
-            ->filter()
-            ->unique()
-            ->values();
-
-        $areaIds = $history
-            ->flatMap(fn(ConversationTransfer $item) => [
-                $item->from_assigned_type === ConversationAssignedType::AREA ? $item->from_assigned_id : null,
-                $item->to_assigned_type === ConversationAssignedType::AREA ? $item->to_assigned_id : null,
-            ])
-            ->filter()
-            ->unique()
-            ->values();
-
-        $usersById = User::query()
-            ->whereIn('id', $userIds->all())
-            ->get(['id', 'name', 'email'])
-            ->keyBy('id');
-
-        $areasById = Area::query()
-            ->whereIn('id', $areaIds->all())
-            ->get(['id', 'name'])
-            ->keyBy('id');
-
-        return $history->map(function (ConversationTransfer $item) use ($usersById, $areasById) {
-            $fromUser = $item->from_assigned_type === ConversationAssignedType::USER
-                ? $usersById->get($item->from_assigned_id)
-                : null;
-            $toUser = $item->to_assigned_type === ConversationAssignedType::USER
-                ? $usersById->get($item->to_assigned_id)
-                : null;
-            $transferredBy = $usersById->get($item->transferred_by_user_id);
-
-            return [
-                'id' => $item->id,
-                'from_assigned_type' => $item->from_assigned_type,
-                'from_assigned_id' => $item->from_assigned_id,
-                'to_assigned_type' => $item->to_assigned_type,
-                'to_assigned_id' => $item->to_assigned_id,
-                'from_user' => $fromUser,
-                'to_user' => $toUser,
-                'from_area' => $item->from_assigned_type === ConversationAssignedType::AREA
-                    ? ($areasById->get($item->from_assigned_id)?->name)
-                    : null,
-                'to_area' => $item->to_assigned_type === ConversationAssignedType::AREA
-                    ? ($areasById->get($item->to_assigned_id)?->name)
-                    : null,
-                'transferred_by_user' => $transferredBy,
-                'created_at' => $item->created_at,
-            ];
-        })->values()->all();
-    }
 }
+

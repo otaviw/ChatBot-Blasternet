@@ -283,7 +283,6 @@ export default function UsersPage({ scope = "company" }) {
       await api.delete(`${usersEndpoint}/${userId}`);
       await refreshUsers();
     } catch (err) {
-      // Reuso simples da mensagem principal de erro
       alert(err.response?.data?.message || "Falha ao excluir usuário.");
     }
   }

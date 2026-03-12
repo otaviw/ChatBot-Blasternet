@@ -22,7 +22,6 @@ return [
     ],
 
     'publish' => [
-        // supported: after_response, queue, sync
         'mode' => env('REALTIME_PUBLISH_MODE', 'after_response'),
         'queue' => env('REALTIME_PUBLISH_QUEUE', 'realtime'),
     ],

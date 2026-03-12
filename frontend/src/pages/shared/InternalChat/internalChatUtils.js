@@ -13,7 +13,6 @@ const formatDateTime = (value) => {
     return '';
   }
 
-  // Data + hora completas no padrão pt-BR, semelhante ao inbox
   return new Date(timestamp).toLocaleString('pt-BR');
 };
 

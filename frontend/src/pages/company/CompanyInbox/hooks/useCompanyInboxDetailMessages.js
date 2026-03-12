@@ -40,7 +40,6 @@ export default function useCompanyInboxDetailMessages({
     try {
       await api.post(`/realtime/conversations/${id}/presence`);
     } catch (_error) {
-      // Presenca e best-effort; falha nao deve interromper inbox.
     }
   }, []);
 
@@ -53,7 +52,6 @@ export default function useCompanyInboxDetailMessages({
     try {
       await api.delete(`/realtime/conversations/${id}/presence`);
     } catch (_error) {
-      // Presenca e best-effort; falha nao deve interromper inbox.
     }
   }, []);
 
@@ -89,7 +87,6 @@ export default function useCompanyInboxDetailMessages({
       }));
       setMessagesPagination(response.data?.messages_pagination ?? null);
     } catch (_err) {
-      // Falha ao carregar mensagens antigas nao deve interromper a conversa atual.
     } finally {
       setMessagesLoadingOlder(false);
     }
@@ -140,7 +137,6 @@ export default function useCompanyInboxDetailMessages({
       setTransferOptions(response.data?.transfer_options ?? EMPTY_TRANSFER_OPTIONS);
       setContactNameInput(conversation.customer_name ?? '');
     } catch (_error) {
-      // O estado local ja foi atualizado pelo evento; este refresh e apenas para garantir consistencia.
     }
   }, []);
 

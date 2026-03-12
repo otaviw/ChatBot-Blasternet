@@ -140,7 +140,6 @@ function AdminCompaniesPage() {
                     await api.delete(`/admin/empresas/${company.id}`);
                     setCompanies((prev) => prev.filter((c) => c.id !== company.id));
                   } catch (err) {
-                    // mensagem simples para não quebrar UX
                     alert(err.response?.data?.message || 'Falha ao excluir empresa.');
                   }
                 }}

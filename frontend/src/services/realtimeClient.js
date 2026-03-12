@@ -336,7 +336,6 @@ class RealtimeClient {
         }
         await this.emitJoinConversation(conversationId, joinToken);
       } catch (_error) {
-        // Falha de rejoin não deve derrubar o restante da conexão.
       }
     }
   }
@@ -350,7 +349,6 @@ class RealtimeClient {
         }
         await this.emitJoinChatConversation(conversationId, joinToken);
       } catch (_error) {
-        // Falha de rejoin de chat nao deve derrubar o restante da conexao.
       }
     }
   }

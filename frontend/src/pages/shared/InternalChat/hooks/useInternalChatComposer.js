@@ -140,7 +140,6 @@ export default function useInternalChatComposer({
             conversationId: selectedConversationId,
           });
         } catch (_markReadError) {
-          // Melhor esforco.
         }
 
         scheduleConversationsRefresh(() => {
@@ -388,7 +387,6 @@ export default function useInternalChatComposer({
           setConversations((previous) => upsertConversationInList(previous, response.conversation));
         }
       } catch (_error) {
-        // silently ignore reaction errors
       }
     },
     [role, selectedConversationId, setConversations, setDetail]

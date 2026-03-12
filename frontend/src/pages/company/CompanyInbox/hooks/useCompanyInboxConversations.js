@@ -41,7 +41,6 @@ export default function useCompanyInboxConversations({ data, loading }) {
         }
       } catch (_error) {
         if (canceled) return;
-        // Erro na busca nao deve quebrar a inbox.
       }
     }, 350);
 
@@ -158,7 +157,6 @@ export default function useCompanyInboxConversations({ data, loading }) {
       }));
       loadedConversationPageRef.current = nextPage;
     } catch (_error) {
-      // Falha ao carregar mais conversas nao deve quebrar a inbox.
     } finally {
       setConversationsLoadingMore(false);
     }
