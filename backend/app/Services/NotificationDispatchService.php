@@ -7,6 +7,7 @@ use App\Models\Conversation;
 use App\Models\ConversationTransfer;
 use App\Models\Message;
 use App\Models\SupportTicket;
+use App\Models\SupportTicketMessage;
 use App\Models\User;
 use App\Support\ConversationHandlingMode;
 
@@ -151,6 +152,75 @@ class NotificationDispatchService
         }
     }
 
+    public function dispatchSupportTicketMessageNotification(SupportTicketMessage $message): void
+    {
+        $message->loadMissing([
+            'ticket:id,ticket_number,requester_user_id',
+            'sender:id,name,is_active',
+        ]);
+
+        $ticket = $message->ticket;
+        if (! $ticket) {
+            return;
+        }
+
+        $senderId = (int) ($message->sender_user_id ?? 0);
+        $requesterId = (int) ($ticket->requester_user_id ?? 0);
+        $recipientIds = [];
+
+        if ($senderId > 0 && $requesterId > 0 && $senderId === $requesterId) {
+            $recipientIds = User::query()
+                ->where('is_active', true)
+                ->whereIn('role', [User::ROLE_SYSTEM_ADMIN, User::ROLE_LEGACY_ADMIN])
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn (int $id) => $id > 0)
+                ->unique()
+                ->values()
+                ->all();
+        } elseif ($requesterId > 0) {
+            $activeRequesterId = User::query()
+                ->where('id', $requesterId)
+                ->where('is_active', true)
+                ->value('id');
+
+            if ($activeRequesterId) {
+                $recipientIds[] = (int) $activeRequesterId;
+            }
+        }
+
+        if ($recipientIds === []) {
+            return;
+        }
+
+        $ticketNumber = (int) ($ticket->ticket_number ?: $ticket->id);
+        $senderName = trim((string) ($message->sender?->name ?? 'Usuario'));
+        $title = "Nova mensagem na solicitacao #{$ticketNumber}";
+        $text = $this->supportTicketMessageNotificationText($message);
+
+        foreach ($recipientIds as $recipientId) {
+            if ($recipientId === $senderId) {
+                continue;
+            }
+
+            $this->notificationService->createForUser($recipientId, [
+                'type' => 'support_ticket_message',
+                'module' => 'support',
+                'title' => $title,
+                'text' => $text,
+                'reference_type' => 'support_ticket',
+                'reference_id' => (int) $ticket->id,
+                'reference_meta' => [
+                    'ticket_number' => $ticketNumber,
+                    'ticket_id' => (int) $ticket->id,
+                    'message_id' => (int) $message->id,
+                    'sender_id' => $senderId > 0 ? $senderId : null,
+                    'sender_name' => $senderName,
+                ],
+            ]);
+        }
+    }
+
     public function dispatchInternalChatMessageNotification(ChatMessage $message): void
     {
         $message->loadMissing([
@@ -281,5 +351,22 @@ class NotificationDispatchService
         }
 
         return 'Voce recebeu uma nova mensagem no chat interno.';
+    }
+
+    private function supportTicketMessageNotificationText(SupportTicketMessage $message): string
+    {
+        $text = trim((string) ($message->content ?? ''));
+
+        if ((string) $message->type === SupportTicketMessage::TYPE_IMAGE) {
+            return $text !== ''
+                ? 'Enviou uma imagem: '.mb_substr($text, 0, 220)
+                : 'Enviou uma imagem na solicitacao de suporte.';
+        }
+
+        if ($text !== '') {
+            return mb_substr($text, 0, 240);
+        }
+
+        return 'Voce recebeu uma nova mensagem na solicitacao de suporte.';
     }
 }

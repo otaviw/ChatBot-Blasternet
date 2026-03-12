@@ -11,12 +11,14 @@ use App\Models\ConversationTransfer;
 use App\Models\Message;
 use App\Models\Notification;
 use App\Models\SupportTicket;
+use App\Models\SupportTicketMessage;
 use App\Observers\ChatMessageObserver;
 use App\Observers\CompanyBotSettingObserver;
 use App\Observers\ConversationTransferObserver;
 use App\Observers\MessageObserver;
 use App\Observers\NotificationObserver;
 use App\Observers\SupportTicketObserver;
+use App\Observers\SupportTicketMessageObserver;
 use App\Policies\AreaPolicy;
 use App\Policies\ChatPolicy;
 use App\Policies\ConversationPolicy;
@@ -48,6 +50,7 @@ class AppServiceProvider extends ServiceProvider
         ConversationTransfer::observe(ConversationTransferObserver::class);
         Notification::observe(NotificationObserver::class);
         SupportTicket::observe(SupportTicketObserver::class);
+        SupportTicketMessage::observe(SupportTicketMessageObserver::class);
 
         RateLimiter::for('bot-write', function (Request $request) {
             return Limit::perMinute((int) env('RATE_LIMIT_BOT_WRITE', 60))

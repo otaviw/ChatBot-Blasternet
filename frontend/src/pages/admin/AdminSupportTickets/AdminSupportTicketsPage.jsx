@@ -1,6 +1,8 @@
 import './AdminSupportTicketsPage.css';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Layout from '@/components/layout/Layout/Layout.jsx';
+import { NOTIFICATION_MODULE, NOTIFICATION_REFERENCE_TYPE } from '@/constants/notifications';
+import useNotifications from '@/hooks/useNotifications';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
 import api from '@/services/api';
@@ -21,12 +23,41 @@ function formatDate(value) {
   return date.toLocaleString('pt-BR');
 }
 
+function buildTicketNotificationMap(notifications) {
+  return (notifications ?? []).reduce((acc, notification) => {
+    if (
+      notification?.is_read ||
+      notification?.module !== NOTIFICATION_MODULE.SUPPORT ||
+      notification?.reference_type !== NOTIFICATION_REFERENCE_TYPE.SUPPORT_TICKET
+    ) {
+      return acc;
+    }
+
+    const ticketId = Number.parseInt(String(notification?.reference_id ?? ''), 10);
+    if (!ticketId || ticketId <= 0) {
+      return acc;
+    }
+
+    const current = acc[ticketId] ?? { hasNew: false, hasChat: false };
+    if (notification?.type === 'support_ticket_created') {
+      current.hasNew = true;
+    }
+    if (notification?.type === 'support_ticket_message') {
+      current.hasChat = true;
+    }
+
+    acc[ticketId] = current;
+    return acc;
+  }, {});
+}
+
 function TicketSection({
   title,
   emptyText,
   tickets,
   actionBusyId,
   onToggleStatus,
+  ticketNotificationById,
 }) {
   return (
     <section className="border border-[#e3e3e0] rounded-lg p-4">
@@ -37,16 +68,32 @@ function TicketSection({
           {tickets.map((ticket) => {
             const nextStatus = ticket.status === 'open' ? 'closed' : 'open';
             const actionLabel = ticket.status === 'open' ? 'Marcar como fechada' : 'Reabrir';
+            const ticketNotification = ticketNotificationById?.[ticket.id] ?? { hasNew: false, hasChat: false };
 
             return (
               <li key={ticket.id} className="border border-[#e3e3e0] rounded p-3">
                 <div className="flex items-center justify-between gap-3 mb-2">
-                  <a
-                    href={`/admin/suporte/solicitacoes/${ticket.id}`}
-                    className="text-sm font-semibold text-[#0f172a] hover:underline"
-                  >
-                    #{formatTicketNumber(ticket.ticket_number)} - {ticket.subject}
-                  </a>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <a
+                      href={`/admin/suporte/solicitacoes/${ticket.id}`}
+                      className="text-sm font-semibold text-[#0f172a] hover:underline"
+                    >
+                      #{formatTicketNumber(ticket.ticket_number)} - {ticket.subject}
+                    </a>
+
+                    {ticketNotification.hasNew && (
+                      <span className="inline-flex items-center rounded-full border border-[#facc15] bg-[#fef9c3] px-2 py-0.5 text-[11px] font-medium text-[#854d0e]">
+                        Nova
+                      </span>
+                    )}
+
+                    {ticketNotification.hasChat && (
+                      <span className="inline-flex items-center rounded-full border border-[#93c5fd] bg-[#eff6ff] px-2 py-0.5 text-[11px] font-medium text-[#1e40af]">
+                        Chat
+                      </span>
+                    )}
+                  </div>
+
                   <button
                     type="button"
                     onClick={() => onToggleStatus(ticket, nextStatus)}
@@ -79,6 +126,7 @@ function TicketSection({
 
 function AdminSupportTicketsPage() {
   const { data, loading, error } = usePageData('/admin/suporte/solicitacoes');
+  const { notifications } = useNotifications({ limit: 200 });
   const { logout } = useLogout();
 
   const [openTickets, setOpenTickets] = useState([]);
@@ -89,6 +137,11 @@ function AdminSupportTicketsPage() {
   const [busy, setBusy] = useState(false);
   const [actionBusyId, setActionBusyId] = useState(null);
   const [actionError, setActionError] = useState('');
+
+  const ticketNotificationById = useMemo(
+    () => buildTicketNotificationMap(notifications),
+    [notifications]
+  );
 
   useEffect(() => {
     if (!data) return;
@@ -118,7 +171,7 @@ function AdminSupportTicketsPage() {
       setClosedTickets(response.data?.closed_tickets ?? []);
       setCompanies(response.data?.companies ?? []);
     } catch (err) {
-      setActionError(err.response?.data?.message || 'Falha ao carregar solicitações.');
+      setActionError(err.response?.data?.message || 'Falha ao carregar solicitacoes.');
     } finally {
       setBusy(false);
     }
@@ -144,7 +197,7 @@ function AdminSupportTicketsPage() {
       });
       await loadTickets(companyFilter, statusFilter);
     } catch (err) {
-      setActionError(err.response?.data?.message || 'Falha ao atualizar status da solicitação.');
+      setActionError(err.response?.data?.message || 'Falha ao atualizar status da solicitacao.');
     } finally {
       setActionBusyId(null);
     }
@@ -161,7 +214,7 @@ function AdminSupportTicketsPage() {
   if (error || !data?.authenticated) {
     return (
       <Layout>
-        <p className="text-sm text-red-600">Não foi possível carregar as solicitações de suporte.</p>
+        <p className="text-sm text-red-600">Nao foi possivel carregar as solicitacoes de suporte.</p>
       </Layout>
     );
   }
@@ -229,18 +282,20 @@ function AdminSupportTicketsPage() {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <TicketSection
           title={`Abertas (${openTickets.length})`}
-          emptyText="Nenhuma solicitação aberta para os filtros atuais."
+          emptyText="Nenhuma solicitacao aberta para os filtros atuais."
           tickets={openTickets}
           actionBusyId={actionBusyId}
           onToggleStatus={toggleStatus}
+          ticketNotificationById={ticketNotificationById}
         />
 
         <TicketSection
           title={`Fechadas (${closedTickets.length})`}
-          emptyText="Nenhuma solicitação fechada para os filtros atuais."
+          emptyText="Nenhuma solicitacao fechada para os filtros atuais."
           tickets={closedTickets}
           actionBusyId={actionBusyId}
           onToggleStatus={toggleStatus}
+          ticketNotificationById={ticketNotificationById}
         />
       </div>
     </Layout>
@@ -248,4 +303,3 @@ function AdminSupportTicketsPage() {
 }
 
 export default AdminSupportTicketsPage;
-

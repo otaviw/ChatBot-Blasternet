@@ -46,5 +46,9 @@ class SupportTicket extends Model
     {
         return $this->hasMany(SupportTicketAttachment::class);
     }
-}
 
+    public function messages()
+    {
+        return $this->hasMany(SupportTicketMessage::class);
+    }
+}

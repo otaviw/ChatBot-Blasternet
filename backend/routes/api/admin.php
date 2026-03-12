@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\CompanyController;
 use App\Http\Controllers\Admin\ConversationController as AdminConversationController;
 use App\Http\Controllers\Admin\SupportTicketController as AdminSupportTicketController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\SupportTicketMessageController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['web', 'auth'])->group(function () {
@@ -48,6 +49,10 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::get('/suporte/solicitacoes/{ticket}', [AdminSupportTicketController::class, 'show'])
             ->middleware('throttle:inbox-read');
         Route::put('/suporte/solicitacoes/{ticket}/status', [AdminSupportTicketController::class, 'updateStatus'])
+            ->middleware('throttle:bot-write');
+        Route::get('/suporte/solicitacoes/{ticket}/chat', [SupportTicketMessageController::class, 'listAdmin'])
+            ->middleware('throttle:inbox-read');
+        Route::post('/suporte/solicitacoes/{ticket}/chat', [SupportTicketMessageController::class, 'storeAdmin'])
             ->middleware('throttle:bot-write');
     });
 });
