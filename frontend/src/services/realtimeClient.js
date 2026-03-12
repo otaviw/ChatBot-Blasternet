@@ -1,35 +1,12 @@
 import { io } from 'socket.io-client';
 import { REALTIME_EVENTS } from '@/constants/realtimeEvents';
 import api from './api';
-
-const SUPPORTED_EVENTS = new Set(Object.values(REALTIME_EVENTS));
+import { isSupportedRealtimeEvent } from './realtime/isSupportedRealtimeEvent';
+import { readPositiveInt } from './realtime/readPositiveInt';
+import { readMessagePayload } from './realtime/readMessagePayload';
 
 const MAX_SEEN_ITEMS = 1500;
 const SEEN_TTL_MS = 5 * 60 * 1000;
-
-const readPositiveInt = (source, keys) => {
-  if (!source || typeof source !== 'object') {
-    return null;
-  }
-
-  for (const key of keys) {
-    const parsed = Number.parseInt(String(source[key] ?? ''), 10);
-    if (parsed > 0) {
-      return parsed;
-    }
-  }
-
-  return null;
-};
-
-const readMessagePayload = (payload) => {
-  if (!payload || typeof payload !== 'object') {
-    return null;
-  }
-
-  const nested = payload.message;
-  return nested && typeof nested === 'object' ? nested : null;
-};
 
 class RealtimeClient {
   constructor() {
@@ -45,7 +22,7 @@ class RealtimeClient {
   }
 
   on(eventName, handler) {
-    if (!SUPPORTED_EVENTS.has(eventName)) {
+    if (!isSupportedRealtimeEvent(eventName)) {
       throw new Error(`Realtime event não suportado: ${eventName}`);
     }
 
@@ -164,7 +141,7 @@ class RealtimeClient {
     });
 
     socket.onAny((eventName, envelope) => {
-      if (!SUPPORTED_EVENTS.has(eventName)) {
+      if (!isSupportedRealtimeEvent(eventName)) {
         return;
       }
 
