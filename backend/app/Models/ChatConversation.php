@@ -12,8 +12,14 @@ class ChatConversation extends Model
 {
     protected $fillable = [
         'type',
+        'name',
         'created_by',
         'company_id',
+        'deleted_at',
+    ];
+
+    protected $casts = [
+        'deleted_at' => 'datetime',
     ];
 
     public function creator(): BelongsTo
@@ -29,7 +35,8 @@ class ChatConversation extends Model
     public function participants(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'chat_participants', 'conversation_id', 'user_id')
-                    ->withPivot('joined_at', 'last_read_at');
+                    ->wherePivotNull('left_at')
+                    ->withPivot('joined_at', 'last_read_at', 'is_admin', 'hidden_at', 'left_at');
     }
 
     public function messages(): HasMany

@@ -25,7 +25,11 @@ class AttachmentController extends Controller
         $attachment->loadMissing('message.conversation');
         $conversation = $attachment->message?->conversation;
 
-        if (! $conversation || ! $this->chatService->isParticipant($conversation, (int) $user->id)) {
+        if (
+            ! $conversation
+            || $this->chatService->isConversationDeleted($conversation)
+            || ! $this->chatService->isVisibleParticipant($conversation, (int) $user->id)
+        ) {
             return response()->json([
                 'message' => 'Sem permissao para acessar este anexo.',
             ], 403);

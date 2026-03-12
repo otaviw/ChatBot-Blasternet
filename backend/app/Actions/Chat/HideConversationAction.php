@@ -3,11 +3,12 @@
 namespace App\Actions\Chat;
 
 use App\Models\ChatConversation;
+use App\Models\ChatParticipant;
 use App\Services\Chat\InternalChatConversationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class MarkConversationReadAction
+class HideConversationAction
 {
     public function __construct(
         private readonly InternalChatConversationService $chatService
@@ -26,18 +27,31 @@ class MarkConversationReadAction
             ], 404);
         }
 
-        if (! $this->chatService->isVisibleParticipant($conversation, (int) $user->id)) {
+        if ((string) $conversation->type !== 'direct') {
             return response()->json([
-                'message' => 'Sem permissao para marcar leitura desta conversa.',
+                'message' => 'Apenas conversas diretas podem ser apagadas individualmente.',
+            ], 422);
+        }
+
+        $participant = ChatParticipant::query()
+            ->where('conversation_id', (int) $conversation->id)
+            ->where('user_id', (int) $user->id)
+            ->whereNull('left_at')
+            ->first();
+
+        if (! $participant) {
+            return response()->json([
+                'message' => 'Sem permissao para apagar esta conversa.',
             ], 403);
         }
 
-        $this->chatService->markConversationAsRead($conversation, (int) $user->id);
+        $participant->hidden_at = now();
+        $participant->save();
 
         return response()->json([
             'ok' => true,
             'conversation_id' => (int) $conversation->id,
-            'unread_count' => 0,
+            'hidden' => true,
         ]);
     }
 }

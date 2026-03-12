@@ -14,11 +14,17 @@ class ChatParticipant extends Model
         'user_id',
         'joined_at',
         'last_read_at',
+        'is_admin',
+        'hidden_at',
+        'left_at',
     ];
 
     protected $casts = [
         'joined_at'    => 'datetime',
         'last_read_at' => 'datetime',
+        'is_admin' => 'boolean',
+        'hidden_at' => 'datetime',
+        'left_at' => 'datetime',
     ];
 
     public function user(): BelongsTo

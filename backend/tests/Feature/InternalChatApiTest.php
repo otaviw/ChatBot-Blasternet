@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Company;
+use App\Models\ChatParticipant;
 use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
@@ -13,6 +14,291 @@ use Tests\TestCase;
 class InternalChatApiTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_direct_conversation_delete_hides_only_for_user_who_deleted(): void
+    {
+        $company = Company::create(['name' => 'Empresa Chat Delete Direct']);
+
+        $sender = User::create([
+            'name' => 'Sender Delete Direct',
+            'email' => 'sender-delete-direct@test.local',
+            'password' => 'secret123',
+            'role' => User::ROLE_AGENT,
+            'company_id' => $company->id,
+            'is_active' => true,
+        ]);
+
+        $recipient = User::create([
+            'name' => 'Recipient Delete Direct',
+            'email' => 'recipient-delete-direct@test.local',
+            'password' => 'secret123',
+            'role' => User::ROLE_COMPANY_ADMIN,
+            'company_id' => $company->id,
+            'is_active' => true,
+        ]);
+
+        $created = $this->actingAs($sender)->postJson('/api/chat/conversations', [
+            'recipient_id' => $recipient->id,
+            'content' => 'Mensagem para deletar apenas localmente',
+        ]);
+        $created->assertCreated();
+
+        $conversationId = (int) $created->json('conversation.id');
+        $this->assertGreaterThan(0, $conversationId);
+
+        $deleteForSender = $this->actingAs($sender)->deleteJson("/api/chat/conversations/{$conversationId}");
+        $deleteForSender->assertOk();
+        $deleteForSender->assertJsonPath('hidden', true);
+
+        $listSender = $this->actingAs($sender)->getJson('/api/chat/conversations');
+        $listSender->assertOk();
+        $this->assertFalse(
+            collect($listSender->json('conversations', []))
+                ->contains(fn (array $item) => (int) ($item['id'] ?? 0) === $conversationId)
+        );
+
+        $listRecipient = $this->actingAs($recipient)->getJson('/api/chat/conversations');
+        $listRecipient->assertOk();
+        $this->assertTrue(
+            collect($listRecipient->json('conversations', []))
+                ->contains(fn (array $item) => (int) ($item['id'] ?? 0) === $conversationId)
+        );
+
+        $this->assertDatabaseHas('chat_participants', [
+            'conversation_id' => $conversationId,
+            'user_id' => (int) $sender->id,
+        ]);
+        $this->assertDatabaseHas('chat_participants', [
+            'conversation_id' => $conversationId,
+            'user_id' => (int) $recipient->id,
+            'hidden_at' => null,
+        ]);
+    }
+
+    public function test_group_creator_starts_as_admin_and_can_manage_group_and_participants(): void
+    {
+        $company = Company::create(['name' => 'Empresa Chat Group Manage']);
+
+        $creator = User::create([
+            'name' => 'Creator Group',
+            'email' => 'creator-group@test.local',
+            'password' => 'secret123',
+            'role' => User::ROLE_COMPANY_ADMIN,
+            'company_id' => $company->id,
+            'is_active' => true,
+        ]);
+
+        $memberA = User::create([
+            'name' => 'Member A',
+            'email' => 'member-a-group@test.local',
+            'password' => 'secret123',
+            'role' => User::ROLE_AGENT,
+            'company_id' => $company->id,
+            'is_active' => true,
+        ]);
+
+        $memberB = User::create([
+            'name' => 'Member B',
+            'email' => 'member-b-group@test.local',
+            'password' => 'secret123',
+            'role' => User::ROLE_AGENT,
+            'company_id' => $company->id,
+            'is_active' => true,
+        ]);
+
+        $memberC = User::create([
+            'name' => 'Member C',
+            'email' => 'member-c-group@test.local',
+            'password' => 'secret123',
+            'role' => User::ROLE_AGENT,
+            'company_id' => $company->id,
+            'is_active' => true,
+        ]);
+
+        $createGroup = $this->actingAs($creator)->postJson('/api/chat/conversations', [
+            'type' => 'group',
+            'participant_ids' => [$memberA->id, $memberB->id],
+            'name' => 'Grupo Operacao',
+        ]);
+        $createGroup->assertCreated();
+
+        $conversationId = (int) $createGroup->json('conversation.id');
+        $this->assertGreaterThan(0, $conversationId);
+
+        $creatorPivot = ChatParticipant::query()
+            ->where('conversation_id', $conversationId)
+            ->where('user_id', (int) $creator->id)
+            ->whereNull('left_at')
+            ->first();
+        $this->assertNotNull($creatorPivot);
+        $this->assertTrue((bool) $creatorPivot->is_admin);
+
+        $renameAsMember = $this->actingAs($memberA)->patchJson(
+            "/api/chat/conversations/{$conversationId}/group-name",
+            ['name' => 'Tentativa sem permissao']
+        );
+        $renameAsMember->assertForbidden();
+
+        $renameAsCreator = $this->actingAs($creator)->patchJson(
+            "/api/chat/conversations/{$conversationId}/group-name",
+            ['name' => 'Grupo Renomeado']
+        );
+        $renameAsCreator->assertOk();
+        $renameAsCreator->assertJsonPath('conversation.name', 'Grupo Renomeado');
+
+        $addParticipant = $this->actingAs($creator)->postJson(
+            "/api/chat/conversations/{$conversationId}/participants",
+            ['participant_id' => $memberC->id]
+        );
+        $addParticipant->assertOk();
+        $this->assertDatabaseHas('chat_participants', [
+            'conversation_id' => $conversationId,
+            'user_id' => (int) $memberC->id,
+            'left_at' => null,
+        ]);
+
+        $promoteMemberA = $this->actingAs($creator)->patchJson(
+            "/api/chat/conversations/{$conversationId}/participants/{$memberA->id}/admin",
+            ['is_admin' => true]
+        );
+        $promoteMemberA->assertOk();
+        $this->assertDatabaseHas('chat_participants', [
+            'conversation_id' => $conversationId,
+            'user_id' => (int) $memberA->id,
+            'is_admin' => true,
+            'left_at' => null,
+        ]);
+
+        $demoteCreator = $this->actingAs($creator)->patchJson(
+            "/api/chat/conversations/{$conversationId}/participants/{$creator->id}/admin",
+            ['is_admin' => false]
+        );
+        $demoteCreator->assertOk();
+        $this->assertDatabaseHas('chat_participants', [
+            'conversation_id' => $conversationId,
+            'user_id' => (int) $creator->id,
+            'is_admin' => false,
+            'left_at' => null,
+        ]);
+
+        $removeMemberB = $this->actingAs($memberA)->deleteJson(
+            "/api/chat/conversations/{$conversationId}/participants/{$memberB->id}"
+        );
+        $removeMemberB->assertOk();
+        $this->assertDatabaseHas('chat_participants', [
+            'conversation_id' => $conversationId,
+            'user_id' => (int) $memberB->id,
+        ]);
+        $this->assertDatabaseMissing('chat_participants', [
+            'conversation_id' => $conversationId,
+            'user_id' => (int) $memberB->id,
+            'left_at' => null,
+        ]);
+
+        $memberBList = $this->actingAs($memberB)->getJson('/api/chat/conversations');
+        $memberBList->assertOk();
+        $this->assertFalse(
+            collect($memberBList->json('conversations', []))
+                ->contains(fn (array $item) => (int) ($item['id'] ?? 0) === $conversationId)
+        );
+
+        $deleteGroup = $this->actingAs($memberA)->deleteJson(
+            "/api/chat/conversations/{$conversationId}/group"
+        );
+        $deleteGroup->assertOk();
+        $deleteGroup->assertJsonPath('deleted', true);
+
+        $creatorList = $this->actingAs($creator)->getJson('/api/chat/conversations');
+        $creatorList->assertOk();
+        $this->assertFalse(
+            collect($creatorList->json('conversations', []))
+                ->contains(fn (array $item) => (int) ($item['id'] ?? 0) === $conversationId)
+        );
+    }
+
+    public function test_last_group_admin_must_transfer_before_leaving_group(): void
+    {
+        $company = Company::create(['name' => 'Empresa Chat Group Leave']);
+
+        $creator = User::create([
+            'name' => 'Creator Leave Group',
+            'email' => 'creator-leave-group@test.local',
+            'password' => 'secret123',
+            'role' => User::ROLE_COMPANY_ADMIN,
+            'company_id' => $company->id,
+            'is_active' => true,
+        ]);
+
+        $memberA = User::create([
+            'name' => 'Member A Leave Group',
+            'email' => 'member-a-leave-group@test.local',
+            'password' => 'secret123',
+            'role' => User::ROLE_AGENT,
+            'company_id' => $company->id,
+            'is_active' => true,
+        ]);
+
+        $memberB = User::create([
+            'name' => 'Member B Leave Group',
+            'email' => 'member-b-leave-group@test.local',
+            'password' => 'secret123',
+            'role' => User::ROLE_AGENT,
+            'company_id' => $company->id,
+            'is_active' => true,
+        ]);
+
+        $createGroup = $this->actingAs($creator)->postJson('/api/chat/conversations', [
+            'type' => 'group',
+            'participant_ids' => [$memberA->id, $memberB->id],
+            'name' => 'Grupo Saida',
+        ]);
+        $createGroup->assertCreated();
+        $conversationId = (int) $createGroup->json('conversation.id');
+        $this->assertGreaterThan(0, $conversationId);
+
+        $leaveWithoutTransfer = $this->actingAs($creator)->postJson(
+            "/api/chat/conversations/{$conversationId}/leave"
+        );
+        $leaveWithoutTransfer->assertStatus(422);
+
+        $leaveWithTransfer = $this->actingAs($creator)->postJson(
+            "/api/chat/conversations/{$conversationId}/leave",
+            ['transfer_admin_to' => $memberA->id]
+        );
+        $leaveWithTransfer->assertOk();
+        $leaveWithTransfer->assertJsonPath('left', true);
+
+        $this->assertDatabaseHas('chat_participants', [
+            'conversation_id' => $conversationId,
+            'user_id' => (int) $creator->id,
+        ]);
+        $this->assertDatabaseMissing('chat_participants', [
+            'conversation_id' => $conversationId,
+            'user_id' => (int) $creator->id,
+            'left_at' => null,
+        ]);
+
+        $this->assertDatabaseHas('chat_participants', [
+            'conversation_id' => $conversationId,
+            'user_id' => (int) $memberA->id,
+            'is_admin' => true,
+            'left_at' => null,
+        ]);
+
+        $creatorList = $this->actingAs($creator)->getJson('/api/chat/conversations');
+        $creatorList->assertOk();
+        $this->assertFalse(
+            collect($creatorList->json('conversations', []))
+                ->contains(fn (array $item) => (int) ($item['id'] ?? 0) === $conversationId)
+        );
+
+        $memberAList = $this->actingAs($memberA)->getJson('/api/chat/conversations');
+        $memberAList->assertOk();
+        $this->assertTrue(
+            collect($memberAList->json('conversations', []))
+                ->contains(fn (array $item) => (int) ($item['id'] ?? 0) === $conversationId)
+        );
+    }
 
     public function test_company_user_can_list_only_allowed_chat_recipients(): void
     {

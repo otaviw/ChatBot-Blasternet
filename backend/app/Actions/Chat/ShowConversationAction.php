@@ -21,7 +21,13 @@ class ShowConversationAction
             return $this->chatService->unauthenticatedResponse();
         }
 
-        if (! $this->chatService->isParticipant($conversation, (int) $user->id)) {
+        if ($this->chatService->isConversationDeleted($conversation)) {
+            return response()->json([
+                'message' => 'Conversa nao encontrada.',
+            ], 404);
+        }
+
+        if (! $this->chatService->isVisibleParticipant($conversation, (int) $user->id)) {
             return response()->json([
                 'message' => 'Sem permissao para acessar esta conversa.',
             ], 403);

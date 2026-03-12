@@ -14,6 +14,7 @@ function InternalChatSidebar({
   onConversationsScroll,
   onNextConversationPage,
   onOpenConversation,
+  onOpenConversationOptions,
   onOpenCreateModal,
   onOpenCreateGroupModal,
   loadedConversationPage,
@@ -70,7 +71,7 @@ function InternalChatSidebar({
           const unreadCount = Number(conversation.unread_count ?? 0);
 
           return (
-            <li key={conversation.id}>
+            <li key={conversation.id} className="internal-chat-conversation-item-wrap">
               <button
                 type="button"
                 className={`internal-chat-conversation-item ${
@@ -96,6 +97,19 @@ function InternalChatSidebar({
                     </span>
                   ) : null}
                 </div>
+              </button>
+              <button
+                type="button"
+                className="internal-chat-conversation-options-btn"
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onOpenConversationOptions(conversation);
+                }}
+                title="Opcoes da conversa"
+                aria-label="Opcoes da conversa"
+              >
+                ...
               </button>
             </li>
           );

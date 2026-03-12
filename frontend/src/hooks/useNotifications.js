@@ -89,6 +89,39 @@ function normalizeUnreadByModule(input) {
   }, {});
 }
 
+function parseNotificationId(value) {
+  const id = Number.parseInt(String(value ?? ''), 10);
+  return id > 0 ? id : 0;
+}
+
+function shouldHideNotification(notification, clearedUntilId) {
+  if (clearedUntilId <= 0) {
+    return false;
+  }
+
+  return parseNotificationId(notification?.id) <= clearedUntilId;
+}
+
+function filterNotificationsByClearState(items, clearedUntilId) {
+  return (items ?? []).filter((item) => !shouldHideNotification(item, clearedUntilId));
+}
+
+function buildUnreadCountersFromNotifications(items) {
+  return (items ?? []).reduce(
+    (acc, item) => {
+      if (item?.is_read) {
+        return acc;
+      }
+
+      const module = String(item?.module ?? NOTIFICATION_MODULE.GENERAL).trim() || NOTIFICATION_MODULE.GENERAL;
+      acc.unread_by_module[module] = Number(acc.unread_by_module[module] ?? 0) + 1;
+      acc.total_unread += 1;
+      return acc;
+    },
+    { unread_by_module: {}, total_unread: 0 }
+  );
+}
+
 export default function useNotifications(options = {}) {
   const {
     enabled = true,
@@ -102,6 +135,7 @@ export default function useNotifications(options = {}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [loadedAt, setLoadedAt] = useState(null);
+  const [clearedUntilId, setClearedUntilId] = useState(0);
 
   const applyUnreadCounters = useCallback((byModulePayload, totalPayload) => {
     const normalizedByModule = normalizeUnreadByModule(byModulePayload);
@@ -131,40 +165,56 @@ export default function useNotifications(options = {}) {
         .map((item) => normalizeNotification(item))
         .filter(Boolean);
 
-      setNotifications(sortNotificationsByDate(normalized));
+      const sorted = sortNotificationsByDate(normalized);
+      const visible = filterNotificationsByClearState(sorted, clearedUntilId);
+
+      setNotifications(visible);
       setLoadedAt(new Date().toISOString());
 
-      return normalized;
+      return visible;
     } catch (err) {
       setError(err?.response?.data?.message || 'Falha ao carregar notificacoes.');
       return [];
     } finally {
       setLoading(false);
     }
-  }, [enabled, limit]);
+  }, [clearedUntilId, enabled, limit]);
 
   const loadUnreadCounts = useCallback(async () => {
     if (!enabled) {
       return { unread_by_module: {}, total_unread: 0 };
     }
 
+    if (clearedUntilId > 0) {
+      const localCounters = buildUnreadCountersFromNotifications(notifications);
+      applyUnreadCounters(localCounters.unread_by_module, localCounters.total_unread);
+      return localCounters;
+    }
+
     try {
       const response = await notificationService.unreadCounts();
-      applyUnreadCounters(response.unread_by_module, response.total_unread);
+      if (clearedUntilId <= 0) {
+        applyUnreadCounters(response.unread_by_module, response.total_unread);
+      }
       return response;
     } catch (err) {
       setError((prev) => prev || err?.response?.data?.message || 'Falha ao carregar contadores de notificacoes.');
       return { unread_by_module: {}, total_unread: 0 };
     }
-  }, [applyUnreadCounters, enabled]);
+  }, [applyUnreadCounters, clearedUntilId, enabled, notifications]);
 
   const refresh = useCallback(async () => {
     if (!enabled) {
       return;
     }
 
+    if (clearedUntilId > 0) {
+      await loadNotifications();
+      return;
+    }
+
     await Promise.all([loadNotifications(), loadUnreadCounts()]);
-  }, [enabled, loadNotifications, loadUnreadCounts]);
+  }, [clearedUntilId, enabled, loadNotifications, loadUnreadCounts]);
 
   const markAsRead = useCallback(async (notificationId) => {
     const id = Number.parseInt(String(notificationId ?? ''), 10);
@@ -176,18 +226,20 @@ export default function useNotifications(options = {}) {
       const response = await notificationService.markAsRead(id);
       const normalized = normalizeNotification(response.notification);
 
-      if (normalized) {
+      if (normalized && !shouldHideNotification(normalized, clearedUntilId)) {
         setNotifications((prev) => mergeNotification(prev, normalized));
       }
 
-      applyUnreadCounters(response.unread_by_module, response.total_unread);
+      if (clearedUntilId <= 0) {
+        applyUnreadCounters(response.unread_by_module, response.total_unread);
+      }
 
       return response;
     } catch (err) {
       setError(err?.response?.data?.message || 'Falha ao marcar notificação como lida.');
       return null;
     }
-  }, [applyUnreadCounters, enabled]);
+  }, [applyUnreadCounters, clearedUntilId, enabled]);
 
   const markAllRead = useCallback(async () => {
     if (!enabled) {
@@ -210,14 +262,16 @@ export default function useNotifications(options = {}) {
         )
       );
 
-      applyUnreadCounters(response.unread_by_module, response.total_unread);
+      if (clearedUntilId <= 0) {
+        applyUnreadCounters(response.unread_by_module, response.total_unread);
+      }
 
       return response;
     } catch (err) {
       setError(err?.response?.data?.message || 'Falha ao marcar todas as notificações como lidas.');
       return null;
     }
-  }, [applyUnreadCounters, enabled]);
+  }, [applyUnreadCounters, clearedUntilId, enabled]);
 
   const deleteMany = useCallback(
     async (ids) => {
@@ -235,7 +289,9 @@ export default function useNotifications(options = {}) {
         const idSet = new Set(normalizedIds);
 
         setNotifications((prev) => prev.filter((item) => !idSet.has(Number(item.id))));
-        applyUnreadCounters(response.unread_by_module, response.total_unread);
+        if (clearedUntilId <= 0) {
+          applyUnreadCounters(response.unread_by_module, response.total_unread);
+        }
 
         return response;
       } catch (err) {
@@ -243,8 +299,27 @@ export default function useNotifications(options = {}) {
         return null;
       }
     },
-    [applyUnreadCounters, enabled]
+    [applyUnreadCounters, clearedUntilId, enabled]
   );
+
+  const clearAllLocally = useCallback(() => {
+    if (!enabled) {
+      return;
+    }
+
+    const maxNotificationId = notifications.reduce((maxId, item) => {
+      const notificationId = parseNotificationId(item?.id);
+      return notificationId > maxId ? notificationId : maxId;
+    }, clearedUntilId);
+
+    if (maxNotificationId > 0) {
+      setClearedUntilId(maxNotificationId);
+    }
+
+    setNotifications([]);
+    setUnreadByModule({});
+    setTotalUnread(0);
+  }, [clearedUntilId, enabled, notifications]);
 
   const markReadByReference = useCallback(async (module, referenceType, referenceId) => {
     const normalizedModule = String(module ?? '').trim();
@@ -288,14 +363,24 @@ export default function useNotifications(options = {}) {
         );
       }
 
-      applyUnreadCounters(response?.unread_by_module, response?.total_unread);
+      if (clearedUntilId <= 0) {
+        applyUnreadCounters(response?.unread_by_module, response?.total_unread);
+      }
 
       return response;
     } catch (err) {
       setError(err?.response?.data?.message || 'Falha ao marcar notificacoes por referencia.');
       return null;
     }
-  }, [applyUnreadCounters, enabled]);
+  }, [applyUnreadCounters, clearedUntilId, enabled]);
+
+  useEffect(() => {
+    if (enabled) {
+      return;
+    }
+
+    setClearedUntilId(0);
+  }, [enabled]);
 
   useEffect(() => {
     if (!enabled || !autoLoad) {
@@ -319,14 +404,30 @@ export default function useNotifications(options = {}) {
         return;
       }
 
+      if (shouldHideNotification(normalized, clearedUntilId)) {
+        return;
+      }
+
       setNotifications((prev) => mergeNotification(prev, normalized));
-      applyUnreadCounters(payload.unreadByModule, payload.totalUnread);
+      if (clearedUntilId <= 0) {
+        applyUnreadCounters(payload.unreadByModule, payload.totalUnread);
+      }
     });
 
     return () => {
       unsubscribe();
     };
-  }, [applyUnreadCounters, enabled]);
+  }, [applyUnreadCounters, clearedUntilId, enabled]);
+
+  useEffect(() => {
+    if (clearedUntilId <= 0) {
+      return;
+    }
+
+    const localCounters = buildUnreadCountersFromNotifications(notifications);
+    setUnreadByModule(localCounters.unread_by_module);
+    setTotalUnread(localCounters.total_unread);
+  }, [clearedUntilId, notifications]);
 
   const unreadModules = useMemo(() => Object.keys(unreadByModule), [unreadByModule]);
   const unreadConversationIds = useMemo(() => {
@@ -358,6 +459,7 @@ export default function useNotifications(options = {}) {
     markReadByReference,
     markAllRead,
     deleteMany,
+    clearAllLocally,
     setNotifications,
   };
 }

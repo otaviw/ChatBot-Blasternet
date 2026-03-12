@@ -9,6 +9,7 @@ use App\Models\ChatParticipant;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 
 class InternalChatConversationService
 {
@@ -31,14 +32,21 @@ class InternalChatConversationService
     {
         return ChatConversation::query()
             ->where('type', 'direct')
+            ->whereNull('deleted_at')
             ->whereHas('participants', function ($participantsQuery) use ($userA): void {
-                $participantsQuery->where('users.id', $userA);
+                $participantsQuery
+                    ->where('users.id', $userA)
+                    ->whereNull('chat_participants.left_at');
             })
             ->whereHas('participants', function ($participantsQuery) use ($userB): void {
-                $participantsQuery->where('users.id', $userB);
+                $participantsQuery
+                    ->where('users.id', $userB)
+                    ->whereNull('chat_participants.left_at');
             })
             ->whereDoesntHave('participants', function ($participantsQuery) use ($userA, $userB): void {
-                $participantsQuery->whereNotIn('users.id', [$userA, $userB]);
+                $participantsQuery
+                    ->whereNotIn('users.id', [$userA, $userB])
+                    ->whereNull('chat_participants.left_at');
             })
             ->first();
     }
@@ -71,10 +79,12 @@ class InternalChatConversationService
         $pivot = ChatParticipant::query()
             ->where('conversation_id', (int) $conversation->id)
             ->where('user_id', $userId)
+            ->whereNull('left_at')
             ->first();
 
         if ($pivot) {
             $pivot->last_read_at = $timestamp;
+            $pivot->hidden_at = null;
             $pivot->save();
             return;
         }
@@ -84,14 +94,69 @@ class InternalChatConversationService
             'user_id' => $userId,
             'joined_at' => $timestamp,
             'last_read_at' => $timestamp,
+            'is_admin' => false,
+            'hidden_at' => null,
+            'left_at' => null,
         ]);
     }
 
     public function isParticipant(ChatConversation $conversation, int $userId): bool
     {
-        return $conversation->participants()
+        return ChatParticipant::query()
+            ->where('conversation_id', (int) $conversation->id)
             ->where('user_id', $userId)
+            ->whereNull('left_at')
             ->exists();
+    }
+
+    public function isVisibleParticipant(ChatConversation $conversation, int $userId): bool
+    {
+        return ChatParticipant::query()
+            ->where('conversation_id', (int) $conversation->id)
+            ->where('user_id', $userId)
+            ->whereNull('left_at')
+            ->whereNull('hidden_at')
+            ->exists();
+    }
+
+    public function isConversationDeleted(ChatConversation $conversation): bool
+    {
+        return (bool) $conversation->deleted_at;
+    }
+
+    public function findParticipantPivot(ChatConversation $conversation, int $userId): ?ChatParticipant
+    {
+        return ChatParticipant::query()
+            ->where('conversation_id', (int) $conversation->id)
+            ->where('user_id', $userId)
+            ->first();
+    }
+
+    public function isGroupAdmin(ChatConversation $conversation, int $userId): bool
+    {
+        return ChatParticipant::query()
+            ->where('conversation_id', (int) $conversation->id)
+            ->where('user_id', $userId)
+            ->whereNull('left_at')
+            ->where('is_admin', true)
+            ->exists();
+    }
+
+    public function countActiveParticipants(ChatConversation $conversation): int
+    {
+        return (int) ChatParticipant::query()
+            ->where('conversation_id', (int) $conversation->id)
+            ->whereNull('left_at')
+            ->count();
+    }
+
+    public function countGroupAdmins(ChatConversation $conversation): int
+    {
+        return (int) ChatParticipant::query()
+            ->where('conversation_id', (int) $conversation->id)
+            ->whereNull('left_at')
+            ->where('is_admin', true)
+            ->count();
     }
 
     public function belongsToConversation(ChatConversation $conversation, ChatMessage $message): bool
@@ -113,22 +178,35 @@ class InternalChatConversationService
         ]);
     }
 
+    public function clearConversationHiddenForActiveParticipants(ChatConversation $conversation): void
+    {
+        ChatParticipant::query()
+            ->where('conversation_id', (int) $conversation->id)
+            ->whereNull('left_at')
+            ->update(['hidden_at' => null]);
+    }
+
     /**
      * @return array<string, mixed>
      */
     public function serializeConversationSummary(ChatConversation $conversation, User $viewer): array
     {
         $lastMessage = $conversation->lastMessage;
+        $viewerPivot = $this->findParticipantPivot($conversation, (int) $viewer->id);
+        $viewerIsAdmin = (bool) ($viewerPivot?->is_admin ?? false);
 
         return [
             'id' => (int) $conversation->id,
             'type' => (string) $conversation->type,
+            'name' => $conversation->name ? (string) $conversation->name : null,
             'created_by' => (int) $conversation->created_by,
             'company_id' => $conversation->company_id ? (int) $conversation->company_id : null,
             'participants' => $conversation->participants
-                ->map(fn (User $participant): array => $this->serializeUser($participant))
+                ->map(fn (User $participant): array => $this->serializeParticipant($participant))
                 ->values()
                 ->all(),
+            'participant_count' => (int) $conversation->participants->count(),
+            'current_user_is_admin' => $viewerIsAdmin,
             'last_message' => $lastMessage ? $this->serializeMessage($lastMessage) : null,
             'last_message_at' => $lastMessage?->created_at?->toISOString()
                 ?? $conversation->updated_at?->toISOString()
@@ -136,6 +214,7 @@ class InternalChatConversationService
             'unread_count' => $this->calculateUnreadCount($conversation, $viewer),
             'created_at' => $conversation->created_at?->toISOString(),
             'updated_at' => $conversation->updated_at?->toISOString(),
+            'deleted_at' => $conversation->deleted_at?->toISOString(),
         ];
     }
 
@@ -168,6 +247,18 @@ class InternalChatConversationService
             'role' => User::normalizeRole((string) $user->role),
             'company_id' => $user->company_id ? (int) $user->company_id : null,
             'is_active' => (bool) $user->is_active,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function serializeParticipant(User $user): array
+    {
+        return [
+            ...$this->serializeUser($user),
+            'is_admin' => (bool) ($user->pivot?->is_admin ?? false),
+            'joined_at' => $this->toIsoStringOrNull($user->pivot?->joined_at),
         ];
     }
 
@@ -295,5 +386,18 @@ class InternalChatConversationService
         }
 
         return (int) $query->count();
+    }
+
+    private function toIsoStringOrNull(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value)->toISOString();
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }

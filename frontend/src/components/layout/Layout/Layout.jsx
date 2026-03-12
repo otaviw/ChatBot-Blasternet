@@ -118,6 +118,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
   const profileRef = useRef(null);
   const lastToastNotificationIdRef = useRef(null);
   const [toastNotification, setToastNotification] = useState(null);
+  const [clearAllConfirmOpen, setClearAllConfirmOpen] = useState(false);
   const {
     unreadByModule,
     totalUnread,
@@ -126,6 +127,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
     error: notificationsError,
     refresh: refreshNotifications,
     markAsRead,
+    clearAllLocally,
   } = useNotificationsContext();
 
   useEffect(() => {
@@ -199,6 +201,17 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
     setNotificationsPanelOpen(false);
     window.location.href = targetHref;
   };
+
+  const handleConfirmClearAllNotifications = () => {
+    clearAllLocally();
+    setClearAllConfirmOpen(false);
+  };
+
+  useEffect(() => {
+    if (!notificationsPanelOpen) {
+      setClearAllConfirmOpen(false);
+    }
+  }, [notificationsPanelOpen]);
 
   useEffect(() => {
     let canceled = false;
@@ -693,14 +706,24 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
             </div>
             <div className="layout-notifications__toolbar">
               <span className="layout-notifications__count">Não lidas: <strong>{totalUnreadCount}</strong></span>
-              <button
-                type="button"
-                className="layout-notifications__refresh"
-                onClick={() => void refreshNotifications()}
-                disabled={notificationsLoading}
-              >
-                {notificationsLoading ? 'Atualizando...' : 'Atualizar'}
-              </button>
+              <div className="layout-notifications__toolbar-actions">
+                <button
+                  type="button"
+                  className="layout-notifications__clear"
+                  onClick={() => setClearAllConfirmOpen(true)}
+                  disabled={!notifications.length}
+                >
+                  Limpar todas
+                </button>
+                <button
+                  type="button"
+                  className="layout-notifications__refresh"
+                  onClick={() => void refreshNotifications()}
+                  disabled={notificationsLoading}
+                >
+                  {notificationsLoading ? 'Atualizando...' : 'Atualizar'}
+                </button>
+              </div>
             </div>
             <div className="layout-notifications__content">
               {notificationsError ? (
@@ -757,6 +780,44 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
                 </ul>
               )}
             </div>
+            {clearAllConfirmOpen && (
+              <div
+                className="layout-notifications__confirm-backdrop"
+                role="presentation"
+                onClick={() => setClearAllConfirmOpen(false)}
+              >
+                <div
+                  className="layout-notifications__confirm-modal"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="layout-notifications-clear-title"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <h3 id="layout-notifications-clear-title" className="layout-notifications__confirm-title">
+                    Limpar todas as notificacoes?
+                  </h3>
+                  <p className="layout-notifications__confirm-text">
+                    Isso remove as notificacoes apenas da interface. Nada sera apagado do banco.
+                  </p>
+                  <div className="layout-notifications__confirm-actions">
+                    <button
+                      type="button"
+                      className="layout-notifications__item-btn"
+                      onClick={() => setClearAllConfirmOpen(false)}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      className="layout-notifications__item-btn layout-notifications__item-btn--primary"
+                      onClick={handleConfirmClearAllNotifications}
+                    >
+                      Confirmar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </aside>
         </>
       )}

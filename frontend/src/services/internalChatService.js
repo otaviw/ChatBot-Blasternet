@@ -10,11 +10,18 @@ const CANONICAL_ACTION_TEMPLATES = Object.freeze({
   listConversations: '/chat/conversations',
   getConversation: '/chat/conversations/:conversationId',
   createConversation: '/chat/conversations',
+  deleteConversation: '/chat/conversations/:conversationId',
   sendMessage: '/chat/conversations/:conversationId/messages',
   updateMessage: '/chat/conversations/:conversationId/messages/:messageId',
   deleteMessage: '/chat/conversations/:conversationId/messages/:messageId',
   markRead: '/chat/conversations/:conversationId/read',
   toggleReaction: '/chat/conversations/:conversationId/messages/:messageId/reactions',
+  updateGroupName: '/chat/conversations/:conversationId/group-name',
+  addGroupParticipant: '/chat/conversations/:conversationId/participants',
+  removeGroupParticipant: '/chat/conversations/:conversationId/participants/:participantId',
+  updateGroupParticipantAdmin: '/chat/conversations/:conversationId/participants/:participantId/admin',
+  leaveGroup: '/chat/conversations/:conversationId/leave',
+  deleteGroup: '/chat/conversations/:conversationId/group',
   listRecipients: '/chat/users',
 });
 
@@ -37,6 +44,7 @@ const LEGACY_ACTION_ALIASES = Object.freeze({
   getConversation: ['/chat/conversas/:conversationId'],
   // DEPRECATED alias for createConversation
   createConversation: ['/chat/conversas'],
+  deleteConversation: [],
   // DEPRECATED aliases for sendMessage
   sendMessage: ['/chat/conversas/:conversationId/mensagens', '/chat/messages', '/chat/mensagens'],
   // DEPRECATED aliases for updateMessage
@@ -58,6 +66,12 @@ const LEGACY_ACTION_ALIASES = Object.freeze({
     '/chat/conversas/:conversationId/marcar-lido',
   ],
   toggleReaction: [],
+  updateGroupName: [],
+  addGroupParticipant: [],
+  removeGroupParticipant: [],
+  updateGroupParticipantAdmin: [],
+  leaveGroup: [],
+  deleteGroup: [],
   // DEPRECATED aliases for listRecipients
   listRecipients: ['/chat/usuarios', '/chat/recipients', '/chat/destinatarios'],
 });
@@ -225,6 +239,8 @@ const normalizeUser = (raw) => {
     role: raw.role ? String(raw.role) : '',
     company_id: toInteger(raw.company_id, raw.companyId),
     is_active: raw.is_active == null ? true : Boolean(raw.is_active),
+    is_admin: Boolean(raw.is_admin ?? raw.isAdmin ?? raw.pivot?.is_admin ?? false),
+    joined_at: raw.joined_at ?? raw.joinedAt ?? raw.pivot?.joined_at ?? null,
   };
 };
 
@@ -316,11 +332,18 @@ const normalizeConversation = (raw) => {
   return {
     id,
     type: String(raw.type ?? 'direct'),
+    name: raw.name ? String(raw.name) : '',
     created_by: toInteger(raw.created_by, raw.createdBy),
     company_id: toInteger(raw.company_id, raw.companyId),
     created_at: raw.created_at ?? raw.createdAt ?? null,
     updated_at: raw.updated_at ?? raw.updatedAt ?? null,
+    deleted_at: raw.deleted_at ?? raw.deletedAt ?? null,
     unread_count: Math.max(0, toInteger(raw.unread_count, raw.unreadCount) ?? 0),
+    participant_count: Math.max(
+      0,
+      toInteger(raw.participant_count, raw.participantCount) ?? participants.length
+    ),
+    current_user_is_admin: Boolean(raw.current_user_is_admin ?? raw.currentUserIsAdmin ?? false),
     participants,
     messages,
     last_message: lastMessage,
@@ -619,6 +642,192 @@ export async function createInternalGroupConversation({ role, participantIds = [
   return { conversation, message };
 }
 
+export async function deleteInternalChatConversation({ role, conversationId }) {
+  const id = toPositiveInt(conversationId);
+  if (!id) {
+    throw new Error('Conversa invalida.');
+  }
+
+  const response = await requestWithFallback({
+    role,
+    action: 'deleteConversation',
+    method: 'delete',
+    params: { conversationId: id },
+    data: {
+      conversation_id: id,
+      conversationId: id,
+    },
+  });
+
+  return response.data ?? { ok: false };
+}
+
+export async function updateInternalChatGroupName({ role, conversationId, name }) {
+  const id = toPositiveInt(conversationId);
+  if (!id) {
+    throw new Error('Grupo invalido.');
+  }
+
+  const normalizedName = String(name ?? '').trim();
+  if (!normalizedName) {
+    throw new Error('Informe o nome do grupo.');
+  }
+
+  const response = await requestWithFallback({
+    role,
+    action: 'updateGroupName',
+    method: 'patch',
+    params: { conversationId: id },
+    data: {
+      name: normalizedName,
+      group_name: normalizedName,
+    },
+  });
+
+  const body = response.data ?? {};
+  const conversation = normalizeConversation(
+    pickObject(body.conversation, body.chat_conversation, body.data?.conversation, body.data)
+  );
+
+  return {
+    conversation,
+  };
+}
+
+export async function addInternalChatGroupParticipant({ role, conversationId, participantId }) {
+  const id = toPositiveInt(conversationId);
+  const userId = toPositiveInt(participantId);
+  if (!id || !userId) {
+    throw new Error('Grupo/participante invalido.');
+  }
+
+  const response = await requestWithFallback({
+    role,
+    action: 'addGroupParticipant',
+    method: 'post',
+    params: { conversationId: id },
+    data: {
+      participant_id: userId,
+      participantId: userId,
+      user_id: userId,
+      userId: userId,
+    },
+  });
+
+  const body = response.data ?? {};
+  const conversation = normalizeConversation(
+    pickObject(body.conversation, body.chat_conversation, body.data?.conversation, body.data)
+  );
+
+  return { conversation };
+}
+
+export async function removeInternalChatGroupParticipant({ role, conversationId, participantId }) {
+  const id = toPositiveInt(conversationId);
+  const userId = toPositiveInt(participantId);
+  if (!id || !userId) {
+    throw new Error('Grupo/participante invalido.');
+  }
+
+  const response = await requestWithFallback({
+    role,
+    action: 'removeGroupParticipant',
+    method: 'delete',
+    params: {
+      conversationId: id,
+      participantId: userId,
+    },
+  });
+
+  const body = response.data ?? {};
+  const conversation = normalizeConversation(
+    pickObject(body.conversation, body.chat_conversation, body.data?.conversation, body.data)
+  );
+
+  return {
+    conversation,
+    removed_user_id: toPositiveInt(body.removed_user_id, body.removedUserId),
+  };
+}
+
+export async function updateInternalChatGroupParticipantAdmin({
+  role,
+  conversationId,
+  participantId,
+  isAdmin,
+}) {
+  const id = toPositiveInt(conversationId);
+  const userId = toPositiveInt(participantId);
+  if (!id || !userId) {
+    throw new Error('Grupo/participante invalido.');
+  }
+
+  const response = await requestWithFallback({
+    role,
+    action: 'updateGroupParticipantAdmin',
+    method: 'patch',
+    params: {
+      conversationId: id,
+      participantId: userId,
+    },
+    data: {
+      is_admin: Boolean(isAdmin),
+      isAdmin: Boolean(isAdmin),
+    },
+  });
+
+  const body = response.data ?? {};
+  const conversation = normalizeConversation(
+    pickObject(body.conversation, body.chat_conversation, body.data?.conversation, body.data)
+  );
+
+  return { conversation };
+}
+
+export async function leaveInternalChatGroup({ role, conversationId, transferAdminTo = null }) {
+  const id = toPositiveInt(conversationId);
+  if (!id) {
+    throw new Error('Grupo invalido.');
+  }
+
+  const transferId = toPositiveInt(transferAdminTo);
+  const payload = {};
+  if (transferId) {
+    payload.transfer_admin_to = transferId;
+    payload.transferAdminTo = transferId;
+  }
+
+  const response = await requestWithFallback({
+    role,
+    action: 'leaveGroup',
+    method: 'post',
+    params: { conversationId: id },
+    data: payload,
+  });
+
+  return response.data ?? { ok: false };
+}
+
+export async function deleteInternalChatGroup({ role, conversationId }) {
+  const id = toPositiveInt(conversationId);
+  if (!id) {
+    throw new Error('Grupo invalido.');
+  }
+
+  const response = await requestWithFallback({
+    role,
+    action: 'deleteGroup',
+    method: 'delete',
+    params: { conversationId: id },
+    data: {
+      conversation_id: id,
+      conversationId: id,
+    },
+  });
+
+  return response.data ?? { ok: false };
+}
+
 export async function toggleInternalChatReaction({ role, conversationId, messageId, emoji }) {
   const chatConversationId = toPositiveInt(conversationId);
   const chatMessageId = toPositiveInt(messageId);
@@ -881,6 +1090,12 @@ export function normalizeRealtimeInternalChatMessage(payload) {
 }
 
 export function buildConversationTitle(conversation, currentUserId) {
+  const conversationType = String(conversation?.type ?? '');
+  const groupName = String(conversation?.name ?? '').trim();
+  if (conversationType === 'group' && groupName) {
+    return groupName;
+  }
+
   const participants = conversation?.participants ?? [];
   if (!participants.length) {
     return `Conversa #${conversation?.id ?? '-'}`;

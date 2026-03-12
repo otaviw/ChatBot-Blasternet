@@ -75,16 +75,38 @@ class CreateConversationAction
                     (int) $sender->id => [
                         'joined_at' => $now,
                         'last_read_at' => $now,
+                        'is_admin' => false,
+                        'hidden_at' => null,
+                        'left_at' => null,
                     ],
                     (int) $recipient->id => [
                         'joined_at' => $now,
                         'last_read_at' => null,
+                        'is_admin' => false,
+                        'hidden_at' => null,
+                        'left_at' => null,
                     ],
                 ]);
             } else {
                 $conversation->participants()->syncWithoutDetaching([
-                    (int) $sender->id,
-                    (int) $recipient->id,
+                    (int) $sender->id => [
+                        'joined_at' => $now,
+                        'left_at' => null,
+                        'hidden_at' => null,
+                    ],
+                    (int) $recipient->id => [
+                        'joined_at' => $now,
+                        'left_at' => null,
+                        'hidden_at' => null,
+                    ],
+                ]);
+                $conversation->participants()->updateExistingPivot((int) $sender->id, [
+                    'left_at' => null,
+                    'hidden_at' => null,
+                ]);
+                $conversation->participants()->updateExistingPivot((int) $recipient->id, [
+                    'left_at' => null,
+                    'hidden_at' => null,
                 ]);
                 $this->chatService->markConversationAsRead($conversation, (int) $sender->id);
             }
@@ -158,15 +180,21 @@ class CreateConversationAction
         }
 
         $content = trim((string) ($request->input('content') ?? $request->input('text') ?? ''));
+        $name = trim((string) ($request->input('name') ?? $request->input('group_name') ?? ''));
+        if ($name !== '') {
+            $name = mb_substr($name, 0, 120);
+        }
+
         $now = now();
         $conversation = null;
 
-        DB::transaction(function () use (&$conversation, $sender, $users, $content, $now): void {
+        DB::transaction(function () use (&$conversation, $sender, $users, $content, $name, $now): void {
             $senderCompanyId = (int) ($sender->company_id ?? 0);
             $companyId = $senderCompanyId > 0 ? $senderCompanyId : null;
 
             $conversation = ChatConversation::query()->create([
                 'type' => 'group',
+                'name' => $name !== '' ? $name : null,
                 'created_by' => (int) $sender->id,
                 'company_id' => $companyId,
             ]);
@@ -175,6 +203,9 @@ class CreateConversationAction
                 (int) $sender->id => [
                     'joined_at' => $now,
                     'last_read_at' => $now,
+                    'is_admin' => true,
+                    'hidden_at' => null,
+                    'left_at' => null,
                 ],
             ];
 
@@ -182,6 +213,9 @@ class CreateConversationAction
                 $attachData[(int) $user->id] = [
                     'joined_at' => $now,
                     'last_read_at' => null,
+                    'is_admin' => false,
+                    'hidden_at' => null,
+                    'left_at' => null,
                 ];
             }
 

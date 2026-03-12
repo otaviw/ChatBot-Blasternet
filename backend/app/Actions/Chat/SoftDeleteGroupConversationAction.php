@@ -7,7 +7,7 @@ use App\Services\Chat\InternalChatConversationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class MarkConversationReadAction
+class SoftDeleteGroupConversationAction
 {
     public function __construct(
         private readonly InternalChatConversationService $chatService
@@ -22,22 +22,35 @@ class MarkConversationReadAction
 
         if ($this->chatService->isConversationDeleted($conversation)) {
             return response()->json([
-                'message' => 'Conversa nao encontrada.',
+                'message' => 'Grupo nao encontrado.',
             ], 404);
+        }
+
+        if ((string) $conversation->type !== 'group') {
+            return response()->json([
+                'message' => 'Apenas grupos podem ser apagados.',
+            ], 422);
         }
 
         if (! $this->chatService->isVisibleParticipant($conversation, (int) $user->id)) {
             return response()->json([
-                'message' => 'Sem permissao para marcar leitura desta conversa.',
+                'message' => 'Sem permissao para apagar este grupo.',
             ], 403);
         }
 
-        $this->chatService->markConversationAsRead($conversation, (int) $user->id);
+        if (! $this->chatService->isGroupAdmin($conversation, (int) $user->id)) {
+            return response()->json([
+                'message' => 'Somente admins podem apagar o grupo.',
+            ], 403);
+        }
+
+        $conversation->deleted_at = now();
+        $conversation->save();
 
         return response()->json([
             'ok' => true,
             'conversation_id' => (int) $conversation->id,
-            'unread_count' => 0,
+            'deleted' => true,
         ]);
     }
 }

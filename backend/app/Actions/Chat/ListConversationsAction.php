@@ -24,8 +24,12 @@ class ListConversationsAction
         $perPage = min(max((int) $request->query('per_page', 25), 1), 100);
 
         $query = ChatConversation::query()
+            ->whereNull('chat_conversations.deleted_at')
             ->whereHas('participants', function ($participantsQuery) use ($user): void {
-                $participantsQuery->where('users.id', (int) $user->id);
+                $participantsQuery
+                    ->where('users.id', (int) $user->id)
+                    ->whereNull('chat_participants.left_at')
+                    ->whereNull('chat_participants.hidden_at');
             })
             ->with([
                 'participants:id,name,email,role,company_id,is_active',
@@ -45,8 +49,12 @@ class ListConversationsAction
             $query->where(function ($scopedQuery) use ($search): void {
                 $scopedQuery->whereHas('participants', function ($participantsQuery) use ($search): void {
                     $participantsQuery
-                        ->where('users.name', 'like', '%'.$search.'%')
-                        ->orWhere('users.email', 'like', '%'.$search.'%');
+                        ->whereNull('chat_participants.left_at')
+                        ->where(function ($nameOrEmail) use ($search): void {
+                            $nameOrEmail
+                                ->where('users.name', 'like', '%'.$search.'%')
+                                ->orWhere('users.email', 'like', '%'.$search.'%');
+                        });
                 });
 
                 if (ctype_digit($search)) {

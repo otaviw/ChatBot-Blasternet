@@ -4,11 +4,18 @@ namespace App\Http\Controllers\Chat;
 
 use App\Actions\Chat\CreateConversationAction;
 use App\Actions\Chat\DeleteMessageAction;
+use App\Actions\Chat\HideConversationAction;
 use App\Actions\Chat\ListConversationsAction;
+use App\Actions\Chat\AddGroupParticipantAction;
+use App\Actions\Chat\LeaveGroupConversationAction;
 use App\Actions\Chat\MarkConversationReadAction;
+use App\Actions\Chat\RemoveGroupParticipantAction;
 use App\Actions\Chat\SendMessageAction;
 use App\Actions\Chat\ShowConversationAction;
+use App\Actions\Chat\SoftDeleteGroupConversationAction;
 use App\Actions\Chat\ToggleReactionAction;
+use App\Actions\Chat\UpdateGroupNameAction;
+use App\Actions\Chat\UpdateGroupParticipantAdminAction;
 use App\Actions\Chat\UpdateMessageAction;
 use App\Http\Controllers\Controller;
 use App\Models\ChatConversation;
@@ -25,11 +32,18 @@ class ConversationController extends Controller
         private readonly ListConversationsAction $listConversationsAction,
         private readonly ShowConversationAction $showConversationAction,
         private readonly CreateConversationAction $createConversationAction,
+        private readonly HideConversationAction $hideConversationAction,
         private readonly SendMessageAction $sendMessageAction,
         private readonly UpdateMessageAction $updateMessageAction,
         private readonly DeleteMessageAction $deleteMessageAction,
         private readonly MarkConversationReadAction $markConversationReadAction,
         private readonly ToggleReactionAction $toggleReactionAction,
+        private readonly UpdateGroupNameAction $updateGroupNameAction,
+        private readonly AddGroupParticipantAction $addGroupParticipantAction,
+        private readonly RemoveGroupParticipantAction $removeGroupParticipantAction,
+        private readonly UpdateGroupParticipantAdminAction $updateGroupParticipantAdminAction,
+        private readonly LeaveGroupConversationAction $leaveGroupConversationAction,
+        private readonly SoftDeleteGroupConversationAction $softDeleteGroupConversationAction,
         private readonly ChatPolicy $chatPolicy,
         private readonly InternalChatConversationService $chatService
     ) {}
@@ -47,6 +61,11 @@ class ConversationController extends Controller
     public function store(Request $request): JsonResponse
     {
         return $this->createConversationAction->handle($request);
+    }
+
+    public function destroy(Request $request, ChatConversation $conversation): JsonResponse
+    {
+        return $this->hideConversationAction->handle($request, $conversation);
     }
 
     public function sendMessage(Request $request, ChatConversation $conversation): JsonResponse
@@ -72,6 +91,36 @@ class ConversationController extends Controller
     public function toggleReaction(Request $request, ChatConversation $conversation, ChatMessage $message): JsonResponse
     {
         return $this->toggleReactionAction->handle($request, $conversation, $message);
+    }
+
+    public function updateGroupName(Request $request, ChatConversation $conversation): JsonResponse
+    {
+        return $this->updateGroupNameAction->handle($request, $conversation);
+    }
+
+    public function addParticipant(Request $request, ChatConversation $conversation): JsonResponse
+    {
+        return $this->addGroupParticipantAction->handle($request, $conversation);
+    }
+
+    public function removeParticipant(Request $request, ChatConversation $conversation, User $participant): JsonResponse
+    {
+        return $this->removeGroupParticipantAction->handle($request, $conversation, $participant);
+    }
+
+    public function updateParticipantAdmin(Request $request, ChatConversation $conversation, User $participant): JsonResponse
+    {
+        return $this->updateGroupParticipantAdminAction->handle($request, $conversation, $participant);
+    }
+
+    public function leaveGroup(Request $request, ChatConversation $conversation): JsonResponse
+    {
+        return $this->leaveGroupConversationAction->handle($request, $conversation);
+    }
+
+    public function deleteGroup(Request $request, ChatConversation $conversation): JsonResponse
+    {
+        return $this->softDeleteGroupConversationAction->handle($request, $conversation);
     }
 
     public function users(Request $request): JsonResponse

@@ -14,8 +14,22 @@ Route::middleware(['web', 'auth'])->group(function () {
         ->middleware('throttle:inbox-read');
     Route::post('/chat/conversations', [ChatConversationController::class, 'store'])
         ->middleware('throttle:bot-write');
+    Route::delete('/chat/conversations/{conversation}', [ChatConversationController::class, 'destroy'])
+        ->middleware('throttle:bot-write');
     Route::get('/chat/conversations/{conversation}', [ChatConversationController::class, 'show'])
         ->middleware('throttle:inbox-read');
+    Route::patch('/chat/conversations/{conversation}/group-name', [ChatConversationController::class, 'updateGroupName'])
+        ->middleware('throttle:bot-write');
+    Route::post('/chat/conversations/{conversation}/participants', [ChatConversationController::class, 'addParticipant'])
+        ->middleware('throttle:bot-write');
+    Route::delete('/chat/conversations/{conversation}/participants/{participant}', [ChatConversationController::class, 'removeParticipant'])
+        ->middleware('throttle:bot-write');
+    Route::patch('/chat/conversations/{conversation}/participants/{participant}/admin', [ChatConversationController::class, 'updateParticipantAdmin'])
+        ->middleware('throttle:bot-write');
+    Route::post('/chat/conversations/{conversation}/leave', [ChatConversationController::class, 'leaveGroup'])
+        ->middleware('throttle:bot-write');
+    Route::delete('/chat/conversations/{conversation}/group', [ChatConversationController::class, 'deleteGroup'])
+        ->middleware('throttle:bot-write');
     Route::post('/chat/conversations/{conversation}/messages', [ChatConversationController::class, 'sendMessage'])
         ->middleware('throttle:bot-write');
     Route::patch('/chat/conversations/{conversation}/messages/{message}', [ChatConversationController::class, 'updateMessage'])

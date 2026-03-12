@@ -179,8 +179,13 @@ class RealtimeTokenController extends Controller
 
     private function canJoinChatConversation(User $user, ChatConversation $conversation): bool
     {
+        if ($conversation->deleted_at) {
+            return false;
+        }
+
         return $conversation->participants()
             ->where('user_id', $user->id)
+            ->whereNull('chat_participants.hidden_at')
             ->exists();
     }
 
