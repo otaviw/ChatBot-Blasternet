@@ -18,7 +18,8 @@ class InboundMessageService
         private WhatsAppSendService $whatsAppSend,
         private StatefulBotService $statefulBot,
         private MessageMediaStorageService $mediaStorage,
-        private MessageDeliveryStatusService $deliveryStatus
+        private MessageDeliveryStatusService $deliveryStatus,
+        private ConversationInactivityService $conversationInactivityService
     ) {}
 
     public function handleIncomingText(
@@ -35,7 +36,11 @@ class InboundMessageService
         $normalizedContactName = $this->normalizeContactName($contactName);
 
         if ($normalizedFrom === '' || $normalizedText === '') {
-            throw new InvalidArgumentException('Phone e texto são obrigatórios para processar mensagem.');
+            throw new InvalidArgumentException('Phone e texto sao obrigatorios para processar mensagem.');
+        }
+
+        if ($company?->id) {
+            $this->conversationInactivityService->closeInactiveConversations((int) $company->id);
         }
 
         $conversation = Conversation::firstOrCreate(
@@ -196,6 +201,10 @@ class InboundMessageService
             throw new InvalidArgumentException('Phone e mediaId sao obrigatorios para processar imagem.');
         }
 
+        if ($company?->id) {
+            $this->conversationInactivityService->closeInactiveConversations((int) $company->id);
+        }
+
         $conversation = Conversation::firstOrCreate(
             [
                 'company_id' => $company?->id,
@@ -280,6 +289,10 @@ class InboundMessageService
 
         if ($normalizedFrom === '') {
             throw new InvalidArgumentException('Phone e imagem sao obrigatorios para processar mensagem.');
+        }
+
+        if ($company?->id) {
+            $this->conversationInactivityService->closeInactiveConversations((int) $company->id);
         }
 
         $conversation = Conversation::firstOrCreate(
@@ -473,3 +486,4 @@ class InboundMessageService
         $conversation->bot_last_interaction_at = null;
     }
 }
+

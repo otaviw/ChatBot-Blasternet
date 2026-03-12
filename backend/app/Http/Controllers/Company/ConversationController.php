@@ -9,10 +9,12 @@ use App\Models\ConversationTransfer;
 use App\Models\Message;
 use App\Models\User;
 use App\Services\AuditLogService;
+use App\Services\ConversationInactivityService;
 use App\Services\MessageDeliveryStatusService;
 use App\Services\MessageMediaStorageService;
 use App\Services\TransferConversationService;
 use App\Services\WhatsAppSendService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -25,7 +27,8 @@ class ConversationController extends Controller
         private MessageDeliveryStatusService $deliveryStatus,
         private MessageMediaStorageService $mediaStorage,
         private AuditLogService $auditLog,
-        private TransferConversationService $transferService
+        private TransferConversationService $transferService,
+        private ConversationInactivityService $conversationInactivityService
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -39,6 +42,8 @@ class ConversationController extends Controller
         }
 
         $companyId = (int) $user->company_id;
+        $this->conversationInactivityService->closeInactiveConversations($companyId);
+
         $search = trim((string) $request->query('search', ''));
         $page = max(1, (int) $request->query('page', 1));
         $perPage = min(50, max(5, (int) $request->query('per_page', 15)));
@@ -66,6 +71,7 @@ class ConversationController extends Controller
             ->orderByRaw("COALESCE(({$lastMessageAtSubquery->toSql()}), conversations.created_at) DESC")
             ->addBinding($lastMessageAtSubquery->getBindings(), 'order')
             ->orderByDesc('conversations.id');
+        $this->applyInboxVisibilityScope($query, $user);
 
         if ($search !== '') {
             $term = '%' . preg_replace('/\s+/', '%', $search) . '%';
@@ -102,14 +108,18 @@ class ConversationController extends Controller
         }
 
         $companyId = (int) $user->company_id;
+        $this->conversationInactivityService->closeInactiveConversations($companyId);
+
         $messagesPerPage = min(50, max(10, (int) $request->query('messages_per_page', 25)));
         $messagesPageParam = $request->query('messages_page');
 
-        $conversation = Conversation::query()
+        $showQuery = Conversation::query()
             ->where('company_id', $companyId)
             ->whereKey($conversationId)
-            ->with(['assignedUser:id,name,email', 'currentArea:id,name'])
-            ->first();
+            ->with(['assignedUser:id,name,email', 'currentArea:id,name']);
+        $this->applyInboxVisibilityScope($showQuery, $user);
+
+        $conversation = $showQuery->first();
 
         if (! $conversation) {
             return response()->json([
@@ -164,6 +174,7 @@ class ConversationController extends Controller
             ->where('content_type', 'image')
             ->whereHas('conversation', function ($query) use ($user) {
                 $query->where('company_id', (int) $user->company_id);
+                $this->applyInboxVisibilityScope($query, $user);
             })
             ->first();
 
@@ -653,6 +664,43 @@ class ConversationController extends Controller
         $conversation->assigned_user_id = (int) $user->id;
         $conversation->assigned_area = $firstArea?->name;
         $conversation->assumed_at = now();
+    }
+
+    private function applyInboxVisibilityScope(Builder $query, User $user): void
+    {
+        if (! $user->isAgent()) {
+            return;
+        }
+
+        $userId = (int) $user->id;
+        $areaIds = $user->areas()
+            ->pluck('areas.id')
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->values()
+            ->all();
+
+        $query->where(function (Builder $scope) use ($userId, $areaIds) {
+            $scope->where(function (Builder $assignedToUser) use ($userId) {
+                $assignedToUser->where(function (Builder $directAssignment) use ($userId) {
+                    $directAssignment->where('assigned_type', 'user')
+                        ->where('assigned_id', $userId);
+                })->orWhere('assigned_user_id', $userId);
+            });
+
+            if ($areaIds !== []) {
+                $scope->orWhere(function (Builder $unassignedAreaQueue) use ($areaIds) {
+                    $unassignedAreaQueue
+                        ->whereIn('current_area_id', $areaIds)
+                        ->whereNull('assigned_user_id')
+                        ->where(function (Builder $noAttendant) {
+                            $noAttendant
+                                ->where('assigned_type', '!=', 'user')
+                                ->orWhereNull('assigned_id');
+                        });
+                });
+            }
+        });
     }
 
     private function normalizeConversationAssignmentRelations(Conversation $conversation): void
