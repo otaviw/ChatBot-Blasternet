@@ -4,6 +4,7 @@ import Layout from '@/components/layout/Layout/Layout.jsx';
 import StatefulMenuFlowEditor from '@/components/sections/StatefulMenuFlowEditor/StatefulMenuFlowEditor.jsx';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
+import { REALTIME_EVENTS } from '@/constants/realtimeEvents';
 import api from '@/services/api';
 import realtimeClient from '@/services/realtimeClient';
 import {
@@ -44,7 +45,7 @@ function CompanyBotPage() {
       return undefined;
     }
 
-    const unsubscribe = realtimeClient.on('bot.updated', (envelope) => {
+    const unsubscribe = realtimeClient.on(REALTIME_EVENTS.BOT_UPDATED, (envelope) => {
       const payload = envelope?.payload ?? {};
       if (Number(payload.companyId) !== Number(data.company.id)) {
         return;

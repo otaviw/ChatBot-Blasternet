@@ -6,6 +6,10 @@ use App\Models\Company;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Services\Bot\StatefulBotService;
+use App\Support\ConversationAssignedType;
+use App\Support\ConversationHandlingMode;
+use App\Support\ConversationStatus;
+use App\Support\MessageDeliveryStatus;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -49,9 +53,9 @@ class InboundMessageService
                 'customer_phone' => $normalizedFrom,
             ],
             [
-                'status' => 'open',
-                'assigned_type' => 'unassigned',
-                'handling_mode' => 'bot',
+                'status' => ConversationStatus::OPEN,
+                'assigned_type' => ConversationAssignedType::UNASSIGNED,
+                'handling_mode' => ConversationHandlingMode::BOT,
                 'customer_name' => $normalizedContactName,
             ]
         );
@@ -61,7 +65,7 @@ class InboundMessageService
             $conversation->save();
         }
 
-        if ($conversation->status === 'closed') {
+        if ($conversation->status === ConversationStatus::CLOSED) {
             $this->reopenClosedConversation($conversation);
             $conversation->save();
         }
@@ -87,7 +91,7 @@ class InboundMessageService
                 'customer_phone' => $normalizedFrom,
             ]);
 
-            $conversation->status = 'in_progress';
+            $conversation->status = ConversationStatus::IN_PROGRESS;
             $conversation->save();
 
             return [
@@ -140,7 +144,7 @@ class InboundMessageService
                 'type' => 'bot',
                 'content_type' => 'text',
                 'text' => $reply,
-                'delivery_status' => 'pending',
+                'delivery_status' => MessageDeliveryStatus::PENDING,
                 'meta' => $outMeta,
             ]);
 
@@ -211,9 +215,9 @@ class InboundMessageService
                 'customer_phone' => $normalizedFrom,
             ],
             [
-                'status' => 'open',
-                'assigned_type' => 'unassigned',
-                'handling_mode' => 'bot',
+                'status' => ConversationStatus::OPEN,
+                'assigned_type' => ConversationAssignedType::UNASSIGNED,
+                'handling_mode' => ConversationHandlingMode::BOT,
                 'customer_name' => $normalizedContactName,
             ]
         );
@@ -223,7 +227,7 @@ class InboundMessageService
             $conversation->save();
         }
 
-        if ($conversation->status === 'closed') {
+        if ($conversation->status === ConversationStatus::CLOSED) {
             $this->reopenClosedConversation($conversation);
             $conversation->save();
         }
@@ -261,7 +265,7 @@ class InboundMessageService
         ]);
 
         if ($conversation->isManualMode()) {
-            $conversation->status = 'in_progress';
+            $conversation->status = ConversationStatus::IN_PROGRESS;
             $conversation->save();
         }
 
@@ -301,9 +305,9 @@ class InboundMessageService
                 'customer_phone' => $normalizedFrom,
             ],
             [
-                'status' => 'open',
-                'assigned_type' => 'unassigned',
-                'handling_mode' => 'bot',
+                'status' => ConversationStatus::OPEN,
+                'assigned_type' => ConversationAssignedType::UNASSIGNED,
+                'handling_mode' => ConversationHandlingMode::BOT,
                 'customer_name' => $normalizedContactName,
             ]
         );
@@ -313,7 +317,7 @@ class InboundMessageService
             $conversation->save();
         }
 
-        if ($conversation->status === 'closed') {
+        if ($conversation->status === ConversationStatus::CLOSED) {
             $this->reopenClosedConversation($conversation);
             $conversation->save();
         }
@@ -339,7 +343,7 @@ class InboundMessageService
         ]);
 
         if ($conversation->isManualMode()) {
-            $conversation->status = 'in_progress';
+            $conversation->status = ConversationStatus::IN_PROGRESS;
             $conversation->save();
         }
 
@@ -385,10 +389,10 @@ class InboundMessageService
 
     private function reopenClosedConversation(Conversation $conversation): void
     {
-        $conversation->status = 'open';
+        $conversation->status = ConversationStatus::OPEN;
         $conversation->closed_at = null;
-        $conversation->handling_mode = 'bot';
-        $conversation->assigned_type = 'bot';
+        $conversation->handling_mode = ConversationHandlingMode::BOT;
+        $conversation->assigned_type = ConversationAssignedType::BOT;
         $conversation->assigned_id = null;
         $conversation->current_area_id = null;
         $conversation->assigned_user_id = null;
@@ -399,9 +403,9 @@ class InboundMessageService
 
     private function applyLegacyBotConversationUpdate(Conversation $conversation): void
     {
-        $conversation->status = 'open';
-        $conversation->handling_mode = 'bot';
-        $conversation->assigned_type = 'bot';
+        $conversation->status = ConversationStatus::OPEN;
+        $conversation->handling_mode = ConversationHandlingMode::BOT;
+        $conversation->assigned_type = ConversationAssignedType::BOT;
         $conversation->assigned_id = null;
         $conversation->current_area_id = null;
         $conversation->assigned_user_id = null;
@@ -418,9 +422,9 @@ class InboundMessageService
         $shouldHandoff = (bool) ($statefulResult['should_handoff'] ?? false);
 
         if (! $shouldHandoff) {
-            $conversation->status = 'open';
-            $conversation->handling_mode = (string) ($statefulResult['set_handling_mode'] ?? 'bot');
-            $conversation->assigned_type = (string) ($statefulResult['set_assigned_type'] ?? 'bot');
+            $conversation->status = ConversationStatus::OPEN;
+            $conversation->handling_mode = (string) ($statefulResult['set_handling_mode'] ?? ConversationHandlingMode::BOT);
+            $conversation->assigned_type = (string) ($statefulResult['set_assigned_type'] ?? ConversationAssignedType::BOT);
             $conversation->assigned_id = $statefulResult['set_assigned_id'] ?? null;
             $conversation->current_area_id = $statefulResult['set_current_area_id'] ?? null;
             $conversation->assigned_user_id = null;
@@ -435,9 +439,9 @@ class InboundMessageService
             ? $statefulResult['handoff_target']
             : null;
 
-        $conversation->status = 'in_progress';
-        $conversation->handling_mode = (string) ($statefulResult['set_handling_mode'] ?? 'human');
-        $conversation->assigned_type = (string) ($statefulResult['set_assigned_type'] ?? 'unassigned');
+        $conversation->status = ConversationStatus::IN_PROGRESS;
+        $conversation->handling_mode = (string) ($statefulResult['set_handling_mode'] ?? ConversationHandlingMode::HUMAN);
+        $conversation->assigned_type = (string) ($statefulResult['set_assigned_type'] ?? ConversationAssignedType::UNASSIGNED);
         $conversation->assigned_id = $statefulResult['set_assigned_id'] ?? null;
         $conversation->current_area_id = $statefulResult['set_current_area_id'] ?? null;
         $conversation->assigned_user_id = null;

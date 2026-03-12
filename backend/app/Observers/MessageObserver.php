@@ -6,6 +6,8 @@ use App\Models\Conversation;
 use App\Models\Message;
 use App\Services\NotificationDispatchService;
 use App\Services\RealtimePublisher;
+use App\Support\MessageDeliveryStatus;
+use App\Support\RealtimeEvents;
 use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
 
 class MessageObserver implements ShouldHandleEventsAfterCommit
@@ -45,7 +47,7 @@ class MessageObserver implements ShouldHandleEventsAfterCommit
         $meta = is_array($message->meta) ? $message->meta : [];
 
         $this->publisher->publish(
-            'message.created',
+            RealtimeEvents::MESSAGE_CREATED,
             [
                 "company:{$conversation->company_id}",
                 "conversation:{$message->conversation_id}",
@@ -64,7 +66,7 @@ class MessageObserver implements ShouldHandleEventsAfterCommit
                 'mediaWidth' => $message->media_width !== null ? (int) $message->media_width : null,
                 'mediaHeight' => $message->media_height !== null ? (int) $message->media_height : null,
                 'whatsappMessageId' => $message->whatsapp_message_id,
-                'deliveryStatus' => (string) ($message->delivery_status ?: 'pending'),
+                'deliveryStatus' => (string) ($message->delivery_status ?: MessageDeliveryStatus::PENDING),
                 'sentAt' => $message->sent_at?->toISOString(),
                 'deliveredAt' => $message->delivered_at?->toISOString(),
                 'readAt' => $message->read_at?->toISOString(),
@@ -106,7 +108,7 @@ class MessageObserver implements ShouldHandleEventsAfterCommit
         }
 
         $this->publisher->publish(
-            'message.status.updated',
+            RealtimeEvents::MESSAGE_STATUS_UPDATED,
             [
                 "company:{$conversation->company_id}",
                 "conversation:{$message->conversation_id}",
@@ -115,7 +117,7 @@ class MessageObserver implements ShouldHandleEventsAfterCommit
                 'conversation_id' => (int) $message->conversation_id,
                 'message_id' => (int) $message->id,
                 'whatsapp_message_id' => $message->whatsapp_message_id,
-                'delivery_status' => (string) ($message->delivery_status ?: 'pending'),
+                'delivery_status' => (string) ($message->delivery_status ?: MessageDeliveryStatus::PENDING),
                 'sent_at' => $message->sent_at?->toISOString(),
                 'delivered_at' => $message->delivered_at?->toISOString(),
                 'read_at' => $message->read_at?->toISOString(),

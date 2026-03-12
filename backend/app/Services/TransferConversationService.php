@@ -7,6 +7,10 @@ use App\Models\Conversation;
 use App\Models\ConversationTransfer;
 use App\Models\Message;
 use App\Models\User;
+use App\Support\ConversationAssignedType;
+use App\Support\ConversationHandlingMode;
+use App\Support\ConversationStatus;
+use App\Support\MessageDeliveryStatus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -25,7 +29,7 @@ class TransferConversationService
         bool $sendOutbound = true
     ): array {
         $normalizedType = $this->normalizeTargetType($targetType);
-        if (! in_array($normalizedType, ['user', 'area'], true)) {
+        if (! in_array($normalizedType, [ConversationAssignedType::USER, ConversationAssignedType::AREA], true)) {
             throw ValidationException::withMessages([
                 'type' => ['Tipo de transferência inválido. Use user ou area.'],
             ]);
@@ -67,12 +71,12 @@ class TransferConversationService
 
             $lockedConversation->assigned_type = $normalizedType;
             $lockedConversation->assigned_id = $targetId;
-            $lockedConversation->handling_mode = 'human';
+            $lockedConversation->handling_mode = ConversationHandlingMode::HUMAN;
             $lockedConversation->current_area_id = $currentAreaId;
             $lockedConversation->assigned_user_id = $assignedUserId;
             $lockedConversation->assigned_area = $assignedArea;
             $lockedConversation->assumed_at = now();
-            $lockedConversation->status = 'in_progress';
+            $lockedConversation->status = ConversationStatus::IN_PROGRESS;
             $lockedConversation->save();
 
             $transfer = ConversationTransfer::create([
@@ -91,7 +95,7 @@ class TransferConversationService
                 'direction' => 'out',
                 'type' => 'system',
                 'text' => $text,
-                'delivery_status' => 'pending',
+                'delivery_status' => MessageDeliveryStatus::PENDING,
                 'meta' => [
                     'source' => 'transfer',
                     'from_assigned_type' => $fromAssignedType,
@@ -162,7 +166,7 @@ class TransferConversationService
 
     private function resolveTarget(int $companyId, string $type, int $id): array
     {
-        if ($type === 'user') {
+        if ($type === ConversationAssignedType::USER) {
             $user = User::query()
                 ->where('company_id', $companyId)
                 ->whereIn('role', User::companyRoleValues())
@@ -208,10 +212,10 @@ class TransferConversationService
     private function normalizeAssignedType(?string $type): string
     {
         $value = $this->normalizeTargetType((string) $type);
-        if (in_array($value, ['user', 'area', 'bot', 'unassigned'], true)) {
+        if (in_array($value, ConversationAssignedType::all(), true)) {
             return $value;
         }
 
-        return 'unassigned';
+        return ConversationAssignedType::UNASSIGNED;
     }
 }

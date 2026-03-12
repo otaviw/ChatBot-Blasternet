@@ -1,3 +1,8 @@
+import {
+  CONVERSATION_HANDLING_MODE,
+  CONVERSATION_STATUS,
+} from '@/constants/conversation';
+
 function ConversationToolbar({
   detail,
   contactNameInput,
@@ -27,7 +32,7 @@ function ConversationToolbar({
   return (
     <div className="inbox-toolbar shrink-0 flex flex-wrap items-center gap-2">
       <span className="text-xs text-[#525252]">
-        Modo: <strong>{detail.handling_mode === 'human' ? 'Manual' : 'Bot'}</strong>
+        Modo: <strong>{detail.handling_mode === CONVERSATION_HANDLING_MODE.HUMAN ? 'Manual' : 'Bot'}</strong>
         {detail.assigned_user ? ` · ${detail.assigned_user.name}` : ''}
         {detail.current_area?.name ? ` · ${detail.current_area.name}` : ''}
       </span>
@@ -55,7 +60,7 @@ function ConversationToolbar({
         <button
           type="button"
           onClick={onCloseConversation}
-          disabled={actionBusy || detail?.status === 'closed'}
+          disabled={actionBusy || detail?.status === CONVERSATION_STATUS.CLOSED}
           className="app-btn-danger text-xs py-1.5"
         >
           Encerrar

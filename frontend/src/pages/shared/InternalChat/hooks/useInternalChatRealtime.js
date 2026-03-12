@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { NOTIFICATION_MODULE, NOTIFICATION_REFERENCE_TYPE } from '@/constants/notifications';
+import { REALTIME_EVENTS } from '@/constants/realtimeEvents';
 import realtimeClient from '@/services/realtimeClient';
 import {
   appendUniqueChatMessage,
@@ -113,11 +114,11 @@ export default function useInternalChatRealtime({
       }
     };
 
-    const unsubscribeCreated = realtimeClient.on('message.created', (envelope) => {
+    const unsubscribeCreated = realtimeClient.on(REALTIME_EVENTS.MESSAGE_CREATED, (envelope) => {
       applyRealtimeMessage(envelope, { incrementUnread: true });
     });
 
-    const unsubscribeUpdated = realtimeClient.on('message.updated', (envelope) => {
+    const unsubscribeUpdated = realtimeClient.on(REALTIME_EVENTS.MESSAGE_UPDATED, (envelope) => {
       applyRealtimeMessage(envelope, { incrementUnread: false });
     });
 

@@ -5,6 +5,7 @@ namespace App\Observers;
 use App\Models\Notification;
 use App\Services\NotificationService;
 use App\Services\RealtimePublisher;
+use App\Support\RealtimeEvents;
 use App\Support\Notifications\NotificationSerializer;
 use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
 
@@ -25,7 +26,7 @@ class NotificationObserver implements ShouldHandleEventsAfterCommit
         $byModule = $this->notificationService->unreadCountByModule((int) $notification->user_id);
 
         $this->publisher->publish(
-            'notification.created',
+            RealtimeEvents::NOTIFICATION_CREATED,
             [
                 "user:{$notification->user_id}",
             ],

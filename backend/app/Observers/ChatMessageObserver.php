@@ -6,6 +6,7 @@ use App\Models\ChatAttachment;
 use App\Models\ChatMessage;
 use App\Services\NotificationDispatchService;
 use App\Services\RealtimePublisher;
+use App\Support\RealtimeEvents;
 use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
 
 class ChatMessageObserver implements ShouldHandleEventsAfterCommit
@@ -18,7 +19,7 @@ class ChatMessageObserver implements ShouldHandleEventsAfterCommit
     public function created(ChatMessage $message): void
     {
         $this->dispatchService->dispatchInternalChatMessageNotification($message);
-        $this->publishMessageEvent('message.created', $message, false);
+        $this->publishMessageEvent(RealtimeEvents::MESSAGE_CREATED, $message, false);
     }
 
     public function updated(ChatMessage $message): void
@@ -27,7 +28,7 @@ class ChatMessageObserver implements ShouldHandleEventsAfterCommit
             return;
         }
 
-        $this->publishMessageEvent('message.updated', $message, true);
+        $this->publishMessageEvent(RealtimeEvents::MESSAGE_UPDATED, $message, true);
     }
 
     private function publishMessageEvent(string $event, ChatMessage $message, bool $includeSender): void

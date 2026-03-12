@@ -7,6 +7,7 @@ use App\Models\ConversationTransfer;
 use App\Models\Message;
 use App\Services\NotificationDispatchService;
 use App\Services\RealtimePublisher;
+use App\Support\RealtimeEvents;
 use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
 use Illuminate\Support\Carbon;
 
@@ -74,7 +75,7 @@ class ConversationTransferObserver implements ShouldHandleEventsAfterCommit
             ]);
 
         $this->publisher->publish(
-            'conversation.transferred',
+            RealtimeEvents::CONVERSATION_TRANSFERRED,
             $rooms,
             [
                 'transferId' => (int) $transfer->id,

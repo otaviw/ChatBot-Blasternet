@@ -1,3 +1,8 @@
+import {
+  CONVERSATION_HANDLING_MODE,
+  CONVERSATION_STATUS,
+} from '@/constants/conversation';
+
 function ConversationsSidebar({
   selectedId,
   convSearchInput,
@@ -50,7 +55,7 @@ function ConversationsSidebar({
                 className={`w-full text-left px-3 py-2.5 rounded-lg transition ${
                   selectedId === conv.id
                     ? 'bg-[#eff6ff]'
-                    : conv.status === 'closed'
+                    : conv.status === CONVERSATION_STATUS.CLOSED
                       ? 'opacity-70 hover:bg-white/60'
                       : hasUnread
                         ? 'bg-red-50/80 hover:bg-red-50'
@@ -63,9 +68,9 @@ function ConversationsSidebar({
                   {conv.status} ({conv.messages_count ?? 0} msg)
                 </div>
                 <div className="text-xs text-[#526175] mt-1">
-                  {conv.status === 'closed'
+                  {conv.status === CONVERSATION_STATUS.CLOSED
                     ? 'encerrada'
-                    : conv.handling_mode === 'human'
+                    : conv.handling_mode === CONVERSATION_HANDLING_MODE.HUMAN
                       ? 'manual'
                       : 'bot'}
                   {hasUnread ? (

@@ -1,15 +1,8 @@
 import { io } from 'socket.io-client';
+import { REALTIME_EVENTS } from '@/constants/realtimeEvents';
 import api from './api';
 
-const SUPPORTED_EVENTS = new Set([
-  'message.created',
-  'message.updated',
-  'message.status.updated',
-  'message.reactions.updated',
-  'bot.updated',
-  'conversation.transferred',
-  'notification.created',
-]);
+const SUPPORTED_EVENTS = new Set(Object.values(REALTIME_EVENTS));
 
 const MAX_SEEN_ITEMS = 1500;
 const SEEN_TTL_MS = 5 * 60 * 1000;
@@ -486,14 +479,17 @@ class RealtimeClient {
       this.seenRequestIds.set(scopedRequestKey, now);
     }
 
-    if (eventName === 'message.created' || eventName === 'message.updated') {
+    if (
+      eventName === REALTIME_EVENTS.MESSAGE_CREATED ||
+      eventName === REALTIME_EVENTS.MESSAGE_UPDATED
+    ) {
       const messagePayload = readMessagePayload(envelope?.payload);
       const messageId =
         readPositiveInt(envelope?.payload, ['messageId', 'message_id', 'id']) ??
         readPositiveInt(messagePayload, ['id', 'messageId', 'message_id']);
       if (messageId !== null) {
         const messageKey =
-          eventName === 'message.updated'
+          eventName === REALTIME_EVENTS.MESSAGE_UPDATED
             ? this.buildMessageUpdateDedupeKey(envelope?.payload, messagePayload, messageId)
             : this.buildMessageDedupeKey(envelope?.payload, messagePayload, messageId);
         if (this.seenMessageIds.has(messageKey)) {
@@ -503,7 +499,7 @@ class RealtimeClient {
       }
     }
 
-    if (eventName === 'message.status.updated') {
+    if (eventName === REALTIME_EVENTS.MESSAGE_STATUS_UPDATED) {
       const messageId = readPositiveInt(envelope?.payload, ['messageId', 'message_id', 'id']);
       if (messageId !== null) {
         const messageKey = this.buildMessageStatusDedupeKey(envelope?.payload, messageId);
@@ -514,7 +510,7 @@ class RealtimeClient {
       }
     }
 
-    if (eventName === 'message.reactions.updated') {
+    if (eventName === REALTIME_EVENTS.MESSAGE_REACTIONS_UPDATED) {
       const messageId = readPositiveInt(envelope?.payload, ['messageId', 'message_id', 'id']);
       if (messageId !== null) {
         const messageKey = this.buildMessageReactionsDedupeKey(envelope?.payload, messageId);
@@ -525,7 +521,7 @@ class RealtimeClient {
       }
     }
 
-    if (eventName === 'conversation.transferred') {
+    if (eventName === REALTIME_EVENTS.CONVERSATION_TRANSFERRED) {
       const transferId = readPositiveInt(envelope?.payload, ['transferId', 'transfer_id', 'id']);
       if (transferId !== null) {
         if (this.seenTransferIds.has(transferId)) {
@@ -543,13 +539,16 @@ class RealtimeClient {
       return 'empty';
     }
 
-    if (eventName === 'message.created' || eventName === 'message.updated') {
+    if (
+      eventName === REALTIME_EVENTS.MESSAGE_CREATED ||
+      eventName === REALTIME_EVENTS.MESSAGE_UPDATED
+    ) {
       const messagePayload = readMessagePayload(payload);
       const messageId =
         readPositiveInt(payload, ['messageId', 'message_id', 'id']) ??
         readPositiveInt(messagePayload, ['id', 'messageId', 'message_id']);
       if (messageId !== null) {
-        if (eventName === 'message.updated') {
+        if (eventName === REALTIME_EVENTS.MESSAGE_UPDATED) {
           return this.buildMessageUpdateDedupeKey(payload, messagePayload, messageId);
         }
         return this.buildMessageDedupeKey(payload, messagePayload, messageId);
@@ -596,7 +595,7 @@ class RealtimeClient {
       return `message-signature:${eventName}:${conversationId ?? 'na'}|${createdAt}|${updatedAt}|${direction}|${type}|${contentType}|${mediaUrl}|${text}`;
     }
 
-    if (eventName === 'message.status.updated') {
+    if (eventName === REALTIME_EVENTS.MESSAGE_STATUS_UPDATED) {
       const messageId = readPositiveInt(payload, ['messageId', 'message_id', 'id']);
       if (messageId !== null) {
         return this.buildMessageStatusDedupeKey(payload, messageId);
@@ -604,7 +603,7 @@ class RealtimeClient {
       return 'message-status:unknown';
     }
 
-    if (eventName === 'message.reactions.updated') {
+    if (eventName === REALTIME_EVENTS.MESSAGE_REACTIONS_UPDATED) {
       const messageId = readPositiveInt(payload, ['messageId', 'message_id', 'id']);
       if (messageId !== null) {
         return this.buildMessageReactionsDedupeKey(payload, messageId);
@@ -612,12 +611,12 @@ class RealtimeClient {
       return 'message-reactions:unknown';
     }
 
-    if (eventName === 'conversation.transferred') {
+    if (eventName === REALTIME_EVENTS.CONVERSATION_TRANSFERRED) {
       const transferId = readPositiveInt(payload, ['transferId', 'transfer_id', 'id']);
       return transferId !== null ? `transfer:${transferId}` : 'transfer:unknown';
     }
 
-    if (eventName === 'notification.created') {
+    if (eventName === REALTIME_EVENTS.NOTIFICATION_CREATED) {
       const notificationId = readPositiveInt(payload?.notification, ['id']);
       return notificationId !== null ? `notification:${notificationId}` : 'notification:unknown';
     }

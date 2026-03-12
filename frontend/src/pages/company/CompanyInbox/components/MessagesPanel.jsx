@@ -1,9 +1,11 @@
+import { MESSAGE_DELIVERY_STATUS } from '@/constants/messageDeliveryStatus';
+
 const OUTBOUND_STATUS_LABELS = {
-  pending: 'Pendente',
-  sent: 'Enviada',
-  delivered: 'Entregue',
-  read: 'Lida',
-  failed: 'Falhou',
+  [MESSAGE_DELIVERY_STATUS.PENDING]: 'Pendente',
+  [MESSAGE_DELIVERY_STATUS.SENT]: 'Enviada',
+  [MESSAGE_DELIVERY_STATUS.DELIVERED]: 'Entregue',
+  [MESSAGE_DELIVERY_STATUS.READ]: 'Lida',
+  [MESSAGE_DELIVERY_STATUS.FAILED]: 'Falhou',
 };
 
 function normalizeOutboundStatus(message) {

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Message;
+use App\Support\MessageDeliveryStatus;
 
 class MessageDeliveryStatusService
 {
@@ -17,7 +18,7 @@ class MessageDeliveryStatusService
 
         if ($isOk) {
             $message->whatsapp_message_id = $whatsappMessageId !== '' ? $whatsappMessageId : null;
-            $message->delivery_status = 'sent';
+            $message->delivery_status = MessageDeliveryStatus::SENT;
             $message->sent_at = $message->sent_at ?: now();
             $message->status_error = null;
             $message->status_meta = [
@@ -29,7 +30,7 @@ class MessageDeliveryStatusService
             return;
         }
 
-        $message->delivery_status = 'failed';
+        $message->delivery_status = MessageDeliveryStatus::FAILED;
         $message->failed_at = $message->failed_at ?: now();
         $message->status_error = $this->stringifyError($sendResult['error'] ?? null);
         $message->status_meta = [

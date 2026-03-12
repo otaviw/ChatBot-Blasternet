@@ -14,6 +14,10 @@ use App\Services\MessageDeliveryStatusService;
 use App\Services\MessageMediaStorageService;
 use App\Services\TransferConversationService;
 use App\Services\WhatsAppSendService;
+use App\Support\ConversationAssignedType;
+use App\Support\ConversationHandlingMode;
+use App\Support\ConversationStatus;
+use App\Support\MessageDeliveryStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -216,19 +220,19 @@ class ConversationController extends Controller
 
         $firstArea = $user->areas()->orderBy('name')->first(['areas.id', 'areas.name']);
 
-        $conversation->handling_mode = 'human';
-        $conversation->assigned_type = 'user';
+        $conversation->handling_mode = ConversationHandlingMode::HUMAN;
+        $conversation->assigned_type = ConversationAssignedType::USER;
         $conversation->assigned_id = (int) $user->id;
         $conversation->current_area_id = $firstArea?->id;
         $conversation->assigned_user_id = (int) $user->id;
         $conversation->assigned_area = $firstArea?->name;
         $conversation->assumed_at = now();
-        $conversation->status = 'in_progress';
+        $conversation->status = ConversationStatus::IN_PROGRESS;
         $conversation->save();
 
         $this->auditLog->record($request, 'company.conversation.assumed', $conversation->company_id, [
             'conversation_id' => $conversation->id,
-            'assigned_type' => 'user',
+            'assigned_type' => ConversationAssignedType::USER,
             'assigned_id' => $user->id,
         ]);
 
@@ -260,14 +264,14 @@ class ConversationController extends Controller
             return response()->json(['message' => 'Conversa nao encontrada para esta empresa.'], 404);
         }
 
-        $conversation->handling_mode = 'bot';
-        $conversation->assigned_type = 'bot';
+        $conversation->handling_mode = ConversationHandlingMode::BOT;
+        $conversation->assigned_type = ConversationAssignedType::BOT;
         $conversation->assigned_id = null;
         $conversation->current_area_id = null;
         $conversation->assigned_user_id = null;
         $conversation->assigned_area = null;
         $conversation->assumed_at = null;
-        $conversation->status = 'open';
+        $conversation->status = ConversationStatus::OPEN;
         $conversation->save();
 
         $this->auditLog->record($request, 'company.conversation.released', $conversation->company_id, [
@@ -308,21 +312,21 @@ class ConversationController extends Controller
 
         if (! $conversation->isManualMode()) {
             $this->assignConversationToCurrentUser($conversation, $user);
-        } elseif ($conversation->assigned_type === 'user' && (int) $conversation->assigned_id !== (int) $user->id) {
+        } elseif ($conversation->assigned_type === ConversationAssignedType::USER && (int) $conversation->assigned_id !== (int) $user->id) {
             return response()->json([
                 'message' => 'Conversa assumida por outro operador.',
             ], 409);
-        } elseif ($conversation->assigned_type === 'area' && ! $user->hasArea((int) ($conversation->assigned_id ?? 0))) {
+        } elseif ($conversation->assigned_type === ConversationAssignedType::AREA && ! $user->hasArea((int) ($conversation->assigned_id ?? 0))) {
             return response()->json([
                 'message' => 'Conversa destinada para outra área de atendimento.',
             ], 409);
-        } elseif ($conversation->assigned_type === 'area') {
+        } elseif ($conversation->assigned_type === ConversationAssignedType::AREA) {
             $this->assignConversationToCurrentUser($conversation, $user, (int) ($conversation->assigned_id ?? 0));
-        } elseif (in_array($conversation->assigned_type, ['bot', 'unassigned'], true)) {
+        } elseif (in_array($conversation->assigned_type, [ConversationAssignedType::BOT, ConversationAssignedType::UNASSIGNED], true)) {
             $this->assignConversationToCurrentUser($conversation, $user);
         }
 
-        $conversation->status = 'in_progress';
+        $conversation->status = ConversationStatus::IN_PROGRESS;
         $conversation->save();
 
         $trimmedText = trim((string) ($validated['text'] ?? ''));
@@ -353,7 +357,7 @@ class ConversationController extends Controller
             'media_size_bytes' => $storedMedia['size_bytes'] ?? null,
             'media_width' => $storedMedia['width'] ?? null,
             'media_height' => $storedMedia['height'] ?? null,
-            'delivery_status' => 'pending',
+            'delivery_status' => MessageDeliveryStatus::PENDING,
             'meta' => [
                 'source' => 'manual',
                 'actor_user_id' => $user->id,
@@ -420,9 +424,9 @@ class ConversationController extends Controller
             return response()->json(['message' => 'Conversa nao encontrada para esta empresa.'], 404);
         }
 
-        $conversation->status = 'closed';
-        $conversation->handling_mode = 'bot';
-        $conversation->assigned_type = 'unassigned';
+        $conversation->status = ConversationStatus::CLOSED;
+        $conversation->handling_mode = ConversationHandlingMode::BOT;
+        $conversation->assigned_type = ConversationAssignedType::UNASSIGNED;
         $conversation->assigned_id = null;
         $conversation->current_area_id = null;
         $conversation->assigned_user_id = null;
@@ -620,7 +624,7 @@ class ConversationController extends Controller
         }
 
         if (! empty($validated['to_user_id'])) {
-            return ['user', (int) $validated['to_user_id']];
+            return [ConversationAssignedType::USER, (int) $validated['to_user_id']];
         }
 
         $toArea = trim((string) ($validated['to_area'] ?? ''));
@@ -636,7 +640,7 @@ class ConversationController extends Controller
                 ]);
             }
 
-            return ['area', (int) $area->id];
+            return [ConversationAssignedType::AREA, (int) $area->id];
         }
 
         throw ValidationException::withMessages([
@@ -657,8 +661,8 @@ class ConversationController extends Controller
             $firstArea = $areas->sortBy('name')->first();
         }
 
-        $conversation->handling_mode = 'human';
-        $conversation->assigned_type = 'user';
+        $conversation->handling_mode = ConversationHandlingMode::HUMAN;
+        $conversation->assigned_type = ConversationAssignedType::USER;
         $conversation->assigned_id = (int) $user->id;
         $conversation->current_area_id = $firstArea?->id;
         $conversation->assigned_user_id = (int) $user->id;
@@ -683,7 +687,7 @@ class ConversationController extends Controller
         $query->where(function (Builder $scope) use ($userId, $areaIds) {
             $scope->where(function (Builder $assignedToUser) use ($userId) {
                 $assignedToUser->where(function (Builder $directAssignment) use ($userId) {
-                    $directAssignment->where('assigned_type', 'user')
+                    $directAssignment->where('assigned_type', ConversationAssignedType::USER)
                         ->where('assigned_id', $userId);
                 })->orWhere('assigned_user_id', $userId);
             });
@@ -695,7 +699,7 @@ class ConversationController extends Controller
                         ->whereNull('assigned_user_id')
                         ->where(function (Builder $noAttendant) {
                             $noAttendant
-                                ->where('assigned_type', '!=', 'user')
+                                ->where('assigned_type', '!=', ConversationAssignedType::USER)
                                 ->orWhereNull('assigned_id');
                         });
                 });
@@ -705,7 +709,7 @@ class ConversationController extends Controller
 
     private function normalizeConversationAssignmentRelations(Conversation $conversation): void
     {
-        if ($conversation->assigned_type !== 'user') {
+        if ($conversation->assigned_type !== ConversationAssignedType::USER) {
             $conversation->setRelation('assignedUser', null);
         }
     }
@@ -727,8 +731,8 @@ class ConversationController extends Controller
         $userIds = $history
             ->flatMap(fn(ConversationTransfer $item) => [
                 $item->transferred_by_user_id,
-                $item->from_assigned_type === 'user' ? $item->from_assigned_id : null,
-                $item->to_assigned_type === 'user' ? $item->to_assigned_id : null,
+                $item->from_assigned_type === ConversationAssignedType::USER ? $item->from_assigned_id : null,
+                $item->to_assigned_type === ConversationAssignedType::USER ? $item->to_assigned_id : null,
             ])
             ->filter()
             ->unique()
@@ -736,8 +740,8 @@ class ConversationController extends Controller
 
         $areaIds = $history
             ->flatMap(fn(ConversationTransfer $item) => [
-                $item->from_assigned_type === 'area' ? $item->from_assigned_id : null,
-                $item->to_assigned_type === 'area' ? $item->to_assigned_id : null,
+                $item->from_assigned_type === ConversationAssignedType::AREA ? $item->from_assigned_id : null,
+                $item->to_assigned_type === ConversationAssignedType::AREA ? $item->to_assigned_id : null,
             ])
             ->filter()
             ->unique()
@@ -754,10 +758,10 @@ class ConversationController extends Controller
             ->keyBy('id');
 
         return $history->map(function (ConversationTransfer $item) use ($usersById, $areasById) {
-            $fromUser = $item->from_assigned_type === 'user'
+            $fromUser = $item->from_assigned_type === ConversationAssignedType::USER
                 ? $usersById->get($item->from_assigned_id)
                 : null;
-            $toUser = $item->to_assigned_type === 'user'
+            $toUser = $item->to_assigned_type === ConversationAssignedType::USER
                 ? $usersById->get($item->to_assigned_id)
                 : null;
             $transferredBy = $usersById->get($item->transferred_by_user_id);
@@ -770,10 +774,10 @@ class ConversationController extends Controller
                 'to_assigned_id' => $item->to_assigned_id,
                 'from_user' => $fromUser,
                 'to_user' => $toUser,
-                'from_area' => $item->from_assigned_type === 'area'
+                'from_area' => $item->from_assigned_type === ConversationAssignedType::AREA
                     ? ($areasById->get($item->from_assigned_id)?->name)
                     : null,
-                'to_area' => $item->to_assigned_type === 'area'
+                'to_area' => $item->to_assigned_type === ConversationAssignedType::AREA
                     ? ($areasById->get($item->to_assigned_id)?->name)
                     : null,
                 'transferred_by_user' => $transferredBy,

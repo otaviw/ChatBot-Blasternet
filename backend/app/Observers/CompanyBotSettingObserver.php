@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Models\CompanyBotSetting;
 use App\Services\RealtimePublisher;
+use App\Support\RealtimeEvents;
 use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
 
 class CompanyBotSettingObserver implements ShouldHandleEventsAfterCommit
@@ -23,7 +24,7 @@ class CompanyBotSettingObserver implements ShouldHandleEventsAfterCommit
         }
 
         $this->publisher->publish(
-            'bot.updated',
+            RealtimeEvents::BOT_UPDATED,
             ["company:{$settings->company_id}"],
             [
                 'companyId' => (int) $settings->company_id,

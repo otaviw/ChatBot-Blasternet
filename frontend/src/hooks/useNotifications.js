@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { REALTIME_EVENTS } from '@/constants/realtimeEvents';
 import realtimeClient from '@/services/realtimeClient';
 import notificationService from '@/services/notificationService';
 import { NOTIFICATION_MODULE, NOTIFICATION_REFERENCE_TYPE } from '@/constants/notifications';
@@ -397,7 +398,7 @@ export default function useNotifications(options = {}) {
       return undefined;
     }
 
-    const unsubscribe = realtimeClient.on('notification.created', (envelope) => {
+    const unsubscribe = realtimeClient.on(REALTIME_EVENTS.NOTIFICATION_CREATED, (envelope) => {
       const payload = envelope?.payload ?? {};
       const normalized = normalizeNotification(payload.notification);
       if (!normalized) {

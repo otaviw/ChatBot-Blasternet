@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { CONVERSATION_ASSIGNED_TYPE } from '@/constants/conversation';
 import api from '@/services/api';
 import { appendUniqueMessage } from '../inboxRealtimeUtils';
 
@@ -54,7 +55,7 @@ export default function useCompanyInboxActions({
     }
 
     setTransferArea(
-      detail.assigned_type === 'area' ? String(detail.assigned_id ?? '') : ''
+      detail.assigned_type === CONVERSATION_ASSIGNED_TYPE.AREA ? String(detail.assigned_id ?? '') : ''
     );
   }, [detail?.id]);
 
@@ -148,8 +149,8 @@ export default function useCompanyInboxActions({
     setTransferSuccess('');
     try {
       const payload = transferUserId
-        ? { type: 'user', id: Number(transferUserId), send_outbound: true }
-        : { type: 'area', id: Number(transferArea), send_outbound: true };
+        ? { type: CONVERSATION_ASSIGNED_TYPE.USER, id: Number(transferUserId), send_outbound: true }
+        : { type: CONVERSATION_ASSIGNED_TYPE.AREA, id: Number(transferArea), send_outbound: true };
 
       const response = await api.post(`/minha-conta/conversas/${detail.id}/transferir`, {
         ...payload,

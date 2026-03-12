@@ -7,6 +7,8 @@ use App\Models\Message;
 use App\Models\MessageReaction;
 use App\Services\InboundMessageService;
 use App\Services\RealtimePublisher;
+use App\Support\MessageDeliveryStatus;
+use App\Support\RealtimeEvents;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
@@ -258,25 +260,25 @@ class WebhookController extends Controller
             $occurredAt = now()->setTimestamp($timestamp);
         }
 
-        $beforeStatus = (string) ($message->delivery_status ?: 'pending');
+        $beforeStatus = (string) ($message->delivery_status ?: MessageDeliveryStatus::PENDING);
         switch ($statusName) {
-            case 'sent':
-                $message->delivery_status = 'sent';
+            case MessageDeliveryStatus::SENT:
+                $message->delivery_status = MessageDeliveryStatus::SENT;
                 $message->sent_at = $message->sent_at ?: $occurredAt;
                 $message->status_error = null;
                 break;
-            case 'delivered':
-                $message->delivery_status = 'delivered';
+            case MessageDeliveryStatus::DELIVERED:
+                $message->delivery_status = MessageDeliveryStatus::DELIVERED;
                 $message->delivered_at = $message->delivered_at ?: $occurredAt;
                 $message->status_error = null;
                 break;
-            case 'read':
-                $message->delivery_status = 'read';
+            case MessageDeliveryStatus::READ:
+                $message->delivery_status = MessageDeliveryStatus::READ;
                 $message->read_at = $message->read_at ?: $occurredAt;
                 $message->status_error = null;
                 break;
-            case 'failed':
-                $message->delivery_status = 'failed';
+            case MessageDeliveryStatus::FAILED:
+                $message->delivery_status = MessageDeliveryStatus::FAILED;
                 $message->failed_at = $message->failed_at ?: $occurredAt;
                 $message->status_error = $this->formatStatusError($statusPayload['errors'] ?? null);
                 break;
@@ -408,7 +410,7 @@ class WebhookController extends Controller
             ->all();
 
         $this->realtimePublisher->publish(
-            'message.reactions.updated',
+            RealtimeEvents::MESSAGE_REACTIONS_UPDATED,
             [
                 "company:{$company->id}",
                 "conversation:{$message->conversation_id}",

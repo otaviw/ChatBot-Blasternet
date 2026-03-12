@@ -1,4 +1,9 @@
 import { useEffect, useRef } from 'react';
+import {
+  CONVERSATION_HANDLING_MODE,
+  CONVERSATION_STATUS,
+} from '@/constants/conversation';
+import { REALTIME_EVENTS } from '@/constants/realtimeEvents';
 import realtimeClient from '@/services/realtimeClient';
 import {
   appendUniqueMessage,
@@ -54,7 +59,7 @@ export default function useInboxRealtimeSync({
       }, 550);
     };
 
-    const unsubscribeMessageCreated = realtimeClient.on('message.created', (envelope) => {
+    const unsubscribeMessageCreated = realtimeClient.on(REALTIME_EVENTS.MESSAGE_CREATED, (envelope) => {
       const payload = envelope?.payload ?? {};
       const rawMessage =
         payload?.message && typeof payload.message === 'object' ? payload.message : null;
@@ -160,7 +165,7 @@ export default function useInboxRealtimeSync({
       scheduleConversationDetailRefresh(conversationId);
     });
 
-    const unsubscribeConversationTransferred = realtimeClient.on('conversation.transferred', (envelope) => {
+    const unsubscribeConversationTransferred = realtimeClient.on(REALTIME_EVENTS.CONVERSATION_TRANSFERRED, (envelope) => {
       const payload = envelope?.payload ?? {};
       const conversationId = parsePositiveInt(payload.conversationId, payload.conversation_id);
       const eventConversation = normalizeEventConversation(payload.conversation);
@@ -179,8 +184,8 @@ export default function useInboxRealtimeSync({
           return {
             ...conversation,
             ...(eventConversation ?? {}),
-            handling_mode: 'human',
-            status: 'in_progress',
+            handling_mode: CONVERSATION_HANDLING_MODE.HUMAN,
+            status: CONVERSATION_STATUS.IN_PROGRESS,
             assigned_type: payload.toAssignedType ?? payload.to_assigned_type ?? conversation.assigned_type,
             assigned_id: payload.toAssignedId ?? payload.to_assigned_id ?? conversation.assigned_id,
             last_message_at:
@@ -208,8 +213,8 @@ export default function useInboxRealtimeSync({
           return {
             ...prev,
             ...(eventConversation ?? {}),
-            handling_mode: 'human',
-            status: 'in_progress',
+            handling_mode: CONVERSATION_HANDLING_MODE.HUMAN,
+            status: CONVERSATION_STATUS.IN_PROGRESS,
             assigned_type: payload.toAssignedType ?? payload.to_assigned_type ?? prev.assigned_type,
             assigned_id: payload.toAssignedId ?? payload.to_assigned_id ?? prev.assigned_id,
           };
@@ -219,7 +224,7 @@ export default function useInboxRealtimeSync({
       }
     });
 
-    const unsubscribeMessageStatusUpdated = realtimeClient.on('message.status.updated', (envelope) => {
+    const unsubscribeMessageStatusUpdated = realtimeClient.on(REALTIME_EVENTS.MESSAGE_STATUS_UPDATED, (envelope) => {
       const payload = envelope?.payload ?? {};
       const conversationId = parsePositiveInt(payload.conversationId, payload.conversation_id);
       const messageId = parsePositiveInt(payload.messageId, payload.message_id, payload.id);
@@ -261,7 +266,7 @@ export default function useInboxRealtimeSync({
       });
     });
 
-    const unsubscribeMessageReactionsUpdated = realtimeClient.on('message.reactions.updated', (envelope) => {
+    const unsubscribeMessageReactionsUpdated = realtimeClient.on(REALTIME_EVENTS.MESSAGE_REACTIONS_UPDATED, (envelope) => {
       const payload = envelope?.payload ?? {};
       const conversationId = parsePositiveInt(payload.conversationId, payload.conversation_id);
       const messageId = parsePositiveInt(payload.messageId, payload.message_id, payload.id);
