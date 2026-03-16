@@ -113,6 +113,13 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
   const [profileName, setProfileName] = useState('');
   const [profileSaveLoading, setProfileSaveLoading] = useState(false);
   const [profileSaveError, setProfileSaveError] = useState('');
+  const [profileEditPassword, setProfileEditPassword] = useState(false);
+  const [passwordCurrent, setPasswordCurrent] = useState('');
+  const [passwordNew, setPasswordNew] = useState('');
+  const [passwordConfirm, setPasswordConfirm] = useState('');
+  const [passwordSaveLoading, setPasswordSaveLoading] = useState(false);
+  const [passwordSaveError, setPasswordSaveError] = useState('');
+  const [passwordSaveSuccess, setPasswordSaveSuccess] = useState('');
   const [userData, setUserData] = useState(null);
   const [notificationBusyById, setNotificationBusyById] = useState({});
   const profileRef = useRef(null);
@@ -263,6 +270,51 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
     } finally {
       setProfileSaveLoading(false);
     }
+  };
+
+  const handleSavePassword = async (e) => {
+    e.preventDefault();
+    setPasswordSaveError('');
+    setPasswordSaveSuccess('');
+
+    if (!passwordCurrent.trim()) {
+      setPasswordSaveError('Informe a senha atual.');
+      return;
+    }
+    if (passwordNew.length < 6) {
+      setPasswordSaveError('A nova senha deve ter pelo menos 6 caracteres.');
+      return;
+    }
+    if (passwordNew !== passwordConfirm) {
+      setPasswordSaveError('A confirmacao da nova senha nao confere.');
+      return;
+    }
+
+    setPasswordSaveLoading(true);
+    try {
+      await api.put('/me/password', {
+        current_password: passwordCurrent,
+        password: passwordNew,
+        password_confirmation: passwordConfirm,
+      });
+      setPasswordSaveSuccess('Senha alterada com sucesso.');
+      setPasswordCurrent('');
+      setPasswordNew('');
+      setPasswordConfirm('');
+    } catch (err) {
+      setPasswordSaveError(err.response?.data?.message ?? 'Erro ao alterar senha.');
+    } finally {
+      setPasswordSaveLoading(false);
+    }
+  };
+
+  const resetPasswordForm = () => {
+    setProfileEditPassword(false);
+    setPasswordCurrent('');
+    setPasswordNew('');
+    setPasswordConfirm('');
+    setPasswordSaveError('');
+    setPasswordSaveSuccess('');
   };
 
   const adminMainLinks = [
@@ -626,9 +678,56 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
                       <button
                         type="button"
                         className="layout-profile__item"
-                        onClick={() => { setProfileEditName(true); setProfileName(userData?.name ?? ''); }}
+                        onClick={() => { setProfileEditName(true); setProfileName(userData?.name ?? ''); resetPasswordForm(); }}
                       >
                         Gerenciar nome
+                      </button>
+                    )}
+                    {profileEditPassword ? (
+                      <form onSubmit={handleSavePassword} className="layout-profile__edit">
+                        <input
+                          type="password"
+                          value={passwordCurrent}
+                          onChange={(e) => { setPasswordCurrent(e.target.value); setPasswordSaveError(''); setPasswordSaveSuccess(''); }}
+                          placeholder="Senha atual"
+                          className="layout-profile__input"
+                          autoComplete="current-password"
+                          autoFocus
+                        />
+                        <input
+                          type="password"
+                          value={passwordNew}
+                          onChange={(e) => { setPasswordNew(e.target.value); setPasswordSaveError(''); setPasswordSaveSuccess(''); }}
+                          placeholder="Nova senha (min. 6 caracteres)"
+                          className="layout-profile__input"
+                          autoComplete="new-password"
+                        />
+                        <input
+                          type="password"
+                          value={passwordConfirm}
+                          onChange={(e) => { setPasswordConfirm(e.target.value); setPasswordSaveError(''); setPasswordSaveSuccess(''); }}
+                          placeholder="Confirmar nova senha"
+                          className="layout-profile__input"
+                          autoComplete="new-password"
+                        />
+                        {passwordSaveError && <p className="layout-profile__error">{passwordSaveError}</p>}
+                        {passwordSaveSuccess && <p className="layout-profile__success">{passwordSaveSuccess}</p>}
+                        <div className="layout-profile__edit-actions">
+                          <button type="submit" className="layout-profile__btn layout-profile__btn--primary" disabled={passwordSaveLoading}>
+                            {passwordSaveLoading ? 'Salvando...' : 'Alterar senha'}
+                          </button>
+                          <button type="button" className="layout-profile__btn" onClick={resetPasswordForm}>
+                            Cancelar
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <button
+                        type="button"
+                        className="layout-profile__item"
+                        onClick={() => { setProfileEditPassword(true); setProfileEditName(false); setProfileName(''); setProfileSaveError(''); }}
+                      >
+                        Alterar senha
                       </button>
                     )}
                     <button

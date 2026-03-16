@@ -16,6 +16,7 @@ Route::middleware('web')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/me', [AuthController::class, 'me']);
         Route::patch('/me', [AuthController::class, 'updateProfile'])->middleware('throttle:10,1');
+        Route::put('/me/password', [AuthController::class, 'updatePassword'])->middleware('throttle:5,1');
         Route::get('/dashboard', [HomeController::class, 'dashboard']);
     });
 });
