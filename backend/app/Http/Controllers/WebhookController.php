@@ -11,6 +11,7 @@ use App\Support\MessageDeliveryStatus;
 use App\Support\RealtimeEvents;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
 
 class WebhookController extends Controller
@@ -57,6 +58,12 @@ class WebhookController extends Controller
      */
     public function handle(Request $request): Response
     {
+        if (! $this->isValidSignature($request)) {
+            Log::warning('Webhook WhatsApp com assinatura inválida ou ausente.');
+
+            return response('', 403);
+        }
+
         $body = $request->all();
 
         if (($body['object'] ?? null) !== 'whatsapp_business_account') {
@@ -75,9 +82,40 @@ class WebhookController extends Controller
         return response('', 200);
     }
 
+    private function isValidSignature(Request $request): bool
+    {
+        $secret = (string) config('whatsapp.webhook_signature_secret');
+        if ($secret === '') {
+            return true;
+        }
+
+        $header = (string) ($request->header('X-Hub-Signature-256')
+            ?? $request->header('X-Hub-Signature')
+            ?? '');
+        if ($header === '') {
+            return false;
+        }
+
+        $provided = $header;
+        if (str_contains($header, '=')) {
+            [, $value] = explode('=', $header, 2);
+            $provided = (string) $value;
+        }
+
+        $rawBody = $request->getContent();
+        $expected = hash_hmac('sha256', $rawBody, $secret);
+
+        if (strlen($provided) !== strlen($expected)) {
+            return false;
+        }
+
+        return hash_equals($expected, $provided);
+    }
+
     private function processValue(array $value): void
     {
-        $phoneNumberId = (string) ($value['metadata']['phone_number_id'] ?? '');
+        $metadata = is_array(Arr::get($value, 'metadata')) ? $value['metadata'] : [];
+        $phoneNumberId = (string) ($metadata['phone_number_id'] ?? '');
         $company = $this->resolveCompany($phoneNumberId);
 
         if (!$company) {

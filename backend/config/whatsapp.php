@@ -13,6 +13,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Assinatura do Webhook
+    |--------------------------------------------------------------------------
+    | Opcionalmente valide a assinatura enviada pelo provedor (ex.: Meta
+    | X-Hub-Signature-256) usando um segredo compartilhado. Se
+    | whatsapp.webhook_signature_secret estiver vazio, a validação é
+    | ignorada.
+    */
+    'webhook_signature_secret' => env('WHATSAPP_WEBHOOK_SIGNATURE_SECRET'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Credenciais da API
     |--------------------------------------------------------------------------
     */
