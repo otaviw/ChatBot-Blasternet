@@ -1,33 +1,320 @@
-.stateful-flow-editor article,
-.stateful-flow-editor details,
-.stateful-flow-editor .stateful-flow-panel {
-  background-color: #fafafa !important;
-  border-color: #e5e5e5 !important;
+.stateful-editor-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.stateful-flow-editor input,
-.stateful-flow-editor select,
-.stateful-flow-editor textarea {
-  color: #171717 !important;
-  background-color: #ffffff !important;
-  border-color: #d5d5d2;
+.stateful-editor-top-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
 }
 
-.stateful-flow-editor input::placeholder,
-.stateful-flow-editor textarea::placeholder {
-  color: #737373 !important;
+.stateful-editor-main-grid {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
 }
 
-.stateful-flow-editor select option {
+.stateful-editor-sidebar,
+.stateful-editor-card,
+.stateful-editor-empty {
+  border: 1px solid #e3e3e0;
+  border-radius: 16px;
+  background: #fafafa;
+}
+
+.stateful-editor-sidebar {
+  padding: 16px;
+  position: sticky;
+  top: 16px;
+}
+
+.stateful-editor-sidebar-header,
+.stateful-editor-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.stateful-editor-card {
+  padding: 16px;
+}
+
+.stateful-editor-card--soft {
+  background: #fff;
+  border-style: dashed;
+}
+
+.stateful-editor-card-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
   color: #171717;
-  background: #ffffff;
 }
 
-.stateful-flow-editor summary p,
-.stateful-flow-editor summary span,
-.stateful-flow-editor label,
-.stateful-flow-editor h4,
-.stateful-flow-editor p {
-  color: #171717 !important;
+.stateful-editor-card-subtitle {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #706f6c;
 }
 
+.stateful-sidebar-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.stateful-step-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stateful-step-list-item {
+  width: 100%;
+  text-align: left;
+  border: 1px solid #dfdfdb;
+  background: #fff;
+  border-radius: 14px;
+  padding: 12px;
+  transition: 0.15s ease;
+}
+
+.stateful-step-list-item:hover {
+  border-color: #cfcfca;
+  background: #f7f7f5;
+}
+
+.stateful-step-list-item--active {
+  border-color: #171717;
+  background: #f3f3f1;
+}
+
+.stateful-step-list-item-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.stateful-step-list-item-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #171717;
+}
+
+.stateful-step-list-item-meta {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #706f6c;
+}
+
+.stateful-step-list-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.stateful-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid #d5d5d2;
+  color: #706f6c;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.stateful-badge--success {
+  border-color: #cfe6cf;
+  color: #2f6f2f;
+}
+
+.stateful-editor-content {
+  min-width: 0;
+}
+
+.stateful-editor-empty {
+  padding: 32px;
+  text-align: center;
+  color: #706f6c;
+}
+
+.stateful-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.stateful-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stateful-field-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #171717;
+}
+
+.stateful-input {
+  width: 100%;
+  border: 1px solid #d5d5d2;
+  border-radius: 12px;
+  background: #fff;
+  color: #171717;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.stateful-input:focus {
+  outline: none;
+  border-color: #171717;
+}
+
+.stateful-input-textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.stateful-preview-box {
+  border: 1px dashed #d5d5d2;
+  border-radius: 14px;
+  background: #fff;
+  padding: 14px;
+}
+
+.stateful-preview-label {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: #706f6c;
+}
+
+.stateful-preview-content {
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: 14px;
+  color: #171717;
+}
+
+.stateful-inline-row {
+  display: flex;
+  gap: 8px;
+}
+
+.stateful-btn {
+  border-radius: 12px;
+  padding: 9px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: 0.15s ease;
+}
+
+.stateful-btn-secondary {
+  border: 1px solid #d5d5d2;
+  background: #fff;
+  color: #171717;
+}
+
+.stateful-btn-secondary:hover {
+  background: #f6f6f4;
+}
+
+.stateful-btn-danger {
+  border: 1px solid #efb5b5;
+  background: #fff;
+  color: #b42318;
+}
+
+.stateful-btn-danger:hover {
+  background: #fff5f5;
+}
+
+.stateful-option-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stateful-option-list-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+  border: 1px solid #dfdfdb;
+  background: #fff;
+  border-radius: 14px;
+  padding: 12px;
+  transition: 0.15s ease;
+}
+
+.stateful-option-list-item:hover {
+  border-color: #cfcfca;
+  background: #f7f7f5;
+}
+
+.stateful-option-list-item--active {
+  border-color: #171717;
+  background: #f3f3f1;
+}
+
+.stateful-option-list-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #171717;
+}
+
+.stateful-option-list-meta {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #706f6c;
+}
+
+.stateful-option-list-summary {
+  font-size: 12px;
+  color: #706f6c;
+  max-width: 260px;
+  text-align: right;
+}
+
+@media (max-width: 1100px) {
+  .stateful-editor-main-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stateful-editor-sidebar {
+    position: static;
+  }
+}
+
+@media (max-width: 800px) {
+  .stateful-editor-top-grid,
+  .stateful-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stateful-inline-row {
+    flex-direction: column;
+  }
+
+  .stateful-option-list-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .stateful-option-list-summary {
+    max-width: none;
+    text-align: left;
+  }
+}

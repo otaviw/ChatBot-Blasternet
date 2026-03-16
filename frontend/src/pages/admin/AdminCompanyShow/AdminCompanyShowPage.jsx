@@ -295,9 +295,8 @@ function AdminCompanyShowPage({ companyId }) {
           <div className="rounded-lg bg-[#fafafa] px-4 py-3">
             <p className="text-xs font-medium text-[#737373] uppercase tracking-wider">Token configurado</p>
             <span
-              className={`inline-flex mt-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                company.has_meta_credentials ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
-              }`}
+              className={`inline-flex mt-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${company.has_meta_credentials ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                }`}
             >
               {company.has_meta_credentials ? 'Sim' : 'Não'}
             </span>
@@ -305,9 +304,8 @@ function AdminCompanyShowPage({ companyId }) {
           <div className="rounded-lg bg-[#fafafa] px-4 py-3">
             <p className="text-xs font-medium text-[#737373] uppercase tracking-wider">Bot ativo</p>
             <span
-              className={`inline-flex mt-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                setting?.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-neutral-100 text-neutral-600'
-              }`}
+              className={`inline-flex mt-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${setting?.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-neutral-100 text-neutral-600'
+                }`}
             >
               {setting?.is_active ? 'Sim' : 'Não'}
             </span>
@@ -490,16 +488,23 @@ function AdminCompanyShowPage({ companyId }) {
           </section>
 
           <section className="app-panel space-y-4">
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="font-medium">Menu numerado (stateful)</h3>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="font-medium">Menu numerado do bot</h3>
+                <p className="mt-1 text-sm text-[#737373]">
+                  Monte o fluxo em blocos, com uma navegação lateral para editar menus, perguntas abertas e transferências sem ficar abrindo várias áreas para baixo.
+                </p>
+              </div>
+
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={loadSuggestedMenuTemplate}
                   className="app-btn-secondary"
                 >
-                  Recarregar modelo sugerido
+                  Restaurar modelo sugerido
                 </button>
+
                 <button
                   type="button"
                   onClick={() => {
@@ -508,37 +513,46 @@ function AdminCompanyShowPage({ companyId }) {
                   }}
                   className="app-btn-secondary"
                 >
-                  Usar menu padrão automático
+                  Usar modelo automático
                 </button>
               </div>
             </div>
 
-            <p className="text-sm text-[#737373]">
-              O menu inicia automaticamente na primeira mensagem. O comando <strong>#</strong> continua resetando para o início.
-            </p>
+            <div className="rounded-lg border border-[#e3e3e0] bg-[#fafafa] p-4">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={useDefaultStatefulMenu}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setUseDefaultStatefulMenu(true);
+                      setMenuFlowError('');
+                      return;
+                    }
 
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={useDefaultStatefulMenu}
-                onChange={(e) => {
-                  if (e.target.checked) {
-                    setUseDefaultStatefulMenu(true);
-                    setMenuFlowError('');
-                    return;
-                  }
-                  enableCustomMenuBuilder();
-                }}
-              />
-              Usar menu padrão automático (sem customização manual)
-            </label>
+                    enableCustomMenuBuilder();
+                  }}
+                />
+                Usar menu padrão automático (sem edição manual)
+              </label>
+
+              <p className="mt-2 text-xs text-[#706f6c]">
+                O menu pode iniciar automaticamente na primeira mensagem. O comando <strong>#</strong> faz o cliente voltar para o início.
+              </p>
+
+              <p className="mt-1 text-xs text-[#706f6c]">
+                Desmarque esta opção para montar um fluxo personalizado com blocos, opções, perguntas abertas e transferências.
+              </p>
+            </div>
 
             {!useDefaultStatefulMenu && (
-              <StatefulMenuFlowEditor
-                value={statefulMenuEditor}
-                onChange={setStatefulMenuEditor}
-                serviceAreas={settings.service_areas ?? []}
-              />
+              <div className="pt-1">
+                <StatefulMenuFlowEditor
+                  value={statefulMenuEditor}
+                  onChange={setStatefulMenuEditor}
+                  serviceAreas={settings.service_areas ?? []}
+                />
+              </div>
             )}
 
             {menuFlowError && <p className="text-sm text-red-600">{menuFlowError}</p>}
@@ -680,7 +694,7 @@ function AdminCompanyShowPage({ companyId }) {
             <button
               type="submit"
               disabled={saveState === 'saving'}
-            className="app-btn-primary"
+              className="app-btn-primary"
             >
               {saveState === 'saving' ? 'Salvando...' : 'Salvar configurações (admin)'}
             </button>

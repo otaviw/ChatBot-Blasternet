@@ -336,15 +336,22 @@ function CompanyBotPage() {
 
         <section className="bot-config-section">
           <div className="bot-config-section-header">
-            <h2 className="bot-config-section-title">Menu numerado (stateful)</h2>
+            <div>
+              <h2 className="bot-config-section-title">Menu numerado do bot</h2>
+              <p className="bot-config-hint">
+                Monte o fluxo em blocos, com uma navegação lateral para editar sem ficar abrindo várias áreas para baixo.
+              </p>
+            </div>
+
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={loadSuggestedMenuTemplate}
                 className="app-btn-secondary"
               >
-                Recarregar modelo sugerido
+                Restaurar modelo sugerido
               </button>
+
               <button
                 type="button"
                 onClick={() => {
@@ -353,40 +360,45 @@ function CompanyBotPage() {
                 }}
                 className="app-btn-secondary"
               >
-                Usar menu padrão automático
+                Usar modelo automático
               </button>
             </div>
           </div>
 
-          <p className="bot-config-hint">
-            O menu inicia automaticamente na primeira mensagem. O comando <strong>#</strong> reseta para o início.
-          </p>
+          <div className="mt-4 rounded-lg border border-[#e3e3e0] bg-[#fafafa] p-4">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={useDefaultStatefulMenu}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setUseDefaultStatefulMenu(true);
+                    setMenuFlowError('');
+                    return;
+                  }
 
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={useDefaultStatefulMenu}
-              onChange={(e) => {
-                if (e.target.checked) {
-                  setUseDefaultStatefulMenu(true);
-                  setMenuFlowError('');
-                  return;
-                }
-                enableCustomMenuBuilder();
-              }}
-            />
-            Usar menu padrão automático (sem customização manual)
-          </label>
+                  enableCustomMenuBuilder();
+                }}
+              />
+              Usar menu padrão automático (sem edição manual)
+            </label>
+
+            <p className="mt-2 text-xs text-[#706f6c]">
+              Desmarque para montar um fluxo personalizado com blocos, opções, perguntas abertas e transferências.
+            </p>
+          </div>
 
           {!useDefaultStatefulMenu && (
-            <StatefulMenuFlowEditor
-              value={statefulMenuEditor}
-              onChange={setStatefulMenuEditor}
-              serviceAreas={settings.service_areas ?? []}
-            />
+            <div className="mt-4">
+              <StatefulMenuFlowEditor
+                value={statefulMenuEditor}
+                onChange={setStatefulMenuEditor}
+                serviceAreas={settings.service_areas ?? []}
+              />
+            </div>
           )}
 
-          {menuFlowError && <p className="text-sm text-red-600">{menuFlowError}</p>}
+          {menuFlowError && <p className="mt-3 text-sm text-red-600">{menuFlowError}</p>}
         </section>
 
         <section className="bot-config-section">

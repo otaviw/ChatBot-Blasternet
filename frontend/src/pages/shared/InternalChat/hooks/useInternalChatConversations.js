@@ -194,7 +194,7 @@ export default function useInternalChatConversations({ authenticated, role }) {
       }));
       loadedConversationPageRef.current = nextPage;
     } catch (_requestError) {
-      // Falha ao carregar mais conversas nao deve interromper o chat interno.
+      
     } finally {
       setConversationsLoadingMore(false);
     }

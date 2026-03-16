@@ -129,7 +129,7 @@ export default function useInternalChatDetail({
 
       setMessagesPagination(response.messagesPagination ?? null);
     } catch (_requestError) {
-      // Falha ao carregar mensagens antigas nao deve interromper a conversa atual.
+
     } finally {
       setMessagesLoadingOlder(false);
     }
@@ -192,7 +192,7 @@ export default function useInternalChatDetail({
         try {
           await markInternalChatConversationRead({ role, conversationId: id });
         } catch (_markReadError) {
-          // Marcar como lido e best effort.
+          
         }
 
         try {
@@ -202,7 +202,7 @@ export default function useInternalChatDetail({
             id
           );
         } catch (_markReferenceReadError) {
-          // Marcacao de notificacao e best effort.
+          
         }
       } catch (requestError) {
         setDetail(null);
@@ -269,7 +269,7 @@ export default function useInternalChatDetail({
         })
       );
     } catch (_requestError) {
-      // Refresh de detalhe e apenas para manter consistencia do estado local.
+      
     }
   }, [authenticated, role, setConversations]);
 
