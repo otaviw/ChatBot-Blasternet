@@ -234,32 +234,8 @@ function AdminInboxPage() {
                 <li>Tags: {detail.tags_count ?? 0}</li>
               </ul>
 
-              <div className="mb-4 rounded-lg p-3.5 bg-[#fafafa]">
-                <p className="text-xs text-[#526175] mb-2">Contato do cliente</p>
-                <div className="flex flex-col md:flex-row gap-2">
-                  <input
-                    type="text"
-                    value={contactNameInput}
-                    onChange={(event) => {
-                      setContactNameInput(event.target.value);
-                      setContactSuccess('');
-                      setContactError('');
-                    }}
-                    placeholder="Nome do contato"
-                    className="app-input flex-1"
-                  />
-                  <button
-                    type="button"
-                    onClick={saveContactName}
-                    disabled={contactBusy}
-                    className="app-btn-secondary"
-                  >
-                    {contactBusy ? 'Salvando...' : 'Salvar contato'}
-                  </button>
-                </div>
-                {contactSuccess && <p className="text-xs text-green-700 mt-2">{contactSuccess}</p>}
-                {contactError && <p className="text-xs text-red-600 mt-2">{contactError}</p>}
-              </div>
+              {/* Superadmin não deve gerenciar contato do cliente a partir deste painel.
+                  Mantemos apenas metadados da conversa visíveis. */}
             </>
           )}
         </section>

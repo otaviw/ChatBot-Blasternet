@@ -35,7 +35,7 @@ function SelectInput({ className = '', children, ...props }) {
 
 function CheckboxField({ checked, onChange, children, className = '' }) {
   return (
-    <label className={mergeClasses('inline-flex items-center gap-2 text-sm text-[#1f2937]', className)}>
+    <label className={mergeClasses('flex items-center gap-2 text-sm text-[#1f2937]', className)}>
       <input
         type="checkbox"
         checked={checked}

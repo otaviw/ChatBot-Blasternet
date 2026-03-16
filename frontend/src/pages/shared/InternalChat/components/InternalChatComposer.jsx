@@ -40,7 +40,7 @@ function InternalChatComposer({
           className="app-input internal-chat-textarea"
           value={messageText}
           onChange={(event) => onMessageTextChange(event.target.value)}
-          placeholder="Digite sua mensagem interna..."
+          placeholder="Digite sua mensagem..."
           rows={2}
         />
         <button
