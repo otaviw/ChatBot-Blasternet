@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import Layout from '@/components/layout/Layout/Layout.jsx';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
@@ -20,7 +21,9 @@ function formatDate(value) {
   return date.toLocaleString('pt-BR');
 }
 
-function CompanyTicketIndex({ ticketId }) {
+function CompanyTicketIndex({ ticketId: ticketIdProp }) {
+  const { ticketId: ticketIdParam = '' } = useParams();
+  const ticketId = ticketIdProp || ticketIdParam;
   const { logout } = useLogout();
   const { data, loading, error } = usePageData(`/suporte/minhas-solicitacoes/${ticketId}`);
   const [ticket, setTicket] = useState(null);

@@ -182,27 +182,19 @@ export default function useNotifications(options = {}) {
   }, [clearedUntilId, enabled, limit]);
 
   const loadUnreadCounts = useCallback(async () => {
-    if (!enabled) {
+    if (!enabled || clearedUntilId > 0) {
       return { unread_by_module: {}, total_unread: 0 };
-    }
-
-    if (clearedUntilId > 0) {
-      const localCounters = buildUnreadCountersFromNotifications(notifications);
-      applyUnreadCounters(localCounters.unread_by_module, localCounters.total_unread);
-      return localCounters;
     }
 
     try {
       const response = await notificationService.unreadCounts();
-      if (clearedUntilId <= 0) {
-        applyUnreadCounters(response.unread_by_module, response.total_unread);
-      }
+      applyUnreadCounters(response.unread_by_module, response.total_unread);
       return response;
     } catch (err) {
       setError((prev) => prev || err?.response?.data?.message || 'Falha ao carregar contadores de notificacoes.');
       return { unread_by_module: {}, total_unread: 0 };
     }
-  }, [applyUnreadCounters, clearedUntilId, enabled, notifications]);
+  }, [applyUnreadCounters, clearedUntilId, enabled]);
 
   const refresh = useCallback(async () => {
     if (!enabled) {

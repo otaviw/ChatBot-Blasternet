@@ -2,7 +2,7 @@ import './AdminSupportTicketsPage.css';
 import { useEffect, useMemo, useState } from 'react';
 import Layout from '@/components/layout/Layout/Layout.jsx';
 import { NOTIFICATION_MODULE, NOTIFICATION_REFERENCE_TYPE } from '@/constants/notifications';
-import useNotifications from '@/hooks/useNotifications';
+import { useNotificationsContext } from '@/contexts/NotificationsContext';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
 import api from '@/services/api';
@@ -126,7 +126,7 @@ function TicketSection({
 
 function AdminSupportTicketsPage() {
   const { data, loading, error } = usePageData('/admin/suporte/solicitacoes');
-  const { notifications } = useNotifications({ limit: 200 });
+  const { notifications } = useNotificationsContext();
   const { logout } = useLogout();
 
   const [openTickets, setOpenTickets] = useState([]);

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Layout from '@/components/layout/Layout/Layout.jsx';
 import { NOTIFICATION_MODULE, NOTIFICATION_REFERENCE_TYPE } from '@/constants/notifications';
-import useNotifications from '@/hooks/useNotifications';
+import { useNotificationsContext } from '@/contexts/NotificationsContext';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
 
@@ -106,7 +106,7 @@ function TicketSection({
 
 function CompanySupportTicketPage() {
   const { data, loading, error } = usePageData('/suporte/minhas-solicitacoes');
-  const { notifications } = useNotifications({ limit: 200 });
+  const { notifications } = useNotificationsContext();
   const { logout } = useLogout();
 
   const [openTickets, setOpenTickets] = useState([]);

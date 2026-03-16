@@ -15,11 +15,11 @@ export default function useCompanyInboxConversations({ data, loading }) {
   const loadedConversationPageRef = useRef(1);
 
   const buildConversationsUrl = useCallback(
-    (page = 1, search = convSearch) =>
+    (page = 1, search = '') =>
       `/minha-conta/conversas?page=${page}&per_page=${CONV_PER_PAGE}${
         search ? `&search=${encodeURIComponent(search)}` : ''
       }`,
-    [convSearch]
+    []
   );
 
   useEffect(() => {
@@ -85,7 +85,7 @@ export default function useCompanyInboxConversations({ data, loading }) {
   }, []);
 
   const refreshConversations = useCallback(async () => {
-    const response = await api.get(buildConversationsUrl(1));
+    const response = await api.get(buildConversationsUrl(1, convSearch));
     const incomingConversations = sortConversationsByActivity(response.data?.conversations ?? []);
     const incomingPagination = response.data?.conversations_pagination ?? null;
 
@@ -134,7 +134,7 @@ export default function useCompanyInboxConversations({ data, loading }) {
     setConversationsLoadingMore(true);
 
     try {
-      const response = await api.get(buildConversationsUrl(nextPage));
+      const response = await api.get(buildConversationsUrl(nextPage, convSearch));
       const incomingConversations = response.data?.conversations ?? [];
       const incomingPagination = response.data?.conversations_pagination ?? null;
 
@@ -160,7 +160,7 @@ export default function useCompanyInboxConversations({ data, loading }) {
     } finally {
       setConversationsLoadingMore(false);
     }
-  }, [buildConversationsUrl, conversationsLoadingMore, conversationsPagination, loading]);
+  }, [buildConversationsUrl, convSearch, conversationsLoadingMore, conversationsPagination, loading]);
 
   const handleConversationsScroll = useCallback(
     (event) => {

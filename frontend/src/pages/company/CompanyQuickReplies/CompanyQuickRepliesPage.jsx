@@ -34,7 +34,7 @@ function CompanyQuickRepliesPage() {
         setReplies((prev) => [...prev, response.data.quick_reply]);
       }
       setForm({ title: '', text: '' });
-    } catch (err) {
+    } catch (_err) {
       setFormError(err.response?.data?.message || 'Falha ao salvar.');
     } finally {
       setBusy(false);
@@ -45,7 +45,7 @@ function CompanyQuickRepliesPage() {
     try {
       await api.delete(`/minha-conta/respostas-rapidas/${id}`);
       setReplies((prev) => prev.filter((r) => r.id !== id));
-    } catch (err) {
+    } catch (_err) {
       setFormError('Falha ao apagar.');
     }
   };
@@ -178,6 +178,7 @@ function CompanyQuickRepliesPage() {
 }
 
 export default CompanyQuickRepliesPage;
+
 
 
 

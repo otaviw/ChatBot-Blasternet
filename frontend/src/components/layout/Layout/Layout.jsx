@@ -1,5 +1,6 @@
 import './Layout.css';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import api from '@/services/api';
 import { useNotificationsContext } from '@/contexts/NotificationsContext';
 import { NOTIFICATION_MODULE, NOTIFICATION_REFERENCE_TYPE } from '@/constants/notifications';
@@ -100,8 +101,10 @@ const ICON_PROFILE = (
 );
 
 function Layout({ children, role, companyName, onLogout, fullWidth }) {
+  const location = useLocation();
+  const navigate = useNavigate();
   const isLogged = Boolean(role);
-  const currentPath = window.location.pathname;
+  const currentPath = location.pathname;
   const [canManageUsers, setCanManageUsers] = useState(false);
   const [sidebarHovered, setSidebarHovered] = useState(false);
   const [sidebarMobileOpen, setSidebarMobileOpen] = useState(false);
@@ -206,7 +209,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
       setNotificationBusyById((p) => ({ ...p, [id]: false }));
     }
     setNotificationsPanelOpen(false);
-    window.location.href = targetHref;
+    navigate(targetHref);
   };
 
   const handleConfirmClearAllNotifications = () => {
@@ -221,38 +224,38 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
   }, [notificationsPanelOpen]);
 
   useEffect(() => {
-    let canceled = false;
-
-    if (role !== 'company') {
+    if (!isLogged) {
+      setUserData(null);
       setCanManageUsers(false);
-      return () => { canceled = true; };
+      return undefined;
     }
 
+    let canceled = false;
     api.get('/me')
       .then((response) => {
         if (canceled) return;
-        const user = response.data?.user;
-        setCanManageUsers(Boolean(user?.can_manage_users || (user?.role === 'company_admin' && user?.company_id)));
+        const user = response.data?.user ?? null;
+        setUserData(user);
+
+        if (role === 'company') {
+          setCanManageUsers(
+            Boolean(user?.can_manage_users || (user?.role === 'company_admin' && user?.company_id))
+          );
+          return;
+        }
+
+        setCanManageUsers(false);
       })
       .catch(() => {
         if (canceled) return;
+        setUserData(null);
         setCanManageUsers(false);
       });
 
-    return () => { canceled = true; };
-  }, [role]);
-
-  useEffect(() => {
-    if (!isLogged) return;
-    let canceled = false;
-    api.get('/me')
-      .then((res) => {
-        if (canceled) return;
-        setUserData(res.data?.user ?? null);
-      })
-      .catch(() => {});
-    return () => { canceled = true; };
-  }, [isLogged]);
+    return () => {
+      canceled = true;
+    };
+  }, [isLogged, role]);
 
   const handleSaveName = async (e) => {
     e.preventDefault();
@@ -608,7 +611,6 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
               href={isLogged ? '/dashboard' : '/entrar'}
               className="layout-header__logo"
             >
-              <span className="h-2 w-2 rounded-full bg-[#2563eb]" />
               Blasternet ChatBot
               {role === 'company' && companyName && (
                 <span className="hidden xl:inline text-[#737373] text-xs">/ {companyName}</span>

@@ -17,10 +17,6 @@ function AdminInboxPage() {
   const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
-  const [contactNameInput, setContactNameInput] = useState('');
-  const [contactBusy, setContactBusy] = useState(false);
-  const [contactError, setContactError] = useState('');
-  const [contactSuccess, setContactSuccess] = useState('');
   const [privacyMessage, setPrivacyMessage] = useState('');
 
   useEffect(() => {
@@ -37,9 +33,6 @@ function AdminInboxPage() {
     setConversations([]);
     setSelectedId(null);
     setDetail(null);
-    setContactNameInput('');
-    setContactError('');
-    setContactSuccess('');
     api
       .get(`/admin/conversas?company_id=${companyId}`)
       .then((response) => {
@@ -69,15 +62,11 @@ function AdminInboxPage() {
     setDetailLoading(true);
     setDetailError('');
     setDetail(null);
-    setContactNameInput('');
-    setContactError('');
-    setContactSuccess('');
     
     try {
       const response = await api.get(`/admin/conversas/${conversationId}`);
       const conversation = response.data?.conversation ?? null;
       setDetail(conversation);
-      setContactNameInput(conversation?.customer_name ?? '');
       if (response.data?.privacy_mode) {
         setPrivacyMessage(
           'Modo privacidade ativo: detalhes sensíveis e histórico de mensagens permanecem ocultos.'
@@ -87,38 +76,6 @@ function AdminInboxPage() {
       setDetailError(err.response?.data?.message || 'Falha ao carregar conversa.');
     } finally {
       setDetailLoading(false);
-    }
-  };
-
-  const saveContactName = async () => {
-    if (!detail?.id) return;
-    setContactBusy(true);
-    setContactError('');
-    setContactSuccess('');
-    try {
-      const payloadName = String(contactNameInput ?? '').trim();
-      const response = await api.put(`/admin/conversas/${detail.id}/contato`, {
-        customer_name: payloadName || null,
-      });
-
-      const updatedConversation = response.data?.conversation ?? null;
-      if (updatedConversation) {
-        setDetail(updatedConversation);
-        setContactNameInput(updatedConversation.customer_name ?? '');
-        setConversations((prev) =>
-          prev.map((item) =>
-            Number(item.id) === Number(updatedConversation.id)
-              ? { ...item, customer_name: updatedConversation.customer_name ?? null }
-              : item
-          )
-        );
-      }
-
-      setContactSuccess('Contato salvo.');
-    } catch (err) {
-      setContactError(err.response?.data?.message || 'Falha ao salvar contato.');
-    } finally {
-      setContactBusy(false);
     }
   };
 
@@ -246,3 +203,4 @@ function AdminInboxPage() {
 }
 
 export default AdminInboxPage;
+

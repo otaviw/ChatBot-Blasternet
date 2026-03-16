@@ -1,33 +1,22 @@
 import './AdminCompanyShowPage.css';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useParams } from 'react-router-dom';
 import Layout from '@/components/layout/Layout/Layout.jsx';
 import StatefulMenuFlowEditor from '@/components/sections/StatefulMenuFlowEditor/StatefulMenuFlowEditor.jsx';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
-import { REALTIME_EVENTS } from '@/constants/realtimeEvents';
+import useBotSettingsEditor from '@/hooks/useBotSettingsEditor';
 import api from '@/services/api';
-import realtimeClient from '@/services/realtimeClient';
 import {
   DAY_KEYS,
   DAY_LABELS,
-  DEFAULT_SETTINGS,
-  normalizeSettings,
 } from '@/constants/botSettings';
-import {
-  editorToStatefulMenuFlow,
-  statefulMenuFlowToEditor,
-  validateStatefulMenuEditor,
-} from '@/services/statefulMenuFlow';
 
-function AdminCompanyShowPage({ companyId }) {
+function AdminCompanyShowPage({ companyId: companyIdProp }) {
+  const { companyId: companyIdParam = '' } = useParams();
+  const companyId = companyIdProp || companyIdParam;
   const { data, loading, error } = usePageData(`/admin/empresas/${companyId}`);
   const { logout } = useLogout();
-  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
-  const [saveState, setSaveState] = useState('idle');
-  const [saveError, setSaveError] = useState('');
-  const [useDefaultStatefulMenu, setUseDefaultStatefulMenu] = useState(true);
-  const [statefulMenuEditor, setStatefulMenuEditor] = useState(() => statefulMenuFlowToEditor(null));
-  const [menuFlowError, setMenuFlowError] = useState('');
   const [companyForm, setCompanyForm] = useState({
     name: '',
     meta_phone_number_id: '',
@@ -39,175 +28,59 @@ function AdminCompanyShowPage({ companyId }) {
     `/admin/empresas/${companyId}/metricas`
   );
 
+  const reloadSettings = useCallback(async () => {
+    const response = await api.get(`/admin/empresas/${companyId}`);
+    const company = response.data?.company ?? null;
+    if (company) {
+      setCompanyData(company);
+    }
+    return company?.bot_setting ?? null;
+  }, [companyId]);
+
+  const persistSettings = useCallback(async (payload) => {
+    const response = await api.put(`/admin/empresas/${companyId}/bot`, payload);
+    return response.data?.settings ?? null;
+  }, [companyId]);
+
+  const {
+    settings,
+    saveState,
+    saveError,
+    useDefaultStatefulMenu,
+    statefulMenuEditor,
+    menuFlowError,
+    setUseDefaultStatefulMenu,
+    setStatefulMenuEditor,
+    setMenuFlowError,
+    updateMessageField,
+    updateDay,
+    updateKeyword,
+    addKeywordReply,
+    removeKeywordReply,
+    updateServiceArea,
+    addServiceArea,
+    removeServiceArea,
+    loadSuggestedMenuTemplate,
+    enableCustomMenuBuilder,
+    saveSettings,
+  } = useBotSettingsEditor({
+    initialSettings: data?.company?.bot_setting ?? null,
+    realtimeCompanyId: companyId,
+    reloadSettings,
+    persistSettings,
+  });
+
   useEffect(() => {
-    if (!data?.company) return;
-    const normalized = normalizeSettings(data.company.bot_setting);
-    setSettings(normalized);
-    setUseDefaultStatefulMenu(!normalized.stateful_menu_flow);
-    setStatefulMenuEditor(
-      statefulMenuFlowToEditor(normalized.stateful_menu_flow, normalized.welcome_message)
-    );
-    setMenuFlowError('');
+    if (!data?.company) {
+      return;
+    }
+
     setCompanyData(data.company);
     setCompanyForm({
       name: data.company.name ?? '',
       meta_phone_number_id: data.company.meta_phone_number_id ?? '',
     });
   }, [data]);
-
-  useEffect(() => {
-    const unsubscribe = realtimeClient.on(REALTIME_EVENTS.BOT_UPDATED, (envelope) => {
-      const payload = envelope?.payload ?? {};
-      if (Number(payload.companyId) !== Number(companyId)) {
-        return;
-      }
-
-      api.get(`/admin/empresas/${companyId}`).then((response) => {
-        const company = response.data?.company;
-        if (!company) {
-          return;
-        }
-
-        setCompanyData(company);
-        const normalized = normalizeSettings(company.bot_setting);
-        setSettings(normalized);
-        setUseDefaultStatefulMenu(!normalized.stateful_menu_flow);
-        setStatefulMenuEditor(
-          statefulMenuFlowToEditor(normalized.stateful_menu_flow, normalized.welcome_message)
-        );
-        setMenuFlowError('');
-      });
-    });
-
-    return () => {
-      unsubscribe();
-    };
-  }, [companyId]);
-
-  const updateMessageField = (key, value) => {
-    setSettings((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const updateDay = (day, patch) => {
-    setSettings((prev) => ({
-      ...prev,
-      business_hours: {
-        ...prev.business_hours,
-        [day]: {
-          ...prev.business_hours[day],
-          ...patch,
-        },
-      },
-    }));
-  };
-
-  const updateKeyword = (index, key, value) => {
-    setSettings((prev) => {
-      const next = [...prev.keyword_replies];
-      next[index] = { ...next[index], [key]: value };
-      return { ...prev, keyword_replies: next };
-    });
-  };
-
-  const addKeywordReply = () => {
-    setSettings((prev) => ({
-      ...prev,
-      keyword_replies: [...prev.keyword_replies, { keyword: '', reply: '' }],
-    }));
-  };
-
-  const removeKeywordReply = (index) => {
-    setSettings((prev) => ({
-      ...prev,
-      keyword_replies: prev.keyword_replies.filter((_, i) => i !== index),
-    }));
-  };
-
-  const updateServiceArea = (index, value) => {
-    setSettings((prev) => {
-      const next = [...(prev.service_areas ?? [])];
-      next[index] = value;
-      return { ...prev, service_areas: next };
-    });
-  };
-
-  const addServiceArea = () => {
-    setSettings((prev) => ({
-      ...prev,
-      service_areas: [...(prev.service_areas ?? []), ''],
-    }));
-  };
-
-  const removeServiceArea = (index) => {
-    setSettings((prev) => ({
-      ...prev,
-      service_areas: (prev.service_areas ?? []).filter((_, i) => i !== index),
-    }));
-  };
-
-  const saveSettings = async (event) => {
-    event.preventDefault();
-    setSaveState('saving');
-    setSaveError('');
-    setMenuFlowError('');
-
-    try {
-      const normalizedAreasMap = new Map();
-      for (const rawArea of settings.service_areas ?? []) {
-        const label = String(rawArea ?? '').trim();
-        if (!label) continue;
-        const key = label.toLowerCase();
-        if (!normalizedAreasMap.has(key)) {
-          normalizedAreasMap.set(key, label);
-        }
-      }
-
-      let nextStatefulFlow = null;
-      if (!useDefaultStatefulMenu) {
-        const validationErrors = validateStatefulMenuEditor(statefulMenuEditor);
-        if (validationErrors.length) {
-          setSaveState('error');
-          setMenuFlowError(validationErrors[0]);
-          return;
-        }
-
-        nextStatefulFlow = editorToStatefulMenuFlow(statefulMenuEditor);
-      }
-
-      const payload = {
-        ...settings,
-        inactivity_close_hours: Number(settings.inactivity_close_hours ?? 24),
-        keyword_replies: settings.keyword_replies.filter((item) => item.keyword?.trim() && item.reply?.trim()),
-        service_areas: [...normalizedAreasMap.values()],
-        stateful_menu_flow: nextStatefulFlow,
-      };
-      const response = await api.put(`/admin/empresas/${companyId}/bot`, payload);
-      const normalized = normalizeSettings(response.data?.settings);
-      setSettings(normalized);
-      setUseDefaultStatefulMenu(!normalized.stateful_menu_flow);
-      setStatefulMenuEditor(
-        statefulMenuFlowToEditor(normalized.stateful_menu_flow, normalized.welcome_message)
-      );
-      setSaveState('saved');
-      setTimeout(() => setSaveState('idle'), 2500);
-    } catch (err) {
-      setSaveState('error');
-      setSaveError(err.response?.data?.message || 'Falha ao salvar configurações.');
-    }
-  };
-
-  const loadSuggestedMenuTemplate = () => {
-    setStatefulMenuEditor(statefulMenuFlowToEditor(null, settings.welcome_message));
-    setMenuFlowError('');
-  };
-
-  const enableCustomMenuBuilder = () => {
-    if (useDefaultStatefulMenu) {
-      setStatefulMenuEditor(statefulMenuFlowToEditor(null, settings.welcome_message));
-    }
-    setUseDefaultStatefulMenu(false);
-    setMenuFlowError('');
-  };
 
   const saveCompanyData = async (event) => {
     event.preventDefault();
@@ -717,6 +590,7 @@ function AdminCompanyShowPage({ companyId }) {
 }
 
 export default AdminCompanyShowPage;
+
 
 
 

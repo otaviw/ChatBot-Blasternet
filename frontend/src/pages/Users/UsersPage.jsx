@@ -1,5 +1,5 @@
 import './UsersPage.css';
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import Layout from "@/components/layout/Layout/Layout.jsx";
 import usePageData from "@/hooks/usePageData";
 import useLogout from "@/hooks/useLogout";

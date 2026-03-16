@@ -1,197 +1,57 @@
 import './CompanyBotPage.css';
-import { useState, useEffect } from 'react';
+import { useCallback } from 'react';
 import Layout from '@/components/layout/Layout/Layout.jsx';
 import StatefulMenuFlowEditor from '@/components/sections/StatefulMenuFlowEditor/StatefulMenuFlowEditor.jsx';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
-import { REALTIME_EVENTS } from '@/constants/realtimeEvents';
+import useBotSettingsEditor from '@/hooks/useBotSettingsEditor';
 import api from '@/services/api';
-import realtimeClient from '@/services/realtimeClient';
 import {
   DAY_KEYS,
   DAY_LABELS,
-  DEFAULT_SETTINGS,
-  normalizeSettings,
 } from '@/constants/botSettings';
-import {
-  editorToStatefulMenuFlow,
-  statefulMenuFlowToEditor,
-  validateStatefulMenuEditor,
-} from '@/services/statefulMenuFlow';
 
 function CompanyBotPage() {
   const { data, loading, error } = usePageData('/minha-conta/bot');
   const { logout } = useLogout();
-  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
-  const [saveState, setSaveState] = useState('idle');
-  const [saveError, setSaveError] = useState('');
-  const [useDefaultStatefulMenu, setUseDefaultStatefulMenu] = useState(true);
-  const [statefulMenuEditor, setStatefulMenuEditor] = useState(() => statefulMenuFlowToEditor(null));
-  const [menuFlowError, setMenuFlowError] = useState('');
 
-  useEffect(() => {
-    if (!data?.settings) return;
-    const normalized = normalizeSettings(data.settings);
-    setSettings(normalized);
-    setUseDefaultStatefulMenu(!normalized.stateful_menu_flow);
-    setStatefulMenuEditor(
-      statefulMenuFlowToEditor(normalized.stateful_menu_flow, normalized.welcome_message)
-    );
-    setMenuFlowError('');
-  }, [data]);
+  const reloadSettings = useCallback(async () => {
+    const response = await api.get('/minha-conta/bot');
+    return response.data?.settings ?? null;
+  }, []);
 
-  useEffect(() => {
-    if (!data?.company?.id) {
-      return undefined;
-    }
+  const persistSettings = useCallback(async (payload) => {
+    const response = await api.put('/minha-conta/bot', payload);
+    return response.data?.settings ?? null;
+  }, []);
 
-    const unsubscribe = realtimeClient.on(REALTIME_EVENTS.BOT_UPDATED, (envelope) => {
-      const payload = envelope?.payload ?? {};
-      if (Number(payload.companyId) !== Number(data.company.id)) {
-        return;
-      }
-
-      api.get('/minha-conta/bot').then((response) => {
-        const normalized = normalizeSettings(response.data?.settings);
-        setSettings(normalized);
-        setUseDefaultStatefulMenu(!normalized.stateful_menu_flow);
-        setStatefulMenuEditor(
-          statefulMenuFlowToEditor(normalized.stateful_menu_flow, normalized.welcome_message)
-        );
-        setMenuFlowError('');
-      });
-    });
-
-    return () => {
-      unsubscribe();
-    };
-  }, [data?.company?.id]);
-
-  const updateMessageField = (key, value) => {
-    setSettings((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const updateDay = (day, patch) => {
-    setSettings((prev) => ({
-      ...prev,
-      business_hours: {
-        ...prev.business_hours,
-        [day]: {
-          ...prev.business_hours[day],
-          ...patch,
-        },
-      },
-    }));
-  };
-
-  const updateKeyword = (index, key, value) => {
-    setSettings((prev) => {
-      const next = [...prev.keyword_replies];
-      next[index] = { ...next[index], [key]: value };
-      return { ...prev, keyword_replies: next };
-    });
-  };
-
-  const addKeywordReply = () => {
-    setSettings((prev) => ({
-      ...prev,
-      keyword_replies: [...prev.keyword_replies, { keyword: '', reply: '' }],
-    }));
-  };
-
-  const removeKeywordReply = (index) => {
-    setSettings((prev) => ({
-      ...prev,
-      keyword_replies: prev.keyword_replies.filter((_, i) => i !== index),
-    }));
-  };
-
-  const updateServiceArea = (index, value) => {
-    setSettings((prev) => {
-      const next = [...(prev.service_areas ?? [])];
-      next[index] = value;
-      return { ...prev, service_areas: next };
-    });
-  };
-
-  const addServiceArea = () => {
-    setSettings((prev) => ({
-      ...prev,
-      service_areas: [...(prev.service_areas ?? []), ''],
-    }));
-  };
-
-  const removeServiceArea = (index) => {
-    setSettings((prev) => ({
-      ...prev,
-      service_areas: (prev.service_areas ?? []).filter((_, i) => i !== index),
-    }));
-  };
-
-  const saveSettings = async (event) => {
-    event.preventDefault();
-    setSaveState('saving');
-    setSaveError('');
-    setMenuFlowError('');
-
-    try {
-      const normalizedAreasMap = new Map();
-      for (const rawArea of settings.service_areas ?? []) {
-        const label = String(rawArea ?? '').trim();
-        if (!label) continue;
-        const key = label.toLowerCase();
-        if (!normalizedAreasMap.has(key)) {
-          normalizedAreasMap.set(key, label);
-        }
-      }
-
-      let nextStatefulFlow = null;
-      if (!useDefaultStatefulMenu) {
-        const validationErrors = validateStatefulMenuEditor(statefulMenuEditor);
-        if (validationErrors.length) {
-          setSaveState('error');
-          setMenuFlowError(validationErrors[0]);
-          return;
-        }
-
-        nextStatefulFlow = editorToStatefulMenuFlow(statefulMenuEditor);
-      }
-
-      const payload = {
-        ...settings,
-        inactivity_close_hours: Number(settings.inactivity_close_hours ?? 24),
-        keyword_replies: settings.keyword_replies.filter((item) => item.keyword?.trim() && item.reply?.trim()),
-        service_areas: [...normalizedAreasMap.values()],
-        stateful_menu_flow: nextStatefulFlow,
-      };
-
-      const response = await api.put('/minha-conta/bot', payload);
-      const normalized = normalizeSettings(response.data?.settings);
-      setSettings(normalized);
-      setUseDefaultStatefulMenu(!normalized.stateful_menu_flow);
-      setStatefulMenuEditor(
-        statefulMenuFlowToEditor(normalized.stateful_menu_flow, normalized.welcome_message)
-      );
-      setSaveState('saved');
-      setTimeout(() => setSaveState('idle'), 2500);
-    } catch (err) {
-      setSaveState('error');
-      setSaveError(err.response?.data?.message || 'Falha ao salvar configurações.');
-    }
-  };
-
-  const loadSuggestedMenuTemplate = () => {
-    setStatefulMenuEditor(statefulMenuFlowToEditor(null, settings.welcome_message));
-    setMenuFlowError('');
-  };
-
-  const enableCustomMenuBuilder = () => {
-    if (useDefaultStatefulMenu) {
-      setStatefulMenuEditor(statefulMenuFlowToEditor(null, settings.welcome_message));
-    }
-    setUseDefaultStatefulMenu(false);
-    setMenuFlowError('');
-  };
+  const {
+    settings,
+    saveState,
+    saveError,
+    useDefaultStatefulMenu,
+    statefulMenuEditor,
+    menuFlowError,
+    setUseDefaultStatefulMenu,
+    setStatefulMenuEditor,
+    setMenuFlowError,
+    updateMessageField,
+    updateDay,
+    updateKeyword,
+    addKeywordReply,
+    removeKeywordReply,
+    updateServiceArea,
+    addServiceArea,
+    removeServiceArea,
+    loadSuggestedMenuTemplate,
+    enableCustomMenuBuilder,
+    saveSettings,
+  } = useBotSettingsEditor({
+    initialSettings: data?.settings ?? null,
+    realtimeCompanyId: data?.company?.id ?? null,
+    reloadSettings,
+    persistSettings,
+  });
 
   if (loading) {
     return (
@@ -515,6 +375,7 @@ function CompanyBotPage() {
 }
 
 export default CompanyBotPage;
+
 
 
 

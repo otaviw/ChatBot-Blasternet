@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNotificationsContext } from '@/contexts/NotificationsContext';
 import { NOTIFICATION_MODULE, NOTIFICATION_REFERENCE_TYPE } from '@/constants/notifications';
-import useNotifications from '@/hooks/useNotifications';
 import supportTicketChatService from '@/services/supportTicketChatService';
 
 function formatDate(value) {
@@ -23,7 +23,7 @@ function sortMessages(messages) {
 }
 
 function SupportTicketChatTab({ ticketId, viewerRole = 'company' }) {
-  const { markReadByReference } = useNotifications({ autoLoad: false });
+  const { markReadByReference } = useNotificationsContext();
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

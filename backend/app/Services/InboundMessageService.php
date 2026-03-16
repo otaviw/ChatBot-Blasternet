@@ -43,32 +43,7 @@ class InboundMessageService
             throw new InvalidArgumentException('Phone e texto sao obrigatorios para processar mensagem.');
         }
 
-        if ($company?->id) {
-            $this->conversationInactivityService->closeInactiveConversations((int) $company->id);
-        }
-
-        $conversation = Conversation::firstOrCreate(
-            [
-                'company_id' => $company?->id,
-                'customer_phone' => $normalizedFrom,
-            ],
-            [
-                'status' => ConversationStatus::OPEN,
-                'assigned_type' => ConversationAssignedType::UNASSIGNED,
-                'handling_mode' => ConversationHandlingMode::BOT,
-                'customer_name' => $normalizedContactName,
-            ]
-        );
-
-        if ($normalizedContactName !== null && $conversation->customer_name !== $normalizedContactName) {
-            $conversation->customer_name = $normalizedContactName;
-            $conversation->save();
-        }
-
-        if ($conversation->status === ConversationStatus::CLOSED) {
-            $this->reopenClosedConversation($conversation);
-            $conversation->save();
-        }
+        $conversation = $this->bootstrapConversation($company, $normalizedFrom, $normalizedContactName);
 
         $isFirstInboundMessage = ! Message::where('conversation_id', $conversation->id)
             ->where('direction', 'in')
@@ -205,32 +180,7 @@ class InboundMessageService
             throw new InvalidArgumentException('Phone e mediaId sao obrigatorios para processar imagem.');
         }
 
-        if ($company?->id) {
-            $this->conversationInactivityService->closeInactiveConversations((int) $company->id);
-        }
-
-        $conversation = Conversation::firstOrCreate(
-            [
-                'company_id' => $company?->id,
-                'customer_phone' => $normalizedFrom,
-            ],
-            [
-                'status' => ConversationStatus::OPEN,
-                'assigned_type' => ConversationAssignedType::UNASSIGNED,
-                'handling_mode' => ConversationHandlingMode::BOT,
-                'customer_name' => $normalizedContactName,
-            ]
-        );
-
-        if ($normalizedContactName !== null && $conversation->customer_name !== $normalizedContactName) {
-            $conversation->customer_name = $normalizedContactName;
-            $conversation->save();
-        }
-
-        if ($conversation->status === ConversationStatus::CLOSED) {
-            $this->reopenClosedConversation($conversation);
-            $conversation->save();
-        }
+        $conversation = $this->bootstrapConversation($company, $normalizedFrom, $normalizedContactName);
 
         $download = $this->whatsAppSend->downloadInboundImage($company, $normalizedMediaId);
         $storedMedia = null;
@@ -295,32 +245,7 @@ class InboundMessageService
             throw new InvalidArgumentException('Phone e imagem sao obrigatorios para processar mensagem.');
         }
 
-        if ($company?->id) {
-            $this->conversationInactivityService->closeInactiveConversations((int) $company->id);
-        }
-
-        $conversation = Conversation::firstOrCreate(
-            [
-                'company_id' => $company?->id,
-                'customer_phone' => $normalizedFrom,
-            ],
-            [
-                'status' => ConversationStatus::OPEN,
-                'assigned_type' => ConversationAssignedType::UNASSIGNED,
-                'handling_mode' => ConversationHandlingMode::BOT,
-                'customer_name' => $normalizedContactName,
-            ]
-        );
-
-        if ($normalizedContactName !== null && $conversation->customer_name !== $normalizedContactName) {
-            $conversation->customer_name = $normalizedContactName;
-            $conversation->save();
-        }
-
-        if ($conversation->status === ConversationStatus::CLOSED) {
-            $this->reopenClosedConversation($conversation);
-            $conversation->save();
-        }
+        $conversation = $this->bootstrapConversation($company, $normalizedFrom, $normalizedContactName);
 
         $storedMedia = $this->mediaStorage->storeUploadedImage($imageFile, $company?->id);
         $meta = array_merge($inMeta, ['media_uploaded' => true]);
@@ -385,6 +310,41 @@ class InboundMessageService
         }
 
         return mb_substr($value, 0, 160);
+    }
+
+    private function bootstrapConversation(
+        ?Company $company,
+        string $normalizedFrom,
+        ?string $normalizedContactName
+    ): Conversation {
+        if ($company?->id) {
+            $this->conversationInactivityService->closeInactiveConversations((int) $company->id);
+        }
+
+        $conversation = Conversation::firstOrCreate(
+            [
+                'company_id' => $company?->id,
+                'customer_phone' => $normalizedFrom,
+            ],
+            [
+                'status' => ConversationStatus::OPEN,
+                'assigned_type' => ConversationAssignedType::UNASSIGNED,
+                'handling_mode' => ConversationHandlingMode::BOT,
+                'customer_name' => $normalizedContactName,
+            ]
+        );
+
+        if ($normalizedContactName !== null && $conversation->customer_name !== $normalizedContactName) {
+            $conversation->customer_name = $normalizedContactName;
+            $conversation->save();
+        }
+
+        if ($conversation->status === ConversationStatus::CLOSED) {
+            $this->reopenClosedConversation($conversation);
+            $conversation->save();
+        }
+
+        return $conversation;
     }
 
     private function reopenClosedConversation(Conversation $conversation): void
