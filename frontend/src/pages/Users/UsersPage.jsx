@@ -1,5 +1,5 @@
 import './UsersPage.css';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Layout from "@/components/layout/Layout/Layout.jsx";
 import usePageData from "@/hooks/usePageData";
 import useLogout from "@/hooks/useLogout";
@@ -62,11 +62,11 @@ export default function UsersPage({ scope = "company" }) {
   const [createForm, setCreateForm] = useState(initialForm(isAdminScope));
   const [editForm, setEditForm] = useState(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     setUsers(data?.users ?? []);
   }, [data]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     let canceled = false;
 
     async function loadExtraData() {
