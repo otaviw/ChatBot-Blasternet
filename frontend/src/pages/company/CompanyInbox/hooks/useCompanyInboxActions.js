@@ -44,9 +44,14 @@ export default function useCompanyInboxActions({
   }, [manualImagePreviewUrl]);
 
   useEffect(() => {
-    api.get('/minha-conta/respostas-rapidas').then((response) => {
-      setQuickReplies(response.data?.quick_replies ?? []);
-    });
+    api
+      .get('/minha-conta/respostas-rapidas')
+      .then((response) => {
+        setQuickReplies(response.data?.quick_replies ?? []);
+      })
+      .catch(() => {
+        setQuickReplies([]);
+      });
   }, []);
 
   useEffect(() => {
@@ -57,7 +62,7 @@ export default function useCompanyInboxActions({
     setTransferArea(
       detail.assigned_type === CONVERSATION_ASSIGNED_TYPE.AREA ? String(detail.assigned_id ?? '') : ''
     );
-  }, [detail?.id]);
+  }, [detail?.assigned_id, detail?.assigned_type, detail?.id]);
 
   const availableUsers = useMemo(() => {
     const users = transferOptions.users ?? [];
