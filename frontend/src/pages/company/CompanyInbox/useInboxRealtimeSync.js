@@ -29,6 +29,7 @@ export default function useInboxRealtimeSync({
   clearConversationPresence,
   refreshConversationDetail,
   refreshConversations,
+  selectedId,
   selectedIdRef,
   setConversations,
   setDetail,
@@ -322,15 +323,16 @@ export default function useInboxRealtimeSync({
         detailRefreshTimerRef.current = null;
       }
 
-      if (selectedIdRef.current) {
-        realtimeClient.leaveConversation(selectedIdRef.current);
-        void clearConversationPresence(selectedIdRef.current);
+      if (selectedId) {
+        realtimeClient.leaveConversation(selectedId);
+        void clearConversationPresence(selectedId);
       }
     };
   }, [
     clearConversationPresence,
     refreshConversationDetail,
     refreshConversations,
+    selectedId,
     selectedIdRef,
     setConversations,
     setDetail,

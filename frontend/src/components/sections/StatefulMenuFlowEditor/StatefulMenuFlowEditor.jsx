@@ -441,16 +441,6 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
       ? (selectedStep.options ?? []).find((option) => option.id === selectedOptionId) ?? null
       : null;
 
-  const openTargetStepByAction = (action) => {
-    const targetKey = normalizeStepKey(action?.flow, action?.step);
-    const targetStep = targetKey ? stepByKey.get(targetKey) ?? null : null;
-
-    if (targetStep) {
-      setSelectedStepId(targetStep.id);
-      setSelectedOptionId(null);
-    }
-  };
-
   return (
     <div className="stateful-editor-layout">
       <section className="stateful-editor-top-grid">

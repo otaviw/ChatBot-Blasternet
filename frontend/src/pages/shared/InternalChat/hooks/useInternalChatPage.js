@@ -239,7 +239,10 @@ export default function useInternalChatPage({
     return conversations.find((conversation) => Number(conversation.id) === targetId) ?? null;
   }, [conversationOptionsTargetId, conversations, detail]);
 
-  const optionsParticipants = optionsConversation?.participants ?? [];
+  const optionsParticipants = useMemo(
+    () => optionsConversation?.participants ?? [],
+    [optionsConversation]
+  );
   const optionsIsGroup = String(optionsConversation?.type ?? '') === 'group';
   const optionsCurrentUserParticipant = optionsParticipants.find(
     (participant) => Number(participant.id) === Number(currentUserId)

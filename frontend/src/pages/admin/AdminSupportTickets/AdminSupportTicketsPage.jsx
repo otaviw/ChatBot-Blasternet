@@ -2,7 +2,7 @@ import './AdminSupportTicketsPage.css';
 import { useEffect, useMemo, useState } from 'react';
 import Layout from '@/components/layout/Layout/Layout.jsx';
 import { NOTIFICATION_MODULE, NOTIFICATION_REFERENCE_TYPE } from '@/constants/notifications';
-import { useNotificationsContext } from '@/contexts/NotificationsContext';
+import { useNotificationsContext } from '@/hooks/useNotificationsContext';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
 import api from '@/services/api';

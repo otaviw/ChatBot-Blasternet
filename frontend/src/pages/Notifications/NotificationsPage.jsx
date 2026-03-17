@@ -3,7 +3,7 @@ import Layout from '@/components/layout/Layout/Layout.jsx';
 import PageHeader from '@/components/ui/PageHeader/PageHeader.jsx';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
-import { useNotificationsContext } from '@/contexts/NotificationsContext';
+import { useNotificationsContext } from '@/hooks/useNotificationsContext';
 import { NOTIFICATION_MODULE, NOTIFICATION_REFERENCE_TYPE } from '@/constants/notifications';
 
 function resolveUiRole(userRole) {

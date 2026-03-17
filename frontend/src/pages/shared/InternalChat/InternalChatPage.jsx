@@ -1,7 +1,7 @@
 import './InternalChatPage.css';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import Layout from '@/components/layout/Layout/Layout.jsx';
-import { useNotificationsContext } from '@/contexts/NotificationsContext';
+import { useNotificationsContext } from '@/hooks/useNotificationsContext';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
 import { buildConversationTitle } from '@/services/internalChatService';
@@ -197,6 +197,7 @@ function InternalChatPage() {
     markReadByReference,
     role,
     scheduleConversationsRefresh,
+    selectedConversationId,
     selectedConversationIdRef,
     setConversations,
     setDetail,

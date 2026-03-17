@@ -4,7 +4,7 @@ import Layout from '@/components/layout/Layout/Layout.jsx';
 import InboxBackButton from '@/components/ui/InboxBackButton/InboxBackButton.jsx';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
-import { useNotificationsContext } from '@/contexts/NotificationsContext';
+import { useNotificationsContext } from '@/hooks/useNotificationsContext';
 import useInboxRealtimeSync from './useInboxRealtimeSync';
 import ConversationsSidebar from './components/ConversationsSidebar.jsx';
 import ConversationToolbar from './components/ConversationToolbar.jsx';
@@ -143,6 +143,7 @@ function CompanyInboxPage() {
     clearConversationPresence,
     refreshConversationDetail,
     refreshConversations,
+    selectedId,
     selectedIdRef,
     setConversations,
     setDetail,

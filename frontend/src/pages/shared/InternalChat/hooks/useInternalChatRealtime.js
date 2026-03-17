@@ -15,6 +15,7 @@ export default function useInternalChatRealtime({
   markReadByReference,
   role,
   scheduleConversationsRefresh,
+  selectedConversationId,
   selectedConversationIdRef,
   setConversations,
   setDetail,
@@ -125,9 +126,8 @@ export default function useInternalChatRealtime({
     return () => {
       unsubscribeCreated();
       unsubscribeUpdated();
-      const selectedId = selectedConversationIdRef.current;
-      if (selectedId) {
-        realtimeClient.leaveChatConversation(selectedId);
+      if (selectedConversationId) {
+        realtimeClient.leaveChatConversation(selectedConversationId);
       }
     };
   }, [
@@ -136,6 +136,7 @@ export default function useInternalChatRealtime({
     markReadByReference,
     role,
     scheduleConversationsRefresh,
+    selectedConversationId,
     selectedConversationIdRef,
     setConversations,
     setDetail,

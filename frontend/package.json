@@ -8,7 +8,7 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",
-    "lint": "eslint \"src/**/*.{js,jsx}\"",
+    "lint": "eslint --max-warnings=0 \"src/**/*.{js,jsx}\"",
     "format": "prettier \"src/**/*.{js,jsx,css,md}\" --check",
     "check": "npm run lint && npm run test:run && npm run build",
     "quality": "npm run check"

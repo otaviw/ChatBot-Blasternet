@@ -2,7 +2,7 @@ import './Layout.css';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import api from '@/services/api';
-import { useNotificationsContext } from '@/contexts/NotificationsContext';
+import { useNotificationsContext } from '@/hooks/useNotificationsContext';
 import { NOTIFICATION_MODULE, NOTIFICATION_REFERENCE_TYPE } from '@/constants/notifications';
 
 const ICONS = {
@@ -368,11 +368,21 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
     return currentPath.startsWith(`${href}/`);
   };
 
-  const isAnySupportActive = () => supportLinks.some((item) => isActive(item.href));
+  const isAnySupportActive = supportLinks.some((item) => {
+    if (currentPath === item.href) {
+      return true;
+    }
+
+    if (item.href === '/dashboard') {
+      return false;
+    }
+
+    return currentPath.startsWith(`${item.href}/`);
+  });
 
   useEffect(() => {
-    if (isAnySupportActive()) setSupportAccordionOpen(true);
-  }, [currentPath, role]);
+    if (isAnySupportActive) setSupportAccordionOpen(true);
+  }, [isAnySupportActive]);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth <= 768);
@@ -450,7 +460,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
               <div className="layout-sidebar__accordion">
                 <button
                   type="button"
-                  className={`layout-sidebar__accordion-trigger ${supportAccordionOpen || isAnySupportActive() ? 'layout-sidebar__accordion-trigger--active' : ''}`}
+                  className={`layout-sidebar__accordion-trigger ${supportAccordionOpen || isAnySupportActive ? 'layout-sidebar__accordion-trigger--active' : ''}`}
                   onClick={() => setSupportAccordionOpen((v) => !v)}
                   title="Suporte"
                 >
@@ -544,7 +554,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
                 <div className="layout-sidebar__accordion">
                   <button
                     type="button"
-                    className={`layout-sidebar__accordion-trigger ${supportAccordionOpen || isAnySupportActive() ? 'layout-sidebar__accordion-trigger--active' : ''}`}
+                    className={`layout-sidebar__accordion-trigger ${supportAccordionOpen || isAnySupportActive ? 'layout-sidebar__accordion-trigger--active' : ''}`}
                     onClick={() => setSupportAccordionOpen((v) => !v)}
                     title="Suporte"
                   >

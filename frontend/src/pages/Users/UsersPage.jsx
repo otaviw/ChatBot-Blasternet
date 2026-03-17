@@ -1,5 +1,5 @@
 import './UsersPage.css';
-import { useState, useMemo, useEffect } from 'react';
+import { useCallback, useState, useMemo, useEffect } from 'react';
 import Layout from "@/components/layout/Layout/Layout.jsx";
 import usePageData from "@/hooks/usePageData";
 import useLogout from "@/hooks/useLogout";
@@ -136,14 +136,14 @@ export default function UsersPage({ scope = "company" }) {
     return role;
   }
 
-  function getCompanyAreas(companyId) {
+  const getCompanyAreas = useCallback((companyId) => {
     if (!companyId) return [];
 
     const company = companies.find((item) => String(item.id) === String(companyId));
     const areas = company?.bot_setting?.service_areas ?? company?.botSetting?.service_areas ?? [];
 
     return normalizeAreaLabels(areas);
-  }
+  }, [companies]);
 
   const createNeedsCompany = isAdminScope ? createForm.role !== "system_admin" : false;
   const editNeedsCompany = isAdminScope && editForm ? editForm.role !== "system_admin" : false;
@@ -153,14 +153,14 @@ export default function UsersPage({ scope = "company" }) {
       return getCompanyAreas(createForm.company_id);
     }
     return companyScopeAreas;
-  }, [isAdminScope, createForm.company_id, companyScopeAreas, companies]);
+  }, [getCompanyAreas, isAdminScope, createForm.company_id, companyScopeAreas]);
 
   const editAvailableAreas = useMemo(() => {
     if (isAdminScope) {
       return getCompanyAreas(editForm?.company_id);
     }
     return companyScopeAreas;
-  }, [isAdminScope, editForm?.company_id, companyScopeAreas, companies]);
+  }, [editForm?.company_id, getCompanyAreas, isAdminScope, companyScopeAreas]);
 
   function toggleCreateArea(area) {
     setCreateForm((prev) => {
