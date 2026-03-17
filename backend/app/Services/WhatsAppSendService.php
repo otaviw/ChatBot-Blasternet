@@ -57,7 +57,7 @@ class WhatsAppSendService
             'text' => ['body' => $text],
         ];
 
-        $this->logRequestDiagnostics($company, 'text', $url, $phoneNumberId, $normalizedTo, $accessToken);
+        $this->logRequestDiagnostics($company, 'text', $url, $phoneNumberId, $normalizedTo);
 
         /** @var Response $response */
         $response = Http::withToken($accessToken)
@@ -148,7 +148,7 @@ class WhatsAppSendService
             'image' => $image,
         ];
 
-        $this->logRequestDiagnostics($company, 'image', $url, $phoneNumberId, $normalizedTo, $accessToken);
+        $this->logRequestDiagnostics($company, 'image', $url, $phoneNumberId, $normalizedTo);
 
         $response = Http::withToken($accessToken)
             ->withHeaders(['Content-Type' => 'application/json'])
@@ -259,23 +259,12 @@ class WhatsAppSendService
         return rtrim((string) config('whatsapp.api_url'), '/').'/'.$phoneNumberId.'/messages';
     }
 
-    private function tokenPrefix(string $token): ?string
-    {
-        $trimmed = trim($token);
-        if ($trimmed === '') {
-            return null;
-        }
-
-        return substr($trimmed, 0, 12);
-    }
-
     private function logRequestDiagnostics(
         ?Company $company,
         string $type,
         string $url,
         string $phoneNumberId,
-        string $to,
-        string $accessToken
+        string $to
     ): void {
         Log::info('WhatsApp API request diagnostico.', [
             'company_id' => $company?->id,
@@ -284,7 +273,6 @@ class WhatsAppSendService
             'phone_number_id' => $phoneNumberId,
             'to' => $to,
             'to_length' => strlen($to),
-            'token_prefix' => $this->tokenPrefix($accessToken),
         ]);
     }
 

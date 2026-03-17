@@ -90,7 +90,9 @@ class WebhookController extends Controller
 
         $secret = (string) config('whatsapp.webhook_signature_secret');
         if ($secret === '') {
-            return true;
+            Log::error('Webhook WhatsApp rejeitado: webhook_signature_secret nao configurado.');
+
+            return false;
         }
 
         $header = (string) ($request->header('X-Hub-Signature-256')
