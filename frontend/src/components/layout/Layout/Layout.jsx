@@ -123,7 +123,16 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
   const [passwordSaveLoading, setPasswordSaveLoading] = useState(false);
   const [passwordSaveError, setPasswordSaveError] = useState('');
   const [passwordSaveSuccess, setPasswordSaveSuccess] = useState('');
-  const [themeMode, setThemeMode] = useState('light');
+  const [themeMode, setThemeMode] = useState(() => {
+    try {
+      const storedMode = String(window.localStorage.getItem('ui-theme-mode') ?? '')
+        .trim()
+        .toLowerCase();
+      return storedMode === 'high-contrast' ? 'high-contrast' : 'light';
+    } catch {
+      return 'light';
+    }
+  });
   const [userData, setUserData] = useState(null);
   const [notificationBusyById, setNotificationBusyById] = useState({});
   const profileRef = useRef(null);
@@ -257,12 +266,6 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
       canceled = true;
     };
   }, [isLogged, role]);
-
-  useEffect(() => {
-    const storedMode = String(window.localStorage.getItem('ui-theme-mode') ?? '').trim().toLowerCase();
-    const normalized = storedMode === 'high-contrast' ? 'high-contrast' : 'light';
-    setThemeMode(normalized);
-  }, []);
 
   useEffect(() => {
     const root = document.body;
@@ -768,12 +771,17 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
                     )}
                     <button
                       type="button"
-                      className="layout-profile__item"
+                      className={`layout-profile__item layout-profile__theme-toggle ${
+                        themeMode === 'high-contrast' ? 'layout-profile__theme-toggle--active' : ''
+                      }`}
                       onClick={toggleThemeMode}
+                      aria-pressed={themeMode === 'high-contrast'}
+                      title="Alternar tema"
                     >
-                      {themeMode === 'high-contrast'
-                        ? 'Modo de cor: Alto contraste (trocar para branco)'
-                        : 'Modo de cor: Branco (trocar para alto contraste)'}
+                      <span className="layout-profile__theme-toggle-label">Alto contraste</span>
+                      <span className="layout-profile__theme-toggle-value">
+                        {themeMode === 'high-contrast' ? 'Ativo' : 'Inativo'}
+                      </span>
                     </button>
                     <button
                       type="button"
