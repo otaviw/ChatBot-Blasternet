@@ -123,6 +123,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
   const [passwordSaveLoading, setPasswordSaveLoading] = useState(false);
   const [passwordSaveError, setPasswordSaveError] = useState('');
   const [passwordSaveSuccess, setPasswordSaveSuccess] = useState('');
+  const [themeMode, setThemeMode] = useState('light');
   const [userData, setUserData] = useState(null);
   const [notificationBusyById, setNotificationBusyById] = useState({});
   const profileRef = useRef(null);
@@ -257,6 +258,25 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
     };
   }, [isLogged, role]);
 
+  useEffect(() => {
+    const storedMode = String(window.localStorage.getItem('ui-theme-mode') ?? '').trim().toLowerCase();
+    const normalized = storedMode === 'high-contrast' ? 'high-contrast' : 'light';
+    setThemeMode(normalized);
+  }, []);
+
+  useEffect(() => {
+    const root = document.body;
+    const highContrastClass = 'theme-high-contrast';
+
+    if (themeMode === 'high-contrast') {
+      root.classList.add(highContrastClass);
+    } else {
+      root.classList.remove(highContrastClass);
+    }
+
+    window.localStorage.setItem('ui-theme-mode', themeMode);
+  }, [themeMode]);
+
   const handleSaveName = async (e) => {
     e.preventDefault();
     const name = String(profileName ?? '').trim();
@@ -318,6 +338,10 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
     setPasswordConfirm('');
     setPasswordSaveError('');
     setPasswordSaveSuccess('');
+  };
+
+  const toggleThemeMode = () => {
+    setThemeMode((previous) => (previous === 'high-contrast' ? 'light' : 'high-contrast'));
   };
 
   const adminMainLinks = [
@@ -742,6 +766,15 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
                         Alterar senha
                       </button>
                     )}
+                    <button
+                      type="button"
+                      className="layout-profile__item"
+                      onClick={toggleThemeMode}
+                    >
+                      {themeMode === 'high-contrast'
+                        ? 'Modo de cor: Alto contraste (trocar para branco)'
+                        : 'Modo de cor: Branco (trocar para alto contraste)'}
+                    </button>
                     <button
                       type="button"
                       className="layout-profile__item layout-profile__item--logout"

@@ -867,3 +867,79 @@
 .layout-toast__btn:hover {
   background: #1d4ed8;
 }
+
+/* Alto contraste global */
+body.theme-high-contrast {
+  background: #000000;
+  color: #ffffff;
+}
+
+body.theme-high-contrast .layout-wrapper {
+  background: #000000;
+  color: #ffffff;
+}
+
+body.theme-high-contrast .layout-sidebar,
+body.theme-high-contrast .layout-header,
+body.theme-high-contrast .layout-main,
+body.theme-high-contrast .layout-main__content,
+body.theme-high-contrast .layout-profile__dropdown,
+body.theme-high-contrast .layout-notifications__panel,
+body.theme-high-contrast .layout-notifications__header,
+body.theme-high-contrast .layout-notifications__toolbar,
+body.theme-high-contrast .layout-notifications__item,
+body.theme-high-contrast .layout-toast__content {
+  background: #000000 !important;
+  color: #ffffff !important;
+  border-color: #ffffff !important;
+}
+
+body.theme-high-contrast .layout-header__logo,
+body.theme-high-contrast .layout-sidebar__link,
+body.theme-high-contrast .layout-sidebar__accordion-trigger,
+body.theme-high-contrast .layout-profile__name,
+body.theme-high-contrast .layout-profile__email,
+body.theme-high-contrast .layout-profile__company,
+body.theme-high-contrast .layout-profile__item,
+body.theme-high-contrast .layout-notifications__title,
+body.theme-high-contrast .layout-notifications__count,
+body.theme-high-contrast .layout-notifications__item-title,
+body.theme-high-contrast .layout-notifications__item-text,
+body.theme-high-contrast .layout-notifications__item-date,
+body.theme-high-contrast .layout-toast__title,
+body.theme-high-contrast .layout-toast__text {
+  color: #ffffff !important;
+}
+
+body.theme-high-contrast .layout-sidebar__link:hover,
+body.theme-high-contrast .layout-sidebar__accordion-trigger:hover,
+body.theme-high-contrast .layout-header__btn:hover,
+body.theme-high-contrast .layout-profile__item:hover,
+body.theme-high-contrast .layout-notifications__item-btn:hover:not(:disabled) {
+  background: #111111 !important;
+}
+
+body.theme-high-contrast .layout-sidebar__link--active,
+body.theme-high-contrast .layout-sidebar__accordion-trigger--active,
+body.theme-high-contrast .layout-header__btn--active {
+  background: #ffffff !important;
+  color: #000000 !important;
+}
+
+body.theme-high-contrast .layout-profile__input,
+body.theme-high-contrast .layout-profile__btn,
+body.theme-high-contrast .layout-notifications__item-btn,
+body.theme-high-contrast .layout-notifications__refresh,
+body.theme-high-contrast .layout-notifications__clear {
+  background: #000000 !important;
+  color: #ffffff !important;
+  border-color: #ffffff !important;
+}
+
+body.theme-high-contrast .layout-profile__btn--primary,
+body.theme-high-contrast .layout-notifications__item-btn--primary,
+body.theme-high-contrast .layout-toast__btn {
+  background: #ffffff !important;
+  color: #000000 !important;
+  border-color: #ffffff !important;
+}
