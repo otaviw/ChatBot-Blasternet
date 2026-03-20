@@ -19,7 +19,7 @@ class AiConversationController extends Controller
     public function index(Request $request, ListCompanyAiConversationsAction $action): JsonResponse
     {
         $user = $this->resolveCompanyUser($request);
-        if (! $user instanceof User) {
+        if (! $user) {
             return $this->unauthenticatedResponse();
         }
 
@@ -31,7 +31,7 @@ class AiConversationController extends Controller
         CreateCompanyAiConversationAction $action
     ): JsonResponse {
         $user = $this->resolveCompanyUser($request);
-        if (! $user instanceof User) {
+        if (! $user) {
             return $this->unauthenticatedResponse();
         }
 
@@ -47,7 +47,7 @@ class AiConversationController extends Controller
     public function show(Request $request, int $conversationId, ShowCompanyAiConversationAction $action): JsonResponse
     {
         $user = $this->resolveCompanyUser($request);
-        if (! $user instanceof User) {
+        if (! $user) {
             return $this->unauthenticatedResponse();
         }
 
@@ -67,7 +67,7 @@ class AiConversationController extends Controller
         SendCompanyAiConversationMessageAction $action
     ): JsonResponse {
         $user = $this->resolveCompanyUser($request);
-        if (! $user instanceof User) {
+        if (! $user) {
             return $this->unauthenticatedResponse();
         }
 

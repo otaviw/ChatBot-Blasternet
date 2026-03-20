@@ -27,7 +27,7 @@ class ListCompanyAiConversationsAction
             ->orderByDesc('id');
 
         if ($search !== '') {
-            $term = '%'.preg_replace('/\s+/', '%', $search).'%';
+            $term = '%'.(string) preg_replace('/\s+/', '%', $search).'%';
 
             $query->where(function ($scopedQuery) use ($term, $search): void {
                 $scopedQuery->where('title', 'like', $term);
@@ -49,12 +49,7 @@ class ListCompanyAiConversationsAction
             'authenticated' => true,
             'role' => 'company',
             'conversations' => $conversations,
-            'conversations_pagination' => [
-                'current_page' => (int) $paginator->currentPage(),
-                'last_page' => (int) $paginator->lastPage(),
-                'per_page' => (int) $paginator->perPage(),
-                'total' => (int) $paginator->total(),
-            ],
+            'conversations_pagination' => $this->conversationService->paginationPayload($paginator),
         ];
     }
 }

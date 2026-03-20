@@ -73,7 +73,7 @@ class InternalAiChatService
         $responseTimeMs = (int) round((microtime(true) - $startedAt) * 1000);
 
         if (! (bool) ($providerResult['ok'] ?? false)) {
-            $this->logProviderFailure($targetConversation, $providerName, $providerResult);
+            $this->logProviderFailure($targetConversation, $providerName, $modelName, $providerResult);
 
             throw ValidationException::withMessages([
                 'ai' => [$this->providerFailureMessage($providerResult)],
@@ -125,22 +125,24 @@ class InternalAiChatService
 
     private function resolveProviderName(?CompanyBotSetting $settings): string
     {
-        $globalProvider = mb_strtolower(trim((string) config('ai.provider', 'null')));
+        $globalProvider = $this->providerResolver->resolveProviderName($this->providerResolver->defaultProviderName());
         $companyProvider = mb_strtolower(trim((string) ($settings?->ai_provider ?? '')));
 
         if ($companyProvider === '') {
-            return $globalProvider !== '' ? $globalProvider : 'null';
+            return $globalProvider;
         }
 
         if ($this->providerResolver->supports($companyProvider)) {
             return $companyProvider;
         }
 
-        if ($globalProvider !== '' && $this->providerResolver->supports($globalProvider)) {
-            return $globalProvider;
-        }
+        Log::warning('ai.internal_chat.company_provider_invalid', [
+            'company_id' => (int) ($settings?->company_id ?? 0),
+            'provider' => $companyProvider,
+            'fallback' => $globalProvider,
+        ]);
 
-        return 'null';
+        return $globalProvider;
     }
 
     private function resolveModelName(?CompanyBotSetting $settings): ?string
@@ -217,13 +219,17 @@ class InternalAiChatService
     /**
      * @param  array<string, mixed>  $providerResult
      */
-    private function logProviderFailure(AiConversation $conversation, string $providerName, array $providerResult): void
+    private function logProviderFailure(AiConversation $conversation, string $providerName, ?string $modelName, array $providerResult): void
     {
+        $providerMeta = is_array($providerResult['meta'] ?? null) ? $providerResult['meta'] : null;
+
         Log::warning('ai.internal_chat.provider_failed', [
             'conversation_id' => (int) $conversation->id,
             'company_id' => (int) $conversation->company_id,
             'provider' => $providerName,
+            'model' => $modelName,
             'error' => $providerResult['error'] ?? null,
+            'meta' => $providerMeta,
         ]);
     }
 

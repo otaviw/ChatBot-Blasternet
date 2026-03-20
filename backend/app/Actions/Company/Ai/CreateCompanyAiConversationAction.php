@@ -18,10 +18,11 @@ class CreateCompanyAiConversationAction
     public function handle(User $user, array $validated): array
     {
         $this->conversationService->ensureInternalChatEnabled($user);
+        $title = isset($validated['title']) ? (string) $validated['title'] : null;
 
         $conversation = $this->conversationService->createForUser(
             $user,
-            isset($validated['title']) ? (string) $validated['title'] : null
+            $title
         );
 
         $conversation->setRelation('lastMessage', null);

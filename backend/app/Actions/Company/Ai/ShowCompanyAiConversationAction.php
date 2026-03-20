@@ -41,12 +41,7 @@ class ShowCompanyAiConversationAction
             'authenticated' => true,
             'role' => 'company',
             'conversation' => $this->conversationService->serializeConversationDetail($conversation),
-            'messages_pagination' => [
-                'current_page' => (int) $messagesPaginator->currentPage(),
-                'last_page' => (int) $messagesPaginator->lastPage(),
-                'per_page' => (int) $messagesPaginator->perPage(),
-                'total' => (int) $messagesPaginator->total(),
-            ],
+            'messages_pagination' => $this->conversationService->paginationPayload($messagesPaginator),
         ];
     }
 }

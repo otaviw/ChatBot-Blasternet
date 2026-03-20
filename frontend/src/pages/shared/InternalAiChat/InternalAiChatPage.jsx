@@ -1,55 +1,122 @@
 import './InternalAiChatPage.css';
-import { useState } from 'react';
+import { useMemo } from 'react';
 import Layout from '@/components/layout/Layout/Layout.jsx';
+import Notice from '@/components/ui/Notice/Notice.jsx';
+import PageHeader from '@/components/ui/PageHeader/PageHeader.jsx';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
-import PageHeader from '@/components/ui/PageHeader/PageHeader.jsx';
+import useInternalAiChatPage from './hooks/useInternalAiChatPage';
+
+const parseRoleFromUser = (user) => {
+  const normalizedRole = String(user?.role ?? '').trim().toLowerCase();
+  return normalizedRole === 'system_admin' ? 'admin' : 'company';
+};
 
 const formatDateTime = (value) => {
-  const ts = new Date(value).getTime();
-  if (!Number.isFinite(ts)) return '';
-  return new Date(ts).toLocaleString('pt-BR');
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp) || timestamp <= 0) {
+    return '';
+  }
+
+  return new Date(timestamp).toLocaleString('pt-BR');
+};
+
+const buildConversationTitle = (conversation) => {
+  const title = String(conversation?.title ?? '').trim();
+  if (title) {
+    return title;
+  }
+
+  return `Conversa #${conversation?.id ?? '-'}`;
+};
+
+const buildConversationPreview = (conversation) => {
+  const content = String(conversation?.last_message?.content ?? '').trim();
+  if (!content) {
+    return 'Sem mensagens ainda.';
+  }
+
+  if (content.length <= 96) {
+    return content;
+  }
+
+  return `${content.slice(0, 96)}...`;
+};
+
+const buildConversationDateLabel = (conversation) =>
+  formatDateTime(
+    conversation?.last_message_at ?? conversation?.updated_at ?? conversation?.created_at ?? null
+  );
+
+const buildMessageSenderLabel = (message, currentUserId) => {
+  if (String(message?.role ?? '') === 'assistant') {
+    return 'IA';
+  }
+
+  if (String(message?.role ?? '') === 'system') {
+    return 'Sistema';
+  }
+
+  if (Number(message?.user_id ?? 0) === Number(currentUserId ?? 0)) {
+    return 'Voce';
+  }
+
+  return 'Usuario';
 };
 
 function InternalAiChatPage() {
   const { data, loading, error } = usePageData('/me');
   const { logout } = useLogout();
-  const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState([]);
+  const messageInputId = 'internal-ai-chat-message-input';
+  const sendErrorId = 'internal-ai-chat-send-error';
 
   const user = data?.user ?? null;
-  const role = String(user?.role ?? '').toLowerCase() === 'system_admin' ? 'admin' : 'company';
+  const role = useMemo(() => parseRoleFromUser(user), [user]);
   const companyName = user?.company_name ?? '';
+  const canUseInternalAi = role === 'company';
 
-  const handleSend = async (event) => {
-    event.preventDefault();
-    const content = String(message ?? '').trim();
-    if (!content) return;
-
-    const now = new Date().toISOString();
-    const userBubble = {
-      id: `u-${Date.now()}`,
-      sender: 'voce',
-      text: content,
-      created_at: now,
-    };
-    setMessages((previous) => [...previous, userBubble]);
-    setMessage('');
-
-    // Placeholder visual: a resposta real sera ligada a IA externa depois.
-    const aiBubble = {
-      id: `a-${Date.now()}`,
-      sender: 'ia',
-      text: 'Resposta de IA (placeholder visual). Integracao externa pendente.',
-      created_at: new Date().toISOString(),
-    };
-    setMessages((previous) => [...previous, aiBubble]);
-  };
+  const {
+    chatListRef,
+    conversations,
+    conversationsError,
+    conversationsLoading,
+    conversationsLoadingMore,
+    conversationsPagination,
+    createBusy,
+    createConversation,
+    createError,
+    detail,
+    detailError,
+    detailLoading,
+    draftMessage,
+    hasMoreConversations,
+    hasOlderMessages,
+    loadConversations,
+    loadMoreConversations,
+    loadOlderMessages,
+    messagesLoadingOlder,
+    openConversation,
+    reloadSelectedConversation,
+    selectedConversationId,
+    sendBusy,
+    sendError,
+    sendMessage,
+    setDraftMessage,
+    handleChatScroll,
+  } = useInternalAiChatPage({
+    enabled: Boolean(data?.authenticated && user && canUseInternalAi),
+  });
+  const hasConversations = conversations.length > 0;
+  const totalConversations = Number(conversationsPagination?.total ?? conversations.length ?? 0);
+  const listCountLabel =
+    totalConversations > 0 ? `${conversations.length} / ${totalConversations}` : `${conversations.length}`;
 
   if (loading) {
     return (
       <Layout role={role} onLogout={logout}>
-        <p className="text-sm text-[#737373]">Carregando chat IA...</p>
+        <p className="text-sm text-[#737373]" role="status">
+          Carregando chat IA...
+        </p>
       </Layout>
     );
   }
@@ -62,63 +129,335 @@ function InternalAiChatPage() {
     );
   }
 
+  if (!canUseInternalAi) {
+    return (
+      <Layout role={role} onLogout={logout}>
+        <PageHeader
+          title="Chat interno com IA"
+          subtitle="Acesso disponivel apenas para usuarios internos de empresa."
+        />
+        <Notice tone="info">
+          Esta funcionalidade nao esta habilitada para o perfil atual.
+        </Notice>
+      </Layout>
+    );
+  }
+
   return (
-    <Layout role={role} companyName={role === 'company' ? companyName : undefined} onLogout={logout}>
-      <PageHeader
-        title="Chat interno com IA"
-        subtitle="Apenas interface visual para futura integracao com IA externa."
-      />
+    <Layout role={role} companyName={companyName || undefined} onLogout={logout} fullWidth>
+      <div className="internal-ai-chat-page">
+        <PageHeader
+          title="Chat interno com IA"
+          subtitle="Converse com a IA usando as configuracoes da sua empresa."
+          action={
+            <div className="internal-ai-chat-page__actions">
+              <button
+                type="button"
+                className="app-btn-secondary"
+                onClick={() => void loadConversations()}
+                disabled={conversationsLoading || conversationsLoadingMore || createBusy}
+              >
+                Atualizar
+              </button>
+              <button
+                type="button"
+                className="app-btn-primary"
+                onClick={() => void createConversation()}
+                disabled={createBusy}
+              >
+                {createBusy ? 'Criando...' : 'Nova conversa'}
+              </button>
+            </div>
+          }
+        />
 
-      <section className="internal-ai-chat">
-        <header className="internal-ai-chat__toolbar">
-          <p className="internal-ai-chat__hint">
-            Interface simples, sem chamada de chatbot/API neste momento.
-          </p>
-        </header>
+        {createError ? (
+          <Notice tone="danger" className="mb-4" aria-live="polite">
+            {createError}
+          </Notice>
+        ) : null}
 
-        <ul className="internal-ai-chat__messages">
-          {!messages.length ? (
-            <li className="internal-ai-chat__empty">
-              Envie uma mensagem para iniciar o chat com a IA.
-            </li>
-          ) : null}
-          {messages.map((item) => (
-            <li
-              key={item.id}
-              className={`internal-ai-chat__bubble ${
-                item.sender === 'voce'
-                  ? 'internal-ai-chat__bubble--mine'
-                  : 'internal-ai-chat__bubble--ia'
-              }`}
+        <section className="internal-ai-chat">
+          <aside className="internal-ai-chat__sidebar">
+            <header className="internal-ai-chat__sidebar-header">
+              <h2 className="internal-ai-chat__sidebar-title">Conversas</h2>
+              <span className="internal-ai-chat__sidebar-count">{conversations.length}</span>
+            </header>
+
+            {conversationsError ? (
+              <div className="internal-ai-chat__sidebar-notice">
+                <Notice tone="danger">{conversationsError}</Notice>
+                <button
+                  type="button"
+                  className="app-btn-secondary internal-ai-chat__small-btn"
+                  onClick={() => void loadConversations()}
+                  disabled={conversationsLoading}
+                >
+                  Recarregar lista
+                </button>
+              </div>
+            ) : null}
+
+            <ul
+              className="internal-ai-chat__conversation-list"
+              aria-busy={conversationsLoading || conversationsLoadingMore}
             >
-              <span className="internal-ai-chat__sender">
-                {item.sender === 'voce' ? 'Voce' : 'IA'}
-              </span>
-              <p className="internal-ai-chat__text">{item.text}</p>
-              <span className="internal-ai-chat__time">{formatDateTime(item.created_at)}</span>
-            </li>
-          ))}
-        </ul>
+              {conversationsLoading && !conversations.length ? (
+                <>
+                  <li className="internal-ai-chat__conversation-skeleton" aria-hidden="true" />
+                  <li className="internal-ai-chat__conversation-skeleton" aria-hidden="true" />
+                  <li className="internal-ai-chat__conversation-skeleton" aria-hidden="true" />
+                </>
+              ) : null}
 
-        <form className="internal-ai-chat__composer" onSubmit={handleSend}>
-          <textarea
-            className="app-input internal-ai-chat__input"
-            rows={3}
-            value={message}
-            onChange={(event) => setMessage(event.target.value)}
-            placeholder="Digite sua mensagem..."
-          />
-          <div className="internal-ai-chat__actions">
-            <span />
-            <button type="submit" className="app-btn-primary" disabled={!message.trim()}>
-              Enviar
-            </button>
+              {!conversationsLoading && !conversations.length ? (
+                <li className="internal-ai-chat__empty">
+                  Nenhuma conversa encontrada. Clique em "Nova conversa" para iniciar.
+                </li>
+              ) : null}
+
+              {conversations.map((conversation) => {
+                const isSelected = Number(selectedConversationId) === Number(conversation.id);
+
+                return (
+                  <li key={conversation.id}>
+                    <button
+                      type="button"
+                      className={`internal-ai-chat__conversation-btn ${
+                        isSelected ? 'internal-ai-chat__conversation-btn--selected' : ''
+                      }`}
+                      onClick={() => void openConversation(conversation.id)}
+                      aria-pressed={isSelected}
+                      aria-current={isSelected ? 'true' : undefined}
+                    >
+                      <span className="internal-ai-chat__conversation-head">
+                        <span className="internal-ai-chat__conversation-title">
+                          {buildConversationTitle(conversation)}
+                        </span>
+                        <span className="internal-ai-chat__conversation-time">
+                          {buildConversationDateLabel(conversation)}
+                        </span>
+                      </span>
+                      <span className="internal-ai-chat__conversation-preview">
+                        {buildConversationPreview(conversation)}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+
+            {hasMoreConversations ? (
+              <div className="internal-ai-chat__sidebar-footer">
+                <button
+                  type="button"
+                  className="app-btn-secondary internal-ai-chat__small-btn"
+                  onClick={() => void loadMoreConversations()}
+                  disabled={conversationsLoadingMore}
+                >
+                  {conversationsLoadingMore ? 'Carregando...' : 'Carregar mais'}
+                </button>
+              </div>
+            ) : null}
+
+            <div className="internal-ai-chat__sidebar-status" aria-live="polite">
+              <span className="internal-ai-chat__sidebar-status-text">
+                {conversationsLoadingMore
+                  ? 'Carregando mais conversas...'
+                  : hasMoreConversations
+                    ? 'Ha mais conversas disponiveis.'
+                    : hasConversations
+                      ? 'Fim da lista.'
+                      : ''}
+              </span>
+              {totalConversations > 0 ? (
+                <span className="internal-ai-chat__sidebar-status-text">{listCountLabel}</span>
+              ) : null}
+            </div>
+          </aside>
+
+          <div className="internal-ai-chat__panel">
+            {!selectedConversationId ? (
+              <div className="internal-ai-chat__panel-empty">
+                <p className="internal-ai-chat__panel-empty-title">Selecione uma conversa</p>
+                <p className="internal-ai-chat__panel-empty-description">
+                  Escolha uma conversa na lista para visualizar o historico e continuar o atendimento.
+                </p>
+                {!hasConversations ? (
+                  <button
+                    type="button"
+                    className="app-btn-primary"
+                    onClick={() => void createConversation()}
+                    disabled={createBusy}
+                  >
+                    {createBusy ? 'Criando...' : 'Criar primeira conversa'}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+
+            {selectedConversationId && detailLoading ? (
+              <div className="internal-ai-chat__panel-loading" role="status" aria-live="polite">
+                <p className="internal-ai-chat__panel-empty-title">Carregando conversa...</p>
+                <div className="internal-ai-chat__message-skeleton" aria-hidden="true" />
+                <div className="internal-ai-chat__message-skeleton internal-ai-chat__message-skeleton--short" aria-hidden="true" />
+                <div className="internal-ai-chat__message-skeleton" aria-hidden="true" />
+              </div>
+            ) : null}
+
+            {selectedConversationId && !detailLoading && detailError ? (
+              <div className="internal-ai-chat__panel-notice">
+                <Notice tone="danger">{detailError}</Notice>
+                <button
+                  type="button"
+                  className="app-btn-secondary internal-ai-chat__small-btn"
+                  onClick={() => void reloadSelectedConversation()}
+                >
+                  Tentar novamente
+                </button>
+              </div>
+            ) : null}
+
+            {selectedConversationId && !detailLoading && !detailError && detail ? (
+              <>
+                <header className="internal-ai-chat__panel-header">
+                  <div className="internal-ai-chat__panel-header-content">
+                    <h2 className="internal-ai-chat__panel-title">{buildConversationTitle(detail)}</h2>
+                    <p className="internal-ai-chat__panel-subtitle">
+                      {(detail.messages ?? []).length} mensagens
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="app-btn-secondary internal-ai-chat__small-btn"
+                    onClick={() => void reloadSelectedConversation()}
+                    disabled={detailLoading || sendBusy}
+                  >
+                    Atualizar
+                  </button>
+                </header>
+
+                <ul
+                  ref={chatListRef}
+                  className="internal-ai-chat__messages"
+                  onScroll={handleChatScroll}
+                  role="log"
+                  aria-live="polite"
+                  aria-busy={sendBusy}
+                >
+                  {hasOlderMessages ? (
+                    <li className="internal-ai-chat__older-wrapper">
+                      <button
+                        type="button"
+                        className="app-btn-secondary internal-ai-chat__small-btn"
+                        onClick={() => void loadOlderMessages()}
+                        disabled={messagesLoadingOlder}
+                      >
+                        {messagesLoadingOlder ? 'Carregando...' : 'Carregar mensagens anteriores'}
+                      </button>
+                    </li>
+                  ) : null}
+
+                  {!detail.messages?.length && !sendBusy ? (
+                    <li className="internal-ai-chat__empty">
+                      Conversa iniciada. Envie a primeira mensagem para a IA.
+                    </li>
+                  ) : null}
+
+                  {(detail.messages ?? []).map((message) => {
+                    const roleValue = String(message.role ?? '');
+                    const mine =
+                      roleValue === 'user' &&
+                      Number(message.user_id ?? 0) === Number(user?.id ?? 0);
+                    const bubbleClass =
+                      roleValue === 'assistant'
+                        ? 'internal-ai-chat__bubble--assistant'
+                        : roleValue === 'system'
+                          ? 'internal-ai-chat__bubble--system'
+                          : mine
+                            ? 'internal-ai-chat__bubble--mine'
+                            : 'internal-ai-chat__bubble--user';
+
+                    return (
+                      <li
+                        key={message.id}
+                        className={`internal-ai-chat__bubble ${bubbleClass}`}
+                      >
+                        <span className="internal-ai-chat__sender">
+                          {buildMessageSenderLabel(message, user?.id)}
+                        </span>
+                        <p className="internal-ai-chat__text">{message.content}</p>
+                        <span className="internal-ai-chat__time">
+                          {formatDateTime(message.created_at)}
+                        </span>
+                      </li>
+                    );
+                  })}
+
+                  {sendBusy ? (
+                    <li
+                      className="internal-ai-chat__bubble internal-ai-chat__bubble--assistant internal-ai-chat__bubble--pending"
+                    >
+                      <span className="internal-ai-chat__sender">IA</span>
+                      <p className="internal-ai-chat__text">Gerando resposta...</p>
+                    </li>
+                  ) : null}
+                </ul>
+
+                <form
+                  className="internal-ai-chat__composer"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void sendMessage();
+                  }}
+                >
+                  <label htmlFor={messageInputId} className="internal-ai-chat__sr-only">
+                    Mensagem para IA
+                  </label>
+                  <textarea
+                    id={messageInputId}
+                    className="app-input internal-ai-chat__input"
+                    rows={3}
+                    value={draftMessage}
+                    onChange={(event) => setDraftMessage(event.target.value)}
+                    placeholder="Digite sua mensagem..."
+                    disabled={sendBusy}
+                    aria-invalid={Boolean(sendError)}
+                    aria-describedby={sendError ? sendErrorId : undefined}
+                  />
+
+                  {sendError ? (
+                    <p id={sendErrorId} className="internal-ai-chat__error" role="alert">
+                      {sendError}
+                    </p>
+                  ) : null}
+
+                  {sendBusy ? (
+                    <p className="internal-ai-chat__sending-feedback" role="status">
+                      Aguardando resposta da IA...
+                    </p>
+                  ) : null}
+
+                  <div className="internal-ai-chat__composer-actions">
+                    <span className="internal-ai-chat__composer-hint">
+                      As mensagens ficam registradas no historico desta conversa.
+                    </span>
+                    <button
+                      type="submit"
+                      className="app-btn-primary"
+                      disabled={sendBusy || !String(draftMessage ?? '').trim()}
+                    >
+                      {sendBusy ? 'Enviando...' : 'Enviar'}
+                    </button>
+                  </div>
+                </form>
+              </>
+            ) : null}
           </div>
-        </form>
-      </section>
+        </section>
+      </div>
     </Layout>
   );
 }
 
 export default InternalAiChatPage;
-

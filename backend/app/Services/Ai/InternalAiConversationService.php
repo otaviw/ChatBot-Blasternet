@@ -7,6 +7,7 @@ use App\Models\AiMessage;
 use App\Models\CompanyBotSetting;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Validation\ValidationException;
 
 class InternalAiConversationService
@@ -149,6 +150,19 @@ class InternalAiConversationService
             'meta' => is_array($message->meta) ? $message->meta : [],
             'created_at' => $message->created_at?->toISOString(),
             'updated_at' => $message->updated_at?->toISOString(),
+        ];
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    public function paginationPayload(LengthAwarePaginator $paginator): array
+    {
+        return [
+            'current_page' => (int) $paginator->currentPage(),
+            'last_page' => (int) $paginator->lastPage(),
+            'per_page' => (int) $paginator->perPage(),
+            'total' => (int) $paginator->total(),
         ];
     }
 

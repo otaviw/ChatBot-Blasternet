@@ -11,7 +11,12 @@ interface AiProvider
      *     ok:bool,
      *     text:?string,
      *     error:mixed,
-     *     meta:array<string, mixed>|null
+     *     meta:array{
+     *         provider?:string,
+     *         model?:string,
+     *         message?:string,
+     *         usage?:array<string, mixed>
+     *     }|array<string, mixed>|null
      * }
      */
     public function reply(array $messages, array $options = []): array;

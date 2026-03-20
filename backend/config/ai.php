@@ -1,7 +1,31 @@
 <?php
 
+use App\Services\Ai\Providers\NullAiProvider;
+use App\Services\Ai\Providers\TestAiProvider;
+
 return [
+    /*
+    |--------------------------------------------------------------------------
+    | Provider padrao
+    |--------------------------------------------------------------------------
+    |
+    | Mantemos "provider" por compatibilidade com as chamadas atuais.
+    | "default_provider" prepara o caminho para configurações mais explícitas.
+    |
+    */
+    'default_provider' => env('AI_PROVIDER', 'test'),
+
     'provider' => env('AI_PROVIDER', 'test'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Provider de fallback
+    |--------------------------------------------------------------------------
+    |
+    | Utilizado quando o provider configurado não está disponível/registrado.
+    |
+    */
+    'fallback_provider' => env('AI_FALLBACK_PROVIDER', 'null'),
 
     'model' => env('AI_MODEL', 'test-model'),
 
@@ -14,6 +38,20 @@ return [
     'history_messages_limit' => (int) env('AI_HISTORY_MESSAGES_LIMIT', 20),
 
     'request_timeout_ms' => (int) env('AI_REQUEST_TIMEOUT_MS', 30000),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Registro de providers
+    |--------------------------------------------------------------------------
+    |
+    | Permite adicionar provider real no futuro com mínimo retrabalho no
+    | resolver, mantendo a camada desacoplada de implementação específica.
+    |
+    */
+    'provider_classes' => [
+        'test' => TestAiProvider::class,
+        'null' => NullAiProvider::class,
+    ],
 
     'providers' => [
         'test' => [
