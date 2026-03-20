@@ -82,6 +82,7 @@ const iconKey = (label) => {
     Usuarios: 'usuarios',
     Inbox: 'inbox',
     'Chat interno': 'chatInterno',
+    'Chat IA': 'chatInterno',
     Suporte: 'suporte',
     Solicitacoes: 'suporte',
     'Abrir suporte': 'suporte',
@@ -353,6 +354,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
     { href: '/admin/usuarios', label: 'Usuários' },
     { href: '/admin/conversas', label: 'Inbox', module: NOTIFICATION_MODULE.INBOX },
     { href: '/admin/chat-interno', label: 'Chat interno', module: NOTIFICATION_MODULE.INTERNAL_CHAT },
+    { href: '/admin/chat-ia', label: 'Chat IA' },
     { href: '/admin/simulador', label: 'Simulador' },
   ];
 
@@ -367,6 +369,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
       { href: '/minha-conta/bot', label: 'Bot' },
       { href: '/minha-conta/conversas', label: 'Inbox', module: NOTIFICATION_MODULE.INBOX },
       { href: '/minha-conta/chat-interno', label: 'Chat interno', module: NOTIFICATION_MODULE.INTERNAL_CHAT },
+      { href: '/minha-conta/chat-ia', label: 'Chat IA' },
       { href: '/minha-conta/simulador', label: 'Simulador' },
       { href: '/minha-conta/respostas-rapidas', label: 'Respostas' },
     ];

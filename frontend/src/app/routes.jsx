@@ -31,6 +31,7 @@ const CompanyTicketIndex = lazy(
 );
 const SupportRequestPage = lazy(() => import('@/pages/support/SupportRequest/SupportRequestPage.jsx'));
 const InternalChatPage = lazy(() => import('@/pages/shared/InternalChat/InternalChatPage.jsx'));
+const InternalAiChatPage = lazy(() => import('@/pages/shared/InternalAiChat/InternalAiChatPage.jsx'));
 
 function AdminCompanyShowRoute() {
   const { companyId = '' } = useParams();
@@ -60,6 +61,7 @@ function AppRoutes() {
         <Route path="/admin/simulador" element={<AdminSimulatorPage />} />
         <Route path="/admin/conversas" element={<AdminInboxPage />} />
         <Route path="/admin/chat-interno" element={<InternalChatPage />} />
+        <Route path="/admin/chat-ia" element={<InternalAiChatPage />} />
         <Route path="/admin/usuarios" element={<AdminUsersPage />} />
         <Route path="/admin/suporte" element={<AdminSupportTicketsPage />} />
         <Route
@@ -70,6 +72,7 @@ function AppRoutes() {
         <Route path="/minha-conta/simulador" element={<CompanySimulatorPage />} />
         <Route path="/minha-conta/conversas" element={<CompanyInboxPage />} />
         <Route path="/minha-conta/chat-interno" element={<InternalChatPage />} />
+        <Route path="/minha-conta/chat-ia" element={<InternalAiChatPage />} />
         <Route path="/minha-conta/bot" element={<CompanyBotPage />} />
         <Route path="/minha-conta/respostas-rapidas" element={<CompanyQuickRepliesPage />} />
         <Route path="/minha-conta/usuarios" element={<CompanyUsersPage />} />

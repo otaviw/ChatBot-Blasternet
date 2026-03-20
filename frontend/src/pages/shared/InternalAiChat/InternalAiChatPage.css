@@ -1,0 +1,133 @@
+.internal-ai-chat {
+  max-width: 980px;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.internal-ai-chat__toolbar {
+  padding: 12px 14px;
+  border-bottom: 1px solid #eeeeee;
+  background: #fafafa;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.internal-ai-chat__hint {
+  margin: 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.internal-ai-chat__company-field {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 220px;
+  font-size: 12px;
+  color: #475569;
+}
+
+.internal-ai-chat__messages {
+  margin: 0;
+  padding: 14px;
+  list-style: none;
+  min-height: 340px;
+  max-height: 56vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #fcfcfc;
+}
+
+.internal-ai-chat__empty {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.internal-ai-chat__bubble {
+  max-width: min(84%, 680px);
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.internal-ai-chat__bubble--mine {
+  align-self: flex-end;
+  background: #dbeafe;
+  border-color: #bfdbfe;
+}
+
+.internal-ai-chat__bubble--ia {
+  align-self: flex-start;
+  background: #f8fafc;
+}
+
+.internal-ai-chat__sender {
+  font-size: 11px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.internal-ai-chat__text {
+  margin: 0;
+  font-size: 14px;
+  color: #0f172a;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.internal-ai-chat__time {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.internal-ai-chat__composer {
+  border-top: 1px solid #eeeeee;
+  padding: 12px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.internal-ai-chat__input {
+  margin-top: 0;
+  resize: vertical;
+  min-height: 82px;
+}
+
+.internal-ai-chat__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.internal-ai-chat__error {
+  color: #dc2626;
+  font-size: 12px;
+}
+
+@media (max-width: 768px) {
+  .internal-ai-chat__toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .internal-ai-chat__company-field {
+    min-width: 0;
+  }
+
+  .internal-ai-chat__messages {
+    max-height: 52vh;
+  }
+}
+
