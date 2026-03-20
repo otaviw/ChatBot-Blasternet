@@ -867,3 +867,77 @@
 .layout-toast__btn:hover {
   background: #1d4ed8;
 }
+
+/* Alto contraste global: fundo preto + texto branco em todo o site */
+body.theme-high-contrast {
+  background: #0f172a !important; /* navy escuro (menos “preto chapado”) */
+  color: #ffffff !important;
+}
+
+body.theme-high-contrast * {
+  background: #0f172a !important;
+  color: #ffffff !important;
+  border-color: #94a3b8 !important; /* cinza claro para separar itens */
+}
+
+/* Evita “lavar” ícones e imagens muito */
+body.theme-high-contrast img {
+  filter: none !important;
+}
+
+/* Superfícies (containers) um pouco mais escuras para criar contraste */
+body.theme-high-contrast .layout-sidebar,
+body.theme-high-contrast .layout-header,
+body.theme-high-contrast .layout-main,
+body.theme-high-contrast .layout-main__content,
+body.theme-high-contrast .layout-profile__dropdown,
+body.theme-high-contrast .layout-notifications__panel,
+body.theme-high-contrast .layout-notifications__header,
+body.theme-high-contrast .layout-notifications__toolbar,
+body.theme-high-contrast .layout-toast__content,
+body.theme-high-contrast .layout-notifications__item,
+body.theme-high-contrast .layout-profile__edit {
+  background: #0b1220 !important;
+}
+
+/* Destaques/hover com contraste maior */
+body.theme-high-contrast .layout-sidebar__link:hover,
+body.theme-high-contrast .layout-sidebar__accordion-trigger:hover,
+body.theme-high-contrast .layout-header__btn:hover,
+body.theme-high-contrast .layout-profile__item:hover,
+body.theme-high-contrast .layout-notifications__item-btn:hover:not(:disabled) {
+  background: #111827 !important;
+}
+
+body.theme-high-contrast .layout-sidebar__link--active,
+body.theme-high-contrast .layout-sidebar__accordion-trigger--active,
+body.theme-high-contrast .layout-header__btn--active {
+  background: rgba(37, 99, 235, 0.25) !important;
+}
+
+/* Botão do seletor de tema no dropdown */
+.layout-profile__theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.layout-profile__theme-toggle-label {
+  font-weight: 500;
+}
+
+.layout-profile__theme-toggle-value {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid #e5e5e5;
+  color: inherit;
+  opacity: 0.95;
+}
+
+.layout-profile__theme-toggle--active .layout-profile__theme-toggle-value {
+  border-color: #2563eb;
+  background: rgba(37, 99, 235, 0.15);
+}
