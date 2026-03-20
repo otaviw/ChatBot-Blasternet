@@ -22,6 +22,8 @@ use App\Observers\SupportTicketMessageObserver;
 use App\Policies\AreaPolicy;
 use App\Policies\ChatPolicy;
 use App\Policies\ConversationPolicy;
+use App\Services\Ai\AiProviderResolver;
+use App\Services\Ai\Providers\AiProvider;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -35,7 +37,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(AiProvider::class, function ($app): AiProvider {
+            /** @var AiProviderResolver $resolver */
+            $resolver = $app->make(AiProviderResolver::class);
+
+            return $resolver->resolve();
+        });
     }
 
     /**

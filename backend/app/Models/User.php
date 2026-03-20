@@ -68,6 +68,16 @@ class User extends Authenticatable
         return $this->hasMany(Notification::class)->latest('id');
     }
 
+    public function aiConversations()
+    {
+        return $this->hasMany(AiConversation::class, 'opened_by_user_id')->latest('id');
+    }
+
+    public function aiMessages()
+    {
+        return $this->hasMany(AiMessage::class)->latest('id');
+    }
+
     /**
      * @return array<int, string>
      */

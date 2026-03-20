@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Company\BotController;
+use App\Http\Controllers\Company\AiConversationController;
 use App\Http\Controllers\Company\ConversationController as CompanyConversationController;
 use App\Http\Controllers\Company\QuickReplyController;
 use App\Http\Controllers\Company\UserController as CompanyUserController;
@@ -40,5 +41,14 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::post('/users', [CompanyUserController::class, 'store'])->middleware('throttle:bot-write');
         Route::put('/users/{user}', [CompanyUserController::class, 'update'])->middleware('throttle:bot-write');
         Route::delete('/users/{user}', [CompanyUserController::class, 'destroy'])->middleware('throttle:bot-write');
+
+        Route::get('/ia/conversas', [AiConversationController::class, 'index'])
+            ->middleware('throttle:inbox-read');
+        Route::post('/ia/conversas', [AiConversationController::class, 'store'])
+            ->middleware('throttle:bot-write');
+        Route::get('/ia/conversas/{conversationId}', [AiConversationController::class, 'show'])
+            ->middleware('throttle:inbox-read');
+        Route::post('/ia/conversas/{conversationId}/mensagens', [AiConversationController::class, 'sendMessage'])
+            ->middleware('throttle:bot-write');
     });
 });

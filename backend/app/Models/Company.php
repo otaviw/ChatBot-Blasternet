@@ -87,4 +87,9 @@ class Company extends Model
     {
         return $this->hasMany(Area::class);
     }
+
+    public function aiConversations()
+    {
+        return $this->hasMany(AiConversation::class);
+    }
 }
