@@ -23,19 +23,9 @@ class InternalAiConversationService
 
         $settings = CompanyBotSetting::query()
             ->where('company_id', $companyId)
-            ->first();
-
-        if (! ($settings?->ai_enabled ?? false)) {
-            throw ValidationException::withMessages([
-                'ai' => ['IA desabilitada para esta empresa.'],
+            ->first() ?? new CompanyBotSetting([
+                'company_id' => $companyId,
             ]);
-        }
-
-        if (! ($settings?->ai_internal_chat_enabled ?? false)) {
-            throw ValidationException::withMessages([
-                'ai' => ['Chat interno com IA desabilitado para esta empresa.'],
-            ]);
-        }
 
         return $settings;
     }
@@ -170,9 +160,9 @@ class InternalAiConversationService
     {
         $companyId = (int) ($user->company_id ?? 0);
 
-        if (! $user->isCompanyUser() || $companyId <= 0) {
+        if (! (bool) $user->is_active || $companyId <= 0) {
             throw ValidationException::withMessages([
-                'user' => ['Usuario sem permissao para usar o chat interno com IA.'],
+                'user' => ['Usuario sem empresa vinculada para usar o chat interno com IA.'],
             ]);
         }
 

@@ -4,6 +4,7 @@ namespace Tests\Unit\Services\Ai;
 
 use App\Services\Ai\AiProviderResolver;
 use App\Services\Ai\Providers\NullAiProvider;
+use App\Services\Ai\Providers\OllamaAiProvider;
 use App\Services\Ai\Providers\TestAiProvider;
 use Tests\TestCase;
 
@@ -40,6 +41,16 @@ class AiProviderResolverTest extends TestCase
         $this->assertInstanceOf(TestAiProvider::class, $provider);
     }
 
+    public function test_resolve_returns_ollama_provider_when_configured(): void
+    {
+        config()->set('ai.provider', 'ollama');
+
+        $resolver = $this->app->make(AiProviderResolver::class);
+        $provider = $resolver->resolve();
+
+        $this->assertInstanceOf(OllamaAiProvider::class, $provider);
+    }
+
     public function test_resolver_ignores_invalid_provider_classes_configuration_and_keeps_defaults(): void
     {
         config()->set('ai.provider_classes', [
@@ -50,6 +61,7 @@ class AiProviderResolverTest extends TestCase
 
         $this->assertTrue($resolver->supports('test'));
         $this->assertTrue($resolver->supports('null'));
+        $this->assertTrue($resolver->supports('ollama'));
         $this->assertFalse($resolver->supports('broken'));
     }
 

@@ -15,8 +15,12 @@ class InternalAiChatServiceTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_send_message_fails_when_company_ai_is_disabled(): void
+    public function test_send_message_allows_company_ai_disabled_during_internal_chat_testing(): void
     {
+        config()->set('ai.provider', 'test');
+        config()->set('ai.model', 'test-model');
+        config()->set('ai.providers.test.reply_prefix', '[AI-TEST]');
+
         $company = Company::create(['name' => 'Empresa AI Off']);
         $user = $this->createCompanyUser($company, 'ai-off@test.local');
 
@@ -27,15 +31,19 @@ class InternalAiChatServiceTest extends TestCase
         ]);
 
         $service = $this->app->make(InternalAiChatService::class);
+        $result = $service->sendMessage($user, 'Teste');
 
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('IA desabilitada para esta empresa.');
-
-        $service->sendMessage($user, 'Teste');
+        $this->assertSame('test', $result['provider']);
+        $this->assertSame('assistant', (string) $result['assistant_message']->role);
+        $this->assertStringContainsString('Teste', (string) $result['assistant_message']->content);
     }
 
-    public function test_send_message_fails_when_internal_ai_chat_is_disabled(): void
+    public function test_send_message_allows_internal_ai_chat_disabled_during_internal_chat_testing(): void
     {
+        config()->set('ai.provider', 'test');
+        config()->set('ai.model', 'test-model');
+        config()->set('ai.providers.test.reply_prefix', '[AI-TEST]');
+
         $company = Company::create(['name' => 'Empresa AI Internal Off']);
         $user = $this->createCompanyUser($company, 'ai-internal-off@test.local');
 
@@ -46,11 +54,11 @@ class InternalAiChatServiceTest extends TestCase
         ]);
 
         $service = $this->app->make(InternalAiChatService::class);
+        $result = $service->sendMessage($user, 'Teste');
 
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Chat interno com IA desabilitado para esta empresa.');
-
-        $service->sendMessage($user, 'Teste');
+        $this->assertSame('test', $result['provider']);
+        $this->assertSame('assistant', (string) $result['assistant_message']->role);
+        $this->assertStringContainsString('Teste', (string) $result['assistant_message']->content);
     }
 
     public function test_send_message_persists_user_and_assistant_messages(): void

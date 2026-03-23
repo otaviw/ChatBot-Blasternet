@@ -4,6 +4,7 @@ namespace App\Services\Ai;
 
 use App\Services\Ai\Providers\AiProvider;
 use App\Services\Ai\Providers\NullAiProvider;
+use App\Services\Ai\Providers\OllamaAiProvider;
 use App\Services\Ai\Providers\TestAiProvider;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Support\Facades\Log;
@@ -14,6 +15,7 @@ class AiProviderResolver
      * @var array<string, class-string<AiProvider>>
      */
     private const DEFAULT_PROVIDER_CLASSES = [
+        'ollama' => OllamaAiProvider::class,
         'test' => TestAiProvider::class,
         'null' => NullAiProvider::class,
     ];

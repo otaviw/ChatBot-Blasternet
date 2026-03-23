@@ -18,7 +18,7 @@ class AiConversationController extends Controller
 {
     public function index(Request $request, ListCompanyAiConversationsAction $action): JsonResponse
     {
-        $user = $this->resolveCompanyUser($request);
+        $user = $this->resolveAuthenticatedUser($request);
         if (! $user) {
             return $this->unauthenticatedResponse();
         }
@@ -30,7 +30,7 @@ class AiConversationController extends Controller
         StoreInternalAiConversationRequest $request,
         CreateCompanyAiConversationAction $action
     ): JsonResponse {
-        $user = $this->resolveCompanyUser($request);
+        $user = $this->resolveAuthenticatedUser($request);
         if (! $user) {
             return $this->unauthenticatedResponse();
         }
@@ -46,7 +46,7 @@ class AiConversationController extends Controller
 
     public function show(Request $request, int $conversationId, ShowCompanyAiConversationAction $action): JsonResponse
     {
-        $user = $this->resolveCompanyUser($request);
+        $user = $this->resolveAuthenticatedUser($request);
         if (! $user) {
             return $this->unauthenticatedResponse();
         }
@@ -66,7 +66,7 @@ class AiConversationController extends Controller
         int $conversationId,
         SendCompanyAiConversationMessageAction $action
     ): JsonResponse {
-        $user = $this->resolveCompanyUser($request);
+        $user = $this->resolveAuthenticatedUser($request);
         if (! $user) {
             return $this->unauthenticatedResponse();
         }
@@ -97,11 +97,11 @@ class AiConversationController extends Controller
         ], 422);
     }
 
-    private function resolveCompanyUser(Request $request): ?User
+    private function resolveAuthenticatedUser(Request $request): ?User
     {
         $user = $request->user();
 
-        return $user instanceof User && $user->isCompanyUser() ? $user : null;
+        return $user instanceof User && (bool) $user->is_active ? $user : null;
     }
 
     private function unauthenticatedResponse(): JsonResponse

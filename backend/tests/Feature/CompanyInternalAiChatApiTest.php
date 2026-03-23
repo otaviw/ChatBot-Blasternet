@@ -139,7 +139,7 @@ class CompanyInternalAiChatApiTest extends TestCase
         $send->assertStatus(404);
     }
 
-    public function test_create_internal_ai_conversation_fails_when_ai_is_disabled_for_company(): void
+    public function test_create_internal_ai_conversation_allows_ai_disabled_for_company_during_testing(): void
     {
         $company = Company::create(['name' => 'Empresa API IA Disabled']);
         $user = $this->createCompanyUser($company, 'api-ia-disabled@test.local');
@@ -150,15 +150,20 @@ class CompanyInternalAiChatApiTest extends TestCase
         ]);
 
         $create = $this->actingAs($user)->postJson('/api/minha-conta/ia/conversas', [
-            'title' => 'Nao deveria criar',
+            'title' => 'Conversa de teste liberada',
         ]);
 
-        $create->assertStatus(422);
-        $create->assertJsonPath('message', 'IA desabilitada para esta empresa.');
+        $create->assertCreated();
+        $create->assertJsonPath('ok', true);
+        $this->assertGreaterThan(0, (int) $create->json('conversation.id'));
     }
 
-    public function test_send_message_fails_when_internal_ai_chat_is_disabled_for_company(): void
+    public function test_send_message_allows_internal_ai_chat_disabled_for_company_during_testing(): void
     {
+        config()->set('ai.provider', 'test');
+        config()->set('ai.model', 'test-model');
+        config()->set('ai.providers.test.reply_prefix', '[AI-TEST]');
+
         $company = Company::create(['name' => 'Empresa API IA Internal Disabled']);
         $user = $this->createCompanyUser($company, 'api-ia-internal-disabled@test.local');
 
@@ -179,8 +184,11 @@ class CompanyInternalAiChatApiTest extends TestCase
             'content' => 'Mensagem bloqueada',
         ]);
 
-        $send->assertStatus(422);
-        $send->assertJsonPath('message', 'Chat interno com IA desabilitado para esta empresa.');
+        $send->assertOk();
+        $send->assertJsonPath('ok', true);
+        $send->assertJsonPath('user_message.role', 'user');
+        $send->assertJsonPath('assistant_message.role', 'assistant');
+        $this->assertStringContainsString('Mensagem bloqueada', (string) $send->json('assistant_message.content'));
     }
 
     private function createCompanyUser(Company $company, string $email): User

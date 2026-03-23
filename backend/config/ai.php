@@ -1,6 +1,7 @@
 <?php
 
 use App\Services\Ai\Providers\NullAiProvider;
+use App\Services\Ai\Providers\OllamaAiProvider;
 use App\Services\Ai\Providers\TestAiProvider;
 
 return [
@@ -49,11 +50,17 @@ return [
     |
     */
     'provider_classes' => [
+        'ollama' => OllamaAiProvider::class,
         'test' => TestAiProvider::class,
         'null' => NullAiProvider::class,
     ],
 
     'providers' => [
+        'ollama' => [
+            'base_url' => env('AI_OLLAMA_BASE_URL', 'http://127.0.0.1:11434'),
+            'chat_path' => env('AI_OLLAMA_CHAT_PATH', '/api/chat'),
+        ],
+
         'test' => [
             'reply_prefix' => env('AI_TEST_REPLY_PREFIX', '[AI TEST]'),
         ],
