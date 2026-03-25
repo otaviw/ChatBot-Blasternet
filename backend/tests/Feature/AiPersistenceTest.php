@@ -26,7 +26,16 @@ class AiPersistenceTest extends TestCase
 
         $this->assertFalse((bool) $settings->ai_enabled);
         $this->assertFalse((bool) $settings->ai_internal_chat_enabled);
+        $this->assertFalse((bool) $settings->ai_chatbot_enabled);
         $this->assertFalse((bool) $settings->ai_chatbot_auto_reply_enabled);
+        $this->assertNull($settings->ai_persona);
+        $this->assertNull($settings->ai_tone);
+        $this->assertNull($settings->ai_language);
+        $this->assertNull($settings->ai_formality);
+        $this->assertSame(10, (int) $settings->ai_max_context_messages);
+        $this->assertNull($settings->ai_monthly_limit);
+        $this->assertSame(0, (int) $settings->ai_usage_count);
+        $this->assertSame('disabled', (string) $settings->ai_chatbot_mode);
         $this->assertNull($settings->ai_provider);
         $this->assertNull($settings->ai_model);
         $this->assertNull($settings->ai_system_prompt);

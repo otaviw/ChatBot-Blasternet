@@ -92,4 +92,9 @@ class Company extends Model
     {
         return $this->hasMany(AiConversation::class);
     }
+
+    public function aiKnowledgeEntries()
+    {
+        return $this->hasMany(AiCompanyKnowledge::class);
+    }
 }

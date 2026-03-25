@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AiConversation;
+use App\Models\AiUsageLog;
 use App\Models\Company;
 use App\Models\CompanyBotSetting;
 use App\Models\User;
@@ -183,7 +184,93 @@ class InternalAiChatServiceTest extends TestCase
         $service->sendMessage($otherUser, 'Mensagem indevida', $conversation);
     }
 
-    private function createCompanyUser(Company $company, string $email): User
+    public function test_send_message_fails_when_user_cannot_use_internal_ai(): void
+    {
+        $company = Company::create(['name' => 'Empresa AI Permission']);
+        $user = $this->createCompanyUser($company, 'ai-no-permission@test.local', false);
+
+        CompanyBotSetting::create([
+            'company_id' => $company->id,
+            'ai_enabled' => true,
+            'ai_internal_chat_enabled' => true,
+            'ai_provider' => 'test',
+        ]);
+
+        $service = $this->app->make(InternalAiChatService::class);
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('Usuario nao possui permissao para usar IA interna.');
+
+        $service->sendMessage($user, 'Mensagem sem permissao');
+    }
+
+    public function test_send_message_blocks_when_company_monthly_limit_is_reached(): void
+    {
+        config()->set('ai.provider', 'test');
+        config()->set('ai.model', 'test-model');
+
+        $company = Company::create(['name' => 'Empresa AI Monthly Limit']);
+        $user = $this->createCompanyUser($company, 'ai-limit@test.local');
+
+        $settings = CompanyBotSetting::create([
+            'company_id' => $company->id,
+            'ai_enabled' => true,
+            'ai_internal_chat_enabled' => true,
+            'ai_provider' => 'test',
+            'ai_monthly_limit' => 1,
+            'ai_usage_count' => 1,
+        ]);
+
+        $service = $this->app->make(InternalAiChatService::class);
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('Limite mensal de uso de IA da empresa atingido.');
+
+        try {
+            $service->sendMessage($user, 'Mensagem com limite atingido');
+        } finally {
+            $settings->refresh();
+
+            $this->assertSame(1, (int) $settings->ai_usage_count);
+            $this->assertDatabaseCount('ai_usage_logs', 0);
+        }
+    }
+
+    public function test_send_message_increments_usage_count_and_creates_audit_log(): void
+    {
+        config()->set('ai.provider', 'test');
+        config()->set('ai.model', 'test-model');
+        config()->set('ai.providers.test.reply_prefix', '[AI-TEST]');
+
+        $company = Company::create(['name' => 'Empresa AI Usage Count']);
+        $user = $this->createCompanyUser($company, 'ai-usage-count@test.local');
+
+        $settings = CompanyBotSetting::create([
+            'company_id' => $company->id,
+            'ai_enabled' => true,
+            'ai_internal_chat_enabled' => true,
+            'ai_provider' => 'test',
+            'ai_monthly_limit' => 10,
+            'ai_usage_count' => 0,
+        ]);
+
+        $service = $this->app->make(InternalAiChatService::class);
+        $content = 'Mensagem para auditoria';
+        $result = $service->sendMessage($user, $content);
+
+        $settings->refresh();
+
+        $this->assertSame(1, (int) $settings->ai_usage_count);
+        $this->assertDatabaseHas('ai_usage_logs', [
+            'company_id' => (int) $company->id,
+            'user_id' => (int) $user->id,
+            'conversation_id' => (int) $result['conversation']->id,
+            'type' => AiUsageLog::TYPE_INTERNAL_CHAT,
+            'message_length' => mb_strlen($content),
+        ]);
+    }
+
+    private function createCompanyUser(Company $company, string $email, bool $canUseAi = true): User
     {
         return User::create([
             'name' => 'User AI',
@@ -192,6 +279,7 @@ class InternalAiChatServiceTest extends TestCase
             'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $company->id,
             'is_active' => true,
+            'can_use_ai' => $canUseAi,
         ]);
     }
 }

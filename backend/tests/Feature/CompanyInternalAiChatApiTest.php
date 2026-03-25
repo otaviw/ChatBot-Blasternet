@@ -191,7 +191,36 @@ class CompanyInternalAiChatApiTest extends TestCase
         $this->assertStringContainsString('Mensagem bloqueada', (string) $send->json('assistant_message.content'));
     }
 
-    private function createCompanyUser(Company $company, string $email): User
+    public function test_send_message_requires_user_permission_for_internal_ai(): void
+    {
+        config()->set('ai.provider', 'test');
+        config()->set('ai.model', 'test-model');
+
+        $company = Company::create(['name' => 'Empresa API IA Permission']);
+        $user = $this->createCompanyUser($company, 'api-ia-no-permission@test.local', false);
+
+        $this->upsertAiSettings($company, [
+            'ai_enabled' => true,
+            'ai_internal_chat_enabled' => true,
+            'ai_provider' => 'test',
+        ]);
+
+        $conversation = AiConversation::query()->create([
+            'company_id' => (int) $company->id,
+            'opened_by_user_id' => (int) $user->id,
+            'origin' => AiConversation::ORIGIN_INTERNAL_CHAT,
+            'title' => 'Thread sem permissao',
+        ]);
+
+        $send = $this->actingAs($user)->postJson("/api/minha-conta/ia/conversas/{$conversation->id}/mensagens", [
+            'content' => 'Mensagem sem permissao',
+        ]);
+
+        $send->assertStatus(422);
+        $send->assertJsonPath('errors.user.0', 'Usuario nao possui permissao para usar IA interna.');
+    }
+
+    private function createCompanyUser(Company $company, string $email, bool $canUseAi = true): User
     {
         return User::create([
             'name' => 'User API IA',
@@ -200,6 +229,7 @@ class CompanyInternalAiChatApiTest extends TestCase
             'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $company->id,
             'is_active' => true,
+            'can_use_ai' => $canUseAi,
         ]);
     }
 
@@ -218,7 +248,16 @@ class CompanyInternalAiChatApiTest extends TestCase
                 'service_areas' => [],
                 'ai_enabled' => false,
                 'ai_internal_chat_enabled' => false,
+                'ai_chatbot_enabled' => false,
                 'ai_chatbot_auto_reply_enabled' => false,
+                'ai_persona' => null,
+                'ai_tone' => null,
+                'ai_language' => null,
+                'ai_formality' => null,
+                'ai_max_context_messages' => 10,
+                'ai_monthly_limit' => null,
+                'ai_usage_count' => 0,
+                'ai_chatbot_mode' => 'disabled',
                 'ai_provider' => null,
                 'ai_model' => null,
                 'ai_system_prompt' => null,

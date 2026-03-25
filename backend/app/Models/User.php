@@ -30,6 +30,7 @@ class User extends Authenticatable
         'role',
         'company_id',
         'is_active',
+        'can_use_ai',
         'disabled_at',
     ];
 
@@ -54,6 +55,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'can_use_ai' => 'boolean',
             'disabled_at' => 'datetime',
         ];
     }

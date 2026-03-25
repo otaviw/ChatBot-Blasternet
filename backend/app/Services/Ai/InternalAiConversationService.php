@@ -25,6 +25,12 @@ class InternalAiConversationService
             ->where('company_id', $companyId)
             ->first() ?? new CompanyBotSetting([
                 'company_id' => $companyId,
+                'ai_enabled' => false,
+                'ai_internal_chat_enabled' => false,
+                'ai_chatbot_enabled' => false,
+                'ai_max_context_messages' => 10,
+                'ai_usage_count' => 0,
+                'ai_chatbot_mode' => 'disabled',
             ]);
 
         return $settings;

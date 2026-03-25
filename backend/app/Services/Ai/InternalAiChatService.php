@@ -14,7 +14,8 @@ class InternalAiChatService
     public function __construct(
         private readonly AiProviderResolver $providerResolver,
         private readonly AiConversationContextBuilder $contextBuilder,
-        private readonly InternalAiConversationService $conversationService
+        private readonly InternalAiConversationService $conversationService,
+        private readonly AiUsageService $usageService
     ) {}
 
     /**
@@ -36,13 +37,20 @@ class InternalAiChatService
         }
 
         $settings = $this->conversationService->requireInternalChatSettings($user);
+        $this->assertUserCanUseInternalAi($user);
 
         $targetConversation = $this->resolveConversation($conversation, $user);
         $providerName = $this->resolveProviderName($settings);
         $modelName = $this->resolveModelName($settings);
-        $systemPrompt = $this->resolveSystemPrompt($settings);
+        $systemPrompt = $this->resolveSystemPrompt();
         $temperature = $this->resolveTemperature($settings);
         $maxResponseTokens = $this->resolveMaxResponseTokens($settings);
+        $usageLog = $this->usageService->consumeInternalChat(
+            $settings,
+            $user,
+            $targetConversation,
+            $normalizedContent
+        );
 
         $userMessage = AiMessage::query()->create([
             'ai_conversation_id' => (int) $targetConversation->id,
@@ -58,7 +66,7 @@ class InternalAiChatService
 
         $this->touchLastMessageAt($targetConversation, $userMessage);
 
-        $contextMessages = $this->contextBuilder->build($targetConversation, $systemPrompt);
+        $contextMessages = $this->contextBuilder->build($targetConversation, $systemPrompt, null, $settings);
         $provider = $this->providerResolver->resolve($providerName);
 
         $startedAt = microtime(true);
@@ -70,6 +78,7 @@ class InternalAiChatService
             'max_response_tokens' => $maxResponseTokens,
             'request_timeout_ms' => (int) config('ai.request_timeout_ms', 30000),
         ]);
+        $this->usageService->updateTokensUsed($usageLog, $providerResult);
         $responseTimeMs = (int) round((microtime(true) - $startedAt) * 1000);
 
         if (! (bool) ($providerResult['ok'] ?? false)) {
@@ -157,16 +166,22 @@ class InternalAiChatService
         return $globalModel !== '' ? $globalModel : null;
     }
 
-    private function resolveSystemPrompt(?CompanyBotSetting $settings): ?string
+    private function resolveSystemPrompt(): ?string
     {
-        $companyPrompt = trim((string) ($settings?->ai_system_prompt ?? ''));
-        if ($companyPrompt !== '') {
-            return $companyPrompt;
-        }
-
         $globalPrompt = trim((string) config('ai.system_prompt', ''));
 
         return $globalPrompt !== '' ? $globalPrompt : null;
+    }
+
+    private function assertUserCanUseInternalAi(User $user): void
+    {
+        if ((bool) $user->can_use_ai) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'user' => ['Usuario nao possui permissao para usar IA interna.'],
+        ]);
     }
 
     private function resolveTemperature(?CompanyBotSetting $settings): ?float
