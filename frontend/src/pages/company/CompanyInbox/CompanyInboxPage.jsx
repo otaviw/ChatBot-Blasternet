@@ -74,6 +74,9 @@ function CompanyInboxPage() {
   const {
     actionBusy,
     addTag,
+    aiSuggestionBusy,
+    aiSuggestionError,
+    aiSuggestionStatus,
     assumeConversation,
     availableUsers,
     closeConversation,
@@ -92,6 +95,7 @@ function CompanyInboxPage() {
     manualImagePreviewUrl,
     manualText,
     quickReplies,
+    requestAiSuggestion,
     releaseConversation,
     removeManualImage,
     removeTag,
@@ -249,6 +253,13 @@ function CompanyInboxPage() {
                   onRemoveManualImage={removeManualImage}
                   manualText={manualText}
                   onManualTextChange={setManualText}
+                  canUseAiSuggestion={Boolean(
+                    data?.can_access_internal_ai_chat ?? data?.can_use_ai
+                  )}
+                  onRequestAiSuggestion={requestAiSuggestion}
+                  aiSuggestionBusy={aiSuggestionBusy}
+                  aiSuggestionStatus={aiSuggestionStatus}
+                  aiSuggestionError={aiSuggestionError}
                   manualBusy={manualBusy}
                   manualImagePreviewUrl={manualImagePreviewUrl}
                   manualError={manualError}

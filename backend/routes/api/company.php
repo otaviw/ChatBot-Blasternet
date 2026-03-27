@@ -23,6 +23,8 @@ Route::middleware(['web', 'auth'])->group(function () {
             ->middleware('throttle:bot-write');
         Route::post('/conversas/{conversationId}/responder-manual', [CompanyConversationController::class, 'manualReply'])
             ->middleware('throttle:bot-write');
+        Route::post('/conversas/{conversationId}/ia/sugestao', [CompanyConversationController::class, 'suggestReply'])
+            ->middleware('throttle:bot-write');
         Route::post('/conversas/{conversationId}/transferir', [CompanyConversationController::class, 'transfer'])
             ->middleware('throttle:bot-write');
         Route::post('/conversas/{conversationId}/encerrar', [CompanyConversationController::class, 'close'])

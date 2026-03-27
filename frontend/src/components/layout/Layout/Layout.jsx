@@ -196,6 +196,9 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
   };
 
   const uiRole = role === 'admin' ? 'admin' : 'company';
+  const canAccessInternalAiChat = Boolean(
+    userData?.can_access_internal_ai_chat ?? userData?.can_use_ai
+  );
 
   const handleNotificationMarkAsRead = async (notificationId) => {
     const id = Number.parseInt(String(notificationId ?? ''), 10);
@@ -348,15 +351,22 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
     setThemeMode((previous) => (previous === 'high-contrast' ? 'light' : 'high-contrast'));
   };
 
-  const adminMainLinks = [
-    { href: '/dashboard', label: 'Dashboard' },
-    { href: '/admin/empresas', label: 'Empresas' },
-    { href: '/admin/usuarios', label: 'Usuários' },
-    { href: '/admin/conversas', label: 'Inbox', module: NOTIFICATION_MODULE.INBOX },
-    { href: '/admin/chat-interno', label: 'Chat interno', module: NOTIFICATION_MODULE.INTERNAL_CHAT },
-    { href: '/admin/chat-ia', label: 'Chat IA' },
-    { href: '/admin/simulador', label: 'Simulador' },
-  ];
+  const adminMainLinks = useMemo(() => {
+    const links = [
+      { href: '/dashboard', label: 'Dashboard' },
+      { href: '/admin/empresas', label: 'Empresas' },
+      { href: '/admin/usuarios', label: 'Usuários' },
+      { href: '/admin/conversas', label: 'Inbox', module: NOTIFICATION_MODULE.INBOX },
+      { href: '/admin/chat-interno', label: 'Chat interno', module: NOTIFICATION_MODULE.INTERNAL_CHAT },
+      { href: '/admin/simulador', label: 'Simulador' },
+    ];
+
+    if (canAccessInternalAiChat) {
+      links.splice(5, 0, { href: '/admin/chat-ia', label: 'Chat IA' });
+    }
+
+    return links;
+  }, [canAccessInternalAiChat]);
 
   const adminSupportLinks = [
     { href: '/admin/suporte', label: 'Solicitações', module: NOTIFICATION_MODULE.SUPPORT },
@@ -369,13 +379,17 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
       { href: '/minha-conta/bot', label: 'Bot' },
       { href: '/minha-conta/conversas', label: 'Inbox', module: NOTIFICATION_MODULE.INBOX },
       { href: '/minha-conta/chat-interno', label: 'Chat interno', module: NOTIFICATION_MODULE.INTERNAL_CHAT },
-      { href: '/minha-conta/chat-ia', label: 'Chat IA' },
       { href: '/minha-conta/simulador', label: 'Simulador' },
       { href: '/minha-conta/respostas-rapidas', label: 'Respostas' },
     ];
+
+    if (canAccessInternalAiChat) {
+      links.splice(4, 0, { href: '/minha-conta/chat-ia', label: 'Chat IA' });
+    }
+
     if (canManageUsers) links.push({ href: '/minha-conta/usuarios', label: 'Usuários' });
     return links;
-  }, [canManageUsers]);
+  }, [canAccessInternalAiChat, canManageUsers]);
 
   const companySupportLinks = [
     { href: '/suporte', label: 'Suporte' },
@@ -980,4 +994,5 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
 }
 
 export default Layout;
+
 

@@ -20,6 +20,7 @@ function initialForm(isAdminScope) {
       role: "agent",
       company_id: "",
       is_active: true,
+      can_use_ai: false,
       areas: [],
     };
   }
@@ -30,6 +31,7 @@ function initialForm(isAdminScope) {
     password: "",
     role: "agent",
     is_active: true,
+    can_use_ai: false,
     areas: [],
   };
 }
@@ -235,6 +237,7 @@ export default function UsersPage({ scope = "company" }) {
         role: user.role,
         company_id: user.company_id ? String(user.company_id) : "",
         is_active: Boolean(user.is_active),
+        can_use_ai: Boolean(user.can_use_ai),
         areas: Array.isArray(user.areas) ? user.areas : [],
       });
       return;
@@ -247,6 +250,7 @@ export default function UsersPage({ scope = "company" }) {
       password: "",
       role: user.role === "company_admin" ? "company_admin" : "agent",
       is_active: Boolean(user.is_active),
+      can_use_ai: Boolean(user.can_use_ai),
       areas: Array.isArray(user.areas) ? user.areas : [],
     });
   }
@@ -369,6 +373,7 @@ export default function UsersPage({ scope = "company" }) {
               availableAreas={createAvailableAreas}
               onToggleArea={toggleCreateArea}
               areaEmptyMessage={createAreaMessage}
+              showAiPermissionField={createForm.role === "agent"}
             />
 
             <Button type="submit" variant="primary" disabled={createBusy}>
@@ -419,6 +424,7 @@ export default function UsersPage({ scope = "company" }) {
                 availableAreas={editAvailableAreas}
                 onToggleArea={toggleEditArea}
                 areaEmptyMessage={editAreaMessage}
+                showAiPermissionField={editForm.role === "agent"}
               />
 
               <Button type="submit" variant="primary" disabled={editBusy}>

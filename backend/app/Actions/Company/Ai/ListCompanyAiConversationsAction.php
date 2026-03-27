@@ -18,6 +18,8 @@ class ListCompanyAiConversationsAction
      */
     public function handle(User $user, Request $request): array
     {
+        $this->conversationService->ensureInternalChatEnabled($user);
+
         $search = trim((string) $request->query('search', ''));
         $perPage = min(50, max(5, (int) $request->query('per_page', 15)));
 

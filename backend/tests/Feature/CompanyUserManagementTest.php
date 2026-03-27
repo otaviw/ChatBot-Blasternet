@@ -41,6 +41,54 @@ class CompanyUserManagementTest extends TestCase
         ]);
     }
 
+    public function test_company_admin_can_define_ai_permission_for_agent_on_create_and_update(): void
+    {
+        $company = Company::create(['name' => 'Empresa IA Usuarios']);
+        $companyAdmin = User::create([
+            'name' => 'Admin Empresa IA',
+            'email' => 'company-admin-ia@test.local',
+            'password' => 'secret123',
+            'role' => User::ROLE_COMPANY_ADMIN,
+            'company_id' => $company->id,
+            'is_active' => true,
+        ]);
+
+        $createResponse = $this->actingAs($companyAdmin)->postJson('/api/minha-conta/users', [
+            'name' => 'Agente IA',
+            'email' => 'agent-ai@test.local',
+            'password' => 'secret123',
+            'role' => User::ROLE_AGENT,
+            'is_active' => true,
+            'can_use_ai' => true,
+        ]);
+
+        $createResponse->assertStatus(201);
+        $createResponse->assertJsonPath('user.can_use_ai', true);
+        $this->assertDatabaseHas('users', [
+            'email' => 'agent-ai@test.local',
+            'company_id' => $company->id,
+            'role' => User::ROLE_AGENT,
+            'can_use_ai' => 1,
+        ]);
+
+        $agentId = (int) $createResponse->json('user.id');
+
+        $updateResponse = $this->actingAs($companyAdmin)->putJson("/api/minha-conta/users/{$agentId}", [
+            'name' => 'Agente IA Atualizado',
+            'email' => 'agent-ai@test.local',
+            'role' => User::ROLE_AGENT,
+            'is_active' => true,
+            'can_use_ai' => false,
+        ]);
+
+        $updateResponse->assertOk();
+        $updateResponse->assertJsonPath('user.can_use_ai', false);
+        $this->assertDatabaseHas('users', [
+            'id' => $agentId,
+            'can_use_ai' => 0,
+        ]);
+    }
+
     public function test_company_admin_cannot_update_user_from_other_company(): void
     {
         $companyA = Company::create(['name' => 'Empresa A']);

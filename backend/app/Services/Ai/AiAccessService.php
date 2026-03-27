@@ -1,0 +1,89 @@
+<?php
+
+namespace App\Services\Ai;
+
+use App\Models\CompanyBotSetting;
+use App\Models\User;
+use Illuminate\Validation\ValidationException;
+
+class AiAccessService
+{
+    public function resolveCompanySettings(User $user): ?CompanyBotSetting
+    {
+        $companyId = (int) ($user->company_id ?? 0);
+        if ($companyId <= 0) {
+            return null;
+        }
+
+        return CompanyBotSetting::query()
+            ->where('company_id', $companyId)
+            ->first() ?? new CompanyBotSetting([
+                'company_id' => $companyId,
+                'ai_enabled' => false,
+                'ai_internal_chat_enabled' => false,
+                'ai_chatbot_enabled' => false,
+                'ai_max_context_messages' => 10,
+                'ai_usage_count' => 0,
+                'ai_chatbot_mode' => 'disabled',
+            ]);
+    }
+
+    public function companyAllowsInternalAi(?CompanyBotSetting $settings): bool
+    {
+        return (bool) ($settings?->ai_enabled ?? false)
+            && (bool) ($settings?->ai_internal_chat_enabled ?? false);
+    }
+
+    public function canUseInternalAi(User $user, ?CompanyBotSetting $settings = null): bool
+    {
+        if (! (bool) $user->is_active) {
+            return false;
+        }
+
+        if ($user->isSystemAdmin()) {
+            return true;
+        }
+
+        $normalizedRole = User::normalizeRole((string) $user->role);
+        if (! in_array($normalizedRole, [User::ROLE_COMPANY_ADMIN, User::ROLE_AGENT], true)) {
+            return false;
+        }
+
+        $effectiveSettings = $settings ?? $this->resolveCompanySettings($user);
+        if (! $this->companyAllowsInternalAi($effectiveSettings)) {
+            return false;
+        }
+
+        if ($normalizedRole === User::ROLE_COMPANY_ADMIN) {
+            return true;
+        }
+
+        return (bool) $user->can_use_ai;
+    }
+
+    public function assertCanUseInternalAi(User $user, ?CompanyBotSetting $settings = null): void
+    {
+        if ($this->canUseInternalAi($user, $settings)) {
+            return;
+        }
+
+        $normalizedRole = User::normalizeRole((string) $user->role);
+        $effectiveSettings = $settings ?? $this->resolveCompanySettings($user);
+
+        if (! $this->companyAllowsInternalAi($effectiveSettings)) {
+            throw ValidationException::withMessages([
+                'ai' => ['IA interna nao esta habilitada para esta empresa.'],
+            ]);
+        }
+
+        if ($normalizedRole === User::ROLE_AGENT && ! (bool) $user->can_use_ai) {
+            throw ValidationException::withMessages([
+                'user' => ['Usuario nao possui permissao para usar IA interna.'],
+            ]);
+        }
+
+        throw ValidationException::withMessages([
+            'user' => ['Usuario nao possui permissao para usar IA interna.'],
+        ]);
+    }
+}

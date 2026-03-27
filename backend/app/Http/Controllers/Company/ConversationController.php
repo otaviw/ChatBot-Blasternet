@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Company;
 
 use App\Actions\Company\Conversation\AssumeCompanyConversationAction;
+use App\Actions\Company\Conversation\GenerateAiSuggestionForConversationAction;
 use App\Actions\Company\Conversation\ListCompanyConversationsAction;
 use App\Actions\Company\Conversation\ServeCompanyConversationMediaAction;
 use App\Actions\Company\Conversation\ShowCompanyConversationAction;
@@ -77,6 +78,40 @@ class ConversationController extends Controller
         }
 
         return $action->handle($user, $messageId);
+    }
+
+    public function suggestReply(
+        Request $request,
+        int $conversationId,
+        GenerateAiSuggestionForConversationAction $action
+    ): JsonResponse {
+        $user = $request->user();
+        if (! $user || ! $user->isCompanyUser()) {
+            return response()->json([
+                'authenticated' => false,
+                'redirect' => '/entrar',
+            ], 403);
+        }
+
+        try {
+            $payload = $action->handle($user, $conversationId);
+        } catch (ValidationException $exception) {
+            $errors = $exception->errors();
+            $message = collect($errors)->flatten()->first();
+
+            return response()->json([
+                'message' => $message ?: 'Nao foi possivel gerar sugestao da IA.',
+                'errors' => $errors,
+            ], 422);
+        }
+
+        if (! $payload) {
+            return response()->json([
+                'message' => 'Conversa nao encontrada para esta empresa.',
+            ], 404);
+        }
+
+        return response()->json($payload);
     }
 
     public function assume(Request $request, int $conversationId, AssumeCompanyConversationAction $action): JsonResponse

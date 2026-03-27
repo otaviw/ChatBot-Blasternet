@@ -139,7 +139,7 @@ class CompanyInternalAiChatApiTest extends TestCase
         $send->assertStatus(404);
     }
 
-    public function test_create_internal_ai_conversation_allows_ai_disabled_for_company_during_testing(): void
+    public function test_create_internal_ai_conversation_blocks_when_company_ai_is_disabled(): void
     {
         $company = Company::create(['name' => 'Empresa API IA Disabled']);
         $user = $this->createCompanyUser($company, 'api-ia-disabled@test.local');
@@ -150,15 +150,14 @@ class CompanyInternalAiChatApiTest extends TestCase
         ]);
 
         $create = $this->actingAs($user)->postJson('/api/minha-conta/ia/conversas', [
-            'title' => 'Conversa de teste liberada',
+            'title' => 'Conversa bloqueada',
         ]);
 
-        $create->assertCreated();
-        $create->assertJsonPath('ok', true);
-        $this->assertGreaterThan(0, (int) $create->json('conversation.id'));
+        $create->assertStatus(422);
+        $create->assertJsonPath('errors.ai.0', 'IA interna nao esta habilitada para esta empresa.');
     }
 
-    public function test_send_message_allows_internal_ai_chat_disabled_for_company_during_testing(): void
+    public function test_send_message_blocks_when_internal_ai_chat_is_disabled_for_company(): void
     {
         config()->set('ai.provider', 'test');
         config()->set('ai.model', 'test-model');
@@ -184,11 +183,8 @@ class CompanyInternalAiChatApiTest extends TestCase
             'content' => 'Mensagem bloqueada',
         ]);
 
-        $send->assertOk();
-        $send->assertJsonPath('ok', true);
-        $send->assertJsonPath('user_message.role', 'user');
-        $send->assertJsonPath('assistant_message.role', 'assistant');
-        $this->assertStringContainsString('Mensagem bloqueada', (string) $send->json('assistant_message.content'));
+        $send->assertStatus(422);
+        $send->assertJsonPath('errors.ai.0', 'IA interna nao esta habilitada para esta empresa.');
     }
 
     public function test_send_message_requires_user_permission_for_internal_ai(): void
@@ -197,7 +193,7 @@ class CompanyInternalAiChatApiTest extends TestCase
         config()->set('ai.model', 'test-model');
 
         $company = Company::create(['name' => 'Empresa API IA Permission']);
-        $user = $this->createCompanyUser($company, 'api-ia-no-permission@test.local', false);
+        $user = $this->createCompanyUser($company, 'api-ia-no-permission@test.local', false, User::ROLE_AGENT);
 
         $this->upsertAiSettings($company, [
             'ai_enabled' => true,
@@ -220,13 +216,55 @@ class CompanyInternalAiChatApiTest extends TestCase
         $send->assertJsonPath('errors.user.0', 'Usuario nao possui permissao para usar IA interna.');
     }
 
-    private function createCompanyUser(Company $company, string $email, bool $canUseAi = true): User
+    public function test_company_admin_can_send_message_even_when_can_use_ai_is_false(): void
+    {
+        config()->set('ai.provider', 'test');
+        config()->set('ai.model', 'test-model');
+        config()->set('ai.providers.test.reply_prefix', '[AI-TEST]');
+
+        $company = Company::create(['name' => 'Empresa API IA Admin']);
+        $user = $this->createCompanyUser(
+            $company,
+            'api-ia-admin-can@test.local',
+            false,
+            User::ROLE_COMPANY_ADMIN
+        );
+
+        $this->upsertAiSettings($company, [
+            'ai_enabled' => true,
+            'ai_internal_chat_enabled' => true,
+            'ai_provider' => 'test',
+        ]);
+
+        $conversation = AiConversation::query()->create([
+            'company_id' => (int) $company->id,
+            'opened_by_user_id' => (int) $user->id,
+            'origin' => AiConversation::ORIGIN_INTERNAL_CHAT,
+            'title' => 'Thread admin',
+        ]);
+
+        $send = $this->actingAs($user)->postJson("/api/minha-conta/ia/conversas/{$conversation->id}/mensagens", [
+            'content' => 'Mensagem do admin',
+        ]);
+
+        $send->assertOk();
+        $send->assertJsonPath('ok', true);
+        $send->assertJsonPath('user_message.role', 'user');
+        $send->assertJsonPath('assistant_message.role', 'assistant');
+    }
+
+    private function createCompanyUser(
+        Company $company,
+        string $email,
+        bool $canUseAi = true,
+        string $role = User::ROLE_COMPANY_ADMIN
+    ): User
     {
         return User::create([
             'name' => 'User API IA',
             'email' => $email,
             'password' => 'secret123',
-            'role' => User::ROLE_COMPANY_ADMIN,
+            'role' => $role,
             'company_id' => $company->id,
             'is_active' => true,
             'can_use_ai' => $canUseAi,

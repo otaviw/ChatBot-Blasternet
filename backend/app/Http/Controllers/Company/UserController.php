@@ -39,7 +39,7 @@ class UserController extends Controller
             ->whereIn('role', User::companyRoleValues())
             ->with(['company:id,name', 'areas:id,name,company_id'])
             ->orderBy('name')
-            ->get(['id', 'name', 'email', 'role', 'company_id', 'is_active', 'disabled_at', 'created_at']);
+            ->get(['id', 'name', 'email', 'role', 'company_id', 'is_active', 'can_use_ai', 'disabled_at', 'created_at']);
 
         return response()->json([
             'authenticated' => true,
@@ -73,6 +73,7 @@ class UserController extends Controller
             'password' => ['required', 'string', 'min:8', 'max:100'],
             'role' => ['required', Rule::in(User::assignableRoleValuesForCompanyAdmin())],
             'is_active' => ['sometimes', 'boolean'],
+            'can_use_ai' => ['sometimes', 'boolean'],
             'area_ids' => ['sometimes', 'array', 'max:50'],
             'area_ids.*' => ['integer', 'exists:areas,id'],
             'areas' => ['sometimes', 'array', 'max:50'],
@@ -83,6 +84,7 @@ class UserController extends Controller
         $normalizedRole = User::normalizeRole((string) $validated['role']);
         $areaIds = $this->resolveAreaIds($companyId, $validated);
         $isActive = (bool) ($validated['is_active'] ?? true);
+        $canUseAi = $this->resolveCanUseAi($normalizedRole, $validated);
 
         $user = User::create([
             'name' => $validated['name'],
@@ -91,6 +93,7 @@ class UserController extends Controller
             'role' => $normalizedRole,
             'company_id' => $companyId,
             'is_active' => $isActive,
+            'can_use_ai' => $canUseAi,
             'disabled_at' => $isActive ? null : now(),
         ]);
 
@@ -101,6 +104,7 @@ class UserController extends Controller
             'user_id' => $user->id,
             'role' => $user->role,
             'is_active' => $user->is_active,
+            'can_use_ai' => $user->can_use_ai,
             'area_ids' => $areaIds,
         ]);
 
@@ -138,6 +142,7 @@ class UserController extends Controller
             'email' => ['required', 'email', 'max:190', Rule::unique('users', 'email')->ignore($user->id)],
             'role' => ['required', Rule::in(User::assignableRoleValuesForCompanyAdmin())],
             'is_active' => ['required', 'boolean'],
+            'can_use_ai' => ['sometimes', 'boolean'],
             'password' => ['nullable', 'string', 'min:8', 'max:100'],
             'area_ids' => ['sometimes', 'array', 'max:50'],
             'area_ids.*' => ['integer', 'exists:areas,id'],
@@ -148,12 +153,14 @@ class UserController extends Controller
         $normalizedRole = User::normalizeRole((string) $validated['role']);
         $areaIds = $this->resolveAreaIds($companyId, $validated);
         $isActive = (bool) $validated['is_active'];
+        $canUseAi = $this->resolveCanUseAi($normalizedRole, $validated, $user);
 
         $before = [
             'name' => $user->name,
             'email' => $user->email,
             'role' => $user->role,
             'is_active' => $user->is_active,
+            'can_use_ai' => (bool) $user->can_use_ai,
             'disabled_at' => $user->disabled_at,
             'area_ids' => $user->areas()->pluck('areas.id')->values()->all(),
         ];
@@ -162,6 +169,7 @@ class UserController extends Controller
         $user->email = $validated['email'];
         $user->role = $normalizedRole;
         $user->is_active = $isActive;
+        $user->can_use_ai = $canUseAi;
         $user->disabled_at = $isActive ? null : ($user->disabled_at ?? now());
         if (! empty($validated['password'])) {
             $user->password = $validated['password'];
@@ -179,6 +187,7 @@ class UserController extends Controller
                 'email' => $user->email,
                 'role' => $user->role,
                 'is_active' => $user->is_active,
+                'can_use_ai' => (bool) $user->can_use_ai,
                 'disabled_at' => $user->disabled_at,
                 'area_ids' => $areaIds,
             ],
@@ -287,6 +296,22 @@ class UserController extends Controller
     }
 
     /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function resolveCanUseAi(string $normalizedRole, array $validated, ?User $currentUser = null): bool
+    {
+        if ($normalizedRole !== User::ROLE_AGENT) {
+            return true;
+        }
+
+        if (array_key_exists('can_use_ai', $validated)) {
+            return (bool) $validated['can_use_ai'];
+        }
+
+        return (bool) ($currentUser?->can_use_ai ?? false);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function serializeUser(User $user): array
@@ -298,6 +323,7 @@ class UserController extends Controller
             'role' => User::normalizeRole($user->role),
             'company_id' => $user->company_id,
             'is_active' => (bool) $user->is_active,
+            'can_use_ai' => (bool) $user->can_use_ai,
             'disabled_at' => $user->disabled_at,
             'company' => $user->company ? [
                 'id' => $user->company->id,

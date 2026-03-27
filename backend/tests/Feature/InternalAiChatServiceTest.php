@@ -16,7 +16,7 @@ class InternalAiChatServiceTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_send_message_allows_company_ai_disabled_during_internal_chat_testing(): void
+    public function test_send_message_fails_when_company_ai_is_disabled(): void
     {
         config()->set('ai.provider', 'test');
         config()->set('ai.model', 'test-model');
@@ -32,14 +32,14 @@ class InternalAiChatServiceTest extends TestCase
         ]);
 
         $service = $this->app->make(InternalAiChatService::class);
-        $result = $service->sendMessage($user, 'Teste');
 
-        $this->assertSame('test', $result['provider']);
-        $this->assertSame('assistant', (string) $result['assistant_message']->role);
-        $this->assertStringContainsString('Teste', (string) $result['assistant_message']->content);
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('IA interna nao esta habilitada para esta empresa.');
+
+        $service->sendMessage($user, 'Teste');
     }
 
-    public function test_send_message_allows_internal_ai_chat_disabled_during_internal_chat_testing(): void
+    public function test_send_message_fails_when_internal_ai_chat_is_disabled(): void
     {
         config()->set('ai.provider', 'test');
         config()->set('ai.model', 'test-model');
@@ -55,11 +55,11 @@ class InternalAiChatServiceTest extends TestCase
         ]);
 
         $service = $this->app->make(InternalAiChatService::class);
-        $result = $service->sendMessage($user, 'Teste');
 
-        $this->assertSame('test', $result['provider']);
-        $this->assertSame('assistant', (string) $result['assistant_message']->role);
-        $this->assertStringContainsString('Teste', (string) $result['assistant_message']->content);
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('IA interna nao esta habilitada para esta empresa.');
+
+        $service->sendMessage($user, 'Teste');
     }
 
     public function test_send_message_persists_user_and_assistant_messages(): void
@@ -187,7 +187,7 @@ class InternalAiChatServiceTest extends TestCase
     public function test_send_message_fails_when_user_cannot_use_internal_ai(): void
     {
         $company = Company::create(['name' => 'Empresa AI Permission']);
-        $user = $this->createCompanyUser($company, 'ai-no-permission@test.local', false);
+        $user = $this->createCompanyUser($company, 'ai-no-permission@test.local', false, User::ROLE_AGENT);
 
         CompanyBotSetting::create([
             'company_id' => $company->id,
@@ -202,6 +202,29 @@ class InternalAiChatServiceTest extends TestCase
         $this->expectExceptionMessage('Usuario nao possui permissao para usar IA interna.');
 
         $service->sendMessage($user, 'Mensagem sem permissao');
+    }
+
+    public function test_send_message_allows_company_admin_even_when_can_use_ai_is_false(): void
+    {
+        config()->set('ai.provider', 'test');
+        config()->set('ai.model', 'test-model');
+        config()->set('ai.providers.test.reply_prefix', '[AI-TEST]');
+
+        $company = Company::create(['name' => 'Empresa AI Admin']);
+        $user = $this->createCompanyUser($company, 'ai-admin@test.local', false, User::ROLE_COMPANY_ADMIN);
+
+        CompanyBotSetting::create([
+            'company_id' => $company->id,
+            'ai_enabled' => true,
+            'ai_internal_chat_enabled' => true,
+            'ai_provider' => 'test',
+        ]);
+
+        $service = $this->app->make(InternalAiChatService::class);
+        $result = $service->sendMessage($user, 'Mensagem do admin');
+
+        $this->assertSame('test', $result['provider']);
+        $this->assertSame('assistant', (string) $result['assistant_message']->role);
     }
 
     public function test_send_message_blocks_when_company_monthly_limit_is_reached(): void
@@ -270,13 +293,18 @@ class InternalAiChatServiceTest extends TestCase
         ]);
     }
 
-    private function createCompanyUser(Company $company, string $email, bool $canUseAi = true): User
+    private function createCompanyUser(
+        Company $company,
+        string $email,
+        bool $canUseAi = true,
+        string $role = User::ROLE_COMPANY_ADMIN
+    ): User
     {
         return User::create([
             'name' => 'User AI',
             'email' => $email,
             'password' => 'secret123',
-            'role' => User::ROLE_COMPANY_ADMIN,
+            'role' => $role,
             'company_id' => $company->id,
             'is_active' => true,
             'can_use_ai' => $canUseAi,

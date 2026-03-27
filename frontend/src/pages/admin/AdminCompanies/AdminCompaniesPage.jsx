@@ -11,6 +11,8 @@ function AdminCompaniesPage() {
   const [newCompany, setNewCompany] = useState({
     name: '',
     meta_phone_number_id: '',
+    ai_enabled: false,
+    ai_internal_chat_enabled: false,
   });
   const [createBusy, setCreateBusy] = useState(false);
   const [createError, setCreateError] = useState('');
@@ -31,11 +33,18 @@ function AdminCompaniesPage() {
       const payload = {
         name: newCompany.name,
         meta_phone_number_id: newCompany.meta_phone_number_id || null,
+        ai_enabled: Boolean(newCompany.ai_enabled),
+        ai_internal_chat_enabled: Boolean(newCompany.ai_internal_chat_enabled),
       };
       const response = await api.post('/admin/empresas', payload);
       const created = response.data?.company;
       setCreateSuccess(`Empresa criada: ${created?.name ?? payload.name}`);
-      setNewCompany({ name: '', meta_phone_number_id: '' });
+      setNewCompany({
+        name: '',
+        meta_phone_number_id: '',
+        ai_enabled: false,
+        ai_internal_chat_enabled: false,
+      });
       if (created?.id) {
         setCompanies((previous) =>
           [...previous, { ...created, conversations_count: 0, bot_setting: null }].sort((left, right) =>
@@ -95,6 +104,26 @@ function AdminCompaniesPage() {
               onChange={(e) => setNewCompany((p) => ({ ...p, meta_phone_number_id: e.target.value }))}
               className="app-input"
             />
+          </label>
+
+          <label className="flex items-center gap-2 text-sm md:col-span-2">
+            <input
+              type="checkbox"
+              checked={Boolean(newCompany.ai_enabled)}
+              onChange={(e) => setNewCompany((p) => ({ ...p, ai_enabled: e.target.checked }))}
+            />
+            Habilitar IA para esta empresa
+          </label>
+
+          <label className="flex items-center gap-2 text-sm md:col-span-2">
+            <input
+              type="checkbox"
+              checked={Boolean(newCompany.ai_internal_chat_enabled)}
+              onChange={(e) =>
+                setNewCompany((p) => ({ ...p, ai_internal_chat_enabled: e.target.checked }))
+              }
+            />
+            Habilitar chat interno com IA
           </label>
 
           <div className="md:col-span-2">

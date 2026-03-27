@@ -73,6 +73,9 @@ function InternalAiChatPage() {
   const user = data?.user ?? null;
   const role = useMemo(() => parseRoleFromUser(user), [user]);
   const companyName = user?.company_name ?? '';
+  const canAccessInternalAiChat = Boolean(
+    user?.can_access_internal_ai_chat ?? user?.can_use_ai
+  );
 
   const {
     chatListRef,
@@ -103,7 +106,7 @@ function InternalAiChatPage() {
     setDraftMessage,
     handleChatScroll,
   } = useInternalAiChatPage({
-    enabled: Boolean(data?.authenticated && user),
+    enabled: Boolean(data?.authenticated && user && canAccessInternalAiChat),
   });
   const hasConversations = conversations.length > 0;
   const totalConversations = Number(conversationsPagination?.total ?? conversations.length ?? 0);
@@ -124,6 +127,16 @@ function InternalAiChatPage() {
     return (
       <Layout>
         <p className="text-sm text-red-600">Nao foi possivel carregar o chat IA.</p>
+      </Layout>
+    );
+  }
+
+  if (!canAccessInternalAiChat) {
+    return (
+      <Layout role={role} companyName={companyName || undefined} onLogout={logout}>
+        <Notice tone="info">
+          Chat IA indisponivel para este usuario ou para esta empresa.
+        </Notice>
       </Layout>
     );
   }

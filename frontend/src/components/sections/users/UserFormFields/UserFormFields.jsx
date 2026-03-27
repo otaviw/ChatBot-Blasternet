@@ -14,7 +14,8 @@ function UserFormFields({
   showAreas = false,
   availableAreas = [],
   onToggleArea,
-  areaEmptyMessage = 'Nenhuma área disponível.',
+  areaEmptyMessage = 'Nenhuma area disponivel.',
+  showAiPermissionField = false,
 }) {
   const updateForm = (patch) => {
     setForm((prev) => ({ ...prev, ...patch }));
@@ -55,7 +56,14 @@ function UserFormFields({
       <Field label="Perfil">
         <SelectInput
           value={form.role}
-          onChange={(event) => updateForm({ role: event.target.value, company_id: '', areas: [] })}
+          onChange={(event) =>
+            updateForm({
+              role: event.target.value,
+              company_id: '',
+              areas: [],
+              can_use_ai: event.target.value === 'agent' ? Boolean(form.can_use_ai) : false,
+            })
+          }
         >
           {roleOptions.map((role) => (
             <option key={role.value} value={role.value}>
@@ -91,6 +99,15 @@ function UserFormFields({
         />
       )}
 
+      {showAiPermissionField && (
+        <CheckboxField
+          checked={Boolean(form.can_use_ai)}
+          onChange={(event) => updateForm({ can_use_ai: event.target.checked })}
+        >
+          Permitir usar IA interna
+        </CheckboxField>
+      )}
+
       <CheckboxField
         checked={Boolean(form.is_active)}
         onChange={(event) => updateForm({ is_active: event.target.checked })}
@@ -102,4 +119,3 @@ function UserFormFields({
 }
 
 export default UserFormFields;
-

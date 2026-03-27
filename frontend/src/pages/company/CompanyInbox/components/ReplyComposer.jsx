@@ -9,6 +9,11 @@ function ReplyComposer({
   onRemoveManualImage,
   manualText,
   onManualTextChange,
+  canUseAiSuggestion,
+  onRequestAiSuggestion,
+  aiSuggestionBusy,
+  aiSuggestionStatus,
+  aiSuggestionError,
   manualBusy,
   manualImagePreviewUrl,
   manualError,
@@ -46,6 +51,19 @@ function ReplyComposer({
         </div>
 
         <div className="company-inbox-upload-row">
+          <button
+            type="button"
+            onClick={onRequestAiSuggestion}
+            disabled={manualBusy || aiSuggestionBusy || !canUseAiSuggestion}
+            className="app-btn-secondary text-xs inbox-reply-action-btn"
+            title={
+              canUseAiSuggestion
+                ? 'Gerar sugestao de resposta com IA'
+                : 'Voce nao tem permissao para usar sugestao de IA'
+            }
+          >
+            {aiSuggestionBusy ? 'IA gerando resposta...' : 'Sugerir resposta com IA'}
+          </button>
           <label className="app-btn-secondary text-xs cursor-pointer inbox-reply-action-btn">
             Anexar imagem
             <input
@@ -66,6 +84,9 @@ function ReplyComposer({
           ) : null}
         </div>
       </div>
+      {aiSuggestionBusy ? <p className="text-xs text-[#525252]">IA gerando resposta...</p> : null}
+      {aiSuggestionStatus ? <p className="text-xs text-green-700">{aiSuggestionStatus}</p> : null}
+      {aiSuggestionError ? <p className="text-sm text-red-600">{aiSuggestionError}</p> : null}
 
       {manualImageFile ? (
         <div className="inbox-reply-attachment">

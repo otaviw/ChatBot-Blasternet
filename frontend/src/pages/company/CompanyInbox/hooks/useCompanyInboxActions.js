@@ -20,6 +20,9 @@ export default function useCompanyInboxActions({
   const [manualImagePreviewUrl, setManualImagePreviewUrl] = useState('');
   const [manualBusy, setManualBusy] = useState(false);
   const [manualError, setManualError] = useState('');
+  const [aiSuggestionBusy, setAiSuggestionBusy] = useState(false);
+  const [aiSuggestionError, setAiSuggestionError] = useState('');
+  const [aiSuggestionStatus, setAiSuggestionStatus] = useState('');
   const [contactBusy, setContactBusy] = useState(false);
   const [contactError, setContactError] = useState('');
   const [contactSuccess, setContactSuccess] = useState('');
@@ -91,6 +94,9 @@ export default function useCompanyInboxActions({
     setShowTemplates(false);
     setContactError('');
     setContactSuccess('');
+    setAiSuggestionBusy(false);
+    setAiSuggestionError('');
+    setAiSuggestionStatus('');
   }, []);
 
   const assumeConversation = useCallback(async () => {
@@ -232,6 +238,8 @@ export default function useCompanyInboxActions({
 
       setManualBusy(true);
       setManualError('');
+      setAiSuggestionError('');
+      setAiSuggestionStatus('');
       try {
         let response;
         if (manualImageFile) {
@@ -283,6 +291,30 @@ export default function useCompanyInboxActions({
       wasChatNearBottomRef,
     ]
   );
+
+  const requestAiSuggestion = useCallback(async () => {
+    if (!detail?.id) return;
+
+    setAiSuggestionBusy(true);
+    setAiSuggestionError('');
+    setAiSuggestionStatus('');
+    try {
+      const response = await api.post(`/minha-conta/conversas/${detail.id}/ia/sugestao`);
+      const suggestion = String(response.data?.suggestion ?? '').trim();
+      if (!suggestion) {
+        throw new Error('empty_suggestion');
+      }
+
+      setManualText(suggestion);
+      setAiSuggestionStatus('Sugestao aplicada no campo de resposta.');
+    } catch (err) {
+      setAiSuggestionError(
+        err.response?.data?.message || 'Nao foi possivel gerar sugestao de IA agora.'
+      );
+    } finally {
+      setAiSuggestionBusy(false);
+    }
+  }, [detail?.id]);
 
   const handleManualImageChange = useCallback(
     (event) => {
@@ -388,6 +420,9 @@ export default function useCompanyInboxActions({
   return {
     actionBusy,
     addTag,
+    aiSuggestionBusy,
+    aiSuggestionError,
+    aiSuggestionStatus,
     assumeConversation,
     availableUsers,
     closeConversation,
@@ -406,6 +441,7 @@ export default function useCompanyInboxActions({
     manualImagePreviewUrl,
     manualText,
     quickReplies,
+    requestAiSuggestion,
     releaseConversation,
     removeManualImage,
     removeTag,

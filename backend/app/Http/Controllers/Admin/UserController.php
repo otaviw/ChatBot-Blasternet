@@ -34,7 +34,7 @@ class UserController extends Controller
             ->orderByRaw('CASE WHEN company_id IS NULL THEN 0 ELSE 1 END')
             ->orderBy('company_id')
             ->orderBy('name')
-            ->get(['id', 'name', 'email', 'role', 'company_id', 'is_active', 'disabled_at', 'created_at']);
+            ->get(['id', 'name', 'email', 'role', 'company_id', 'is_active', 'can_use_ai', 'disabled_at', 'created_at']);
 
         $summaryRows = User::query()
             ->selectRaw('COALESCE(company_id, 0) as company_scope, role, is_active, COUNT(*) as total')
@@ -77,6 +77,7 @@ class UserController extends Controller
             'role' => ['required', Rule::in(User::assignableRoleValuesForSystemAdmin())],
             'company_id' => ['nullable', 'integer', 'exists:companies,id'],
             'is_active' => ['sometimes', 'boolean'],
+            'can_use_ai' => ['sometimes', 'boolean'],
             'area_ids' => ['sometimes', 'array', 'max:50'],
             'area_ids.*' => ['integer', 'exists:areas,id'],
             'areas' => ['sometimes', 'array', 'max:50'],
@@ -87,6 +88,7 @@ class UserController extends Controller
         $companyId = $this->resolveCompanyIdForRole($normalizedRole, $validated['company_id'] ?? null);
         $areaIds = $companyId !== null ? $this->resolveAreaIdsForCompany($companyId, $validated) : [];
         $isActive = (bool) ($validated['is_active'] ?? true);
+        $canUseAi = $this->resolveCanUseAi($normalizedRole, $validated);
 
         $user = User::create([
             'name' => $validated['name'],
@@ -95,6 +97,7 @@ class UserController extends Controller
             'role' => $normalizedRole,
             'company_id' => $companyId,
             'is_active' => $isActive,
+            'can_use_ai' => $canUseAi,
             'disabled_at' => $isActive ? null : now(),
         ]);
 
@@ -106,6 +109,7 @@ class UserController extends Controller
             'role' => $user->role,
             'company_id' => $user->company_id,
             'is_active' => $user->is_active,
+            'can_use_ai' => $user->can_use_ai,
             'area_ids' => $areaIds,
         ]);
 
@@ -131,6 +135,7 @@ class UserController extends Controller
             'role' => ['required', Rule::in(User::assignableRoleValuesForSystemAdmin())],
             'company_id' => ['nullable', 'integer', 'exists:companies,id'],
             'is_active' => ['required', 'boolean'],
+            'can_use_ai' => ['sometimes', 'boolean'],
             'password' => ['nullable', 'string', 'min:8', 'max:100'],
             'area_ids' => ['sometimes', 'array', 'max:50'],
             'area_ids.*' => ['integer', 'exists:areas,id'],
@@ -142,6 +147,7 @@ class UserController extends Controller
         $companyId = $this->resolveCompanyIdForRole($normalizedRole, $validated['company_id'] ?? null);
         $areaIds = $companyId !== null ? $this->resolveAreaIdsForCompany($companyId, $validated) : [];
         $isActive = (bool) $validated['is_active'];
+        $canUseAi = $this->resolveCanUseAi($normalizedRole, $validated, $user);
 
         $before = [
             'name' => $user->name,
@@ -149,6 +155,7 @@ class UserController extends Controller
             'role' => $user->role,
             'company_id' => $user->company_id,
             'is_active' => $user->is_active,
+            'can_use_ai' => (bool) $user->can_use_ai,
             'disabled_at' => $user->disabled_at,
             'area_ids' => $user->areas()->pluck('areas.id')->map(fn($id) => (int) $id)->values()->all(),
         ];
@@ -158,6 +165,7 @@ class UserController extends Controller
         $user->role = $normalizedRole;
         $user->company_id = $companyId;
         $user->is_active = $isActive;
+        $user->can_use_ai = $canUseAi;
         $user->disabled_at = $isActive ? null : ($user->disabled_at ?? now());
         if (! empty($validated['password'])) {
             $user->password = $validated['password'];
@@ -176,6 +184,7 @@ class UserController extends Controller
                 'role' => $user->role,
                 'company_id' => $user->company_id,
                 'is_active' => $user->is_active,
+                'can_use_ai' => (bool) $user->can_use_ai,
                 'disabled_at' => $user->disabled_at,
                 'area_ids' => $areaIds,
             ],
@@ -292,6 +301,22 @@ class UserController extends Controller
     }
 
     /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function resolveCanUseAi(string $normalizedRole, array $validated, ?User $currentUser = null): bool
+    {
+        if ($normalizedRole !== User::ROLE_AGENT) {
+            return true;
+        }
+
+        if (array_key_exists('can_use_ai', $validated)) {
+            return (bool) $validated['can_use_ai'];
+        }
+
+        return (bool) ($currentUser?->can_use_ai ?? false);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function serializeUser(User $user): array
@@ -303,6 +328,7 @@ class UserController extends Controller
             'role' => User::normalizeRole($user->role),
             'company_id' => $user->company_id,
             'is_active' => (bool) $user->is_active,
+            'can_use_ai' => (bool) $user->can_use_ai,
             'disabled_at' => $user->disabled_at,
             'company' => $user->company ? [
                 'id' => $user->company->id,

@@ -15,7 +15,8 @@ class InternalAiChatService
         private readonly AiProviderResolver $providerResolver,
         private readonly AiConversationContextBuilder $contextBuilder,
         private readonly InternalAiConversationService $conversationService,
-        private readonly AiUsageService $usageService
+        private readonly AiUsageService $usageService,
+        private readonly AiAccessService $aiAccessService
     ) {}
 
     /**
@@ -37,7 +38,7 @@ class InternalAiChatService
         }
 
         $settings = $this->conversationService->requireInternalChatSettings($user);
-        $this->assertUserCanUseInternalAi($user);
+        $this->aiAccessService->assertCanUseInternalAi($user, $settings);
 
         $targetConversation = $this->resolveConversation($conversation, $user);
         $providerName = $this->resolveProviderName($settings);
@@ -171,17 +172,6 @@ class InternalAiChatService
         $globalPrompt = trim((string) config('ai.system_prompt', ''));
 
         return $globalPrompt !== '' ? $globalPrompt : null;
-    }
-
-    private function assertUserCanUseInternalAi(User $user): void
-    {
-        if ((bool) $user->can_use_ai) {
-            return;
-        }
-
-        throw ValidationException::withMessages([
-            'user' => ['Usuario nao possui permissao para usar IA interna.'],
-        ]);
     }
 
     private function resolveTemperature(?CompanyBotSetting $settings): ?float

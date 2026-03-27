@@ -76,6 +76,9 @@ class CompanyController extends Controller
 
         $validated = $request->validate([
             'is_active' => ['required', 'boolean'],
+            'ai_enabled' => ['sometimes', 'boolean'],
+            'ai_internal_chat_enabled' => ['sometimes', 'boolean'],
+            'ai_chatbot_enabled' => ['sometimes', 'boolean'],
             'timezone' => ['required', 'string', Rule::in(timezone_identifiers_list())],
             'welcome_message' => ['nullable', 'string', 'max:2000'],
             'fallback_message' => ['nullable', 'string', 'max:2000'],
@@ -93,20 +96,32 @@ class CompanyController extends Controller
             'inactivity_close_hours' => ['nullable', 'integer', 'min:1', 'max:720'],
         ]);
 
+        $settingsPayload = [
+            'is_active' => (bool) $validated['is_active'],
+            'timezone' => $validated['timezone'],
+            'welcome_message' => $validated['welcome_message'] ?? null,
+            'fallback_message' => $validated['fallback_message'] ?? null,
+            'out_of_hours_message' => $validated['out_of_hours_message'] ?? null,
+            'business_hours' => $this->normalizeBusinessHours($validated['business_hours']),
+            'keyword_replies' => $this->normalizeKeywordReplies($validated['keyword_replies'] ?? []),
+            'service_areas' => $this->normalizeServiceAreas($validated['service_areas'] ?? []),
+            'stateful_menu_flow' => $this->normalizeStatefulMenuFlow($validated['stateful_menu_flow'] ?? null),
+            'inactivity_close_hours' => $this->resolveInactivityCloseHours($company, $validated),
+        ];
+
+        if (array_key_exists('ai_enabled', $validated)) {
+            $settingsPayload['ai_enabled'] = (bool) $validated['ai_enabled'];
+        }
+        if (array_key_exists('ai_internal_chat_enabled', $validated)) {
+            $settingsPayload['ai_internal_chat_enabled'] = (bool) $validated['ai_internal_chat_enabled'];
+        }
+        if (array_key_exists('ai_chatbot_enabled', $validated)) {
+            $settingsPayload['ai_chatbot_enabled'] = (bool) $validated['ai_chatbot_enabled'];
+        }
+
         $settings = CompanyBotSetting::updateOrCreate(
             ['company_id' => $company->id],
-            [
-                'is_active' => (bool) $validated['is_active'],
-                'timezone' => $validated['timezone'],
-                'welcome_message' => $validated['welcome_message'] ?? null,
-                'fallback_message' => $validated['fallback_message'] ?? null,
-                'out_of_hours_message' => $validated['out_of_hours_message'] ?? null,
-                'business_hours' => $this->normalizeBusinessHours($validated['business_hours']),
-                'keyword_replies' => $this->normalizeKeywordReplies($validated['keyword_replies'] ?? []),
-                'service_areas' => $this->normalizeServiceAreas($validated['service_areas'] ?? []),
-                'stateful_menu_flow' => $this->normalizeStatefulMenuFlow($validated['stateful_menu_flow'] ?? null),
-                'inactivity_close_hours' => $this->resolveInactivityCloseHours($company, $validated),
-            ]
+            $settingsPayload
         );
 
         $this->syncServiceAreas($company->id, $settings->service_areas ?? []);
@@ -144,6 +159,9 @@ class CompanyController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:120', 'unique:companies,name'],
             'meta_phone_number_id' => ['nullable', 'string', 'max:255', 'unique:companies,meta_phone_number_id'],
+            'ai_enabled' => ['sometimes', 'boolean'],
+            'ai_internal_chat_enabled' => ['sometimes', 'boolean'],
+            'ai_chatbot_enabled' => ['sometimes', 'boolean'],
         ]);
 
         $company = Company::create([
@@ -155,6 +173,9 @@ class CompanyController extends Controller
             ['company_id' => $company->id],
             [
                 'is_active' => true,
+                'ai_enabled' => (bool) ($validated['ai_enabled'] ?? false),
+                'ai_internal_chat_enabled' => (bool) ($validated['ai_internal_chat_enabled'] ?? false),
+                'ai_chatbot_enabled' => (bool) ($validated['ai_chatbot_enabled'] ?? false),
                 'timezone' => 'America/Sao_Paulo',
                 'welcome_message' => 'Oi. Como posso ajudar?',
                 'fallback_message' => 'Não entendi sua mensagem. Pode reformular?',
@@ -179,7 +200,7 @@ class CompanyController extends Controller
 
         return response()->json([
             'ok' => true,
-            'company' => $company,
+            'company' => $company->load('botSetting'),
         ], 201);
     }
 
@@ -201,6 +222,9 @@ class CompanyController extends Controller
                 'max:255',
                 Rule::unique('companies', 'meta_phone_number_id')->ignore($company->id),
             ],
+            'ai_enabled' => ['sometimes', 'boolean'],
+            'ai_internal_chat_enabled' => ['sometimes', 'boolean'],
+            'ai_chatbot_enabled' => ['sometimes', 'boolean'],
         ]);
 
         $before = [
@@ -213,6 +237,25 @@ class CompanyController extends Controller
         $company->meta_phone_number_id = $validated['meta_phone_number_id'] ?? null;
         $company->save();
         $company->refresh();
+
+        $aiSettingsPayload = [];
+        if (array_key_exists('ai_enabled', $validated)) {
+            $aiSettingsPayload['ai_enabled'] = (bool) $validated['ai_enabled'];
+        }
+        if (array_key_exists('ai_internal_chat_enabled', $validated)) {
+            $aiSettingsPayload['ai_internal_chat_enabled'] = (bool) $validated['ai_internal_chat_enabled'];
+        }
+        if (array_key_exists('ai_chatbot_enabled', $validated)) {
+            $aiSettingsPayload['ai_chatbot_enabled'] = (bool) $validated['ai_chatbot_enabled'];
+        }
+
+        if ($aiSettingsPayload !== []) {
+            CompanyBotSetting::updateOrCreate(
+                ['company_id' => $company->id],
+                $aiSettingsPayload
+            );
+            $company->load('botSetting');
+        }
 
         $this->auditLog->record(
             $request,
@@ -230,7 +273,7 @@ class CompanyController extends Controller
 
         return response()->json([
             'ok' => true,
-            'company' => $company,
+            'company' => $company->loadMissing('botSetting'),
         ]);
     }
 

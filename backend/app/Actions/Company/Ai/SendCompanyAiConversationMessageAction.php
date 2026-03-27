@@ -19,6 +19,8 @@ class SendCompanyAiConversationMessageAction
      */
     public function handle(User $user, int $conversationId, array $validated): ?array
     {
+        $this->conversationService->ensureInternalChatEnabled($user);
+
         $conversation = $this->conversationService->findForUser($user, $conversationId);
         if (! $conversation) {
             return null;

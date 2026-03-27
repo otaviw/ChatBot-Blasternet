@@ -4,6 +4,7 @@ namespace App\Actions\Company\Conversation;
 
 use App\Models\Conversation;
 use App\Models\User;
+use App\Services\Ai\AiAccessService;
 use App\Services\Company\CompanyConversationSupportService;
 use App\Services\ConversationInactivityService;
 use App\Services\TransferConversationService;
@@ -14,7 +15,8 @@ class ShowCompanyConversationAction
     public function __construct(
         private readonly ConversationInactivityService $conversationInactivityService,
         private readonly TransferConversationService $transferService,
-        private readonly CompanyConversationSupportService $conversationSupport
+        private readonly CompanyConversationSupportService $conversationSupport,
+        private readonly AiAccessService $aiAccessService
     ) {}
 
     /**
@@ -24,6 +26,8 @@ class ShowCompanyConversationAction
     {
         $companyId = (int) $user->company_id;
         $this->conversationInactivityService->closeInactiveConversations($companyId);
+        $settings = $this->aiAccessService->resolveCompanySettings($user);
+        $canUseInternalAi = $this->aiAccessService->canUseInternalAi($user, $settings);
 
         $messagesPerPage = min(50, max(10, (int) $request->query('messages_per_page', 25)));
         $messagesPageParam = $request->query('messages_page');
@@ -59,6 +63,8 @@ class ShowCompanyConversationAction
         return [
             'authenticated' => true,
             'role' => 'company',
+            'can_use_ai' => $canUseInternalAi,
+            'can_access_internal_ai_chat' => $canUseInternalAi,
             'conversation' => $conversation,
             'transfer_history' => $transferHistory,
             'transfer_options' => $this->transferService->transferOptions($companyId),

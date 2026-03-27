@@ -20,6 +20,8 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
   const [companyForm, setCompanyForm] = useState({
     name: '',
     meta_phone_number_id: '',
+    ai_enabled: false,
+    ai_internal_chat_enabled: false,
   });
   const [companyData, setCompanyData] = useState(null);
   const [companySaveState, setCompanySaveState] = useState('idle');
@@ -79,6 +81,8 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
     setCompanyForm({
       name: data.company.name ?? '',
       meta_phone_number_id: data.company.meta_phone_number_id ?? '',
+      ai_enabled: Boolean(data.company.bot_setting?.ai_enabled),
+      ai_internal_chat_enabled: Boolean(data.company.bot_setting?.ai_internal_chat_enabled),
     });
   }, [data]);
 
@@ -91,6 +95,8 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
       const payload = {
         name: companyForm.name,
         meta_phone_number_id: companyForm.meta_phone_number_id || null,
+        ai_enabled: Boolean(companyForm.ai_enabled),
+        ai_internal_chat_enabled: Boolean(companyForm.ai_internal_chat_enabled),
       };
       const response = await api.put(`/admin/empresas/${companyId}`, payload);
       const updatedCompany = response.data?.company;
@@ -102,6 +108,10 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
         setCompanyForm({
           name: updatedCompany.name ?? '',
           meta_phone_number_id: updatedCompany.meta_phone_number_id ?? '',
+          ai_enabled: Boolean(updatedCompany.bot_setting?.ai_enabled ?? companyForm.ai_enabled),
+          ai_internal_chat_enabled: Boolean(
+            updatedCompany.bot_setting?.ai_internal_chat_enabled ?? companyForm.ai_internal_chat_enabled
+          ),
         });
       }
       setCompanySaveState('saved');
@@ -270,6 +280,26 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
               onChange={(e) => setCompanyForm((p) => ({ ...p, meta_phone_number_id: e.target.value }))}
               className="app-input"
             />
+          </label>
+
+          <label className="flex items-center gap-2 text-sm md:col-span-2">
+            <input
+              type="checkbox"
+              checked={Boolean(companyForm.ai_enabled)}
+              onChange={(e) => setCompanyForm((p) => ({ ...p, ai_enabled: e.target.checked }))}
+            />
+            Habilitar IA para esta empresa
+          </label>
+
+          <label className="flex items-center gap-2 text-sm md:col-span-2">
+            <input
+              type="checkbox"
+              checked={Boolean(companyForm.ai_internal_chat_enabled)}
+              onChange={(e) =>
+                setCompanyForm((p) => ({ ...p, ai_internal_chat_enabled: e.target.checked }))
+              }
+            />
+            Habilitar chat interno com IA
           </label>
 
           <div className="md:col-span-2">

@@ -23,7 +23,13 @@ class AiConversationController extends Controller
             return $this->unauthenticatedResponse();
         }
 
-        return response()->json($action->handle($user, $request));
+        try {
+            $payload = $action->handle($user, $request);
+        } catch (ValidationException $exception) {
+            return $this->validationErrorResponse($exception, 'Nao foi possivel listar conversas internas de IA.');
+        }
+
+        return response()->json($payload);
     }
 
     public function store(
@@ -51,7 +57,12 @@ class AiConversationController extends Controller
             return $this->unauthenticatedResponse();
         }
 
-        $payload = $action->handle($user, $conversationId, $request);
+        try {
+            $payload = $action->handle($user, $conversationId, $request);
+        } catch (ValidationException $exception) {
+            return $this->validationErrorResponse($exception, 'Nao foi possivel carregar a conversa interna de IA.');
+        }
+
         if (! $payload) {
             return response()->json([
                 'message' => 'Conversa interna de IA nao encontrada para este usuario.',

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\Ai\AiAccessService;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -10,6 +11,10 @@ use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
+    public function __construct(
+        private readonly AiAccessService $aiAccessService
+    ) {}
+
     public function login(Request $request): JsonResponse
     {
         $credentials = $request->validate([
@@ -127,6 +132,9 @@ class AuthController extends Controller
 
     private function userPayload($user): array
     {
+        $settings = $this->aiAccessService->resolveCompanySettings($user);
+        $canUseInternalAi = $this->aiAccessService->canUseInternalAi($user, $settings);
+
         return [
             'id' => $user->id,
             'name' => $user->name,
@@ -135,6 +143,8 @@ class AuthController extends Controller
             'company_id' => $user->company_id,
             'company_name' => $user->company?->name,
             'can_manage_users' => $user->canManageCompanyUsers(),
+            'can_use_ai' => $canUseInternalAi,
+            'can_access_internal_ai_chat' => $canUseInternalAi,
         ];
     }
 }

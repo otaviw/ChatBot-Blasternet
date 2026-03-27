@@ -5,6 +5,7 @@ namespace App\Actions\Company\Conversation;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\User;
+use App\Services\Ai\AiAccessService;
 use App\Services\Company\CompanyConversationSupportService;
 use App\Services\ConversationInactivityService;
 use Illuminate\Http\Request;
@@ -13,7 +14,8 @@ class ListCompanyConversationsAction
 {
     public function __construct(
         private readonly ConversationInactivityService $conversationInactivityService,
-        private readonly CompanyConversationSupportService $conversationSupport
+        private readonly CompanyConversationSupportService $conversationSupport,
+        private readonly AiAccessService $aiAccessService
     ) {}
 
     /**
@@ -23,6 +25,8 @@ class ListCompanyConversationsAction
     {
         $companyId = (int) $user->company_id;
         $this->conversationInactivityService->closeInactiveConversations($companyId);
+        $settings = $this->aiAccessService->resolveCompanySettings($user);
+        $canUseInternalAi = $this->aiAccessService->canUseInternalAi($user, $settings);
 
         $search = trim((string) $request->query('search', ''));
         $page = max(1, (int) $request->query('page', 1));
@@ -69,6 +73,8 @@ class ListCompanyConversationsAction
         return [
             'authenticated' => true,
             'role' => 'company',
+            'can_use_ai' => $canUseInternalAi,
+            'can_access_internal_ai_chat' => $canUseInternalAi,
             'conversations' => $paginator->items(),
             'conversations_pagination' => [
                 'current_page' => $paginator->currentPage(),

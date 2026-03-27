@@ -12,9 +12,14 @@ use Illuminate\Validation\ValidationException;
 
 class InternalAiConversationService
 {
+    public function __construct(
+        private readonly AiAccessService $aiAccessService
+    ) {}
+
     public function ensureInternalChatEnabled(User $user): void
     {
-        $this->requireInternalChatSettings($user);
+        $settings = $this->requireInternalChatSettings($user);
+        $this->aiAccessService->assertCanUseInternalAi($user, $settings);
     }
 
     public function requireInternalChatSettings(User $user): CompanyBotSetting
