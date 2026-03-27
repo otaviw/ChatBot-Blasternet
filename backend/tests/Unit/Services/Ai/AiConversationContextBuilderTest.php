@@ -16,9 +16,9 @@ class AiConversationContextBuilderTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_builder_uses_only_recent_messages_from_same_conversation(): void
+    public function test_builder_includes_formatted_recent_history_for_same_conversation(): void
     {
-        config()->set('ai.history_messages_limit', 2);
+        config()->set('ai.history_messages_limit', 20);
 
         $company = Company::create(['name' => 'Empresa Builder AI']);
         $user = $this->createCompanyUser($company, 'user-builder-ai@test.local');
@@ -63,25 +63,39 @@ class AiConversationContextBuilderTest extends TestCase
         $builder = $this->app->make(AiConversationContextBuilder::class);
         $context = $builder->build($conversation, 'Prompt da empresa');
 
-        $this->assertCount(3, $context);
+        $this->assertNotEmpty($context);
         $this->assertSame(AiMessage::ROLE_SYSTEM, $context[0]['role']);
-        $this->assertSame('Prompt da empresa', $context[0]['content']);
-        $this->assertSame(AiMessage::ROLE_ASSISTANT, $context[1]['role']);
-        $this->assertSame('Resposta anterior', $context[1]['content']);
-        $this->assertSame(AiMessage::ROLE_USER, $context[2]['role']);
-        $this->assertSame('Mensagem mais recente', $context[2]['content']);
+        $this->assertStringContainsString('Prompt da empresa', $context[0]['content']);
+
+        $historyPrompt = collect($context)
+            ->first(fn (array $item) => str_contains((string) ($item['content'] ?? ''), 'Historico recente:'));
+
+        $this->assertNotNull($historyPrompt);
+        $this->assertStringContainsString('User: Primeira mensagem', $historyPrompt['content']);
+        $this->assertStringContainsString('Assistant: Resposta anterior', $historyPrompt['content']);
+        $this->assertStringContainsString('User: Mensagem mais recente', $historyPrompt['content']);
+        $this->assertStringNotContainsString('Mensagem de outra conversa', $historyPrompt['content']);
+
+        $historyMessages = collect($context)
+            ->filter(fn (array $item) => ($item['role'] ?? '') !== AiMessage::ROLE_SYSTEM)
+            ->values();
+
+        $this->assertCount(3, $historyMessages);
+        $this->assertSame('Primeira mensagem', $historyMessages[0]['content']);
+        $this->assertSame('Resposta anterior', $historyMessages[1]['content']);
+        $this->assertSame('Mensagem mais recente', $historyMessages[2]['content']);
     }
 
-    public function test_builder_respects_company_context_messages_limit(): void
+    public function test_builder_respects_history_limit_between_ten_and_twenty_messages(): void
     {
-        config()->set('ai.history_messages_limit', 20);
+        config()->set('ai.history_messages_limit', 30);
 
         $company = Company::create(['name' => 'Empresa Builder Limit']);
         $user = $this->createCompanyUser($company, 'user-builder-limit@test.local');
 
         $settings = CompanyBotSetting::create([
             'company_id' => $company->id,
-            'ai_max_context_messages' => 2,
+            'ai_max_context_messages' => 30,
         ]);
 
         $conversation = AiConversation::create([
@@ -90,33 +104,25 @@ class AiConversationContextBuilderTest extends TestCase
             'origin' => AiConversation::ORIGIN_INTERNAL_CHAT,
         ]);
 
-        AiMessage::create([
-            'ai_conversation_id' => $conversation->id,
-            'user_id' => $user->id,
-            'role' => AiMessage::ROLE_USER,
-            'content' => 'Mensagem 1',
-        ]);
-        AiMessage::create([
-            'ai_conversation_id' => $conversation->id,
-            'user_id' => null,
-            'role' => AiMessage::ROLE_ASSISTANT,
-            'content' => 'Mensagem 2',
-        ]);
-        AiMessage::create([
-            'ai_conversation_id' => $conversation->id,
-            'user_id' => $user->id,
-            'role' => AiMessage::ROLE_USER,
-            'content' => 'Mensagem 3',
-        ]);
+        for ($index = 1; $index <= 25; $index++) {
+            AiMessage::create([
+                'ai_conversation_id' => $conversation->id,
+                'user_id' => $index % 2 === 0 ? null : $user->id,
+                'role' => $index % 2 === 0 ? AiMessage::ROLE_ASSISTANT : AiMessage::ROLE_USER,
+                'content' => "Mensagem {$index}",
+            ]);
+        }
 
         $builder = $this->app->make(AiConversationContextBuilder::class);
         $context = $builder->build($conversation, null, null, $settings);
 
-        $this->assertCount(2, $context);
-        $this->assertSame(AiMessage::ROLE_ASSISTANT, $context[0]['role']);
-        $this->assertSame('Mensagem 2', $context[0]['content']);
-        $this->assertSame(AiMessage::ROLE_USER, $context[1]['role']);
-        $this->assertSame('Mensagem 3', $context[1]['content']);
+        $historyMessages = collect($context)
+            ->filter(fn (array $item) => ($item['role'] ?? '') !== AiMessage::ROLE_SYSTEM)
+            ->values();
+
+        $this->assertCount(20, $historyMessages);
+        $this->assertSame('Mensagem 6', $historyMessages[0]['content']);
+        $this->assertSame('Mensagem 25', $historyMessages[19]['content']);
     }
 
     public function test_builder_combines_global_prompt_with_company_persona_tone_language_and_formality(): void
@@ -152,7 +158,7 @@ class AiConversationContextBuilderTest extends TestCase
         $this->assertStringContainsString('Formalidade: Formal', $context[0]['content']);
     }
 
-    public function test_builder_includes_up_to_three_active_knowledge_entries_for_same_company(): void
+    public function test_builder_includes_up_to_five_active_knowledge_entries_and_available_tools(): void
     {
         $company = Company::create(['name' => 'Empresa Builder Knowledge']);
         $otherCompany = Company::create(['name' => 'Outra Empresa Builder Knowledge']);
@@ -195,6 +201,18 @@ class AiConversationContextBuilderTest extends TestCase
         ]);
         AiCompanyKnowledge::create([
             'company_id' => $company->id,
+            'title' => 'Base 5',
+            'content' => 'Conteudo 5',
+            'is_active' => true,
+        ]);
+        AiCompanyKnowledge::create([
+            'company_id' => $company->id,
+            'title' => 'Base 6',
+            'content' => 'Conteudo 6',
+            'is_active' => true,
+        ]);
+        AiCompanyKnowledge::create([
+            'company_id' => $company->id,
             'title' => 'Base Inativa',
             'content' => 'Conteudo inativo',
             'is_active' => false,
@@ -209,15 +227,23 @@ class AiConversationContextBuilderTest extends TestCase
         $builder = $this->app->make(AiConversationContextBuilder::class);
         $context = $builder->build($conversation, 'Prompt global', null, $settings);
 
-        $this->assertGreaterThanOrEqual(2, count($context));
-        $this->assertSame(AiMessage::ROLE_SYSTEM, $context[1]['role']);
-        $this->assertStringContainsString('Base de conhecimento da empresa:', $context[1]['content']);
-        $this->assertStringContainsString('Base 4', $context[1]['content']);
-        $this->assertStringContainsString('Base 3', $context[1]['content']);
-        $this->assertStringContainsString('Base 2', $context[1]['content']);
-        $this->assertStringNotContainsString('Base 1', $context[1]['content']);
-        $this->assertStringNotContainsString('Base Inativa', $context[1]['content']);
-        $this->assertStringNotContainsString('Base Outra Empresa', $context[1]['content']);
+        $knowledgePrompt = collect($context)
+            ->first(fn (array $item) => str_contains((string) ($item['content'] ?? ''), 'Informacoes da empresa:'));
+
+        $this->assertNotNull($knowledgePrompt);
+        $this->assertStringContainsString('- Base 6: Conteudo 6', $knowledgePrompt['content']);
+        $this->assertStringContainsString('- Base 5: Conteudo 5', $knowledgePrompt['content']);
+        $this->assertStringContainsString('- Base 4: Conteudo 4', $knowledgePrompt['content']);
+        $this->assertStringContainsString('- Base 3: Conteudo 3', $knowledgePrompt['content']);
+        $this->assertStringContainsString('- Base 2: Conteudo 2', $knowledgePrompt['content']);
+        $this->assertStringNotContainsString('Base 1', $knowledgePrompt['content']);
+        $this->assertStringNotContainsString('Base Inativa', $knowledgePrompt['content']);
+        $this->assertStringNotContainsString('Base Outra Empresa', $knowledgePrompt['content']);
+
+        $toolsPrompt = $context[count($context) - 1];
+        $this->assertSame(AiMessage::ROLE_SYSTEM, $toolsPrompt['role']);
+        $this->assertStringContainsString('Ferramentas disponiveis:', $toolsPrompt['content']);
+        $this->assertStringContainsString('get_customer_by_phone', $toolsPrompt['content']);
     }
 
     private function createCompanyUser(Company $company, string $email): User

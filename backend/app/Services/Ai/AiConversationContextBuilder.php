@@ -2,13 +2,18 @@
 
 namespace App\Services\Ai;
 
-use App\Models\AiCompanyKnowledge;
 use App\Models\AiConversation;
 use App\Models\AiMessage;
 use App\Models\CompanyBotSetting;
+use App\Services\Ai\Tools\AiToolManager;
 
 class AiConversationContextBuilder
 {
+    public function __construct(
+        private readonly AiCompanyKnowledgeService $knowledgeService,
+        private readonly AiToolManager $toolManager
+    ) {}
+
     /**
      * @return array<int, array<string, string>>
      */
@@ -19,6 +24,16 @@ class AiConversationContextBuilder
         ?CompanyBotSetting $companySettings = null
     ): array {
         $messages = [];
+        $limit = $this->resolveHistoryLimit($historyLimit, $companySettings);
+
+        $history = AiMessage::query()
+            ->where('ai_conversation_id', (int) $conversation->id)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->limit($limit)
+            ->get(['id', 'role', 'content', 'created_at'])
+            ->reverse()
+            ->values();
 
         $prompt = $this->buildSystemPrompt($systemPrompt, $companySettings);
         if ($prompt !== '') {
@@ -36,15 +51,13 @@ class AiConversationContextBuilder
             ];
         }
 
-        $limit = $this->resolveHistoryLimit($historyLimit, $companySettings);
-
-        $history = AiMessage::query()
-            ->where('ai_conversation_id', (int) $conversation->id)
-            ->orderByDesc('id')
-            ->limit($limit)
-            ->get(['id', 'role', 'content'])
-            ->reverse()
-            ->values();
+        $historyPrompt = $this->buildHistoryPrompt($history);
+        if ($historyPrompt !== '') {
+            $messages[] = [
+                'role' => AiMessage::ROLE_SYSTEM,
+                'content' => $historyPrompt,
+            ];
+        }
 
         foreach ($history as $item) {
             $role = $this->normalizeRole((string) ($item->role ?? ''));
@@ -57,6 +70,14 @@ class AiConversationContextBuilder
             $messages[] = [
                 'role' => $role,
                 'content' => $content,
+            ];
+        }
+
+        $toolsPrompt = $this->buildToolsPrompt();
+        if ($toolsPrompt !== '') {
+            $messages[] = [
+                'role' => AiMessage::ROLE_SYSTEM,
+                'content' => $toolsPrompt,
             ];
         }
 
@@ -75,7 +96,7 @@ class AiConversationContextBuilder
             $configured = (int) config('ai.history_messages_limit', 20);
         }
 
-        return min(100, max(1, (int) $configured));
+        return min(20, max(10, (int) $configured));
     }
 
     private function buildSystemPrompt(?string $systemPrompt, ?CompanyBotSetting $companySettings): string
@@ -120,25 +141,15 @@ class AiConversationContextBuilder
 
     private function buildKnowledgePrompt(int $companyId): string
     {
-        if ($companyId <= 0) {
-            return '';
-        }
-
-        $knowledgeItems = AiCompanyKnowledge::query()
-            ->where('company_id', $companyId)
-            ->where('is_active', true)
-            ->orderByDesc('updated_at')
-            ->orderByDesc('id')
-            ->limit(3)
-            ->get(['title', 'content']);
+        $knowledgeItems = $this->knowledgeService->getActiveForCompany($companyId, 5);
 
         if ($knowledgeItems->isEmpty()) {
             return '';
         }
 
-        $lines = ['Base de conhecimento da empresa:'];
+        $lines = ['Informacoes da empresa:'];
 
-        foreach ($knowledgeItems as $index => $item) {
+        foreach ($knowledgeItems as $item) {
             $title = trim((string) $item->title);
             $content = trim((string) $item->content);
 
@@ -147,8 +158,7 @@ class AiConversationContextBuilder
             }
 
             $label = $title !== '' ? $title : 'Sem titulo';
-            $number = $index + 1;
-            $lines[] = "{$number}. {$label}: {$content}";
+            $lines[] = "- {$label}: {$content}";
         }
 
         if (count($lines) === 1) {
@@ -169,5 +179,66 @@ class AiConversationContextBuilder
             default => null,
         };
     }
-}
 
+    /**
+     * @param  \Illuminate\Support\Collection<int, AiMessage>  $history
+     */
+    private function buildHistoryPrompt(\Illuminate\Support\Collection $history): string
+    {
+        if ($history->isEmpty()) {
+            return '';
+        }
+
+        $lines = ['Historico recente:'];
+
+        foreach ($history as $item) {
+            $role = $this->normalizeRole((string) ($item->role ?? ''));
+            $content = trim((string) ($item->content ?? ''));
+
+            if ($role === null || $content === '') {
+                continue;
+            }
+
+            $label = match ($role) {
+                AiMessage::ROLE_USER => 'User',
+                AiMessage::ROLE_ASSISTANT => 'Assistant',
+                default => 'System',
+            };
+
+            $lines[] = "{$label}: {$content}";
+        }
+
+        if (count($lines) === 1) {
+            return '';
+        }
+
+        return implode(PHP_EOL, $lines);
+    }
+
+    private function buildToolsPrompt(): string
+    {
+        $tools = $this->toolManager->getAvailableTools();
+        if ($tools === []) {
+            return '';
+        }
+
+        $lines = ['Ferramentas disponiveis:'];
+
+        foreach ($tools as $tool) {
+            $name = trim($tool->getName());
+            $description = trim($tool->getDescription());
+
+            if ($name === '') {
+                continue;
+            }
+
+            $lines[] = "- {$name}: {$description}";
+        }
+
+        if (count($lines) === 1) {
+            return '';
+        }
+
+        return implode(PHP_EOL, $lines);
+    }
+}

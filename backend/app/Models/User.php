@@ -45,6 +45,13 @@ class User extends Authenticatable
     ];
 
     /**
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'can_use_ai' => true,
+    ];
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>

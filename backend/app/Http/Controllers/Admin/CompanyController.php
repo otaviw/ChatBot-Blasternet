@@ -79,6 +79,10 @@ class CompanyController extends Controller
             'ai_enabled' => ['sometimes', 'boolean'],
             'ai_internal_chat_enabled' => ['sometimes', 'boolean'],
             'ai_chatbot_enabled' => ['sometimes', 'boolean'],
+            'ai_chatbot_auto_reply_enabled' => ['sometimes', 'boolean'],
+            'ai_chatbot_rules' => ['nullable', 'array'],
+            'ai_usage_enabled' => ['sometimes', 'boolean'],
+            'ai_usage_limit_monthly' => ['nullable', 'integer', 'min:1'],
             'timezone' => ['required', 'string', Rule::in(timezone_identifiers_list())],
             'welcome_message' => ['nullable', 'string', 'max:2000'],
             'fallback_message' => ['nullable', 'string', 'max:2000'],
@@ -117,6 +121,20 @@ class CompanyController extends Controller
         }
         if (array_key_exists('ai_chatbot_enabled', $validated)) {
             $settingsPayload['ai_chatbot_enabled'] = (bool) $validated['ai_chatbot_enabled'];
+        }
+        if (array_key_exists('ai_chatbot_auto_reply_enabled', $validated)) {
+            $settingsPayload['ai_chatbot_auto_reply_enabled'] = (bool) $validated['ai_chatbot_auto_reply_enabled'];
+        }
+        if (array_key_exists('ai_chatbot_rules', $validated)) {
+            $settingsPayload['ai_chatbot_rules'] = $validated['ai_chatbot_rules'];
+        }
+        if (array_key_exists('ai_usage_enabled', $validated)) {
+            $settingsPayload['ai_usage_enabled'] = (bool) $validated['ai_usage_enabled'];
+        }
+        if (array_key_exists('ai_usage_limit_monthly', $validated)) {
+            $settingsPayload['ai_usage_limit_monthly'] = $validated['ai_usage_limit_monthly'] !== null
+                ? (int) $validated['ai_usage_limit_monthly']
+                : null;
         }
 
         $settings = CompanyBotSetting::updateOrCreate(
@@ -162,6 +180,10 @@ class CompanyController extends Controller
             'ai_enabled' => ['sometimes', 'boolean'],
             'ai_internal_chat_enabled' => ['sometimes', 'boolean'],
             'ai_chatbot_enabled' => ['sometimes', 'boolean'],
+            'ai_chatbot_auto_reply_enabled' => ['sometimes', 'boolean'],
+            'ai_chatbot_rules' => ['nullable', 'array'],
+            'ai_usage_enabled' => ['sometimes', 'boolean'],
+            'ai_usage_limit_monthly' => ['nullable', 'integer', 'min:1'],
         ]);
 
         $company = Company::create([
@@ -176,6 +198,10 @@ class CompanyController extends Controller
                 'ai_enabled' => (bool) ($validated['ai_enabled'] ?? false),
                 'ai_internal_chat_enabled' => (bool) ($validated['ai_internal_chat_enabled'] ?? false),
                 'ai_chatbot_enabled' => (bool) ($validated['ai_chatbot_enabled'] ?? false),
+                'ai_chatbot_auto_reply_enabled' => (bool) ($validated['ai_chatbot_auto_reply_enabled'] ?? false),
+                'ai_chatbot_rules' => $validated['ai_chatbot_rules'] ?? null,
+                'ai_usage_enabled' => (bool) ($validated['ai_usage_enabled'] ?? true),
+                'ai_usage_limit_monthly' => $validated['ai_usage_limit_monthly'] ?? null,
                 'timezone' => 'America/Sao_Paulo',
                 'welcome_message' => 'Oi. Como posso ajudar?',
                 'fallback_message' => 'Não entendi sua mensagem. Pode reformular?',
@@ -225,6 +251,10 @@ class CompanyController extends Controller
             'ai_enabled' => ['sometimes', 'boolean'],
             'ai_internal_chat_enabled' => ['sometimes', 'boolean'],
             'ai_chatbot_enabled' => ['sometimes', 'boolean'],
+            'ai_chatbot_auto_reply_enabled' => ['sometimes', 'boolean'],
+            'ai_chatbot_rules' => ['nullable', 'array'],
+            'ai_usage_enabled' => ['sometimes', 'boolean'],
+            'ai_usage_limit_monthly' => ['nullable', 'integer', 'min:1'],
         ]);
 
         $before = [
@@ -247,6 +277,20 @@ class CompanyController extends Controller
         }
         if (array_key_exists('ai_chatbot_enabled', $validated)) {
             $aiSettingsPayload['ai_chatbot_enabled'] = (bool) $validated['ai_chatbot_enabled'];
+        }
+        if (array_key_exists('ai_chatbot_auto_reply_enabled', $validated)) {
+            $aiSettingsPayload['ai_chatbot_auto_reply_enabled'] = (bool) $validated['ai_chatbot_auto_reply_enabled'];
+        }
+        if (array_key_exists('ai_chatbot_rules', $validated)) {
+            $aiSettingsPayload['ai_chatbot_rules'] = $validated['ai_chatbot_rules'];
+        }
+        if (array_key_exists('ai_usage_enabled', $validated)) {
+            $aiSettingsPayload['ai_usage_enabled'] = (bool) $validated['ai_usage_enabled'];
+        }
+        if (array_key_exists('ai_usage_limit_monthly', $validated)) {
+            $aiSettingsPayload['ai_usage_limit_monthly'] = $validated['ai_usage_limit_monthly'] !== null
+                ? (int) $validated['ai_usage_limit_monthly']
+                : null;
         }
 
         if ($aiSettingsPayload !== []) {
