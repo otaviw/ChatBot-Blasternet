@@ -42,7 +42,10 @@ function groupReactionsByEmoji(reactions) {
 
 function AudioPlayer({ src, mimeType }) {
   const [cannotPlay, setCannotPlay] = React.useState(false);
-  const type = mimeType || 'audio/ogg; codecs=opus';
+
+  // Garante codec no MIME — sem "codecs=opus" o Chrome/Firefox rejeita OGG do WhatsApp
+  const rawType = mimeType || 'audio/ogg';
+  const type = rawType === 'audio/ogg' ? 'audio/ogg; codecs=opus' : rawType;
 
   if (cannotPlay) {
     return (

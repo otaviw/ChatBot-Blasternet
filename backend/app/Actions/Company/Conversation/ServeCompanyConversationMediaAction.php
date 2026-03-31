@@ -38,7 +38,14 @@ class ServeCompanyConversationMediaAction
         ];
 
         if ($message->media_mime_type) {
-            $headers['Content-Type'] = (string) $message->media_mime_type;
+            $mime = (string) $message->media_mime_type;
+
+            // OGG sem codec declarado: browsers rejeitam sem "codecs=opus"
+            if ($mime === 'audio/ogg' && $message->content_type === 'audio') {
+                $mime = 'audio/ogg; codecs=opus';
+            }
+
+            $headers['Content-Type'] = $mime;
         }
 
         if ($message->content_type === 'document') {

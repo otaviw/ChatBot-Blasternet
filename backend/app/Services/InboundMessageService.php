@@ -192,6 +192,18 @@ class InboundMessageService
             );
         }
 
+        if ($storedMedia === null) {
+            Log::warning('handleIncomingMedia: download de mídia falhou ou retornou vazio.', [
+                'company_id'   => $company?->id,
+                'from'         => $normalizedFrom,
+                'media_id'     => $normalizedMediaId,
+                'incoming_type' => $inMeta['incoming_type'] ?? 'unknown',
+                'download_null' => $download === null,
+                'binary_empty' => $download !== null && ($download['binary'] ?? '') === '',
+                'mime_type'    => $download['mime_type'] ?? null,
+            ]);
+        }
+
         $meta = array_merge($inMeta, [
             'media_id' => $normalizedMediaId,
             'media_downloaded' => $storedMedia !== null,
