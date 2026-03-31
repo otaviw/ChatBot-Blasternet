@@ -81,13 +81,13 @@ class MessageMediaStorageService
         $height = is_int($dimensions[1] ?? null) ? $dimensions[1] : null;
 
         return [
-            'provider' => $disk,
-            'key' => $key,
-            'url' => $this->resolveUrl($disk, $key),
-            'mime_type' => $mime,
+            'provider'   => $disk,
+            'key'        => $key,
+            'url'        => $this->resolveUrl($disk, $key),
+            'mime_type'  => $this->normalizeMimeType($mimeType, preserveCodec: true),
             'size_bytes' => strlen($binary),
-            'width' => $width,
-            'height' => $height,
+            'width'      => $width,
+            'height'     => $height,
         ];
     }
 
@@ -110,14 +110,19 @@ class MessageMediaStorageService
         }
     }
 
-    private function normalizeMimeType(?string $mimeType): string
+    private function normalizeMimeType(?string $mimeType, bool $preserveCodec = false): string
     {
         $value = trim((string) $mimeType);
         if ($value === '') {
             return 'application/octet-stream';
         }
 
-        // Strip codec/parameter suffix, e.g. "audio/ogg; codecs=opus" → "audio/ogg"
+        if ($preserveCodec) {
+            return $value;
+        }
+
+        // Strip codec/parameter suffix apenas para resolução de extensão.
+        // Ex: "audio/ogg; codecs=opus" → "audio/ogg"
         if (str_contains($value, ';')) {
             $value = trim(explode(';', $value)[0]);
         }

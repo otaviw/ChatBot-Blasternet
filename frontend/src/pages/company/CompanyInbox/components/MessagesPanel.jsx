@@ -1,3 +1,4 @@
+import React from 'react';
 import { MESSAGE_DELIVERY_STATUS } from '@/constants/messageDeliveryStatus';
 
 const OUTBOUND_STATUS_LABELS = {
@@ -37,6 +38,33 @@ function groupReactionsByEmoji(reactions) {
     emoji,
     count,
   }));
+}
+
+function AudioPlayer({ src, mimeType }) {
+  const [cannotPlay, setCannotPlay] = React.useState(false);
+  const type = mimeType || 'audio/ogg; codecs=opus';
+
+  if (cannotPlay) {
+    return (
+      <a
+        href={src}
+        download
+        className="inline-flex items-center gap-1 p-2 bg-gray-100 rounded text-xs text-gray-600 hover:bg-gray-200"
+      >
+        🎵 Baixar áudio (formato não suportado neste navegador)
+      </a>
+    );
+  }
+
+  return (
+    <audio
+      controls
+      className="w-full max-w-md rounded"
+      onError={() => setCannotPlay(true)}
+    >
+      <source src={src} type={type} onError={() => setCannotPlay(true)} />
+    </audio>
+  );
 }
 
 function MessagesPanel({
@@ -130,10 +158,7 @@ function MessagesPanel({
                 : msg.content_type === 'audio' ? (
                   <div className="company-inbox-message-media">
                     {msg.media_key ? (
-                      <audio controls className="w-full max-w-md rounded">
-                        <source src={getMessageImageUrl(msg)} type={msg.media_mime_type || 'audio/ogg; codecs=opus'} />
-                        Seu navegador não suporta áudio.
-                      </audio>
+                      <AudioPlayer src={getMessageImageUrl(msg)} mimeType={msg.media_mime_type} />
                     ) : (
                       <span className="inbox-message-text text-xs text-gray-400">Áudio indisponível</span>
                     )}

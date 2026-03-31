@@ -33,7 +33,10 @@ class ServeCompanyConversationMediaAction
             return response()->json(['message' => 'Arquivo de mídia não encontrado.'], 404);
         }
 
-        $headers = [];
+        $headers = [
+            'Accept-Ranges' => 'bytes',
+        ];
+
         if ($message->media_mime_type) {
             $headers['Content-Type'] = (string) $message->media_mime_type;
         }
