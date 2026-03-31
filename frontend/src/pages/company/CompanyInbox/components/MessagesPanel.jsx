@@ -45,7 +45,7 @@ function AudioPlayer({ src }) {
   const [playing, setPlaying] = React.useState(false);
   const [currentTime, setCurrentTime] = React.useState(0);
   const [duration, setDuration] = React.useState(0);
-  const [error, setError] = React.useState(false);
+  const [playError, setPlayError] = React.useState(null);
 
   const toggle = () => {
     const el = audioRef.current;
@@ -53,7 +53,8 @@ function AudioPlayer({ src }) {
     if (playing) {
       el.pause();
     } else {
-      el.play().catch(() => setError(true));
+      setPlayError(null);
+      el.play().catch((e) => setPlayError(String(e)));
     }
   };
 
@@ -67,61 +68,58 @@ function AudioPlayer({ src }) {
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
-    <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded max-w-xs w-full">
+    <div className="flex flex-col gap-1 max-w-xs w-full">
+      {/* elemento oculto — sem preload para evitar onError espúrio */}
       <audio
         ref={audioRef}
         src={src}
-        preload="metadata"
+        preload="none"
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
         onEnded={() => { setPlaying(false); setCurrentTime(0); }}
         onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime ?? 0)}
         onLoadedMetadata={() => setDuration(audioRef.current?.duration ?? 0)}
-        onError={() => setError(true)}
       />
 
-      {error ? (
-        <a href={src} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">
-          Baixar áudio
-        </a>
-      ) : (
-        <>
-          <button
-            type="button"
-            onClick={toggle}
-            className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-blue-500 text-white hover:bg-blue-600"
-          >
-            {playing ? (
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-                <rect x="1" y="1" width="3.5" height="10" rx="1" />
-                <rect x="7.5" y="1" width="3.5" height="10" rx="1" />
-              </svg>
-            ) : (
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-                <path d="M2 1.5l9 4.5-9 4.5z" />
-              </svg>
-            )}
-          </button>
+      <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded">
+        <button
+          type="button"
+          onClick={toggle}
+          className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-blue-500 text-white hover:bg-blue-600"
+        >
+          {playing ? (
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+              <rect x="1" y="1" width="3.5" height="10" rx="1" />
+              <rect x="7.5" y="1" width="3.5" height="10" rx="1" />
+            </svg>
+          ) : (
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+              <path d="M2 1.5l9 4.5-9 4.5z" />
+            </svg>
+          )}
+        </button>
 
-          <div className="flex-1 flex flex-col gap-1 min-w-0">
-            <div
-              className="h-1.5 bg-gray-300 rounded-full cursor-pointer"
-              onClick={(e) => {
-                const el = audioRef.current;
-                if (!el || !duration) return;
-                const rect = e.currentTarget.getBoundingClientRect();
-                const ratio = (e.clientX - rect.left) / rect.width;
-                el.currentTime = ratio * duration;
-              }}
-            >
-              <div className="h-1.5 bg-blue-500 rounded-full" style={{ width: `${progress}%` }} />
-            </div>
-            <div className="flex justify-between text-[10px] text-gray-500">
-              <span>{formatTime(currentTime)}</span>
-              <span>{formatTime(duration)}</span>
-            </div>
+        <div className="flex-1 flex flex-col gap-1 min-w-0">
+          <div
+            className="h-1.5 bg-gray-300 rounded-full cursor-pointer"
+            onClick={(e) => {
+              const el = audioRef.current;
+              if (!el || !duration) return;
+              const rect = e.currentTarget.getBoundingClientRect();
+              const ratio = (e.clientX - rect.left) / rect.width;
+              el.currentTime = ratio * duration;
+            }}
+          >
+            <div className="h-1.5 bg-blue-500 rounded-full" style={{ width: `${progress}%` }} />
           </div>
-        </>
+          <div className="flex justify-between text-[10px] text-gray-500">
+            <span>{formatTime(currentTime)}</span>
+            <span>{formatTime(duration)}</span>
+          </div>
+        </div>
+      </div>
+      {playError && (
+        <span className="text-[10px] text-red-400">Erro ao reproduzir. <a href={src} target="_blank" rel="noreferrer" className="underline">Baixar</a></span>
       )}
     </div>
   );
