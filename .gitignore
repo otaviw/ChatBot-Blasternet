@@ -78,3 +78,8 @@ backend/storage/framework/views/*
 # ------------------------------
 .phpactor.json
 auth.json
+
+# ------------------------------
+# Claude Code
+# ------------------------------
+.claude/settings.local.json

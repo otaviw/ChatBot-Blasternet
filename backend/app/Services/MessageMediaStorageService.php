@@ -117,6 +117,11 @@ class MessageMediaStorageService
             return 'application/octet-stream';
         }
 
+        // Strip codec/parameter suffix, e.g. "audio/ogg; codecs=opus" → "audio/ogg"
+        if (str_contains($value, ';')) {
+            $value = trim(explode(';', $value)[0]);
+        }
+
         return $value;
     }
 
@@ -128,11 +133,35 @@ class MessageMediaStorageService
         }
 
         return match ($mimeType) {
-            'image/jpeg' => 'jpg',
-            'image/png' => 'png',
-            'image/webp' => 'webp',
-            'image/gif' => 'gif',
-            default => 'bin',
+            // Imagens
+            'image/jpeg'    => 'jpg',
+            'image/png'     => 'png',
+            'image/webp'    => 'webp',
+            'image/gif'     => 'gif',
+            // Áudio
+            'audio/ogg'     => 'ogg',
+            'audio/mpeg'    => 'mp3',
+            'audio/mp4'     => 'm4a',
+            'audio/aac'     => 'aac',
+            'audio/wav'     => 'wav',
+            'audio/webm'    => 'weba',
+            // Vídeo
+            'video/mp4'     => 'mp4',
+            'video/mpeg'    => 'mpeg',
+            'video/webm'    => 'webm',
+            'video/3gpp'    => '3gp',
+            'video/quicktime' => 'mov',
+            // Documentos
+            'application/pdf' => 'pdf',
+            'application/msword' => 'doc',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
+            'application/vnd.ms-excel' => 'xls',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xlsx',
+            'application/vnd.ms-powerpoint' => 'ppt',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation' => 'pptx',
+            'text/plain'    => 'txt',
+            'application/zip' => 'zip',
+            default         => 'bin',
         };
     }
 }

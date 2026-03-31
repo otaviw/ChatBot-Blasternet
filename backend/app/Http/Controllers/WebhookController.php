@@ -205,12 +205,13 @@ class WebhookController extends Controller
                     $contactName
                 );
 
-                Log::info('Webhook WhatsApp recebido com tipo ainda nao tratado para auto resposta.', [
+                Log::info('Webhook imagem processada.', [
                     'company_id' => $company->id,
                     'from' => $from,
-                    'message_type' => $messageType,
                     'message_id' => $messageId,
                 ]);
+
+                continue;
             }
 
             if ($messageType === 'audio') {
@@ -234,19 +235,23 @@ class WebhookController extends Controller
                     $contactName
                 );
 
-                Log::info('Webhook WhatsApp processado audio.', [
+                Log::info('Webhook audio processado.', [
                     'company_id' => $company->id,
                     'from' => $from,
-                    'message_type' => $messageType,
                     'message_id' => $messageId,
                 ]);
+
+                continue;
             }
 
             if ($messageType === 'video') {
                 $mediaId = (string) ($msg['video']['id'] ?? '');
                 $caption = (string) ($msg['video']['caption'] ?? '');
-                if (trim($mediaId) === '') continue;
-                $this->inboundMessage->handleIncomingMedia(  
+                if (trim($mediaId) === '') {
+                    continue;
+                }
+
+                $this->inboundMessage->handleIncomingMedia(
                     $company,
                     $from,
                     $mediaId,
@@ -254,14 +259,20 @@ class WebhookController extends Controller
                     ['wamid' => $messageId, 'from' => $from, 'source' => 'webhook', 'incoming_type' => 'video'],
                     $contactName
                 );
+
                 Log::info('Webhook video processado.', ['company_id' => $company->id, 'from' => $from]);
+
+                continue;
             }
 
             if ($messageType === 'document') {
                 $mediaId = (string) ($msg['document']['id'] ?? '');
                 $caption = (string) ($msg['document']['caption'] ?? '');
-                $filename = (string) ($msg['document']['filename'] ?? 'documento.pdf');
-                if (trim($mediaId) === '') continue;
+                $filename = (string) ($msg['document']['filename'] ?? 'documento');
+                if (trim($mediaId) === '') {
+                    continue;
+                }
+
                 $this->inboundMessage->handleIncomingMedia(
                     $company,
                     $from,
@@ -270,12 +281,18 @@ class WebhookController extends Controller
                     ['wamid' => $messageId, 'from' => $from, 'source' => 'webhook', 'incoming_type' => 'document', 'filename' => $filename],
                     $contactName
                 );
+
                 Log::info('Webhook document processado.', ['company_id' => $company->id, 'from' => $from]);
+
+                continue;
             }
 
             if ($messageType === 'sticker') {
                 $mediaId = (string) ($msg['sticker']['id'] ?? '');
-                if (trim($mediaId) === '') continue;
+                if (trim($mediaId) === '') {
+                    continue;
+                }
+
                 $this->inboundMessage->handleIncomingMedia(
                     $company,
                     $from,
@@ -284,7 +301,10 @@ class WebhookController extends Controller
                     ['wamid' => $messageId, 'from' => $from, 'source' => 'webhook', 'incoming_type' => 'sticker'],
                     $contactName
                 );
+
                 Log::info('Webhook sticker processado.', ['company_id' => $company->id]);
+
+                continue;
             }
 
             if ($messageType === 'location') {
@@ -292,16 +312,21 @@ class WebhookController extends Controller
                 $longitude = (float) ($msg['location']['longitude'] ?? 0);
                 $name = (string) ($msg['location']['name'] ?? '');
                 $address = (string) ($msg['location']['address'] ?? '');
-                $inMessage = Message::create([
-                    'conversation_id' => $conversation->id ?? 0, 
-                    'direction' => 'in',
-                    'type' => 'user',
-                    'content_type' => 'location',
-                    'text' => json_encode(compact('latitude', 'longitude', 'name', 'address')),
-                    'whatsapp_message_id' => $messageId,
-                    'meta' => ['incoming_type' => 'location']
-                ]);
+
+                $this->inboundMessage->handleIncomingLocation(
+                    $company,
+                    $from,
+                    $latitude,
+                    $longitude,
+                    $name,
+                    $address,
+                    ['wamid' => $messageId, 'from' => $from, 'source' => 'webhook', 'incoming_type' => 'location'],
+                    $contactName
+                );
+
                 Log::info('Webhook location processado.', ['company_id' => $company->id]);
+
+                continue;
             }
         }
     }

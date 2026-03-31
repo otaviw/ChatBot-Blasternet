@@ -16,6 +16,7 @@ class Message extends Model
         'media_key',
         'media_url',
         'media_mime_type',
+        'media_filename',
         'media_size_bytes',
         'media_width',
         'media_height',

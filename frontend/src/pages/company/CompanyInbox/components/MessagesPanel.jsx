@@ -8,35 +8,6 @@ const OUTBOUND_STATUS_LABELS = {
   [MESSAGE_DELIVERY_STATUS.FAILED]: 'Falhou',
 };
 
-const handleDownloadDocument = async (msg) => {
-  try {
-    const response = await fetch(
-      `/api/conversations/${conversation.id}/messages/${msg.id}/download`,
-      {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${authToken}`,  // Se usar Sanctum
-        }
-      }
-    );
-
-    if (!response.ok) throw new Error('Erro ao baixar');
-
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = msg.media_filename || 'documento';
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    a.remove();
-  } catch (error) {
-    console.error('Download falhou:', error);
-    alert('Erro ao baixar arquivo');
-  }
-};
-
 function normalizeOutboundStatus(message) {
   const raw = String(message?.delivery_status ?? '').trim().toLowerCase();
   if (raw && OUTBOUND_STATUS_LABELS[raw]) {
@@ -77,6 +48,26 @@ function MessagesPanel({
   messagesLoadingOlder,
   getMessageImageUrl,
 }) {
+  const handleDownloadDocument = async (msg) => {
+    const mediaUrl = getMessageImageUrl(msg);
+    try {
+      const response = await fetch(mediaUrl, { credentials: 'same-origin' });
+      if (!response.ok) throw new Error('Erro ao baixar');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = msg.media_filename || 'documento';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+    } catch (error) {
+      console.error('Download falhou:', error);
+      alert('Erro ao baixar arquivo');
+    }
+  };
+
   return (
     <>
       {messagesPagination && messagesPagination.last_page > 1 && (

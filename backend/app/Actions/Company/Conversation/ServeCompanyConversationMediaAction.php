@@ -17,7 +17,7 @@ class ServeCompanyConversationMediaAction
     {
         $message = Message::query()
             ->whereKey($messageId)
-            ->where('content_type', 'image')
+            ->whereNotNull('media_key')
             ->whereHas('conversation', function ($query) use ($user) {
                 $query->where('company_id', (int) $user->company_id);
                 $this->conversationSupport->applyInboxVisibilityScope($query, $user);
@@ -36,6 +36,11 @@ class ServeCompanyConversationMediaAction
         $headers = [];
         if ($message->media_mime_type) {
             $headers['Content-Type'] = (string) $message->media_mime_type;
+        }
+
+        if ($message->content_type === 'document') {
+            $filename = $message->media_filename ?: 'arquivo';
+            $headers['Content-Disposition'] = 'attachment; filename="' . addslashes($filename) . '"';
         }
 
         return Storage::disk($disk)->response($message->media_key, null, $headers);

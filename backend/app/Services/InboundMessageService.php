@@ -209,11 +209,56 @@ class InboundMessageService
             'media_key' => $storedMedia['key'] ?? null,
             'media_url' => $storedMedia['url'] ?? null,
             'media_mime_type' => $storedMedia['mime_type'] ?? null,
+            'media_filename' => isset($inMeta['filename']) ? (string) $inMeta['filename'] : null,
             'media_size_bytes' => $storedMedia['size_bytes'] ?? null,
             'media_width' => $storedMedia['width'] ?? null,
             'media_height' => $storedMedia['height'] ?? null,
             'whatsapp_message_id' => $this->extractWhatsAppMessageId($meta),
             'meta' => $meta,
+        ]);
+
+        if ($conversation->isManualMode()) {
+            $conversation->status = ConversationStatus::IN_PROGRESS;
+            $conversation->save();
+        }
+
+        return [
+            'conversation' => $conversation,
+            'in_message' => $inMessage,
+            'out_message' => null,
+            'reply' => null,
+            'was_sent' => false,
+            'auto_replied' => false,
+        ];
+    }
+
+    public function handleIncomingLocation(
+        ?Company $company,
+        string $from,
+        float $latitude,
+        float $longitude,
+        string $name = '',
+        string $address = '',
+        array $inMeta = [],
+        ?string $contactName = null
+    ): array {
+        $normalizedFrom = $this->normalizePhone($from);
+        $normalizedContactName = $this->normalizeContactName($contactName);
+
+        if ($normalizedFrom === '') {
+            throw new InvalidArgumentException('Phone é obrigatório para processar localização.');
+        }
+
+        $conversation = $this->bootstrapConversation($company, $normalizedFrom, $normalizedContactName);
+
+        $inMessage = Message::create([
+            'conversation_id' => $conversation->id,
+            'direction' => 'in',
+            'type' => 'user',
+            'content_type' => 'location',
+            'text' => json_encode(compact('latitude', 'longitude', 'name', 'address')),
+            'whatsapp_message_id' => $this->extractWhatsAppMessageId($inMeta),
+            'meta' => $inMeta,
         ]);
 
         if ($conversation->isManualMode()) {
