@@ -1,17 +1,20 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
     public function up(): void
     {
+        // SQLite não suporta ADD/DROP CONSTRAINT — aplicar apenas no PostgreSQL/MySQL
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            return;
+        }
+
         DB::statement('ALTER TABLE messages DROP CONSTRAINT IF EXISTS messages_content_type_check');
 
-        DB::statement("ALTER TABLE messages ADD CONSTRAINT messages_content_type_check 
+        DB::statement("ALTER TABLE messages ADD CONSTRAINT messages_content_type_check
             CHECK (content_type IN (
                 'text', 'image', 'video', 'audio', 'document', 'sticker', 'location', 'contacts'
             ))");
@@ -19,9 +22,12 @@ return new class extends Migration
 
     public function down(): void
     {
-        // Reverte (só originais, sem novos)
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            return;
+        }
+
         DB::statement('ALTER TABLE messages DROP CONSTRAINT IF EXISTS messages_content_type_check');
-        DB::statement("ALTER TABLE messages ADD CONSTRAINT messages_content_type_check 
-            CHECK (content_type IN ('text', 'image'))");  // Ajuste pros seus originais
+        DB::statement("ALTER TABLE messages ADD CONSTRAINT messages_content_type_check
+            CHECK (content_type IN ('text', 'image'))");
     }
 };

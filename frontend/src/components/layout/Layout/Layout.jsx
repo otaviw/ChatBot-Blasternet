@@ -396,7 +396,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
 
     if (canManageUsers) links.push({ href: '/minha-conta/usuarios', label: 'Usuários' });
     return links;
-  }, [canAccessInternalAiChat, canManageUsers]);
+  }, [canAccessInternalAiChat, canManageUsers, userData?.role]);
 
   const companySupportLinks = [
     { href: '/suporte', label: 'Suporte' },
