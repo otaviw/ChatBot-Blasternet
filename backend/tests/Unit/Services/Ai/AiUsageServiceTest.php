@@ -55,7 +55,7 @@ class AiUsageServiceTest extends TestCase
             'feature' => AiUsage::FEATURE_INTERNAL_CHAT,
             'tokens_used' => null,
             'tool_used' => null,
-            'created_at' => now()->subMonth()->startOfMonth(),
+            'created_at' => now()->startOfMonth()->subDay()->startOfMonth(),
         ]);
         AiUsage::create([
             'company_id' => $companyA->id,

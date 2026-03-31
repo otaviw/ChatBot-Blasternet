@@ -129,39 +129,48 @@ function MessagesPanel({
 
                 : msg.content_type === 'audio' ? (
                   <div className="company-inbox-message-media">
-                    <audio
-                      controls
-                      className="w-full max-w-md rounded"
-                      src={getMessageImageUrl(msg)}
-                      type={msg.media_mime_type || 'audio/ogg; codecs=opus'}
-                    >
-                      Seu navegador não suporta áudio.
-                    </audio>
+                    {msg.media_key ? (
+                      <audio controls className="w-full max-w-md rounded">
+                        <source src={getMessageImageUrl(msg)} type={msg.media_mime_type || 'audio/ogg; codecs=opus'} />
+                        Seu navegador não suporta áudio.
+                      </audio>
+                    ) : (
+                      <span className="inbox-message-text text-xs text-gray-400">Áudio indisponível</span>
+                    )}
                     {msg.text ? <p className="company-inbox-message-caption text-xs mt-1">{msg.text}</p> : null}
                   </div>)
 
                   : msg.content_type === 'video' ? (
                     <div className="company-inbox-message-media">
-                      <video controls className="w-full max-w-md rounded" src={getMessageImageUrl(msg)}>
-                        Seu navegador não suporta vídeo.
-                      </video>
+                      {msg.media_key ? (
+                        <video controls className="w-full max-w-md rounded">
+                          <source src={getMessageImageUrl(msg)} type={msg.media_mime_type || 'video/mp4'} />
+                          Seu navegador não suporta vídeo.
+                        </video>
+                      ) : (
+                        <span className="inbox-message-text text-xs text-gray-400">Vídeo indisponível</span>
+                      )}
                       {msg.text && <p className="company-inbox-message-caption">{msg.text}</p>}
                     </div>
                   )
 
                     : msg.content_type === 'document' ? (
                       <div className="company-inbox-message-media">
-                        <button
-                          onClick={() => handleDownloadDocument(msg)}
-                          className="inline-flex items-center p-2 bg-blue-100 rounded text-sm hover:bg-blue-200 cursor-pointer"
-                        >
-                          {msg.media_filename || 'Documento'}
-                          {msg.media_size_bytes && (
-                            <span className="ml-2 text-xs text-gray-500">
-                              ({(msg.media_size_bytes / 1024 / 1024).toFixed(1)} MB)
-                            </span>
-                          )}
-                        </button>
+                        {msg.media_key ? (
+                          <button
+                            onClick={() => handleDownloadDocument(msg)}
+                            className="inline-flex items-center p-2 bg-blue-100 rounded text-sm hover:bg-blue-200 cursor-pointer"
+                          >
+                            {msg.media_filename || 'Documento'}
+                            {msg.media_size_bytes && (
+                              <span className="ml-2 text-xs text-gray-500">
+                                ({(msg.media_size_bytes / 1024 / 1024).toFixed(1)} MB)
+                              </span>
+                            )}
+                          </button>
+                        ) : (
+                          <span className="inbox-message-text text-xs text-gray-400">Documento indisponível</span>
+                        )}
                         {msg.text && <p className="company-inbox-message-caption">{msg.text}</p>}
                       </div>
                     )

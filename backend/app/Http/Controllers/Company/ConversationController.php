@@ -16,6 +16,7 @@ use App\Services\Company\CompanyConversationSupportService;
 use App\Services\MessageDeliveryStatusService;
 use App\Services\MessageMediaStorageService;
 use App\Services\WhatsAppSendService;
+use Illuminate\Support\Facades\Storage;
 use App\Support\ConversationAssignedType;
 use App\Support\ConversationHandlingMode;
 use App\Support\ConversationStatus;
@@ -277,7 +278,8 @@ class ConversationController extends Controller
                     $trimmedText
                 );
             } else {
-                $filePath = storage_path("app/public/{$message->media_key}");
+                $disk = $message->media_provider ?: config('whatsapp.media_disk', 'public');
+                $filePath = Storage::disk($disk)->path($message->media_key);
                 $sendResult = $this->whatsAppSend->sendMediaFile(
                     $conversation->company,
                     $conversation->customer_phone,
