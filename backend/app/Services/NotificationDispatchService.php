@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\ChatConversation;
 use App\Models\ChatMessage;
 use App\Models\Conversation;
 use App\Models\ConversationTransfer;
@@ -270,6 +271,144 @@ class NotificationDispatchService
                 ],
             ]);
         }
+    }
+
+    public function dispatchConversationClosedNotification(
+        Conversation $conversation,
+        string $prevAssignedType,
+        ?int $prevAssignedId,
+        int $closedByUserId
+    ): void {
+        if ($prevAssignedType !== 'user' || ! $prevAssignedId || $prevAssignedId === $closedByUserId) {
+            return;
+        }
+
+        $targetUserId = User::query()
+            ->where('id', $prevAssignedId)
+            ->where('is_active', true)
+            ->value('id');
+
+        if (! $targetUserId) {
+            return;
+        }
+
+        $customerLabel = trim((string) ($conversation->customer_name ?: $conversation->customer_phone));
+        $title = 'Conversa encerrada';
+        $text = $customerLabel !== ''
+            ? "A conversa com {$customerLabel} foi encerrada."
+            : 'Uma conversa foi encerrada.';
+
+        $this->notificationService->createForUser((int) $targetUserId, [
+            'type' => 'conversation_closed',
+            'module' => 'inbox',
+            'title' => $title,
+            'text' => $text,
+            'reference_type' => 'conversation',
+            'reference_id' => (int) $conversation->id,
+            'reference_meta' => [
+                'conversation_id' => (int) $conversation->id,
+                'closed_by_user_id' => $closedByUserId,
+            ],
+        ]);
+    }
+
+    public function dispatchSupportTicketClosedNotification(SupportTicket $ticket): void
+    {
+        $requesterId = $ticket->requester_user_id ? (int) $ticket->requester_user_id : 0;
+        if ($requesterId <= 0) {
+            return;
+        }
+
+        $managedById = $ticket->managed_by_user_id ? (int) $ticket->managed_by_user_id : 0;
+        if ($requesterId === $managedById) {
+            return;
+        }
+
+        $activeRequesterId = User::query()
+            ->where('id', $requesterId)
+            ->where('is_active', true)
+            ->value('id');
+
+        if (! $activeRequesterId) {
+            return;
+        }
+
+        $ticketNumber = (int) ($ticket->ticket_number ?: $ticket->id);
+        $title = "Solicitacao #{$ticketNumber} encerrada";
+        $subject = trim((string) ($ticket->subject ?? ''));
+        $text = $subject !== ''
+            ? "Sua solicitacao \"{$subject}\" foi encerrada."
+            : "Sua solicitacao #{$ticketNumber} foi encerrada.";
+
+        $this->notificationService->createForUser((int) $activeRequesterId, [
+            'type' => 'support_ticket_closed',
+            'module' => 'support',
+            'title' => $title,
+            'text' => $text,
+            'reference_type' => 'support_ticket',
+            'reference_id' => (int) $ticket->id,
+            'reference_meta' => [
+                'ticket_number' => $ticketNumber,
+                'ticket_id' => (int) $ticket->id,
+                'managed_by_user_id' => $managedById > 0 ? $managedById : null,
+            ],
+        ]);
+    }
+
+    public function dispatchChatParticipantAddedNotification(
+        ChatConversation $conversation,
+        int $addedUserId,
+        ?int $addedByUserId
+    ): void {
+        if ($addedUserId <= 0) {
+            return;
+        }
+
+        if ($addedByUserId && $addedUserId === $addedByUserId) {
+            return;
+        }
+
+        $activeAddedUser = User::query()
+            ->where('id', $addedUserId)
+            ->where('is_active', true)
+            ->value('id');
+
+        if (! $activeAddedUser) {
+            return;
+        }
+
+        $adderName = '';
+        if ($addedByUserId) {
+            $adderName = trim((string) (User::query()
+                ->where('id', $addedByUserId)
+                ->value('name') ?? ''));
+        }
+
+        $groupName = trim((string) ($conversation->name ?? ''));
+        $title = 'Voce foi adicionado a um grupo';
+        if ($adderName !== '' && $groupName !== '') {
+            $text = "{$adderName} adicionou voce ao grupo \"{$groupName}\".";
+        } elseif ($adderName !== '') {
+            $text = "{$adderName} adicionou voce a um grupo.";
+        } elseif ($groupName !== '') {
+            $text = "Voce foi adicionado ao grupo \"{$groupName}\".";
+        } else {
+            $text = 'Voce foi adicionado a um grupo no chat interno.';
+        }
+
+        $this->notificationService->createForUser((int) $activeAddedUser, [
+            'type' => 'chat_participant_added',
+            'module' => 'internal_chat',
+            'title' => $title,
+            'text' => $text,
+            'reference_type' => 'chat_conversation',
+            'reference_id' => (int) $conversation->id,
+            'reference_meta' => [
+                'conversation_id' => (int) $conversation->id,
+                'conversation_name' => $groupName,
+                'added_by_user_id' => $addedByUserId,
+            ],
+        ]);
     }
 
     /**

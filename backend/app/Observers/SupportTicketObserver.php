@@ -16,4 +16,15 @@ class SupportTicketObserver implements ShouldHandleEventsAfterCommit
     {
         $this->dispatchService->dispatchSupportTicketCreatedNotification($ticket);
     }
+
+    public function updated(SupportTicket $ticket): void
+    {
+        if (! $ticket->wasChanged('status')) {
+            return;
+        }
+
+        if ((string) $ticket->status === SupportTicket::STATUS_CLOSED) {
+            $this->dispatchService->dispatchSupportTicketClosedNotification($ticket);
+        }
+    }
 }

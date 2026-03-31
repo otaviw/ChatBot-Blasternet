@@ -7,6 +7,7 @@ use App\Models\ChatParticipant;
 use App\Models\User;
 use App\Policies\ChatPolicy;
 use App\Services\Chat\InternalChatConversationService;
+use App\Services\NotificationDispatchService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -16,7 +17,8 @@ class AddGroupParticipantAction
 {
     public function __construct(
         private readonly InternalChatConversationService $chatService,
-        private readonly ChatPolicy $chatPolicy
+        private readonly ChatPolicy $chatPolicy,
+        private readonly NotificationDispatchService $dispatchService
     ) {}
 
     public function handle(Request $request, ChatConversation $conversation): JsonResponse
@@ -120,6 +122,12 @@ class AddGroupParticipantAction
 
         $conversation->refresh();
         $this->chatService->loadConversationSummaryRelations($conversation);
+
+        $this->dispatchService->dispatchChatParticipantAddedNotification(
+            $conversation,
+            $participantId,
+            (int) $user->id
+        );
 
         return response()->json([
             'ok' => true,

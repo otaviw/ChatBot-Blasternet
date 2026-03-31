@@ -15,6 +15,7 @@ use App\Services\AuditLogService;
 use App\Services\Company\CompanyConversationSupportService;
 use App\Services\MessageDeliveryStatusService;
 use App\Services\MessageMediaStorageService;
+use App\Services\NotificationDispatchService;
 use App\Services\WhatsAppSendService;
 use Illuminate\Support\Facades\Storage;
 use App\Support\ConversationAssignedType;
@@ -33,7 +34,8 @@ class ConversationController extends Controller
         private MessageDeliveryStatusService $deliveryStatus,
         private MessageMediaStorageService $mediaStorage,
         private AuditLogService $auditLog,
-        private CompanyConversationSupportService $conversationSupport
+        private CompanyConversationSupportService $conversationSupport,
+        private NotificationDispatchService $dispatchService
     ) {}
 
     public function index(Request $request, ListCompanyConversationsAction $action): JsonResponse
@@ -332,6 +334,9 @@ class ConversationController extends Controller
             return response()->json(['message' => 'Conversa nao encontrada para esta empresa.'], 404);
         }
 
+        $prevAssignedType = (string) $conversation->assigned_type;
+        $prevAssignedId = $conversation->assigned_id ? (int) $conversation->assigned_id : null;
+
         $conversation->status = ConversationStatus::CLOSED;
         $conversation->handling_mode = ConversationHandlingMode::BOT;
         $conversation->assigned_type = ConversationAssignedType::UNASSIGNED;
@@ -342,6 +347,13 @@ class ConversationController extends Controller
         $conversation->assumed_at = null;
         $conversation->closed_at = now();
         $conversation->save();
+
+        $this->dispatchService->dispatchConversationClosedNotification(
+            $conversation,
+            $prevAssignedType,
+            $prevAssignedId,
+            (int) $user->id
+        );
 
         $this->auditLog->record($request, 'company.conversation.closed', $conversation->company_id, [
             'conversation_id' => $conversation->id,
