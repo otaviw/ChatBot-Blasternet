@@ -408,9 +408,7 @@ export default function useNotifications(options = {}) {
         applyUnreadCounters(payload.unreadByModule, payload.totalUnread);
       }
 
-      if (document.hidden) {
-        browserNotificationService.notifyFromAppNotification(normalized);
-      }
+      browserNotificationService.notifyFromAppNotification(normalized);
     });
 
     return () => {

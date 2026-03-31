@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import api from '@/services/api';
 import { useNotificationsContext } from '@/hooks/useNotificationsContext';
 import { NOTIFICATION_MODULE, NOTIFICATION_REFERENCE_TYPE } from '@/constants/notifications';
+import browserNotificationService from '@/services/browserNotificationService';
 
 const ICONS = {
   dashboard: (
@@ -142,6 +143,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
   const lastToastNotificationIdRef = useRef(null);
   const [toastNotification, setToastNotification] = useState(null);
   const [clearAllConfirmOpen, setClearAllConfirmOpen] = useState(false);
+  const [notifPermission, setNotifPermission] = useState(() => browserNotificationService.getPermission());
   const {
     unreadByModule,
     totalUnread,
@@ -231,6 +233,11 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
   const handleConfirmClearAllNotifications = () => {
     clearAllLocally();
     setClearAllConfirmOpen(false);
+  };
+
+  const handleRequestNotifPermission = async () => {
+    const result = await browserNotificationService.requestPermission();
+    setNotifPermission(result);
   };
 
   useEffect(() => {
@@ -879,6 +886,35 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
                 </svg>
               </button>
             </div>
+            {browserNotificationService.isSupported() && notifPermission === 'default' && (
+              <div className="layout-notifications__permission-banner">
+                <div className="layout-notifications__permission-icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                  </svg>
+                </div>
+                <p className="layout-notifications__permission-text">Ative as notificações do Windows para receber alertas mesmo em outras abas.</p>
+                <button
+                  type="button"
+                  className="layout-notifications__permission-btn"
+                  onClick={() => void handleRequestNotifPermission()}
+                >
+                  Ativar notificações
+                </button>
+              </div>
+            )}
+            {browserNotificationService.isSupported() && notifPermission === 'denied' && (
+              <div className="layout-notifications__permission-banner layout-notifications__permission-banner--denied">
+                <div className="layout-notifications__permission-icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                  </svg>
+                </div>
+                <p className="layout-notifications__permission-text">Notificações bloqueadas no navegador. Libere nas configurações do site para ativá-las.</p>
+              </div>
+            )}
             <div className="layout-notifications__toolbar">
               <span className="layout-notifications__count">Não lidas: <strong>{totalUnreadCount}</strong></span>
               <div className="layout-notifications__toolbar-actions">
