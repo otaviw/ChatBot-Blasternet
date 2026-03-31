@@ -273,17 +273,32 @@ class WhatsAppSendService
         }
 
         // ← META: Tem config → upload real
-        if (!file_exists($filePath)) {
+        $fileExists = file_exists($filePath);
+        $fileSize = $fileExists ? filesize($filePath) : 0;
+
+        Log::info('sendMediaFile: verificando arquivo.', [
+            'path' => $filePath,
+            'exists' => $fileExists,
+            'size_bytes' => $fileSize,
+            'mime' => $mimeType,
+            'type' => $type,
+        ]);
+
+        if (!$fileExists || $fileSize === 0) {
+            Log::error('sendMediaFile: arquivo não encontrado ou vazio.', ['path' => $filePath]);
             return $this->failedResult('arquivo_nao_encontrado');
         }
 
         $fileBinary = file_get_contents($filePath);
+        if ($fileBinary === false || $fileBinary === '') {
+            Log::error('sendMediaFile: não foi possível ler o arquivo.', ['path' => $filePath]);
+            return $this->failedResult('arquivo_nao_lido');
+        }
+
         $uploadUrl = rtrim(config('whatsapp.api_url'), '/') . "/{$phoneNumberId}/media";
 
-        Log::info('Upload real Meta', ['file' => basename($filePath), 'mime' => $mimeType]);
-
         $uploadResponse = Http::withToken($accessToken)
-            ->attach('filedata', $fileBinary, $filename ?: 'arquivo', $mimeType)
+            ->attach('filedata', $fileBinary, $filename ?: basename($filePath), ['Content-Type' => $mimeType])
             ->post($uploadUrl);
 
         if (!$uploadResponse->successful()) {
