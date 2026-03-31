@@ -100,7 +100,7 @@ class WhatsAppSendService
         $normalizedTo = $this->normalizeRecipient($toPhone);
         $normalizedUrl = trim($imageUrl);
         if ($normalizedUrl !== '' && str_starts_with($normalizedUrl, '/')) {
-            $normalizedUrl = rtrim((string) config('app.url'), '/').$normalizedUrl;
+            $normalizedUrl = rtrim((string) config('app.url'), '/') . $normalizedUrl;
         }
 
         if ($normalizedUrl === '') {
@@ -175,6 +175,149 @@ class WhatsAppSendService
     }
 
     /**
+     * 1. Upload arquivo local pra Meta (obrigatório pra mídia outbound).
+     * @return array{id: string}|null
+     */
+    public function uploadMedia(?Company $company, string $binaryData, string $mimeType, ?string $filename = null): ?array
+    {
+        $accessToken = $this->resolveAccessToken($company);
+        $phoneNumberId = $this->resolvePhoneNumberId($company);
+        if (!$accessToken || !$phoneNumberId) {
+            Log::warning('Upload mídia falhou: sem token/phone_id');
+            return null;
+        }
+
+        $url = rtrim(config('whatsapp.api_url'), '/') . "/{$phoneNumberId}/media";
+
+        $response = Http::withToken($accessToken)
+            ->attach('filedata', $binaryData, $filename ?: 'file', $mimeType)  // Meta usa 'filedata'
+            ->post($url);
+
+        if (!$response->successful()) {
+            Log::warning('Upload mídia falhou', ['status' => $response->status(), 'body' => $response->body()]);
+            return null;
+        }
+
+        $id = $response->json('id');
+        Log::info('Upload mídia sucesso', ['media_id' => $id]);
+        return ['id' => $id];
+    }
+
+    /**
+     * 2. Envia qualquer mídia (image/video/audio/document) via media_id.
+     */
+    public function sendMedia(?Company $company, string $toPhone, string $mediaId, string $type, ?string $caption = null): array
+    {
+        $phoneNumberId = $this->resolvePhoneNumberId($company);
+        $accessToken = $this->resolveAccessToken($company);
+        $normalizedTo = $this->normalizeRecipient($toPhone);
+
+        if (!$phoneNumberId || !$accessToken || !$normalizedTo) {
+            return $this->failedResult('config_invalida');
+        }
+
+        $url = $this->messagesUrl($phoneNumberId);
+        $media = ['id' => $mediaId];
+        $body = [
+            'messaging_product' => 'whatsapp',
+            'to' => $normalizedTo,
+            'type' => $type,  // 'image', 'video', 'audio', 'document'
+            $type => $media,
+        ];
+        if ($caption) $body[$type]['caption'] = $caption;
+
+        $this->logRequestDiagnostics($company, $type, $url, $phoneNumberId, $normalizedTo);
+
+        $response = Http::withToken($accessToken)
+            ->withHeaders(['Content-Type' => 'application/json'])
+            ->asJson()
+            ->post($url, $body);
+
+        $this->logResponseDiagnostics($type, $response);
+        $responseJson = $this->responseJson($response);
+        $graphMessageId = $this->normalizeGraphMessageId($response->json('messages.0.id') ?? null);
+
+        if (!$response->successful()) {
+            Log::warning('Send mídia falhou', ['status' => $response->status(), 'body' => $responseJson]);
+            return $this->failedResult($response->json('error') ?? $responseJson, $responseJson);
+        }
+
+        Log::info('Send mídia sucesso', ['whatsapp_message_id' => $graphMessageId]);
+        return $this->successResult($graphMessageId, $responseJson);
+    }
+
+    /**
+     * Envia mídia de forma inteligente: 
+     * - Se tem token/phone_id → upload Meta real
+     * - Se não → simulado local (ok=true)
+     */
+    public function sendMediaFile(?Company $company, string $toPhone, string $filePath, string $mimeType, string $type, ?string $caption = null, ?string $filename = null): array
+    {
+        $phoneNumberId = $this->resolvePhoneNumberId($company);
+        $accessToken = $this->resolveAccessToken($company);
+        $normalizedTo = $this->normalizeRecipient($toPhone);
+
+        if (!$phoneNumberId || !$accessToken || !$normalizedTo) {
+            // ← LOCAL: Sem config Meta → simula (ok=true)
+            Log::info('Envio local simulado (sem config Meta).', [
+                'file' => basename($filePath),
+                'type' => $type,
+            ]);
+            return [
+                'ok' => true,  // ← Simula como sucesso pra DB
+                'whatsapp_message_id' => null,
+                'status' => 'sent',
+                'error' => null,
+                'response' => ['simulated' => true, 'type' => $type],
+            ];
+        }
+
+        // ← META: Tem config → upload real
+        if (!file_exists($filePath)) {
+            return $this->failedResult('arquivo_nao_encontrado');
+        }
+
+        $fileBinary = file_get_contents($filePath);
+        $uploadUrl = rtrim(config('whatsapp.api_url'), '/') . "/{$phoneNumberId}/media";
+
+        Log::info('Upload real Meta', ['file' => basename($filePath), 'mime' => $mimeType]);
+
+        $uploadResponse = Http::withToken($accessToken)
+            ->attach('filedata', $fileBinary, $filename ?: 'arquivo', $mimeType)
+            ->post($uploadUrl);
+
+        if (!$uploadResponse->successful()) {
+            return $this->failedResult('upload_falhou', $this->responseJson($uploadResponse));
+        }
+
+        $mediaId = $uploadResponse->json('id');
+        if (!$mediaId) {
+            return $this->failedResult('media_id_invalido');
+        }
+
+        $sendUrl = $this->messagesUrl($phoneNumberId);
+        $body = [
+            'messaging_product' => 'whatsapp',
+            'to' => $normalizedTo,
+            'type' => $type,
+            $type => ['id' => $mediaId],
+        ];
+        if ($caption) $body[$type]['caption'] = trim((string) $caption);
+
+        $sendResponse = Http::withToken($accessToken)
+            ->withHeaders(['Content-Type' => 'application/json'])
+            ->asJson()
+            ->post($sendUrl, $body);
+
+        if (!$sendResponse->successful()) {
+            return $this->failedResult('envio_falhou', $this->responseJson($sendResponse));
+        }
+
+        $graphMessageId = $this->normalizeGraphMessageId($sendResponse->json('messages.0.id') ?? null);
+        return $this->successResult($graphMessageId, $this->responseJson($sendResponse));
+    }
+
+    /**
      * @return array{binary:string,mime_type:?string,size_bytes:?int}|null
      */
     public function downloadInboundImage(?Company $company, string $mediaId): ?array
@@ -186,7 +329,7 @@ class WhatsAppSendService
         }
 
         $baseUrl = rtrim((string) config('whatsapp.api_url'), '/');
-        $metadataUrl = $baseUrl.'/'.$normalizedMediaId;
+        $metadataUrl = $baseUrl . '/' . $normalizedMediaId;
 
         $metadataResponse = Http::withToken($accessToken)->get($metadataUrl);
         if (! $metadataResponse->successful()) {
@@ -256,7 +399,7 @@ class WhatsAppSendService
 
     private function messagesUrl(string $phoneNumberId): string
     {
-        return rtrim((string) config('whatsapp.api_url'), '/').'/'.$phoneNumberId.'/messages';
+        return rtrim((string) config('whatsapp.api_url'), '/') . '/' . $phoneNumberId . '/messages';
     }
 
     private function logRequestDiagnostics(

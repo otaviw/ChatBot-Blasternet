@@ -23,6 +23,7 @@ const CompanyQuickRepliesPage = lazy(
   () => import('@/pages/company/CompanyQuickReplies/CompanyQuickRepliesPage.jsx')
 );
 const CompanyUsersPage = lazy(() => import('@/pages/company/CompanyUsers/CompanyUsersPage.jsx'));
+const AiSettingsPage = lazy(() => import('@/pages/company/AiSettings/AiSettingsPage.jsx'));
 const CompanySupportTicketPage = lazy(
   () => import('@/pages/company/CompanySupportTickets/CompanySupportTicketPage.jsx')
 );
@@ -73,6 +74,7 @@ function AppRoutes() {
         <Route path="/minha-conta/conversas" element={<CompanyInboxPage />} />
         <Route path="/minha-conta/chat-interno" element={<InternalChatPage />} />
         <Route path="/minha-conta/chat-ia" element={<InternalAiChatPage />} />
+        <Route path="/minha-conta/ia/configuracoes" element={<AiSettingsPage />} />
         <Route path="/minha-conta/bot" element={<CompanyBotPage />} />
         <Route path="/minha-conta/respostas-rapidas" element={<CompanyQuickRepliesPage />} />
         <Route path="/minha-conta/usuarios" element={<CompanyUsersPage />} />

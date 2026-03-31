@@ -3,6 +3,7 @@
 use App\Http\Controllers\AreaController;
 use App\Http\Controllers\Chat\AttachmentController as ChatAttachmentController;
 use App\Http\Controllers\Chat\ConversationController as ChatConversationController;
+use App\Http\Controllers\Company\ConversationController;
 use App\Http\Controllers\ConversationTransferController;
 use App\Http\Controllers\SimulatedMessageController;
 use Illuminate\Support\Facades\Route;
@@ -52,4 +53,12 @@ Route::middleware(['web', 'auth'])->group(function () {
 
     Route::post('/simular/mensagem', [SimulatedMessageController::class, 'store'])
         ->middleware('throttle:simulation');
+});
+
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::get(
+        '/conversations/{conversation}/messages/{message}/download',
+        [ConversationController::class, 'downloadMessageMedia']
+    )
+        ->name('conversation.message.download');
 });

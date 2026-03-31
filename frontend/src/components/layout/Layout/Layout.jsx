@@ -81,6 +81,8 @@ const iconKey = (label) => {
     Empresas: 'empresas',
     Usuarios: 'usuarios',
     Inbox: 'inbox',
+    IA: 'bot',
+    'Configuracoes de IA': 'bot',
     'Chat interno': 'chatInterno',
     'Chat IA': 'chatInterno',
     Suporte: 'suporte',
@@ -377,15 +379,19 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
     const links = [
       { href: '/dashboard', label: 'Dashboard' },
       { href: '/minha-conta/bot', label: 'Bot' },
+      ...(canManageUsers ? [{ href: '/minha-conta/ia/configuracoes', label: 'IA' }] : []),
       { href: '/minha-conta/conversas', label: 'Inbox', module: NOTIFICATION_MODULE.INBOX },
       { href: '/minha-conta/chat-interno', label: 'Chat interno', module: NOTIFICATION_MODULE.INTERNAL_CHAT },
-      { href: '/minha-conta/simulador', label: 'Simulador' },
-      { href: '/minha-conta/respostas-rapidas', label: 'Respostas' },
     ];
 
     if (canAccessInternalAiChat) {
-      links.splice(4, 0, { href: '/minha-conta/chat-ia', label: 'Chat IA' });
+      links.push({ href: '/minha-conta/chat-ia', label: 'Chat IA' });
     }
+
+    links.push(
+      { href: '/minha-conta/simulador', label: 'Simulador' },
+      { href: '/minha-conta/respostas-rapidas', label: 'Respostas' }
+    );
 
     if (canManageUsers) links.push({ href: '/minha-conta/usuarios', label: 'Usuários' });
     return links;

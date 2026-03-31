@@ -163,7 +163,7 @@ class InboundMessageService
         ];
     }
 
-    public function handleIncomingImage(
+    public function handleIncomingMedia(
         ?Company $company,
         string $from,
         string $mediaId,
@@ -197,11 +197,13 @@ class InboundMessageService
             'media_downloaded' => $storedMedia !== null,
         ]);
 
+        $mediaType = $inMeta['incoming_type'] ?? 'image'; 
+
         $inMessage = Message::create([
             'conversation_id' => $conversation->id,
             'direction' => 'in',
             'type' => 'user',
-            'content_type' => 'image',
+            'content_type' => $mediaType,
             'text' => $captionValue !== '' ? $captionValue : null,
             'media_provider' => $storedMedia['provider'] ?? null,
             'media_key' => $storedMedia['key'] ?? null,

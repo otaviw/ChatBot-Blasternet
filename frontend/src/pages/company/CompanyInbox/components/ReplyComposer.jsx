@@ -65,10 +65,11 @@ function ReplyComposer({
             {aiSuggestionBusy ? 'IA gerando resposta...' : 'Sugerir resposta com IA'}
           </button>
           <label className="app-btn-secondary text-xs cursor-pointer inbox-reply-action-btn">
-            Anexar imagem
+            Anexar arquivo
             <input
               type="file"
-              accept="image/*"
+              name="file"
+              accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.webp"
               onChange={onManualImageChange}
               className="hidden"
             />
@@ -79,7 +80,7 @@ function ReplyComposer({
               onClick={onRemoveManualImage}
               className="app-btn-danger text-xs"
             >
-              Remover imagem
+              Remover arquivo
             </button>
           ) : null}
         </div>
@@ -90,7 +91,7 @@ function ReplyComposer({
 
       {manualImageFile ? (
         <div className="inbox-reply-attachment">
-          <span className="inbox-reply-attachment-label">Imagem selecionada</span>
+          <span className="inbox-reply-attachment-label">Arquivo selecionado</span>
           <span className="inbox-reply-attachment-name" title={manualImageFile.name}>
             {manualImageFile.name}
           </span>
@@ -114,8 +115,23 @@ function ReplyComposer({
         </button>
       </div>
       {manualImagePreviewUrl ? (
-        <div className="company-inbox-image-preview">
-          <img src={manualImagePreviewUrl} alt="Prévia da imagem anexada" />
+        <div className="company-inbox-image-preview space-y-2"> 
+          {manualImageFile?.type?.startsWith('image/') ? (
+            <img src={manualImagePreviewUrl} alt="Prévia" className="max-w-xs rounded" />
+          ) : manualImageFile?.type?.startsWith('video/') ? (
+            <video controls src={manualImagePreviewUrl} className="max-w-xs rounded">
+              Prévia não disponível
+            </video>
+          ) : manualImageFile?.type?.startsWith('audio/') ? (
+            <audio controls src={manualImagePreviewUrl} className="w-full max-w-md">
+              Prévia não disponível
+            </audio>
+          ) : (
+            <div className="p-3 bg-gray-100 rounded text-sm">
+             {manualImageFile.name} <br />
+              <span className="text-xs text-gray-500">Prévia indisponível (PDF/DOC/etc.)</span>
+            </div>
+          )}
         </div>
       ) : null}
       {manualError && <p className="text-sm text-red-600">{manualError}</p>}

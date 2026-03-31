@@ -1,0 +1,272 @@
+import { useMemo } from 'react';
+import Layout from '@/components/layout/Layout/Layout.jsx';
+import Button from '@/components/ui/Button/Button.jsx';
+import Card from '@/components/ui/Card/Card.jsx';
+import {
+  CheckboxField,
+  Field,
+  SelectInput,
+  TextAreaInput,
+  TextInput,
+} from '@/components/ui/FormControls/FormControls.jsx';
+import Notice from '@/components/ui/Notice/Notice.jsx';
+import PageHeader from '@/components/ui/PageHeader/PageHeader.jsx';
+import usePageData from '@/hooks/usePageData';
+import useLogout from '@/hooks/useLogout';
+import useAiSettings from './hooks/useAiSettings';
+
+function AiSettingsPage() {
+  const { data, loading: meLoading, error: meError } = usePageData('/me');
+  const { logout } = useLogout();
+
+  const canManageUsers = Boolean(
+    data?.user?.can_manage_users || (data?.user?.role === 'company_admin' && data?.user?.company_id)
+  );
+
+  const {
+    company,
+    settings,
+    users,
+    loading,
+    error,
+    saving,
+    saveError,
+    toast,
+    canSave,
+    permissionBusyById,
+    updateField,
+    saveSettingsChanges,
+    toggleUserPermission,
+    hideToast,
+  } = useAiSettings({ enabled: canManageUsers });
+
+  const companyName = data?.user?.company_name ?? company?.name ?? 'Empresa';
+
+  const usersRows = useMemo(() => users ?? [], [users]);
+
+  const handleSave = async (event) => {
+    event.preventDefault();
+    await saveSettingsChanges();
+  };
+
+  if (meLoading) {
+    return (
+      <Layout role="company" companyName={companyName} onLogout={logout}>
+        <p className="text-sm text-[#64748b]">Carregando configuracoes de IA...</p>
+      </Layout>
+    );
+  }
+
+  if (meError || !data?.authenticated) {
+    return (
+      <Layout role="company" companyName={companyName} onLogout={logout}>
+        <p className="text-sm text-red-600">Nao foi possivel carregar as configuracoes de IA.</p>
+      </Layout>
+    );
+  }
+
+  if (!canManageUsers) {
+    return (
+      <Layout role="company" companyName={companyName} onLogout={logout}>
+        <p className="text-sm text-[#64748b]">Acesso restrito a admin da empresa.</p>
+      </Layout>
+    );
+  }
+
+  if (loading || !settings) {
+    return (
+      <Layout role="company" companyName={companyName} onLogout={logout}>
+        <p className="text-sm text-[#64748b]">Carregando dados de IA...</p>
+      </Layout>
+    );
+  }
+
+  if (error) {
+    return (
+      <Layout role="company" companyName={companyName} onLogout={logout}>
+        <p className="text-sm text-red-600">{error}</p>
+      </Layout>
+    );
+  }
+
+  return (
+    <Layout role="company" companyName={companyName} onLogout={logout}>
+      <PageHeader
+        title="Configuracoes de IA"
+        subtitle="Defina ativacao, comportamento, limites de uso e permissoes da IA para a sua empresa."
+      />
+
+      {toast.message ? (
+        <div className="fixed right-4 top-20 z-50 w-[min(92vw,360px)]" onClick={hideToast}>
+          <Notice tone={toast.type === 'danger' ? 'danger' : 'success'}>{toast.message}</Notice>
+        </div>
+      ) : null}
+
+      <form onSubmit={handleSave} className="space-y-4">
+        <Card>
+          <h2 className="text-base font-semibold text-[#0f172a] mb-3">Ativacao</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <CheckboxField
+              checked={Boolean(settings.ai_enabled)}
+              onChange={(event) => updateField('ai_enabled', event.target.checked)}
+            >
+              IA ativa
+            </CheckboxField>
+            <CheckboxField
+              checked={Boolean(settings.ai_internal_chat_enabled)}
+              onChange={(event) => updateField('ai_internal_chat_enabled', event.target.checked)}
+            >
+              Chat interno IA
+            </CheckboxField>
+          </div>
+        </Card>
+
+        <Card>
+          <h2 className="text-base font-semibold text-[#0f172a] mb-3">Comportamento da IA</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <Field label="Persona">
+              <TextInput
+                type="text"
+                value={settings.ai_persona ?? ''}
+                onChange={(event) => updateField('ai_persona', event.target.value)}
+                placeholder="Ex: Especialista em atendimento"
+              />
+            </Field>
+
+            <Field label="Tom">
+              <SelectInput
+                value={settings.ai_tone ?? 'casual'}
+                onChange={(event) => updateField('ai_tone', event.target.value)}
+              >
+                <option value="formal">Formal</option>
+                <option value="casual">Casual</option>
+                <option value="tecnico">Tecnico</option>
+              </SelectInput>
+            </Field>
+
+            <Field label="Idioma">
+              <SelectInput
+                value={settings.ai_language ?? 'pt-BR'}
+                onChange={(event) => updateField('ai_language', event.target.value)}
+              >
+                <option value="pt-BR">pt-BR</option>
+                <option value="en-US">en-US</option>
+                <option value="es-ES">es-ES</option>
+              </SelectInput>
+            </Field>
+
+            <Field label="Formalidade">
+              <SelectInput
+                value={settings.ai_formality ?? 'media'}
+                onChange={(event) => updateField('ai_formality', event.target.value)}
+              >
+                <option value="baixa">Baixa</option>
+                <option value="media">Media</option>
+                <option value="alta">Alta</option>
+              </SelectInput>
+            </Field>
+          </div>
+
+          <Field label="System prompt" className="mt-3">
+            <TextAreaInput
+              rows={5}
+              value={settings.ai_system_prompt ?? ''}
+              onChange={(event) => updateField('ai_system_prompt', event.target.value)}
+              placeholder="Instrucoes de sistema para orientar a IA."
+            />
+          </Field>
+        </Card>
+
+        <Card>
+          <h2 className="text-base font-semibold text-[#0f172a] mb-3">Uso e limites</h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <CheckboxField
+              checked={Boolean(settings.ai_usage_enabled)}
+              onChange={(event) => updateField('ai_usage_enabled', event.target.checked)}
+            >
+              Controle de uso ativo
+            </CheckboxField>
+
+            <Field label="Limite mensal de uso">
+              <TextInput
+                type="number"
+                min="1"
+                inputMode="numeric"
+                value={settings.ai_usage_limit_monthly ?? ''}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  updateField('ai_usage_limit_monthly', value === '' ? null : Number(value));
+                }}
+                placeholder="Ex: 1000"
+              />
+            </Field>
+          </div>
+
+          <Notice tone="info" className="mt-3">
+            Se o limite for atingido, a IA sera desativada automaticamente.
+          </Notice>
+        </Card>
+
+        <Card>
+          <h2 className="text-base font-semibold text-[#0f172a] mb-3">Permissoes de usuarios</h2>
+
+          {!usersRows.length ? (
+            <p className="text-sm text-[#64748b]">Nenhum usuario encontrado.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[#e5e7eb] text-left text-[#64748b]">
+                    <th className="py-2 pr-3 font-medium">Nome</th>
+                    <th className="py-2 pr-3 font-medium">Email</th>
+                    <th className="py-2 pr-3 font-medium">Pode usar IA</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {usersRows.map((user) => {
+                    const isBusy = Boolean(permissionBusyById[user.id]);
+                    const isAgent = String(user.role ?? '').trim() === 'agent';
+                    const checked = isAgent ? Boolean(user.can_use_ai) : true;
+
+                    return (
+                      <tr key={user.id} className="border-b border-[#f1f5f9]">
+                        <td className="py-2 pr-3 text-[#0f172a]">{user.name || '-'}</td>
+                        <td className="py-2 pr-3 text-[#475569]">{user.email || '-'}</td>
+                        <td className="py-2 pr-3">
+                          <label className="inline-flex items-center gap-2 text-[#1f2937]">
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 rounded border-[#d4d4d4] text-[#2563eb] focus:ring-[#2563eb]/20"
+                              checked={checked}
+                              disabled={isBusy || !isAgent}
+                              onChange={(event) =>
+                                void toggleUserPermission(user.id, event.target.checked)
+                              }
+                            />
+                            <span className="text-xs text-[#64748b]">
+                              {isBusy ? 'Salvando...' : isAgent ? 'Ativo' : 'Sempre ativo para admin'}
+                            </span>
+                          </label>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+
+        <div className="flex items-center gap-3">
+          <Button type="submit" variant="primary" disabled={!canSave}>
+            {saving ? 'Salvando...' : 'Salvar alteracoes'}
+          </Button>
+          {saveError ? <Notice tone="danger">{saveError}</Notice> : null}
+        </div>
+      </form>
+    </Layout>
+  );
+}
+
+export default AiSettingsPage;

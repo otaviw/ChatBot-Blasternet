@@ -22,6 +22,7 @@ use App\Support\ConversationStatus;
 use App\Support\MessageDeliveryStatus;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class ConversationController extends Controller
@@ -186,7 +187,7 @@ class ConversationController extends Controller
 
         $validated = $request->validate([
             'text' => ['nullable', 'string', 'max:2000'],
-            'image' => ['nullable', 'file', 'image', 'max:'.config('whatsapp.media_max_size_kb', 5120)],
+            'file' => ['nullable', 'file', 'max:' . config('whatsapp.media_max_size_kb', 5120)],
             'send_outbound' => ['sometimes', 'boolean'],
         ]);
 
@@ -220,19 +221,28 @@ class ConversationController extends Controller
         $conversation->save();
 
         $trimmedText = trim((string) ($validated['text'] ?? ''));
-        $uploadedImage = $request->file('image');
-        if ($trimmedText === '' && ! $uploadedImage) {
+        $uploadedFile = $request->file('file')  ?? $request->file('image');
+        if ($trimmedText === '' && ! $uploadedFile) {
             return response()->json([
-                'message' => 'Informe texto ou imagem para enviar.',
+                'message' => 'Informe texto ou arquivo para enviar.',
             ], 422);
         }
 
         $storedMedia = null;
-        if ($uploadedImage) {
-            $storedMedia = $this->mediaStorage->storeUploadedImage($uploadedImage, $conversation->company_id);
+        if ($uploadedFile) {
+            $storedMedia = $this->mediaStorage->storeUploadedImage($uploadedFile, $conversation->company_id);
         }
 
-        $contentType = $storedMedia ? 'image' : 'text';
+        $mimeType = $uploadedFile?->getMimeType() ?? '';
+        $contentType = 'text';
+        if ($storedMedia) {
+            $contentType = match (true) {
+                str_contains($mimeType, 'image/') => 'image',
+                str_contains($mimeType, 'video/') => 'video',
+                str_contains($mimeType, 'audio/') => 'audio',
+                default => 'document'  // PDF/DOC/etc.
+            };
+        }
 
         $message = Message::create([
             'conversation_id' => $conversation->id,
@@ -244,6 +254,7 @@ class ConversationController extends Controller
             'media_key' => $storedMedia['key'] ?? null,
             'media_url' => $storedMedia['url'] ?? null,
             'media_mime_type' => $storedMedia['mime_type'] ?? null,
+            'media_filename' => $uploadedFile?->getClientOriginalName(),
             'media_size_bytes' => $storedMedia['size_bytes'] ?? null,
             'media_width' => $storedMedia['width'] ?? null,
             'media_height' => $storedMedia['height'] ?? null,
@@ -257,19 +268,24 @@ class ConversationController extends Controller
         $sendOutbound = (bool) ($validated['send_outbound'] ?? true);
         $sendResult = null;
         $wasSent = false;
+
         if ($sendOutbound) {
-            if ($contentType === 'image') {
-                $sendResult = $this->whatsAppSend->sendImage(
-                    $conversation->company,
-                    $conversation->customer_phone,
-                    (string) ($message->media_url ?? ''),
-                    $message->text
-                );
-            } else {
+            if ($contentType === 'text') {
                 $sendResult = $this->whatsAppSend->sendText(
                     $conversation->company,
                     $conversation->customer_phone,
-                    (string) $message->text
+                    $trimmedText
+                );
+            } else {
+                $filePath = storage_path("app/public/{$message->media_key}");
+                $sendResult = $this->whatsAppSend->sendMediaFile(
+                    $conversation->company,
+                    $conversation->customer_phone,
+                    $filePath,
+                    $message->media_mime_type,
+                    $contentType,
+                    $message->text,
+                    $message->media_filename
                 );
             }
 
@@ -459,5 +475,33 @@ class ConversationController extends Controller
         return response()->json($payload);
     }
 
-}
+    /**
+     * Download de mídia de mensagem (document/image/video/audio).
+     */
+    public function downloadMessageMedia(Request $request, int $conversation, int $message)
+    {
+        $user = $request->user();
+        if (!$user || !$user->isCompanyUser()) {
+            return response()->json(['error' => 'Não autorizado'], 403);
+        }
 
+        $conv = Conversation::query()
+            ->where('company_id', (int) $user->company_id)
+            ->findOrFail($conversation);
+
+        $msg = Message::query()
+            ->where('conversation_id', $conversation)
+            ->findOrFail($message);
+
+        if (!$msg->media_key) {
+            return response()->json(['error' => 'Sem arquivo'], 404);
+        }
+
+        $filePath = storage_path("app/public/{$msg->media_key}");
+        if (!file_exists($filePath)) {
+            return response()->json(['error' => 'Arquivo não encontrado'], 404);
+        }
+
+        return response()->download($filePath, $msg->media_filename ?? 'arquivo');
+    }
+}

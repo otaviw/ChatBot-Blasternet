@@ -248,7 +248,7 @@ export default function useCompanyInboxActions({
             payload.append('text', trimmedText);
           }
           payload.append('send_outbound', '1');
-          payload.append('image', manualImageFile);
+          if (manualImageFile) payload.append('file', manualImageFile);
           response = await api.post(`/minha-conta/conversas/${detail.id}/responder-manual`, payload);
         } else {
           response = await api.post(`/minha-conta/conversas/${detail.id}/responder-manual`, {

@@ -8,6 +8,35 @@ const OUTBOUND_STATUS_LABELS = {
   [MESSAGE_DELIVERY_STATUS.FAILED]: 'Falhou',
 };
 
+const handleDownloadDocument = async (msg) => {
+  try {
+    const response = await fetch(
+      `/api/conversations/${conversation.id}/messages/${msg.id}/download`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,  // Se usar Sanctum
+        }
+      }
+    );
+
+    if (!response.ok) throw new Error('Erro ao baixar');
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = msg.media_filename || 'documento';
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    a.remove();
+  } catch (error) {
+    console.error('Download falhou:', error);
+    alert('Erro ao baixar arquivo');
+  }
+};
+
 function normalizeOutboundStatus(message) {
   const raw = String(message?.delivery_status ?? '').trim().toLowerCase();
   if (raw && OUTBOUND_STATUS_LABELS[raw]) {
@@ -105,9 +134,61 @@ function MessagesPanel({
                   </a>
                   {msg.text ? <p className="company-inbox-message-caption">{msg.text}</p> : null}
                 </div>
-              ) : (
-                <span className="inbox-message-text">{msg.text}</span>
-              )}
+              )
+
+                : msg.content_type === 'audio' ? (
+                  <div className="company-inbox-message-media">
+                    <audio
+                      controls
+                      className="w-full max-w-md rounded"
+                      src={getMessageImageUrl(msg)}
+                      type={msg.media_mime_type || 'audio/ogg; codecs=opus'}
+                    >
+                      Seu navegador não suporta áudio.
+                    </audio>
+                    {msg.text ? <p className="company-inbox-message-caption text-xs mt-1">{msg.text}</p> : null}
+                  </div>)
+
+                  : msg.content_type === 'video' ? (
+                    <div className="company-inbox-message-media">
+                      <video controls className="w-full max-w-md rounded" src={getMessageImageUrl(msg)}>
+                        Seu navegador não suporta vídeo.
+                      </video>
+                      {msg.text && <p className="company-inbox-message-caption">{msg.text}</p>}
+                    </div>
+                  )
+
+                    : msg.content_type === 'document' ? (
+                      <div className="company-inbox-message-media">
+                        <button
+                          onClick={() => handleDownloadDocument(msg)}
+                          className="inline-flex items-center p-2 bg-blue-100 rounded text-sm hover:bg-blue-200 cursor-pointer"
+                        >
+                          {msg.media_filename || 'Documento'}
+                          {msg.media_size_bytes && (
+                            <span className="ml-2 text-xs text-gray-500">
+                              ({(msg.media_size_bytes / 1024 / 1024).toFixed(1)} MB)
+                            </span>
+                          )}
+                        </button>
+                        {msg.text && <p className="company-inbox-message-caption">{msg.text}</p>}
+                      </div>
+                    )
+
+                      : msg.content_type === 'sticker' ? (
+                        <img src={getMessageImageUrl(msg)} className="max-w-xs rounded" alt="Sticker" />
+                      )
+
+                        : msg.content_type === 'location' ? (
+                          <div className="p-2 bg-blue-50 rounded">
+                            📍 {JSON.parse(msg.text || '{}').name || 'Localização'}<br />
+                            <a href={`https://maps.google.com/?q=${JSON.parse(msg.text || '{}').latitude},${JSON.parse(msg.text || '{}').longitude}`} target="_blank">Abrir no Maps</a>
+                          </div>
+                        )
+
+                          : (
+                            <span className="inbox-message-text">{msg.text}</span>
+                          )}
               {outboundStatus ? (
                 <span className={`inbox-message-status inbox-message-status-${outboundStatus}`}>
                   {OUTBOUND_STATUS_LABELS[outboundStatus]}

@@ -32,7 +32,7 @@ class SimulatedMessageController extends Controller
             'company_id' => ['required', 'integer', 'exists:companies,id'],
             'from' => ['required', 'string', 'max:40'],
             'text' => ['nullable', 'string', 'max:2000'],
-            'image' => ['nullable', 'file', 'image', 'max:'.config('whatsapp.media_max_size_kb', 5120)],
+            'file' => ['nullable', 'file', 'max:' . config('whatsapp.media_max_size_kb', 5120)],
             'contact_name' => ['nullable', 'string', 'max:160'],
             'send_outbound' => ['sometimes', 'boolean'],
         ]);
