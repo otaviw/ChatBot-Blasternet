@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { REALTIME_EVENTS } from '@/constants/realtimeEvents';
 import realtimeClient from '@/services/realtimeClient';
 import notificationService from '@/services/notificationService';
+import browserNotificationService from '@/services/browserNotificationService';
 import { NOTIFICATION_MODULE, NOTIFICATION_REFERENCE_TYPE } from '@/constants/notifications';
 
 function toIsoStringOrNull(value) {
@@ -368,11 +369,12 @@ export default function useNotifications(options = {}) {
   }, [applyUnreadCounters, clearedUntilId, enabled]);
 
   useEffect(() => {
-    if (enabled) {
+    if (!enabled) {
+      setClearedUntilId(0);
       return;
     }
 
-    setClearedUntilId(0);
+    browserNotificationService.requestPermission();
   }, [enabled]);
 
   useEffect(() => {
@@ -404,6 +406,10 @@ export default function useNotifications(options = {}) {
       setNotifications((prev) => mergeNotification(prev, normalized));
       if (clearedUntilId <= 0) {
         applyUnreadCounters(payload.unreadByModule, payload.totalUnread);
+      }
+
+      if (document.hidden) {
+        browserNotificationService.notifyFromAppNotification(normalized);
       }
     });
 
