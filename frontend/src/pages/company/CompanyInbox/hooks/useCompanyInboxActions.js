@@ -414,6 +414,11 @@ export default function useCompanyInboxActions({
 
   const getMessageImageUrl = useCallback((msg) => {
     if (!msg?.id) return '';
+    // Áudio e vídeo usam a URL pública diretamente — o elemento <audio>/<video>
+    // do browser não envia cookies de sessão, então o endpoint protegido falha.
+    if (msg.media_url && (msg.content_type === 'audio' || msg.content_type === 'video' || msg.content_type === 'sticker')) {
+      return msg.media_url;
+    }
     return `/api/minha-conta/mensagens/${msg.id}/media`;
   }, []);
 

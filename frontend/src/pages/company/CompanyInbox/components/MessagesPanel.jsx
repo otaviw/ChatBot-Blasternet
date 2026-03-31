@@ -43,30 +43,27 @@ function groupReactionsByEmoji(reactions) {
 function AudioPlayer({ src, mimeType }) {
   const [cannotPlay, setCannotPlay] = React.useState(false);
 
-  // Garante codec no MIME — sem "codecs=opus" o Chrome/Firefox rejeita OGG do WhatsApp
-  const rawType = mimeType || 'audio/ogg';
-  const type = rawType === 'audio/ogg' ? 'audio/ogg; codecs=opus' : rawType;
-
-  if (cannotPlay) {
-    return (
-      <a
-        href={src}
-        download
-        className="inline-flex items-center gap-1 p-2 bg-gray-100 rounded text-xs text-gray-600 hover:bg-gray-200"
-      >
-        🎵 Baixar áudio (formato não suportado neste navegador)
-      </a>
-    );
-  }
-
   return (
-    <audio
-      controls
-      className="w-full max-w-md rounded"
-      onError={() => setCannotPlay(true)}
-    >
-      <source src={src} type={type} onError={() => setCannotPlay(true)} />
-    </audio>
+    <div className="flex flex-col gap-1">
+      {!cannotPlay && (
+        <audio
+          controls
+          src={src}
+          className="w-full max-w-md"
+          onError={() => setCannotPlay(true)}
+        />
+      )}
+      {cannotPlay && (
+        <a
+          href={src}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 px-3 py-2 bg-gray-100 rounded text-xs text-gray-700 hover:bg-gray-200"
+        >
+          🎵 Ouvir / baixar áudio
+        </a>
+      )}
+    </div>
   );
 }
 
