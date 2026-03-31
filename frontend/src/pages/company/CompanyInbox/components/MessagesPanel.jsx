@@ -45,7 +45,6 @@ function AudioPlayer({ src }) {
   const [playing, setPlaying] = React.useState(false);
   const [currentTime, setCurrentTime] = React.useState(0);
   const [duration, setDuration] = React.useState(0);
-  const [playError, setPlayError] = React.useState(null);
 
   const toggle = () => {
     const el = audioRef.current;
@@ -53,13 +52,12 @@ function AudioPlayer({ src }) {
     if (playing) {
       el.pause();
     } else {
-      setPlayError(null);
-      el.play().catch((e) => setPlayError(String(e)));
+      el.play();
     }
   };
 
   const formatTime = (s) => {
-    if (!s || isNaN(s)) return '0:00';
+    if (!s || isNaN(s) || !isFinite(s)) return '0:00';
     const m = Math.floor(s / 60);
     const sec = Math.floor(s % 60);
     return `${m}:${sec.toString().padStart(2, '0')}`;
@@ -68,12 +66,11 @@ function AudioPlayer({ src }) {
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
-    <div className="flex flex-col gap-1 max-w-xs w-full">
-      {/* elemento oculto — sem preload para evitar onError espúrio */}
+    <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded max-w-xs w-full">
       <audio
         ref={audioRef}
         src={src}
-        preload="none"
+        preload="metadata"
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
         onEnded={() => { setPlaying(false); setCurrentTime(0); }}
@@ -81,46 +78,40 @@ function AudioPlayer({ src }) {
         onLoadedMetadata={() => setDuration(audioRef.current?.duration ?? 0)}
       />
 
-      <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded">
-        <button
-          type="button"
-          onClick={toggle}
-          className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-blue-500 text-white hover:bg-blue-600"
-        >
-          {playing ? (
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-              <rect x="1" y="1" width="3.5" height="10" rx="1" />
-              <rect x="7.5" y="1" width="3.5" height="10" rx="1" />
-            </svg>
-          ) : (
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-              <path d="M2 1.5l9 4.5-9 4.5z" />
-            </svg>
-          )}
-        </button>
+      <button
+        type="button"
+        onClick={toggle}
+        className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-blue-500 text-white hover:bg-blue-600"
+      >
+        {playing ? (
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+            <rect x="1" y="1" width="3.5" height="10" rx="1" />
+            <rect x="7.5" y="1" width="3.5" height="10" rx="1" />
+          </svg>
+        ) : (
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+            <path d="M2 1.5l9 4.5-9 4.5z" />
+          </svg>
+        )}
+      </button>
 
-        <div className="flex-1 flex flex-col gap-1 min-w-0">
-          <div
-            className="h-1.5 bg-gray-300 rounded-full cursor-pointer"
-            onClick={(e) => {
-              const el = audioRef.current;
-              if (!el || !duration) return;
-              const rect = e.currentTarget.getBoundingClientRect();
-              const ratio = (e.clientX - rect.left) / rect.width;
-              el.currentTime = ratio * duration;
-            }}
-          >
-            <div className="h-1.5 bg-blue-500 rounded-full" style={{ width: `${progress}%` }} />
-          </div>
-          <div className="flex justify-between text-[10px] text-gray-500">
-            <span>{formatTime(currentTime)}</span>
-            <span>{formatTime(duration)}</span>
-          </div>
+      <div className="flex-1 flex flex-col gap-1 min-w-0">
+        <div
+          className="h-1.5 bg-gray-300 rounded-full cursor-pointer"
+          onClick={(e) => {
+            const el = audioRef.current;
+            if (!el || !duration) return;
+            const rect = e.currentTarget.getBoundingClientRect();
+            el.currentTime = ((e.clientX - rect.left) / rect.width) * duration;
+          }}
+        >
+          <div className="h-1.5 bg-blue-500 rounded-full" style={{ width: `${progress}%` }} />
+        </div>
+        <div className="flex justify-between text-[10px] text-gray-500">
+          <span>{formatTime(currentTime)}</span>
+          <span>{formatTime(duration)}</span>
         </div>
       </div>
-      {playError && (
-        <span className="text-[10px] text-red-400">Erro ao reproduzir. <a href={src} target="_blank" rel="noreferrer" className="underline">Baixar</a></span>
-      )}
     </div>
   );
 }
@@ -264,7 +255,7 @@ function MessagesPanel({
 
                         : msg.content_type === 'location' ? (
                           <div className="p-2 bg-blue-50 rounded">
-                            📍 {JSON.parse(msg.text || '{}').name || 'Localização'}<br />
+                            {JSON.parse(msg.text || '{}').name || 'Localização'}<br />
                             <a href={`https://maps.google.com/?q=${JSON.parse(msg.text || '{}').latitude},${JSON.parse(msg.text || '{}').longitude}`} target="_blank">Abrir no Maps</a>
                           </div>
                         )
