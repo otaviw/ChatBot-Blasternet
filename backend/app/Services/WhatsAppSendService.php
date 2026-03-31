@@ -258,13 +258,12 @@ class WhatsAppSendService
         $normalizedTo = $this->normalizeRecipient($toPhone);
 
         if (!$phoneNumberId || !$accessToken || !$normalizedTo) {
-            // ← LOCAL: Sem config Meta → simula (ok=true)
             Log::info('Envio local simulado (sem config Meta).', [
                 'file' => basename($filePath),
                 'type' => $type,
             ]);
             return [
-                'ok' => true,  // ← Simula como sucesso pra DB
+                'ok' => true,
                 'whatsapp_message_id' => null,
                 'status' => 'sent',
                 'error' => null,
@@ -272,7 +271,6 @@ class WhatsAppSendService
             ];
         }
 
-        // ← META: Tem config → upload real
         $fileExists = file_exists($filePath);
         $fileSize = $fileExists ? filesize($filePath) : 0;
 
@@ -297,9 +295,22 @@ class WhatsAppSendService
 
         $uploadUrl = rtrim(config('whatsapp.api_url'), '/') . "/{$phoneNumberId}/media";
 
+        // ✅ CORREÇÃO AQUI
         $uploadResponse = Http::withToken($accessToken)
-            ->attach('filedata', $fileBinary, $filename ?: basename($filePath), ['Content-Type' => $mimeType])
-            ->post($uploadUrl);
+            ->attach(
+                'file',
+                $fileBinary,
+                $filename ?: basename($filePath),
+                $mimeType
+            )
+            ->post($uploadUrl, [
+                'messaging_product' => 'whatsapp'
+            ]);
+
+        Log::info('Upload response', [
+            'status' => $uploadResponse->status(),
+            'body' => $uploadResponse->json()
+        ]);
 
         if (!$uploadResponse->successful()) {
             return $this->failedResult('upload_falhou', $this->responseJson($uploadResponse));
@@ -311,13 +322,20 @@ class WhatsAppSendService
         }
 
         $sendUrl = $this->messagesUrl($phoneNumberId);
+
         $body = [
             'messaging_product' => 'whatsapp',
             'to' => $normalizedTo,
             'type' => $type,
-            $type => ['id' => $mediaId],
+            $type => [
+                'id' => $mediaId,
+                'filename' => $filename ?: basename($filePath) // ✅ importante pra document
+            ],
         ];
-        if ($caption) $body[$type]['caption'] = trim((string) $caption);
+
+        if ($caption) {
+            $body[$type]['caption'] = trim((string) $caption);
+        }
 
         $sendResponse = Http::withToken($accessToken)
             ->withHeaders(['Content-Type' => 'application/json'])
@@ -325,10 +343,16 @@ class WhatsAppSendService
             ->post($sendUrl, $body);
 
         if (!$sendResponse->successful()) {
+            Log::error('Envio falhou', [
+                'status' => $sendResponse->status(),
+                'body' => $sendResponse->json()
+            ]);
+
             return $this->failedResult('envio_falhou', $this->responseJson($sendResponse));
         }
 
         $graphMessageId = $this->normalizeGraphMessageId($sendResponse->json('messages.0.id') ?? null);
+
         return $this->successResult($graphMessageId, $this->responseJson($sendResponse));
     }
 
