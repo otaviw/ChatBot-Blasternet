@@ -87,11 +87,6 @@ function DashboardPage() {
       description: 'Ajuste mensagens, áreas, horários e regras de resposta.',
     },
     {
-      href: '/minha-conta/simulador',
-      title: 'Simulador',
-      description: 'Valide fluxos antes de publicar no canal oficial.',
-    },
-    {
       href: '/minha-conta/conversas',
       title: 'Conversas',
       description: 'Acompanhe conversas, etiquetas e transferências da equipe.',
