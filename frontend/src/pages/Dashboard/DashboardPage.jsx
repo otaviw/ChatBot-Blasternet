@@ -82,11 +82,6 @@ function DashboardPage() {
 
   const companyItems = [
     {
-      href: '/minha-conta/bot',
-      title: 'Configurações do bot',
-      description: 'Ajuste mensagens, áreas, horários e regras de resposta.',
-    },
-    {
       href: '/minha-conta/conversas',
       title: 'Conversas',
       description: 'Acompanhe conversas, etiquetas e transferências da equipe.',
@@ -108,13 +103,18 @@ function DashboardPage() {
     },
   ];
 
-  const canManageUsers = Boolean(data.can_manage_users || data.user_role === 'company_admin');
+  const isAdmin = Boolean(data.can_manage_users || data.user_role === 'company_admin');
 
-  if (canManageUsers) {
+  if (isAdmin) {
     companyItems.push({
       href: '/minha-conta/usuarios',
       title: 'Usuários',
       description: 'Controle acessos, perfis e áreas de atuação do time.',
+    });
+    companyItems.push({
+      href: '/minha-conta/bot',
+      title: 'Configurações do bot',
+      description: 'Ajuste mensagens, áreas, horários e regras de resposta.',
     });
   }
 
