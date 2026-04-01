@@ -1,5 +1,5 @@
 import './CompanyInboxPage.css';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import Layout from '@/components/layout/Layout/Layout.jsx';
 import InboxBackButton from '@/components/ui/InboxBackButton/InboxBackButton.jsx';
 import usePageData from '@/hooks/usePageData';
@@ -22,7 +22,7 @@ function CompanyInboxPage() {
     `/minha-conta/conversas?page=1&per_page=${CONV_PER_PAGE}`
   );
   const { logout } = useLogout();
-  const { markReadByReference, unreadConversationIds } = useNotificationsContext();
+  const { markReadByReference, unreadConversationIds, setActiveConversationId } = useNotificationsContext();
 
   const {
     conversationListRef,
@@ -129,6 +129,11 @@ function CompanyInboxPage() {
     upsertConversationInList,
     wasChatNearBottomRef,
   });
+
+  useEffect(() => {
+    setActiveConversationId(selectedId ?? 0);
+    return () => setActiveConversationId(0);
+  }, [selectedId, setActiveConversationId]);
 
   const unreadConversationSet = useMemo(
     () => new Set((unreadConversationIds ?? []).map((value) => Number(value))),

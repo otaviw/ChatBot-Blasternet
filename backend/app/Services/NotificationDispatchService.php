@@ -58,10 +58,6 @@ class NotificationDispatchService
         $text = $this->messageNotificationText($message);
 
         foreach ($recipientIds as $recipientId) {
-            if ($this->presenceService->isConversationOpenByUser($recipientId, (int) $conversation->id)) {
-                continue;
-            }
-
             $this->notificationService->createForUser($recipientId, [
                 'type' => 'customer_message',
                 'module' => 'inbox',

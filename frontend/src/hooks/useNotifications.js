@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { REALTIME_EVENTS } from '@/constants/realtimeEvents';
 import realtimeClient from '@/services/realtimeClient';
 import notificationService from '@/services/notificationService';
@@ -138,6 +138,11 @@ export default function useNotifications(options = {}) {
   const [error, setError] = useState('');
   const [loadedAt, setLoadedAt] = useState(null);
   const [clearedUntilId, setClearedUntilId] = useState(0);
+
+  const activeConversationIdRef = useRef(0);
+  const setActiveConversationId = useCallback((id) => {
+    activeConversationIdRef.current = Number(id) > 0 ? Number(id) : 0;
+  }, []);
 
   const applyUnreadCounters = useCallback((byModulePayload, totalPayload) => {
     const normalizedByModule = normalizeUnreadByModule(byModulePayload);
@@ -378,6 +383,18 @@ export default function useNotifications(options = {}) {
   }, [enabled]);
 
   useEffect(() => {
+    if (!enabled) {
+      return undefined;
+    }
+
+    const intervalId = setInterval(() => {
+      void realtimeClient.ensureConnected().catch(() => {});
+    }, 25000);
+
+    return () => clearInterval(intervalId);
+  }, [enabled]);
+
+  useEffect(() => {
     if (!enabled || !autoLoad) {
       return undefined;
     }
@@ -400,6 +417,24 @@ export default function useNotifications(options = {}) {
       }
 
       if (shouldHideNotification(normalized, clearedUntilId)) {
+        return;
+      }
+
+      const isConversationNotification =
+        normalized.module === NOTIFICATION_MODULE.INBOX &&
+        normalized.reference_type === NOTIFICATION_REFERENCE_TYPE.CONVERSATION &&
+        Number(normalized.reference_id) > 0;
+
+      const isActiveConversation =
+        isConversationNotification &&
+        Number(normalized.reference_id) === activeConversationIdRef.current;
+
+      if (isActiveConversation) {
+        void notificationService.markReadByReference({
+          module: normalized.module,
+          referenceType: normalized.reference_type,
+          referenceId: Number(normalized.reference_id),
+        }).catch(() => {});
         return;
       }
 
@@ -458,5 +493,6 @@ export default function useNotifications(options = {}) {
     deleteMany,
     clearAllLocally,
     setNotifications,
+    setActiveConversationId,
   };
 }

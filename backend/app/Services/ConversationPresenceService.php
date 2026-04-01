@@ -44,6 +44,6 @@ class ConversationPresenceService
 
     private function ttlSeconds(): int
     {
-        return max(10, (int) config('realtime.presence.ttl_seconds', 40));
+        return max(10, (int) config('realtime.presence.ttl_seconds', 22));
     }
 }
