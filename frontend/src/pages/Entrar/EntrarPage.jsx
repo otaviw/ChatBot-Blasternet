@@ -1,5 +1,6 @@
 import './EntrarPage.css';
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import Layout from '@/components/layout/Layout/Layout.jsx';
 import usePageData from '@/hooks/usePageData';
 import api from '@/services/api';
@@ -75,6 +76,12 @@ function EntrarPage() {
               <Button type="submit" variant="primary" className="w-full" disabled={busy}>
                 {busy ? 'Entrando...' : 'Entrar no painel'}
               </Button>
+
+              <p className="text-center text-sm text-[#737373]">
+                <Link to="/esqueceu-senha" className="text-[#2563eb] hover:underline">
+                  Esqueci minha senha
+                </Link>
+              </p>
             </form>
           )}
         </Card>

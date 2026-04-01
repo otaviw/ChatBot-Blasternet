@@ -3,6 +3,8 @@ import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 
 const EntrarPage = lazy(() => import('@/pages/Entrar/EntrarPage.jsx'));
+const EsqueceuSenhaPage = lazy(() => import('@/pages/EsqueceuSenha/EsqueceuSenhaPage.jsx'));
+const RedefinirSenhaPage = lazy(() => import('@/pages/RedefinirSenha/RedefinirSenhaPage.jsx'));
 const DashboardPage = lazy(() => import('@/pages/Dashboard/DashboardPage.jsx'));
 const AdminCompaniesPage = lazy(() => import('@/pages/admin/AdminCompanies/AdminCompaniesPage.jsx'));
 const AdminCompanyShowPage = lazy(() => import('@/pages/admin/AdminCompanyShow/AdminCompanyShowPage.jsx'));
@@ -55,6 +57,8 @@ function AppRoutes() {
       <Routes>
         <Route path="/" element={<Navigate to="/entrar" replace />} />
         <Route path="/entrar" element={<EntrarPage />} />
+        <Route path="/esqueceu-senha" element={<EsqueceuSenhaPage />} />
+        <Route path="/redefinir-senha" element={<RedefinirSenhaPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
 
         <Route path="/admin/empresas" element={<AdminCompaniesPage />} />
