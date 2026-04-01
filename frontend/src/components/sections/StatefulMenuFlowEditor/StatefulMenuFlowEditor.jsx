@@ -148,19 +148,20 @@ function ActionEditor({
       {safeAction.kind === 'handoff' ? (
         <label className="stateful-field">
           <span className="stateful-field-label">Área de atendimento</span>
-          <input
-            type="text"
-            list="stateful-flow-areas"
+          <select
             value={safeAction.target_area_name || ''}
             onChange={(e) => onChange({ ...safeAction, target_area_name: e.target.value })}
-            placeholder="Ex.: Suporte"
             className="stateful-input"
-          />
-          <datalist id="stateful-flow-areas">
+          >
+            <option value="">
+              {(serviceAreas ?? []).length ? 'Selecione uma área' : 'Nenhuma área cadastrada'}
+            </option>
             {(serviceAreas ?? []).map((area) => (
-              <option key={String(area)} value={String(area)} />
+              <option key={String(area)} value={String(area)}>
+                {String(area)}
+              </option>
             ))}
-          </datalist>
+          </select>
         </label>
       ) : (
         <div className="space-y-3">
