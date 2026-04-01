@@ -108,6 +108,13 @@
   color: #171717;
 }
 
+.stateful-step-list-item-index {
+  font-size: 12px;
+  font-weight: 500;
+  color: #a3a3a0;
+  margin-right: 2px;
+}
+
 .stateful-step-list-item-meta {
   margin: 4px 0 0;
   font-size: 12px;

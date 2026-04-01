@@ -19,21 +19,6 @@ function getStepDisplayName(step, fallbackIndex = null) {
     return customName;
   }
 
-  const flow = String(step?.flow ?? '').trim();
-  const stepName = String(step?.step ?? '').trim();
-
-  if (flow && stepName) {
-    return `${flow}.${stepName}`;
-  }
-
-  if (flow) {
-    return flow;
-  }
-
-  if (stepName) {
-    return stepName;
-  }
-
   if (fallbackIndex !== null) {
     return `Bloco ${fallbackIndex + 1}`;
   }
@@ -113,7 +98,7 @@ function ActionEditor({
     <div className="stateful-editor-card stateful-editor-card--soft">
       <div className="stateful-editor-card-header">
         <div>
-          <h5 className="stateful-editor-card-title">Ação da seleção</h5>
+          <h5 className="stateful-editor-card-title">O que esta opção vai fazer</h5>
           <p className="stateful-editor-card-subtitle">
             {getActionSummary(safeAction, stepOptions)}
           </p>
@@ -134,7 +119,7 @@ function ActionEditor({
         </label>
 
         <label className="stateful-field">
-          <span className="stateful-field-label">Mensagem enviada após essa ação</span>
+          <span className="stateful-field-label">Mensagem de confirmação (opcional)</span>
           <input
             type="text"
             value={safeAction.reply_text || ''}
@@ -219,7 +204,9 @@ function StepListItem({
     >
       <div className="stateful-step-list-item-top">
         <div>
-          <p className="stateful-step-list-item-title">{name}</p>
+          <p className="stateful-step-list-item-title">
+            <span className="stateful-step-list-item-index">{index + 1}.</span> {name}
+          </p>
           <p className="stateful-step-list-item-meta">
             {typeLabel} • {meta}
           </p>
@@ -227,7 +214,7 @@ function StepListItem({
 
         <div className="stateful-step-list-badges">
           {isInitial && <span className="stateful-badge stateful-badge--success">Inicial</span>}
-          {isDisconnected && <span className="stateful-badge">Solto</span>}
+          {isDisconnected && <span className="stateful-badge">Desconectado</span>}
         </div>
       </div>
     </button>
@@ -448,9 +435,9 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
         <div className="stateful-editor-card">
           <div className="stateful-editor-card-header">
             <div>
-              <h4 className="stateful-editor-card-title">Configuração geral</h4>
+              <h4 className="stateful-editor-card-title">Palavras-chave para reiniciar</h4>
               <p className="stateful-editor-card-subtitle">
-                Comandos que fazem o atendimento voltar para o início.
+                O cliente envia uma dessas palavras para voltar ao início do atendimento.
               </p>
             </div>
           </div>
@@ -480,7 +467,7 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
               onClick={addCommand}
               className="stateful-btn stateful-btn-secondary"
             >
-              Adicionar comando
+              Adicionar palavra-chave
             </button>
           </div>
         </div>
@@ -677,7 +664,7 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
                       <div>
                         <h4 className="stateful-editor-card-title">Opções do menu</h4>
                         <p className="stateful-editor-card-subtitle">
-                          Clique em uma opção para editar a ação sem abrir vários níveis na tela.
+                          Clique em uma opção para configurar o que ela faz.
                         </p>
                       </div>
 
@@ -692,7 +679,7 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
 
                     <label className="stateful-field">
                       <span className="stateful-field-label">
-                        Mensagem quando o cliente escolher uma opção inválida
+                        Resposta se o cliente digitar uma opção que não existe
                       </span>
                       <input
                         type="text"
@@ -759,7 +746,7 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
 
                       <div className="stateful-form-grid">
                         <label className="stateful-field">
-                          <span className="stateful-field-label">Número da opção</span>
+                          <span className="stateful-field-label">Número que o cliente vai digitar</span>
                           <input
                             type="text"
                             value={selectedOption.key || ''}
@@ -775,7 +762,7 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
                         </label>
 
                         <label className="stateful-field">
-                          <span className="stateful-field-label">Texto da opção</span>
+                          <span className="stateful-field-label">Texto que aparece no menu</span>
                           <input
                             type="text"
                             value={selectedOption.label || ''}
@@ -810,16 +797,16 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
                 <section className="stateful-editor-card">
                   <div className="stateful-editor-card-header">
                     <div>
-                      <h4 className="stateful-editor-card-title">Resposta em texto livre</h4>
+                      <h4 className="stateful-editor-card-title">O que acontece após a resposta</h4>
                       <p className="stateful-editor-card-subtitle">
-                        Defina o que acontece depois que o cliente responder.
+                        Defina o que o bot faz depois que o cliente enviar a resposta.
                       </p>
                     </div>
                   </div>
 
                   <label className="stateful-field">
                     <span className="stateful-field-label">
-                      Mensagem quando o cliente não responder corretamente
+                      Resposta se o cliente não digitar nada (opcional)
                     </span>
                     <input
                       type="text"
@@ -853,16 +840,16 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
               <section className="stateful-editor-card">
                 <div className="stateful-editor-card-header">
                   <div>
-                    <h4 className="stateful-editor-card-title">Configurações avançadas</h4>
+                    <h4 className="stateful-editor-card-title">Identificadores técnicos</h4>
                     <p className="stateful-editor-card-subtitle">
-                      Campos internos. Só altere se realmente precisar.
+                      Usados internamente pelo sistema. Só altere se souber o que está fazendo.
                     </p>
                   </div>
                 </div>
 
                 <div className="stateful-form-grid">
                   <label className="stateful-field">
-                    <span className="stateful-field-label">Identificador interno do grupo</span>
+                    <span className="stateful-field-label">Código do grupo</span>
                     <input
                       type="text"
                       value={selectedStep.flow || ''}
@@ -878,7 +865,7 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
                   </label>
 
                   <label className="stateful-field">
-                    <span className="stateful-field-label">Identificador interno do bloco</span>
+                    <span className="stateful-field-label">Código do bloco</span>
                     <input
                       type="text"
                       value={selectedStep.step || ''}

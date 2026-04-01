@@ -65,7 +65,7 @@ function ConversationsSidebar({
                 <div className="font-medium text-[#0f172a]">
                   {conv.customer_name ? `${conv.customer_name} (${conv.customer_phone})` : conv.customer_phone}
                   {' - '}
-                  {conv.status} ({conv.messages_count ?? 0} msg)
+                  ({conv.messages_count ?? 0} msg)
                 </div>
                 <div className="text-xs text-[#526175] mt-1">
                   {conv.status === CONVERSATION_STATUS.CLOSED

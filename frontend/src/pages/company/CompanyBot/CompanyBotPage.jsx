@@ -209,18 +209,7 @@ function CompanyBotPage() {
                 onClick={loadSuggestedMenuTemplate}
                 className="app-btn-secondary"
               >
-                Restaurar modelo sugerido
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setUseDefaultStatefulMenu(true);
-                  setMenuFlowError('');
-                }}
-                className="app-btn-secondary"
-              >
-                Usar modelo automático
+                Restaurar modelo de exemplo
               </button>
             </div>
           </div>
