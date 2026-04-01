@@ -40,6 +40,14 @@ function InternalChatComposer({
           className="app-input internal-chat-textarea"
           value={messageText}
           onChange={(event) => onMessageTextChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+              event.preventDefault();
+              if (!sendBusy && (messageText.trim() || messageFile)) {
+                event.currentTarget.form.requestSubmit();
+              }
+            }
+          }}
           placeholder="Digite sua mensagem..."
           rows={2}
         />

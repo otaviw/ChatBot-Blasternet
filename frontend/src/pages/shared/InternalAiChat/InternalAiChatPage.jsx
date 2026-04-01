@@ -418,6 +418,14 @@ function InternalAiChatPage() {
                     rows={3}
                     value={draftMessage}
                     onChange={(event) => setDraftMessage(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' && !event.shiftKey) {
+                        event.preventDefault();
+                        if (!sendBusy && String(draftMessage ?? '').trim()) {
+                          void sendMessage();
+                        }
+                      }
+                    }}
                     placeholder="Digite sua mensagem..."
                     disabled={sendBusy}
                     aria-invalid={Boolean(sendError)}

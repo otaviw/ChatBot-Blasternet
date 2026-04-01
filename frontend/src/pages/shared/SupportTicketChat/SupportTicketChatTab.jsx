@@ -298,6 +298,14 @@ function SupportTicketChatTab({ ticketId, viewerRole = 'company' }) {
           id="support-chat-message-input"
           value={draftMessage}
           onChange={(event) => setDraftMessage(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+              event.preventDefault();
+              if (!sending && (draftMessage.trim() || pendingImages.length > 0)) {
+                void handleSendMessage();
+              }
+            }
+          }}
           placeholder="Escreva uma mensagem para a outra parte..."
           rows={3}
           className="w-full rounded-md border border-[#d5d5d2] px-3 py-2 text-sm outline-none focus:border-[#2563eb]"

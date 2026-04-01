@@ -102,6 +102,14 @@ function ReplyComposer({
         <textarea
           value={manualText}
           onChange={(event) => onManualTextChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+              event.preventDefault();
+              if (!manualBusy && (manualText.trim() || manualImageFile)) {
+                event.currentTarget.form.requestSubmit();
+              }
+            }
+          }}
           rows={2}
           placeholder="Digite resposta manual ou use um template..."
           className="app-input inbox-reply-input"
