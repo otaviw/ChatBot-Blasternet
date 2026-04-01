@@ -100,7 +100,7 @@ function InternalChatConversationOptionsModal({
                     onChange={(event) => setLeaveTransferAdminTo(event.target.value)}
                     disabled={conversationOptionsBusy}
                   >
-                    <option value="">Nao transferir agora</option>
+                    <option value="">Não transferir agora</option>
                     {transferAdminCandidates.map((participant) => (
                       <option key={participant.id} value={participant.id}>
                         {participant.name}
@@ -223,7 +223,7 @@ function InternalChatConversationOptionsModal({
                 <ul className="internal-chat-participants-list">
                   {filteredAddableGroupRecipients.length === 0 ? (
                     <li className="internal-chat-list-state">
-                      Nenhum usuario disponivel para adicionar.
+                      Nenhum utilizador disponível para adicionar.
                     </li>
                   ) : (
                     filteredAddableGroupRecipients.map((recipient) => (

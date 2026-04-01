@@ -59,7 +59,7 @@ function ReplyComposer({
             title={
               canUseAiSuggestion
                 ? 'Gerar sugestao de resposta com IA'
-                : 'Voce nao tem permissao para usar sugestao de IA'
+                : 'Você não tem permissão para usar sugestão de IA'
             }
           >
             {aiSuggestionBusy ? 'IA gerando resposta...' : 'Sugerir resposta com IA'}
@@ -111,7 +111,7 @@ function ReplyComposer({
             }
           }}
           rows={2}
-          placeholder="Digite resposta manual ou use um template..."
+          placeholder="Digite a resposta manual ou use um modelo..."
           className="app-input inbox-reply-input"
         />
         <button

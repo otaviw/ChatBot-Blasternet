@@ -30,7 +30,7 @@ export default function useCompanyInboxActions({
   const [tagInput, setTagInput] = useState('');
   const [showTemplates, setShowTemplates] = useState(false);
   const [tagsModalOpen, setTagsModalOpen] = useState(false);
-  const [transferExpanded, setTransferExpanded] = useState(false);
+  const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [quickReplies, setQuickReplies] = useState([]);
   const [transferArea, setTransferArea] = useState('');
   const [transferUserId, setTransferUserId] = useState('');
@@ -87,6 +87,7 @@ export default function useCompanyInboxActions({
   }, [availableUsers, transferUserId]);
 
   const resetForOpenConversation = useCallback(() => {
+    setTransferModalOpen(false);
     setTransferArea('');
     setTransferUserId('');
     setTransferError('');
@@ -452,14 +453,14 @@ export default function useCompanyInboxActions({
     setShowTemplates,
     setTagInput,
     setTagsModalOpen,
-    setTransferExpanded,
+    setTransferModalOpen,
     showTemplates,
     tagInput,
     tagsModalOpen,
     transferArea,
     transferBusy,
     transferError,
-    transferExpanded,
+    transferModalOpen,
     transferSuccess,
     transferUserId,
     transferConversation,

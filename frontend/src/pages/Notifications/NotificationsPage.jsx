@@ -57,9 +57,9 @@ function buildNotificationTarget(notification, uiRole) {
 function moduleLabel(module) {
   const value = String(module ?? '').trim();
 
-  if (value === NOTIFICATION_MODULE.INBOX) return 'Inbox';
-  if (value === NOTIFICATION_MODULE.INTERNAL_CHAT) return 'Chat interno';
-  if (value === NOTIFICATION_MODULE.SUPPORT) return 'Suporte';
+  if (value === NOTIFICATION_MODULE.INBOX) return 'Conversas';
+  if (value === NOTIFICATION_MODULE.INTERNAL_CHAT) return 'Equipe interna';
+  if (value === NOTIFICATION_MODULE.SUPPORT) return 'Chamados';
   if (value === NOTIFICATION_MODULE.GENERAL) return 'Geral';
 
   return value || 'Geral';

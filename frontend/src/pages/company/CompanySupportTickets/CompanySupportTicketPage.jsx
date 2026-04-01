@@ -134,7 +134,7 @@ function CompanySupportTicketPage() {
   if (error || !data?.authenticated) {
     return (
       <Layout>
-        <p className="text-sm text-red-600">Nao foi possivel carregar as solicitacoes de suporte.</p>
+        <p className="text-sm text-red-600">Não foi possível carregar as solicitações de suporte.</p>
       </Layout>
     );
   }
@@ -155,14 +155,14 @@ function CompanySupportTicketPage() {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <TicketSection
           title={`Abertas (${openTickets.length})`}
-          emptyText="Voce nao possui solicitacoes abertas."
+          emptyText="Você não possui solicitações abertas."
           tickets={openTickets}
           ticketNotificationById={ticketNotificationById}
         />
 
         <TicketSection
           title={`Fechadas (${closedTickets.length})`}
-          emptyText="Voce nao possui solicitacoes fechadas."
+          emptyText="Você não possui solicitações fechadas."
           tickets={closedTickets}
           ticketNotificationById={ticketNotificationById}
         />

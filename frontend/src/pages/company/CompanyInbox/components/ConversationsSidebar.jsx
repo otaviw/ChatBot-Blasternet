@@ -2,8 +2,10 @@ import {
   CONVERSATION_HANDLING_MODE,
   CONVERSATION_STATUS,
 } from '@/constants/conversation';
+import ServiceAreaBadge from '@/components/company/ServiceAreaBadge/ServiceAreaBadge.jsx';
 
 function ConversationsSidebar({
+  serviceAreaNames = [],
   selectedId,
   convSearchInput,
   onConvSearchInputChange,
@@ -78,7 +80,12 @@ function ConversationsSidebar({
                       nova msg
                     </span>
                   ) : null}
-                  {conv.current_area?.name ? <span className="ml-2">área: {conv.current_area.name}</span> : null}
+                  {conv.current_area?.name ? (
+                    <span className="ml-2 inline-flex flex-wrap items-center gap-1">
+                      <span className="text-[#94a3b8]">área</span>
+                      <ServiceAreaBadge areaName={conv.current_area.name} serviceAreaNames={serviceAreaNames} />
+                    </span>
+                  ) : null}
                   {(conv.tags ?? []).length > 0 && (
                     <span className="ml-2">{conv.tags.join(', ')}</span>
                   )}

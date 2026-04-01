@@ -70,6 +70,25 @@ const ICONS = {
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
     </svg>
   ),
+  /** Assistente de texto (diferente do chat entre pessoas) */
+  chatIa: (
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3v2M12 19v2M5 12H3M21 12h-2" />
+      <circle cx="12" cy="12" r="2" />
+    </svg>
+  ),
+  chamados: (
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  ),
+  novoChamado: (
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 8v8M8 12h8" />
+    </svg>
+  ),
 };
 
 const iconKey = (label) => {
@@ -84,17 +103,36 @@ const iconKey = (label) => {
     Inbox: 'inbox',
     IA: 'bot',
     'Configuracoes de IA': 'bot',
+    'Configuracoes da IA': 'bot',
+    'Configurações de IA': 'bot',
     'Chat interno': 'chatInterno',
-    'Chat IA': 'chatInterno',
+    'Equipe interna': 'chatInterno',
+    Assistente: 'chatIa',
+    'Chat IA': 'chatIa',
     Suporte: 'suporte',
     Solicitacoes: 'suporte',
+    Chamados: 'chamados',
+    'Meus chamados': 'chamados',
+    'Novo chamado': 'novoChamado',
     'Abrir suporte': 'suporte',
+    'Pedir ajuda': 'suporte',
     Notificacoes: 'notificacoes',
     Simulador: 'simulador',
+    'Testar bot': 'simulador',
     Bot: 'bot',
     Respostas: 'respostas',
+    'Respostas rapidas': 'respostas',
+    Inicio: 'dashboard',
+    Conversas: 'inbox',
   };
   return map[normalizedLabel] || 'dashboard';
+};
+
+const sidebarIconFor = (item) => {
+  if (item?.icon && ICONS[item.icon]) {
+    return item.icon;
+  }
+  return iconKey(item?.label);
 };
 
 const ICON_PROFILE = (
@@ -186,9 +224,9 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
 
   const notificationModuleLabel = (module) => {
     const v = String(module ?? '').trim();
-    if (v === NOTIFICATION_MODULE.INBOX) return 'Inbox';
-    if (v === NOTIFICATION_MODULE.INTERNAL_CHAT) return 'Chat interno';
-    if (v === NOTIFICATION_MODULE.SUPPORT) return 'Suporte';
+    if (v === NOTIFICATION_MODULE.INBOX) return 'Conversas';
+    if (v === NOTIFICATION_MODULE.INTERNAL_CHAT) return 'Equipe interna';
+    if (v === NOTIFICATION_MODULE.SUPPORT) return 'Chamados';
     if (v === NOTIFICATION_MODULE.GENERAL) return 'Geral';
     return v || 'Geral';
   };
@@ -325,7 +363,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
       return;
     }
     if (passwordNew !== passwordConfirm) {
-      setPasswordSaveError('A confirmacao da nova senha nao confere.');
+      setPasswordSaveError('A confirmação da nova senha não confere.');
       return;
     }
 
@@ -362,52 +400,114 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
 
   const adminMainLinks = useMemo(() => {
     const links = [
-      { href: '/dashboard', label: 'Dashboard' },
-      { href: '/admin/empresas', label: 'Empresas' },
-      { href: '/admin/usuarios', label: 'Usuários' },
-      { href: '/admin/conversas', label: 'Inbox', module: NOTIFICATION_MODULE.INBOX },
-      { href: '/admin/chat-interno', label: 'Chat interno', module: NOTIFICATION_MODULE.INTERNAL_CHAT },
-      { href: '/admin/simulador', label: 'Simulador' },
+      { href: '/dashboard', label: 'Início', icon: 'dashboard', ariaLabel: 'Ir para o painel inicial' },
+      { href: '/admin/empresas', label: 'Empresas', icon: 'empresas', ariaLabel: 'Cadastro e gestão de empresas' },
+      { href: '/admin/usuarios', label: 'Usuários', icon: 'usuarios', ariaLabel: 'Usuários do sistema' },
+      {
+        href: '/admin/conversas',
+        label: 'Conversas',
+        icon: 'inbox',
+        ariaLabel: 'Atendimento e conversas com clientes',
+        module: NOTIFICATION_MODULE.INBOX,
+      },
+      {
+        href: '/admin/chat-interno',
+        label: 'Equipe interna',
+        icon: 'chatInterno',
+        ariaLabel: 'Mensagens entre membros da equipe',
+        module: NOTIFICATION_MODULE.INTERNAL_CHAT,
+      },
     ];
 
     if (canAccessInternalAiChat) {
-      links.splice(5, 0, { href: '/admin/chat-ia', label: 'Chat IA' });
+      links.push({
+        href: '/admin/chat-ia',
+        label: 'Assistente',
+        icon: 'chatIa',
+        ariaLabel: 'Tela de conversa com assistente de texto (teste)',
+      });
     }
+
+    links.push({
+      href: '/admin/simulador',
+      label: 'Testar bot',
+      icon: 'simulador',
+      ariaLabel: 'Simular mensagens do bot sem enviar ao WhatsApp',
+    });
 
     return links;
   }, [canAccessInternalAiChat]);
 
   const adminSupportLinks = [
-    { href: '/admin/suporte', label: 'Solicitações', module: NOTIFICATION_MODULE.SUPPORT },
-    { href: '/suporte', label: 'Abrir suporte' },
+    {
+      href: '/admin/suporte',
+      label: 'Chamados',
+      icon: 'chamados',
+      ariaLabel: 'Solicitações de suporte',
+      module: NOTIFICATION_MODULE.SUPPORT,
+    },
+    { href: '/suporte', label: 'Novo chamado', icon: 'novoChamado', ariaLabel: 'Abrir nova solicitação de suporte' },
   ];
   
   const companyMainLinks = useMemo(() => {
     const links = [
-      { href: '/dashboard', label: 'Dashboard' },
-      // { href: '/minha-conta/bot', label: 'Bot' },
-      ...(userData?.role !== 'agent' ? [{ href: '/minha-conta/bot', label: 'Bot' }] : []),
-      // ...(canManageUsers ? [{ href: '/minha-conta/ia/configuracoes', label: 'IA' }] : []),
-      { href: '/minha-conta/conversas', label: 'Inbox', module: NOTIFICATION_MODULE.INBOX },
-      { href: '/minha-conta/chat-interno', label: 'Chat interno', module: NOTIFICATION_MODULE.INTERNAL_CHAT },
+      { href: '/dashboard', label: 'Início', icon: 'dashboard', ariaLabel: 'Ir para o painel inicial' },
     ];
 
-    if (canAccessInternalAiChat) {
-      // links.push({ href: '/minha-conta/chat-ia', label: 'Chat IA' });
+    if (userData?.role !== 'agent') {
+      links.push({
+        href: '/minha-conta/bot',
+        label: 'Bot',
+        icon: 'bot',
+        ariaLabel: 'Configurações do bot e atendimento',
+      });
     }
 
     links.push(
-      // { href: '/minha-conta/simulador', label: 'Simulador' },
-      { href: '/minha-conta/respostas-rapidas', label: 'Respostas' }
+      {
+        href: '/minha-conta/conversas',
+        label: 'Conversas',
+        icon: 'inbox',
+        ariaLabel: 'Atendimento e conversas com clientes',
+        module: NOTIFICATION_MODULE.INBOX,
+      },
+      {
+        href: '/minha-conta/chat-interno',
+        label: 'Equipe interna',
+        icon: 'chatInterno',
+        ariaLabel: 'Mensagens entre membros da equipe',
+        module: NOTIFICATION_MODULE.INTERNAL_CHAT,
+      },
     );
 
-    if (canManageUsers) links.push({ href: '/minha-conta/usuarios', label: 'Usuários' });
+    links.push({
+      href: '/minha-conta/respostas-rapidas',
+      label: 'Respostas rápidas',
+      icon: 'respostas',
+      ariaLabel: 'Mensagens prontas para resposta rápida',
+    });
+
+    if (canManageUsers) {
+      links.push({
+        href: '/minha-conta/usuarios',
+        label: 'Usuários',
+        icon: 'usuarios',
+        ariaLabel: 'Usuários da empresa',
+      });
+    }
+
     return links;
-  }, [canAccessInternalAiChat, canManageUsers, userData?.role]);
+  }, [canManageUsers, userData?.role]);
 
   const companySupportLinks = [
-    { href: '/suporte', label: 'Suporte' },
-    { href: '/minha-conta/suporte/solicitacoes', label: 'Solicitações', module: NOTIFICATION_MODULE.SUPPORT },
+    { href: '/suporte', label: 'Pedir ajuda', icon: 'suporte', ariaLabel: 'Registrar chamado de suporte' },
+    {
+      href: '/minha-conta/suporte/solicitacoes',
+      label: 'Meus chamados',
+      icon: 'chamados',
+      ariaLabel: 'Acompanhar chamados de suporte',
+      module: NOTIFICATION_MODULE.SUPPORT,
+    },
   ];
 
   const mainLinks = role === 'admin' ? adminMainLinks : role === 'company' ? companyMainLinks : [];
@@ -499,14 +599,17 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
           <nav className="layout-sidebar__nav">
             {mainLinks.map((item) => {
               const unreadCount = unreadCountForLink(item);
+              const linkTitle = item.ariaLabel || item.label;
               return (
                 <a
                   key={item.href}
                   href={item.href}
                   className={`layout-sidebar__link ${isActive(item.href) ? 'layout-sidebar__link--active' : ''}`}
-                  title={item.label}
+                  title={linkTitle}
+                  aria-label={linkTitle}
+                  aria-current={isActive(item.href) ? 'page' : undefined}
                 >
-                  <span className="layout-sidebar__icon">{ICONS[iconKey(item.label)]}</span>
+                  <span className="layout-sidebar__icon">{ICONS[sidebarIconFor(item)]}</span>
                   <span className="layout-sidebar__label">{item.label}</span>
                   {unreadCount > 0 && (
                     <span className="layout-sidebar__badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
@@ -517,13 +620,17 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
             {supportLinks.length > 0 && (
               <div className="layout-sidebar__accordion">
                 <button
+                  id="sidebar-support-trigger"
                   type="button"
                   className={`layout-sidebar__accordion-trigger ${supportAccordionOpen || isAnySupportActive ? 'layout-sidebar__accordion-trigger--active' : ''}`}
                   onClick={() => setSupportAccordionOpen((v) => !v)}
-                  title="Suporte"
+                  title="Ajuda e suporte — expandir ou recolher"
+                  aria-label="Ajuda e suporte — expandir ou recolher"
+                  aria-expanded={supportAccordionOpen}
+                  aria-controls="sidebar-support-panel"
                 >
                   <span className="layout-sidebar__icon">{ICONS.suporte}</span>
-                  <span className="layout-sidebar__label">Suporte</span>
+                  <span className="layout-sidebar__label">Ajuda e suporte</span>
                   {(() => {
                     const total = supportLinks.reduce((sum, i) => sum + unreadCountForLink(i), 0);
                     return total > 0 ? (
@@ -536,18 +643,26 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
                     </svg>
                   </span>
                 </button>
-                <div className={`layout-sidebar__accordion-content ${supportAccordionOpen ? 'layout-sidebar__accordion-content--open' : ''}`}>
+                <div
+                  id="sidebar-support-panel"
+                  role="region"
+                  aria-labelledby="sidebar-support-trigger"
+                  className={`layout-sidebar__accordion-content ${supportAccordionOpen ? 'layout-sidebar__accordion-content--open' : ''}`}
+                >
                   <div>
                     {supportLinks.map((item) => {
                       const unreadCount = unreadCountForLink(item);
+                      const linkTitle = item.ariaLabel || item.label;
                       return (
                         <a
                           key={item.href}
                           href={item.href}
                           className={`layout-sidebar__link layout-sidebar__link--nested ${isActive(item.href) ? 'layout-sidebar__link--active' : ''}`}
-                          title={item.label}
+                          title={linkTitle}
+                          aria-label={linkTitle}
+                          aria-current={isActive(item.href) ? 'page' : undefined}
                         >
-                          <span className="layout-sidebar__icon">{ICONS[iconKey(item.label)]}</span>
+                          <span className="layout-sidebar__icon">{ICONS[sidebarIconFor(item)]}</span>
                           <span className="layout-sidebar__label">{item.label}</span>
                           {unreadCount > 0 && (
                             <span className="layout-sidebar__badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
@@ -576,7 +691,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
             className={`layout-sidebar layout-sidebar--mobile ${sidebarMobileOpen ? 'layout-sidebar--mobile-open' : ''}`}
           >
             <div className="layout-sidebar__mobile-header">
-              <span className="layout-sidebar__mobile-title">Menu</span>
+              <span className="layout-sidebar__mobile-title">Navegação</span>
               <button
                 type="button"
                 className="layout-sidebar__mobile-close"
@@ -592,15 +707,18 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
             <nav className="layout-sidebar__nav">
               {mainLinks.map((item) => {
                 const unreadCount = unreadCountForLink(item);
+                const linkTitle = item.ariaLabel || item.label;
                 return (
                   <a
                     key={item.href}
                     href={item.href}
                     className={`layout-sidebar__link ${isActive(item.href) ? 'layout-sidebar__link--active' : ''}`}
-                    title={item.label}
+                    title={linkTitle}
+                    aria-label={linkTitle}
+                    aria-current={isActive(item.href) ? 'page' : undefined}
                     onClick={closeSidebarMobile}
                   >
-                    <span className="layout-sidebar__icon">{ICONS[iconKey(item.label)]}</span>
+                    <span className="layout-sidebar__icon">{ICONS[sidebarIconFor(item)]}</span>
                     <span className="layout-sidebar__label">{item.label}</span>
                     {unreadCount > 0 && (
                       <span className="layout-sidebar__badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
@@ -611,13 +729,17 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
               {supportLinks.length > 0 && (
                 <div className="layout-sidebar__accordion">
                   <button
+                    id="sidebar-support-trigger-mobile"
                     type="button"
                     className={`layout-sidebar__accordion-trigger ${supportAccordionOpen || isAnySupportActive ? 'layout-sidebar__accordion-trigger--active' : ''}`}
                     onClick={() => setSupportAccordionOpen((v) => !v)}
-                    title="Suporte"
+                    title="Ajuda e suporte — expandir ou recolher"
+                    aria-label="Ajuda e suporte — expandir ou recolher"
+                    aria-expanded={supportAccordionOpen}
+                    aria-controls="sidebar-support-panel-mobile"
                   >
                     <span className="layout-sidebar__icon">{ICONS.suporte}</span>
-                    <span className="layout-sidebar__label">Suporte</span>
+                    <span className="layout-sidebar__label">Ajuda e suporte</span>
                     {(() => {
                       const total = supportLinks.reduce((sum, i) => sum + unreadCountForLink(i), 0);
                       return total > 0 ? (
@@ -630,19 +752,27 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
                       </svg>
                     </span>
                   </button>
-                  <div className={`layout-sidebar__accordion-content ${supportAccordionOpen ? 'layout-sidebar__accordion-content--open' : ''}`}>
+                  <div
+                    id="sidebar-support-panel-mobile"
+                    role="region"
+                    aria-labelledby="sidebar-support-trigger-mobile"
+                    className={`layout-sidebar__accordion-content ${supportAccordionOpen ? 'layout-sidebar__accordion-content--open' : ''}`}
+                  >
                     <div>
                       {supportLinks.map((item) => {
                         const unreadCount = unreadCountForLink(item);
+                        const linkTitle = item.ariaLabel || item.label;
                         return (
                           <a
                             key={item.href}
                             href={item.href}
                             className={`layout-sidebar__link layout-sidebar__link--nested ${isActive(item.href) ? 'layout-sidebar__link--active' : ''}`}
-                            title={item.label}
+                            title={linkTitle}
+                            aria-label={linkTitle}
+                            aria-current={isActive(item.href) ? 'page' : undefined}
                             onClick={closeSidebarMobile}
                           >
-                            <span className="layout-sidebar__icon">{ICONS[iconKey(item.label)]}</span>
+                            <span className="layout-sidebar__icon">{ICONS[sidebarIconFor(item)]}</span>
                             <span className="layout-sidebar__label">{item.label}</span>
                             {unreadCount > 0 && (
                               <span className="layout-sidebar__badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
@@ -684,7 +814,12 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
                 <span className="hidden xl:inline text-[#737373] text-xs">/ {companyName}</span>
               )}
               {role === 'admin' && (
-                <span className="rounded-full bg-[#dbeafe] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#1d4ed8]">Admin</span>
+                <span
+                  className="rounded-full bg-[#dbeafe] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#1d4ed8]"
+                  title="Área do administrador"
+                >
+                  Administrador
+                </span>
               )}
             </a>
           </div>
@@ -768,7 +903,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
                           type="password"
                           value={passwordNew}
                           onChange={(e) => { setPasswordNew(e.target.value); setPasswordSaveError(''); setPasswordSaveSuccess(''); }}
-                          placeholder="Nova senha (min. 6 caracteres)"
+                          placeholder="Nova senha (mín. 6 caracteres)"
                           className="layout-profile__input"
                           autoComplete="new-password"
                         />

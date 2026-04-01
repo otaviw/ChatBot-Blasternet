@@ -97,7 +97,7 @@ function AdminCompaniesPage() {
           </label>
 
           <label className="block text-sm">
-            Meta Phone Number ID
+            ID do número (Meta / WhatsApp)
             <input
               type="text"
               value={newCompany.meta_phone_number_id}

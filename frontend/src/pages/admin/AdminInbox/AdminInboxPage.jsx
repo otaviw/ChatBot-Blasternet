@@ -100,8 +100,8 @@ function AdminInboxPage() {
       <div className="inbox-page">
       <div className="inbox-header px-4 py-4 lg:px-6 shrink-0">
         <PageHeader
-          title="Inbox (admin)"
-          subtitle="Monitore conversas por empresa, assuma atendimentos críticos e responda rapidamente."
+          title="Conversas (administração)"
+          subtitle="Acompanhe conversas por empresa, assuma atendimentos críticos e responda com agilidade."
         />
       <div className="mb-4 max-w-sm mt-2">
         <label className="block text-sm">

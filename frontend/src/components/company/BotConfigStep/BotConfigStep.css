@@ -1,0 +1,68 @@
+.bot-config-step-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.bot-config-step-badge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #fff;
+  background: #2563eb;
+}
+
+.bot-config-step-head-text {
+  min-width: 0;
+}
+
+.bot-config-section-title--step {
+  margin-bottom: 0.35rem;
+}
+
+.bot-config-step-intro {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: #525252;
+}
+
+.bot-config-rules-wrap {
+  margin-bottom: 1.25rem;
+  padding: 0.875rem 1rem;
+  border-radius: 8px;
+  border: 1px solid #e5e5e5;
+  background: #fff;
+}
+
+.bot-config-rules-label {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #737373;
+}
+
+.bot-config-rules {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: #404040;
+}
+
+.bot-config-rules li + li {
+  margin-top: 0.35rem;
+}
+
+.bot-config-step-body > *:first-child {
+  margin-top: 0;
+}

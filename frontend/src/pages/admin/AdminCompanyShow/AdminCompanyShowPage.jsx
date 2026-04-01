@@ -1,7 +1,9 @@
 import './AdminCompanyShowPage.css';
+import '@/pages/company/CompanyBot/CompanyBotPage.css';
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import Layout from '@/components/layout/Layout/Layout.jsx';
+import BotConfigStep from '@/components/company/BotConfigStep/BotConfigStep.jsx';
 import StatefulMenuFlowEditor from '@/components/sections/StatefulMenuFlowEditor/StatefulMenuFlowEditor.jsx';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
@@ -170,7 +172,9 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
             <p className="mt-0.5 text-sm font-medium text-[#171717]">{company.name}</p>
           </div>
           <div className="rounded-lg bg-[#fafafa] px-4 py-3">
-            <p className="text-xs font-medium text-[#737373] uppercase tracking-wider">Meta Phone Number ID</p>
+            <p className="text-xs font-medium text-[#737373] uppercase tracking-wider">
+              ID do número (Meta / WhatsApp)
+            </p>
             <p className="mt-0.5 text-sm font-medium text-[#171717] font-mono">
               {company.meta_phone_number_id || '—'}
             </p>
@@ -194,7 +198,7 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
             </span>
           </div>
           <div className="rounded-lg bg-[#fafafa] px-4 py-3">
-            <p className="text-xs font-medium text-[#737373] uppercase tracking-wider">Timezone</p>
+            <p className="text-xs font-medium text-[#737373] uppercase tracking-wider">Fuso horário</p>
             <p className="mt-0.5 text-sm font-medium text-[#171717]">{setting?.timezone ?? 'America/Sao_Paulo'}</p>
           </div>
         </div>
@@ -273,7 +277,7 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
           </label>
 
           <label className="block text-sm">
-            Meta Phone Number ID
+            ID do número (Meta / WhatsApp)
             <input
               type="text"
               value={companyForm.meta_phone_number_id}
@@ -323,146 +327,116 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
         ) : (
           <ul className="text-sm space-y-1">
             <li>Mensagem de boas-vindas: {setting.welcome_message || '-'}</li>
-            <li>Mensagem fallback: {setting.fallback_message || '-'}</li>
+            <li>Mensagem quando não entende (fallback): {setting.fallback_message || '-'}</li>
             <li>Mensagem fora de horário: {setting.out_of_hours_message || '-'}</li>
             <li>Respostas por palavra-chave: {Array.isArray(setting.keyword_replies) ? setting.keyword_replies.length : 0}</li>
             <li>Áreas de atendimento: {Array.isArray(setting.service_areas) ? setting.service_areas.join(', ') || '-' : '-'}</li>
-            <li>Menu stateful customizado: {setting.stateful_menu_flow ? 'Sim' : 'Não (usa padrão automático)'}</li>
+            <li>Menu com fluxo personalizado: {setting.stateful_menu_flow ? 'Sim' : 'Não (usa padrão automático)'}</li>
           </ul>
         )}
       </section>
 
       <section className="mb-8">
-        <h2 className="text-sm font-medium text-[#737373] mb-2">Editar configurações (admin)</h2>
-        <form onSubmit={saveSettings} className="space-y-8 max-w-4xl">
-          <section className="app-panel space-y-4">
-            <h3 className="font-medium">Estado e contexto</h3>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={settings.is_active}
-                onChange={(e) => updateMessageField('is_active', e.target.checked)}
-              />
-              Bot ativo
-            </label>
+        <h2 className="text-sm font-medium text-[#737373] mb-1">Editar configurações (admin)</h2>
+        <p className="text-sm text-[#737373] mb-4 max-w-3xl">
+          Mesma ordem recomendada que no painel da empresa: contexto e áreas, expediente, mensagens, menu e palavras-chave.
+        </p>
 
-            <label className="block text-sm">
-              Timezone
-              <input
-                type="text"
-                value={settings.timezone}
-                onChange={(e) => updateMessageField('timezone', e.target.value)}
-                className="app-input"
-              />
-            </label>
-          </section>
+        <nav className="bot-config-toc mb-6" aria-label="Ordem da configuração">
+          <ol className="bot-config-toc-list">
+            <li>Estado e fuso</li>
+            <li>Áreas de atendimento</li>
+            <li>Horário comercial</li>
+            <li>Mensagens automáticas</li>
+            <li>Menu numerado</li>
+            <li>Palavras-chave</li>
+          </ol>
+        </nav>
 
-          <section className="app-panel space-y-4">
-            <h3 className="font-medium">Mensagens</h3>
-            <label className="block text-sm">
-              Boas-vindas
-              <textarea
-                value={settings.welcome_message || ''}
-                onChange={(e) => updateMessageField('welcome_message', e.target.value)}
-                rows={3}
-                className="app-input"
-              />
-            </label>
-
-            <label className="block text-sm">
-              Fallback (quando não entende)
-              <textarea
-                value={settings.fallback_message || ''}
-                onChange={(e) => updateMessageField('fallback_message', e.target.value)}
-                rows={3}
-                className="app-input"
-              />
-            </label>
-
-            <label className="block text-sm">
-              Fora de horário
-              <textarea
-                value={settings.out_of_hours_message || ''}
-                onChange={(e) => updateMessageField('out_of_hours_message', e.target.value)}
-                rows={3}
-                className="app-input"
-              />
-            </label>
-          </section>
-
-          <section className="app-panel space-y-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="font-medium">Menu numerado do bot</h3>
-                <p className="mt-1 text-sm text-[#737373]">
-                  Monte o fluxo em blocos, com uma navegação lateral para editar menus, perguntas abertas e transferências sem ficar abrindo várias áreas para baixo.
-                </p>
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={loadSuggestedMenuTemplate}
-                  className="app-btn-secondary"
-                >
-                  Restaurar modelo sugerido
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUseDefaultStatefulMenu(true);
-                    setMenuFlowError('');
-                  }}
-                  className="app-btn-secondary"
-                >
-                  Usar modelo automático
-                </button>
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-[#e3e3e0] bg-[#fafafa] p-4">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={useDefaultStatefulMenu}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      setUseDefaultStatefulMenu(true);
-                      setMenuFlowError('');
-                      return;
-                    }
-
-                    enableCustomMenuBuilder();
-                  }}
-                />
-                Usar menu padrão automático (sem edição manual)
+        <form onSubmit={saveSettings} className="bot-config-form">
+          <BotConfigStep
+            step={1}
+            title="Estado e contexto"
+            intro="Defina se o bot responde sozinho e em qual fuso o expediente será calculado."
+            rules={[
+              'Ative o bot apenas quando mensagens e fluxo estiverem prontos para teste ou produção.',
+              'Use um fuso válido (ex.: America/Sao_Paulo); ele afeta a mensagem de fora do expediente.',
+            ]}
+          >
+            <div className="bot-config-grid-2">
+              <label className="bot-config-field">
+                <span className="bot-config-label">Bot ativo</span>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={settings.is_active}
+                    onChange={(e) => updateMessageField('is_active', e.target.checked)}
+                  />
+                  <span className="text-sm">Ativar respostas automáticas</span>
+                </label>
               </label>
-
-              <p className="mt-2 text-xs text-[#706f6c]">
-                O menu pode iniciar automaticamente na primeira mensagem. O comando <strong>#</strong> faz o cliente voltar para o início.
-              </p>
-
-              <p className="mt-1 text-xs text-[#706f6c]">
-                Desmarque esta opção para montar um fluxo personalizado com blocos, opções, perguntas abertas e transferências.
-              </p>
-            </div>
-
-            {!useDefaultStatefulMenu && (
-              <div className="pt-1">
-                <StatefulMenuFlowEditor
-                  value={statefulMenuEditor}
-                  onChange={setStatefulMenuEditor}
-                  serviceAreas={settings.service_areas ?? []}
+              <label className="bot-config-field">
+                <span className="bot-config-label">Fuso horário</span>
+                <input
+                  type="text"
+                  value={settings.timezone}
+                  onChange={(e) => updateMessageField('timezone', e.target.value)}
+                  placeholder="Ex: America/Sao_Paulo"
+                  className="app-input"
                 />
-              </div>
+              </label>
+            </div>
+          </BotConfigStep>
+
+          <BotConfigStep
+            step={2}
+            title="Áreas de atendimento"
+            intro="Nomes das equipes ou setores usados em transferências e no menu (quando aplicável)."
+            rules={[
+              'Cadastre as áreas antes de montar o menu personalizado que transfere para um setor.',
+              'Prefira nomes curtos e claros para o cliente entender na primeira leitura.',
+            ]}
+          >
+            <div className="bot-config-section-header">
+              <p className="bot-config-hint bot-config-hint--flush">Ex.: Suporte, Vendas, Financeiro</p>
+              <button type="button" onClick={addServiceArea} className="app-btn-secondary">
+                Adicionar área
+              </button>
+            </div>
+            {!settings.service_areas?.length && (
+              <p className="text-sm text-[#737373]">Nenhuma área cadastrada.</p>
             )}
+            <div className="bot-config-list">
+              {(settings.service_areas ?? []).map((area, index) => (
+                <div key={index} className="flex gap-2">
+                  <input
+                    type="text"
+                    value={area}
+                    onChange={(e) => updateServiceArea(index, e.target.value)}
+                    placeholder="Ex.: Suporte"
+                    className="app-input"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeServiceArea(index)}
+                    className="app-btn-danger"
+                  >
+                    Remover
+                  </button>
+                </div>
+              ))}
+            </div>
+          </BotConfigStep>
 
-            {menuFlowError && <p className="text-sm text-red-600">{menuFlowError}</p>}
-          </section>
-
-          <section className="app-panel space-y-4">
-            <h3 className="font-medium">Horario por dia</h3>
+          <BotConfigStep
+            step={3}
+            title="Horário comercial"
+            intro="Marque os dias e intervalos em que o atendimento considera expediente."
+            rules={[
+              'Em dias desmarcados ou fora do intervalo, vale a mensagem de fora do expediente (passo 4).',
+              'Garanta que o horário de início seja anterior ao de fim no mesmo dia.',
+            ]}
+          >
             <div className="space-y-3">
               {DAY_KEYS.map((day) => {
                 const cfg = settings.business_hours[day] || { enabled: false, start: '', end: '' };
@@ -478,7 +452,7 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
                     </label>
 
                     <label className="text-sm">
-                      Inicio
+                      Início
                       <input
                         type="time"
                         value={cfg.start || ''}
@@ -502,17 +476,130 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
                 );
               })}
             </div>
-          </section>
+          </BotConfigStep>
 
-          <section className="app-panel space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-medium">Respostas por palavra-chave</h3>
-              <button
-                type="button"
-                onClick={addKeywordReply}
-                className="app-btn-secondary"
-              >
-                Adicionar
+          <BotConfigStep
+            step={4}
+            title="Mensagens automáticas"
+            intro="Textos na entrada, quando não entende o pedido e fora do expediente."
+            rules={[
+              'Boas-vindas: primeira impressão; fallback: quando nenhuma regra se aplica; fora de horário: depende do passo 3.',
+            ]}
+          >
+            <div className="bot-config-messages-grid">
+              <label className="bot-config-field">
+                <span className="bot-config-label">Boas-vindas</span>
+                <textarea
+                  value={settings.welcome_message || ''}
+                  onChange={(e) => updateMessageField('welcome_message', e.target.value)}
+                  rows={3}
+                  className="app-input"
+                />
+              </label>
+
+              <label className="bot-config-field">
+                <span className="bot-config-label">Fallback (quando não entende)</span>
+                <textarea
+                  value={settings.fallback_message || ''}
+                  onChange={(e) => updateMessageField('fallback_message', e.target.value)}
+                  rows={3}
+                  className="app-input"
+                />
+              </label>
+
+              <label className="bot-config-field">
+                <span className="bot-config-label">Fora de horário</span>
+                <textarea
+                  value={settings.out_of_hours_message || ''}
+                  onChange={(e) => updateMessageField('out_of_hours_message', e.target.value)}
+                  rows={3}
+                  className="app-input"
+                />
+              </label>
+            </div>
+          </BotConfigStep>
+
+          <BotConfigStep
+            step={5}
+            title="Menu numerado do bot"
+            intro="Fluxo principal: opções numeradas, blocos e transferências para as áreas do passo 2."
+            rules={[
+              'Com modelo automático, revise textos antes de publicar; com fluxo personalizado, mantenha opções objetivas.',
+              'O menu pode iniciar automaticamente na primeira mensagem. O comando # faz o cliente voltar ao início.',
+            ]}
+          >
+            <div className="bot-config-section-header">
+              <p className="bot-config-hint bot-config-hint--flush">
+                Monte o fluxo em blocos, com uma navegação lateral para editar menus, perguntas abertas e transferências
+                sem ficar abrindo várias áreas para baixo.
+              </p>
+
+              <div className="flex gap-2 flex-wrap">
+                <button type="button" onClick={loadSuggestedMenuTemplate} className="app-btn-secondary">
+                  Restaurar modelo sugerido
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUseDefaultStatefulMenu(true);
+                    setMenuFlowError('');
+                  }}
+                  className="app-btn-secondary"
+                >
+                  Usar modelo automático
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-lg border border-[#e3e3e0] bg-[#fafafa] p-4">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={useDefaultStatefulMenu}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setUseDefaultStatefulMenu(true);
+                      setMenuFlowError('');
+                      return;
+                    }
+
+                    enableCustomMenuBuilder();
+                  }}
+                />
+                Usar menu padrão automático (sem edição manual)
+              </label>
+
+              <p className="mt-2 text-xs text-[#706f6c]">
+                Desmarque para montar um fluxo personalizado com blocos, opções, perguntas abertas e transferências.
+              </p>
+            </div>
+
+            {!useDefaultStatefulMenu && (
+              <div className="mt-4">
+                <StatefulMenuFlowEditor
+                  value={statefulMenuEditor}
+                  onChange={setStatefulMenuEditor}
+                  serviceAreas={settings.service_areas ?? []}
+                />
+              </div>
+            )}
+
+            {menuFlowError && <p className="mt-3 text-sm text-red-600">{menuFlowError}</p>}
+          </BotConfigStep>
+
+          <BotConfigStep
+            step={6}
+            title="Respostas por palavra-chave"
+            intro="Atalhos opcionais: quando o cliente digita um termo, o bot responde com o texto associado."
+            rules={[
+              'Cadastre depois do menu para não duplicar o que já está no fluxo numerado.',
+              'Evite a mesma palavra em duas regras; normalize termos para bater com o que o cliente digita.',
+            ]}
+          >
+            <div className="flex flex-wrap justify-end gap-2 mb-2">
+              <button type="button" onClick={addKeywordReply} className="app-btn-secondary">
+                Adicionar regra
               </button>
             </div>
 
@@ -555,45 +642,9 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
                 </div>
               ))}
             </div>
-          </section>
+          </BotConfigStep>
 
-          <section className="app-panel space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-medium">Áreas de atendimento</h3>
-              <button
-                type="button"
-                onClick={addServiceArea}
-                className="app-btn-secondary"
-              >
-                Adicionar área
-              </button>
-            </div>
-            {!settings.service_areas?.length && (
-              <p className="text-sm text-[#737373]">Nenhuma área cadastrada.</p>
-            )}
-            <div className="space-y-2">
-              {(settings.service_areas ?? []).map((area, index) => (
-                <div key={index} className="flex gap-2">
-                  <input
-                    type="text"
-                    value={area}
-                    onChange={(e) => updateServiceArea(index, e.target.value)}
-                    placeholder="Ex.: Suporte"
-                    className="app-input"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeServiceArea(index)}
-                    className="app-btn-danger"
-                  >
-                    Remover
-                  </button>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <div className="flex items-center gap-3">
+          <div className="bot-config-actions">
             <button
               type="submit"
               disabled={saveState === 'saving'}

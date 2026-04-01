@@ -117,7 +117,7 @@ function InternalAiChatPage() {
     return (
       <Layout role={role} onLogout={logout}>
         <p className="text-sm text-[#737373]" role="status">
-          Carregando chat IA...
+          Carregando chat com IA...
         </p>
       </Layout>
     );
@@ -126,7 +126,7 @@ function InternalAiChatPage() {
   if (error || !data?.authenticated || !user) {
     return (
       <Layout>
-        <p className="text-sm text-red-600">Nao foi possivel carregar o chat IA.</p>
+        <p className="text-sm text-red-600">Não foi possível carregar o chat com IA.</p>
       </Layout>
     );
   }
@@ -135,7 +135,7 @@ function InternalAiChatPage() {
     return (
       <Layout role={role} companyName={companyName || undefined} onLogout={logout}>
         <Notice tone="info">
-          Chat IA indisponivel para este usuario ou para esta empresa.
+          Chat com IA indisponível para este utilizador ou para esta empresa.
         </Notice>
       </Layout>
     );
@@ -146,7 +146,7 @@ function InternalAiChatPage() {
       <div className="internal-ai-chat-page">
         <PageHeader
           title="Chat interno com IA"
-          subtitle="Converse com a IA usando as configuracoes da sua empresa."
+          subtitle="Converse com a IA usando as configurações da sua empresa."
           action={
             <div className="internal-ai-chat-page__actions">
               <button

@@ -33,7 +33,8 @@
 
 @media (min-width: 1024px) {
   .inbox-layout {
-    grid-template-columns: minmax(200px, 280px) 1fr;
+    /* Lista mais estreita → mais espaço para mensagens (minmax(0,1fr) evita overflow) */
+    grid-template-columns: minmax(200px, 240px) minmax(0, 1fr);
   }
 }
 
@@ -132,9 +133,50 @@
 }
 
 .inbox-toolbar {
-  padding: 0.5rem 1rem;
+  padding: 0.45rem 0.75rem;
   background: #fafafa;
   border-bottom: 1px solid #e5e5e5;
+}
+
+.inbox-toolbar-actions-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 0.25rem;
+  z-index: 200;
+  min-width: 11rem;
+  padding: 0.25rem 0;
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 0.5rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.inbox-toolbar-actions-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.75rem;
+  color: #262626;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.inbox-toolbar-actions-menu button:hover:not(:disabled) {
+  background: #f5f5f5;
+}
+
+.inbox-toolbar-actions-menu button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.inbox-toolbar-actions-menu .inbox-toolbar-actions-sep {
+  height: 1px;
+  margin: 0.35rem 0;
+  background: #e5e5e5;
 }
 
 .inbox-messages-pagination {
@@ -146,7 +188,7 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 1rem;
+  padding: 0.75rem 0.85rem;
   margin: 0;
   list-style: none;
 }
@@ -162,7 +204,7 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  max-width: 85%;
+  max-width: min(92%, 52rem);
   padding: 0.5rem 0.75rem;
   border-radius: 0.75rem;
   margin-bottom: 0.5rem;
@@ -394,8 +436,8 @@
 .inbox-tags-modal {
   background: #fff;
   border-radius: 0.5rem;
-  padding: 1.25rem;
-  min-width: 320px;
-  max-width: 90vw;
+  padding: 1rem 1.1rem;
+  min-width: 260px;
+  max-width: min(20rem, 90vw);
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
 }

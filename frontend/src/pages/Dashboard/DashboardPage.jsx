@@ -12,7 +12,7 @@ function DashboardPage() {
   if (loading) {
     return (
       <Layout>
-        <p className="text-sm text-[#737373]">Carregando dashboard...</p>
+        <p className="text-sm text-[#737373]">Carregando painel...</p>
       </Layout>
     );
   }
@@ -30,22 +30,22 @@ function DashboardPage() {
       {
         href: '/admin/empresas',
         title: 'Empresas',
-        description: 'Acompanhe metricas e status tecnico sem acesso a conteudo sensivel.',
+        description: 'Acompanhe métricas e estado técnico sem acesso a conteúdo sensível.',
       },
       {
         href: '/admin/usuarios',
         title: 'Usuários',
-        description: 'Gerencie usuários, perfis e vinculação com empresas.',
+        description: 'Gerencie utilizadores, perfis e vínculo com empresas.',
       },
       {
         href: '/admin/suporte',
         title: 'Solicitações de suporte',
-        description: 'Visualize chamados abertos/fechados e atualize o status de resolucao.',
+        description: 'Veja chamados abertos ou fechados e atualize o estado de resolução.',
       },
       {
         href: '/admin/chat-interno',
         title: 'Chat interno',
-        description: 'Converse em tempo real com usuarios da plataforma sem sair do sistema.',
+        description: 'Converse em tempo real com utilizadores da plataforma sem sair do sistema.',
       },
       {
         href: '/admin/simulador',
@@ -62,8 +62,8 @@ function DashboardPage() {
     return (
       <Layout role="admin" onLogout={logout}>
         <PageHeader
-          title="Dashboard do sistema"
-          subtitle="Visão central de operação para gerenciar empresas, usuários e fluxo de atendimento."
+          title="Painel do sistema"
+          subtitle="Visão central para gerir empresas, utilizadores e fluxo de atendimento."
         />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {adminItems.map((item) => (
@@ -93,13 +93,13 @@ function DashboardPage() {
     },
     {
       href: '/minha-conta/conversas',
-      title: 'Inbox',
-      description: 'Acompanhe conversas, tags e transferencias da equipe.',
+      title: 'Conversas',
+      description: 'Acompanhe conversas, etiquetas e transferências da equipe.',
     },
     {
       href: '/minha-conta/chat-interno',
       title: 'Chat interno',
-      description: 'Canal rapido para falar com administradores e colegas em tempo real.',
+      description: 'Canal rápido para falar com administradores e colegas em tempo real.',
     },
     {
       href: '/suporte',
@@ -109,7 +109,7 @@ function DashboardPage() {
     {
       href: '/minha-conta/suporte/solicitacoes',
       title: 'Minhas solicitações',
-      description: 'Acompanhe apenas os chamados que voce abriu.',
+      description: 'Acompanhe apenas os chamados que você abriu.',
     },
   ];
 
@@ -126,7 +126,7 @@ function DashboardPage() {
   return (
     <Layout role="company" companyName={data.companyName} onLogout={logout}>
       <PageHeader
-        title={`Dashboard - ${data.companyName ?? 'Empresa'}`}
+        title={`Painel — ${data.companyName ?? 'Empresa'}`}
         subtitle="Resumo de operação para manter o bot alinhado com o atendimento humano."
       />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

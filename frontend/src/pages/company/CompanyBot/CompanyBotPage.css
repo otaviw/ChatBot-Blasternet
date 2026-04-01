@@ -1,7 +1,31 @@
 /* Config do bot */
 
 .bot-config-header {
+  margin-bottom: 1.25rem;
+}
+
+.bot-config-toc {
   margin-bottom: 2rem;
+  max-width: 56rem;
+}
+
+.bot-config-toc-list {
+  margin: 0;
+  padding-left: 1.5rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: #525252;
+}
+
+.bot-config-toc-list li::marker {
+  font-weight: 600;
+  color: #2563eb;
+}
+
+.bot-config-hint--flush {
+  margin: 0;
+  flex: 1;
+  min-width: 12rem;
 }
 
 .bot-config-form {

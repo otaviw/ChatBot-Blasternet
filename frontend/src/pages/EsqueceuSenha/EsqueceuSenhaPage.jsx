@@ -47,7 +47,7 @@ function EsqueceuSenhaPage() {
             </Notice>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-              <Field label="Email">
+              <Field label="E-mail">
                 <TextInput
                   type="email"
                   value={email}

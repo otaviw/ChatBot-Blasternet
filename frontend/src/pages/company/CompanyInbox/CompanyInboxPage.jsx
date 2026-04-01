@@ -11,6 +11,7 @@ import ConversationToolbar from './components/ConversationToolbar.jsx';
 import MessagesPanel from './components/MessagesPanel.jsx';
 import ReplyComposer from './components/ReplyComposer.jsx';
 import TagsModal from './components/TagsModal.jsx';
+import TransferModal from './components/TransferModal.jsx';
 import useCompanyInboxConversations from './hooks/useCompanyInboxConversations';
 import useCompanyInboxDetailMessages from './hooks/useCompanyInboxDetailMessages';
 import useCompanyInboxActions from './hooks/useCompanyInboxActions';
@@ -21,6 +22,12 @@ function CompanyInboxPage() {
   const { data, loading, error } = usePageData(
     `/minha-conta/conversas?page=1&per_page=${CONV_PER_PAGE}`
   );
+  const { data: botData } = usePageData('/minha-conta/bot');
+  const serviceAreaNames = useMemo(() => {
+    const list = botData?.settings?.service_areas;
+    if (!Array.isArray(list)) return [];
+    return list.map((a) => String(a ?? '').trim()).filter(Boolean);
+  }, [botData]);
   const { logout } = useLogout();
   const { markReadByReference, unreadConversationIds, setActiveConversationId } = useNotificationsContext();
 
@@ -106,14 +113,14 @@ function CompanyInboxPage() {
     setShowTemplates,
     setTagInput,
     setTagsModalOpen,
-    setTransferExpanded,
+    setTransferModalOpen,
     showTemplates,
     tagInput,
     tagsModalOpen,
     transferArea,
     transferBusy,
     transferError,
-    transferExpanded,
+    transferModalOpen,
     transferSuccess,
     transferUserId,
     transferConversation,
@@ -170,7 +177,7 @@ function CompanyInboxPage() {
     return (
       <Layout>
         <p className="text-sm text-red-600 dark:text-red-400">
-          Nao foi possivel carregar a inbox.
+          Não foi possível carregar as conversas.
         </p>
       </Layout>
     );
@@ -180,10 +187,11 @@ function CompanyInboxPage() {
     <Layout role="company" onLogout={logout} fullWidth>
       <div className="inbox-page">
         <div className="inbox-header">
-          <h1 className="inbox-title">Inbox da empresa - Acompanhe atendimento em tempo real.</h1>
+          <h1 className="inbox-title">Conversas da empresa — atendimento em tempo real</h1>
         </div>
-        <div className="inbox-layout grid grid-cols-1 lg:grid-cols-[minmax(200px,280px)_1fr]">
+        <div className="inbox-layout grid grid-cols-1 lg:grid-cols-[minmax(200px,240px)_minmax(0,1fr)]">
           <ConversationsSidebar
+            serviceAreaNames={serviceAreaNames}
             selectedId={selectedId}
             convSearchInput={convSearchInput}
             onConvSearchInputChange={setConvSearchInput}
@@ -212,6 +220,7 @@ function CompanyInboxPage() {
               <div className="inbox-detail-layout">
                 <ConversationToolbar
                   detail={detail}
+                  serviceAreaNames={serviceAreaNames}
                   contactNameInput={contactNameInput}
                   onContactNameChange={handleContactNameInputChange}
                   onSaveContactName={saveContactName}
@@ -223,18 +232,7 @@ function CompanyInboxPage() {
                   onReleaseConversation={releaseConversation}
                   onCloseConversation={closeConversation}
                   onOpenTagsModal={() => setTagsModalOpen(true)}
-                  transferExpanded={transferExpanded}
-                  onToggleTransferExpanded={() => setTransferExpanded((value) => !value)}
-                  transferArea={transferArea}
-                  onTransferAreaChange={handleTransferAreaChange}
-                  transferOptions={transferOptions}
-                  transferUserId={transferUserId}
-                  onTransferUserChange={handleTransferUserChange}
-                  availableUsers={availableUsers}
-                  onTransferConversation={transferConversation}
-                  transferBusy={transferBusy}
-                  transferSuccess={transferSuccess}
-                  transferError={transferError}
+                  onOpenTransferModal={() => setTransferModalOpen(true)}
                 />
 
                 <MessagesPanel
@@ -283,6 +281,22 @@ function CompanyInboxPage() {
         onAddTag={() => addTag(tagInput)}
         onRemoveTag={removeTag}
         onClose={() => setTagsModalOpen(false)}
+      />
+
+      <TransferModal
+        open={transferModalOpen}
+        detail={detail}
+        transferArea={transferArea}
+        onTransferAreaChange={handleTransferAreaChange}
+        transferOptions={transferOptions}
+        transferUserId={transferUserId}
+        onTransferUserChange={handleTransferUserChange}
+        availableUsers={availableUsers}
+        onTransferConversation={transferConversation}
+        transferBusy={transferBusy}
+        transferSuccess={transferSuccess}
+        transferError={transferError}
+        onClose={() => setTransferModalOpen(false)}
       />
     </Layout>
   );

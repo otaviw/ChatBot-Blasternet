@@ -214,7 +214,7 @@ function AdminSupportTicketsPage() {
   if (error || !data?.authenticated) {
     return (
       <Layout>
-        <p className="text-sm text-red-600">Nao foi possivel carregar as solicitacoes de suporte.</p>
+        <p className="text-sm text-red-600">Não foi possível carregar as solicitações de suporte.</p>
       </Layout>
     );
   }

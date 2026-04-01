@@ -33,7 +33,7 @@ function UserFormFields({
         />
       </Field>
 
-      <Field label="Email">
+      <Field label="E-mail">
         <TextInput
           type="email"
           placeholder="nome@empresa.com"

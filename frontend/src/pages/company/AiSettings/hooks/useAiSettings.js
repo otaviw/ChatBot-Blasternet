@@ -57,7 +57,7 @@ export default function useAiSettings({ enabled }) {
       setSettings(settingsResponse.settings ?? null);
       setUsers(usersResponse.users ?? []);
     } catch (requestError) {
-      setError(parseRequestError(requestError, 'Nao foi possivel carregar as configuracoes de IA.'));
+      setError(parseRequestError(requestError, 'Não foi possível carregar as configurações de IA.'));
     } finally {
       setLoading(false);
     }
@@ -93,7 +93,7 @@ export default function useAiSettings({ enabled }) {
       setSettings(response.settings ?? settings);
       setToast({
         type: 'success',
-        message: 'Configuracoes de IA salvas com sucesso.',
+        message: 'Configurações de IA guardadas com sucesso.',
       });
       return true;
     } catch (requestError) {
@@ -138,10 +138,10 @@ export default function useAiSettings({ enabled }) {
 
         setToast({
           type: 'success',
-          message: 'Permissao de IA atualizada.',
+          message: 'Permissão de IA atualizada.',
         });
       } catch (requestError) {
-        const message = parseRequestError(requestError, 'Nao foi possivel atualizar a permissao do usuario.');
+        const message = parseRequestError(requestError, 'Não foi possível atualizar a permissão do utilizador.');
         setToast({
           type: 'danger',
           message,

@@ -44,7 +44,7 @@ function InternalChatCreateModal({
         <input
           type="search"
           className="app-input"
-          placeholder="Buscar usuario por nome ou email..."
+          placeholder="Buscar utilizador por nome ou e-mail..."
           value={recipientSearch}
           onChange={(event) => onRecipientSearchChange(event.target.value)}
         />
@@ -56,7 +56,7 @@ function InternalChatCreateModal({
 
           {!recipientsLoading && !filteredRecipients.length ? (
             <p className="internal-chat-list-state">
-              Nenhum usuario disponivel para iniciar conversa.
+              Nenhum utilizador disponível para iniciar conversa.
             </p>
           ) : null}
 

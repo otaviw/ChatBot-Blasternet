@@ -1,10 +1,13 @@
+import { useEffect, useRef, useState } from 'react';
 import {
   CONVERSATION_HANDLING_MODE,
   CONVERSATION_STATUS,
 } from '@/constants/conversation';
+import ServiceAreaBadge from '@/components/company/ServiceAreaBadge/ServiceAreaBadge.jsx';
 
 function ConversationToolbar({
   detail,
+  serviceAreaNames = [],
   contactNameInput,
   onContactNameChange,
   onSaveContactName,
@@ -16,112 +19,144 @@ function ConversationToolbar({
   onReleaseConversation,
   onCloseConversation,
   onOpenTagsModal,
-  transferExpanded,
-  onToggleTransferExpanded,
-  transferArea,
-  onTransferAreaChange,
-  transferOptions,
-  transferUserId,
-  onTransferUserChange,
-  availableUsers,
-  onTransferConversation,
-  transferBusy,
-  transferSuccess,
-  transferError,
+  onOpenTransferModal,
 }) {
+  const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
+  const actionsMenuRef = useRef(null);
+
+  useEffect(() => {
+    if (!actionsMenuOpen) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (actionsMenuRef.current && !actionsMenuRef.current.contains(event.target)) {
+        setActionsMenuOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setActionsMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [actionsMenuOpen]);
+
+  const closeMenu = () => setActionsMenuOpen(false);
+
   return (
-    <div className="inbox-toolbar shrink-0 flex flex-wrap items-center gap-2">
-      <span className="text-xs text-[#525252]">
-        Modo: <strong>{detail.handling_mode === CONVERSATION_HANDLING_MODE.HUMAN ? 'Manual' : 'Bot'}</strong>
-        {detail.assigned_user ? ` · ${detail.assigned_user.name}` : ''}
-        {detail.current_area?.name ? ` · ${detail.current_area.name}` : ''}
+    <div className="inbox-toolbar shrink-0 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+      <span className="text-xs text-[#525252] inline-flex flex-wrap items-center gap-x-1.5 gap-y-1 min-w-0 flex-1">
+        <span className="min-w-0">
+          Modo: <strong>{detail.handling_mode === CONVERSATION_HANDLING_MODE.HUMAN ? 'Manual' : 'Bot'}</strong>
+          {detail.assigned_user ? ` · ${detail.assigned_user.name}` : ''}
+        </span>
+        {detail.current_area?.name ? (
+          <>
+            <span className="text-[#a3a3a3] shrink-0" aria-hidden>
+              ·
+            </span>
+            <ServiceAreaBadge areaName={detail.current_area.name} serviceAreaNames={serviceAreaNames} />
+          </>
+        ) : null}
       </span>
-      <div className="flex items-center gap-1.5">
+
+      <div className="flex items-center gap-1.5 shrink-0">
         <input
           type="text"
           value={contactNameInput}
           onChange={(event) => onContactNameChange(event.target.value)}
           placeholder="Nome"
-          className="w-32 app-input text-xs py-1.5"
+          className="w-28 sm:w-32 app-input text-xs py-1.5"
         />
         <button type="button" onClick={onSaveContactName} disabled={contactBusy} className="app-btn-secondary text-xs py-1.5">
           {contactBusy ? '...' : 'Salvar'}
         </button>
       </div>
-      {contactSuccess && <span className="text-xs text-green-600">{contactSuccess}</span>}
-      {contactError && <span className="text-xs text-red-600">{contactError}</span>}
-      <div className="flex gap-1">
-        <button type="button" onClick={onAssumeConversation} disabled={actionBusy} className="app-btn-secondary text-xs py-1.5">
-          Assumir
-        </button>
-        <button type="button" onClick={onReleaseConversation} disabled={actionBusy} className="app-btn-secondary text-xs py-1.5">
-          Soltar
-        </button>
+
+      {contactSuccess && <span className="text-xs text-green-600 shrink-0">{contactSuccess}</span>}
+      {contactError && <span className="text-xs text-red-600 shrink-0">{contactError}</span>}
+
+      <div className="relative shrink-0" ref={actionsMenuRef}>
         <button
           type="button"
-          onClick={onCloseConversation}
-          disabled={actionBusy || detail?.status === CONVERSATION_STATUS.CLOSED}
-          className="app-btn-danger text-xs py-1.5"
+          onClick={() => setActionsMenuOpen((open) => !open)}
+          className="app-btn-secondary text-xs py-1.5 inline-flex items-center gap-1"
+          aria-expanded={actionsMenuOpen}
+          aria-haspopup="menu"
         >
-          Encerrar
+          Ações
+          <span className="text-[10px]" aria-hidden>
+            {actionsMenuOpen ? '▴' : '▾'}
+          </span>
         </button>
-      </div>
-      <button type="button" onClick={onOpenTagsModal} className="app-btn-secondary text-xs py-1.5">
-        Tags {(detail.tags ?? []).length > 0 && `(${(detail.tags ?? []).length})`}
-      </button>
-      <div className="inbox-transfer-wrap relative">
-        <button type="button" onClick={onToggleTransferExpanded} className="app-btn-secondary text-xs py-1.5">
-          Transferir {transferExpanded ? '▲' : '▼'}
-        </button>
-        {transferExpanded && (
-          <div className="inbox-transfer-dropdown">
-            <div className="space-y-2 mb-2">
-              <label className="block text-xs">
-                Área
-                <select value={transferArea} onChange={(event) => onTransferAreaChange(event.target.value)} className="app-input text-xs mt-0.5">
-                  <option value="">Selecionar</option>
-                  {(transferOptions.areas ?? []).map((area) => (
-                    <option key={area.id} value={area.id}>
-                      {area.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block text-xs">
-                Usuário (opcional)
-                <select value={transferUserId} onChange={(event) => onTransferUserChange(event.target.value)} className="app-input text-xs mt-0.5">
-                  <option value="">Selecionar</option>
-                  {availableUsers.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.name} {(user.areas ?? []).length ? `(${user.areas.map((area) => area.name).join(', ')})` : ''}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <button type="button" onClick={onTransferConversation} disabled={transferBusy} className="app-btn-primary text-xs w-full">
-              {transferBusy ? 'Transferindo...' : 'Transferir'}
+
+        {actionsMenuOpen ? (
+          <div className="inbox-toolbar-actions-menu" role="menu">
+            <button
+              type="button"
+              role="menuitem"
+              disabled={actionBusy}
+              onClick={() => {
+                onAssumeConversation();
+                closeMenu();
+              }}
+            >
+              Assumir conversa
             </button>
-            {transferSuccess && <p className="text-xs text-green-600 mt-1">{transferSuccess}</p>}
-            {transferError && <p className="text-xs text-red-600 mt-1">{transferError}</p>}
-            {(detail.transfer_history ?? []).length > 0 && (
-              <div className="mt-2 pt-2 border-t border-[#eee]">
-                <p className="text-xs text-[#737373] mb-1">Histórico</p>
-                <ul className="space-y-1 text-xs max-h-24 overflow-y-auto">
-                  {detail.transfer_history.map((item) => {
-                    const fromLabel = item.from_user?.name || item.from_area || '—';
-                    const toLabel = item.to_user?.name || item.to_area || '—';
-                    return (
-                      <li key={item.id} className="text-[#525252]">
-                        {fromLabel} → {toLabel}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            )}
+            <button
+              type="button"
+              role="menuitem"
+              disabled={actionBusy}
+              onClick={() => {
+                onReleaseConversation();
+                closeMenu();
+              }}
+            >
+              Soltar conversa
+            </button>
+            <div className="inbox-toolbar-actions-sep" role="separator" />
+            <button
+              type="button"
+              role="menuitem"
+              disabled={actionBusy || detail?.status === CONVERSATION_STATUS.CLOSED}
+              className="!text-red-700 hover:!bg-red-50"
+              onClick={() => {
+                onCloseConversation();
+                closeMenu();
+              }}
+            >
+              Encerrar conversa
+            </button>
+            <div className="inbox-toolbar-actions-sep" role="separator" />
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                onOpenTagsModal();
+                closeMenu();
+              }}
+            >
+              Tags
+              {(detail.tags ?? []).length > 0 ? ` (${(detail.tags ?? []).length})` : ''}
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                onOpenTransferModal();
+                closeMenu();
+              }}
+            >
+              Transferir…
+            </button>
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

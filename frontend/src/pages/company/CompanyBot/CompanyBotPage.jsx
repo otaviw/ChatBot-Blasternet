@@ -1,6 +1,7 @@
 import './CompanyBotPage.css';
 import { useCallback } from 'react';
 import Layout from '@/components/layout/Layout/Layout.jsx';
+import BotConfigStep from '@/components/company/BotConfigStep/BotConfigStep.jsx';
 import StatefulMenuFlowEditor from '@/components/sections/StatefulMenuFlowEditor/StatefulMenuFlowEditor.jsx';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
@@ -78,13 +79,32 @@ function CompanyBotPage() {
       <div className="bot-config-header">
         <h1 className="app-page-title">Configurações do bot</h1>
         <p className="app-page-subtitle">
-          Defina mensagens, horários e respostas por palavra-chave.
+          Siga os passos na ordem: primeiro contexto e áreas, depois expediente e mensagens, em seguida o menu e, por
+          último, atalhos por palavra-chave. Salve ao final.
         </p>
       </div>
 
+      <nav className="bot-config-toc" aria-label="Ordem da configuração">
+        <ol className="bot-config-toc-list">
+          <li>Estado e fuso</li>
+          <li>Áreas de atendimento</li>
+          <li>Horário comercial</li>
+          <li>Mensagens automáticas</li>
+          <li>Menu numerado</li>
+          <li>Palavras-chave</li>
+        </ol>
+      </nav>
+
       <form onSubmit={saveSettings} className="bot-config-form">
-        <section className="bot-config-section">
-          <h2 className="bot-config-section-title">Estado e contexto</h2>
+        <BotConfigStep
+          step={1}
+          title="Estado e contexto"
+          intro="Defina se o bot responde sozinho e em qual fuso o expediente será calculado."
+          rules={[
+            'Ative o bot apenas quando mensagens e fluxo estiverem prontos para teste ou produção.',
+            'Use um fuso válido (ex.: America/Sao_Paulo); ele afeta a mensagem de fora do expediente.',
+          ]}
+        >
           <div className="bot-config-grid-2">
             <label className="bot-config-field">
               <span className="bot-config-label">Bot ativo</span>
@@ -98,7 +118,7 @@ function CompanyBotPage() {
               </label>
             </label>
             <label className="bot-config-field">
-              <span className="bot-config-label">Timezone</span>
+              <span className="bot-config-label">Fuso horário</span>
               <input
                 type="text"
                 value={settings.timezone}
@@ -108,11 +128,19 @@ function CompanyBotPage() {
               />
             </label>
           </div>
-        </section>
+        </BotConfigStep>
 
-        <section className="bot-config-section">
+        <BotConfigStep
+          step={2}
+          title="Áreas de atendimento"
+          intro="Nomes das equipes ou setores usados em transferências e no menu (quando aplicável)."
+          rules={[
+            'Cadastre as áreas antes de montar o menu personalizado que transfere para um setor.',
+            'Prefira nomes curtos e claros para o cliente entender na primeira leitura.',
+          ]}
+        >
           <div className="bot-config-section-header">
-            <h2 className="bot-config-section-title">Áreas de atendimento</h2>
+            <p className="bot-config-hint bot-config-hint--flush">Ex.: Suporte, Vendas, Financeiro</p>
             <button
               type="button"
               onClick={addServiceArea}
@@ -121,7 +149,6 @@ function CompanyBotPage() {
               Adicionar área
             </button>
           </div>
-          <p className="bot-config-hint">Ex.: Suporte, Vendas, Financeiro</p>
           {!settings.service_areas?.length && (
             <p className="text-sm text-[#706f6c]">Nenhuma área cadastrada.</p>
           )}
@@ -145,10 +172,67 @@ function CompanyBotPage() {
               </div>
             ))}
           </div>
-        </section>
+        </BotConfigStep>
 
-        <section className="bot-config-section">
-          <h2 className="bot-config-section-title">Mensagens</h2>
+        <BotConfigStep
+          step={3}
+          title="Horário comercial"
+          intro="Marque os dias e intervalos em que o atendimento humano ou o bot consideram expediente."
+          rules={[
+            'Em dias desmarcados ou fora do intervalo, vale a mensagem de fora do expediente (passo 4).',
+            'Garanta que o horário de início seja anterior ao de fim no mesmo dia.',
+          ]}
+        >
+          <div className="space-y-3">
+            {DAY_KEYS.map((day) => {
+              const cfg = settings.business_hours[day] || { enabled: false, start: '', end: '' };
+              return (
+                <div key={day} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-center border border-[#efefec] rounded p-3">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(cfg.enabled)}
+                      onChange={(e) => updateDay(day, { enabled: e.target.checked })}
+                    />
+                    {DAY_LABELS[day]}
+                  </label>
+
+                  <label className="text-sm">
+                    Início
+                    <input
+                      type="time"
+                      value={cfg.start || ''}
+                      onChange={(e) => updateDay(day, { start: e.target.value })}
+                      disabled={!cfg.enabled}
+                      className="app-input disabled:opacity-50"
+                    />
+                  </label>
+
+                  <label className="text-sm">
+                    Fim
+                    <input
+                      type="time"
+                      value={cfg.end || ''}
+                      onChange={(e) => updateDay(day, { end: e.target.value })}
+                      disabled={!cfg.enabled}
+                      className="app-input disabled:opacity-50"
+                    />
+                  </label>
+                </div>
+              );
+            })}
+          </div>
+        </BotConfigStep>
+
+        <BotConfigStep
+          step={4}
+          title="Mensagens automáticas"
+          intro="Textos que o bot envia na entrada, quando não entende o pedido, fora do expediente e política de inatividade."
+          rules={[
+            'Boas-vindas: primeira impressão; fallback: quando nenhuma regra se aplica; fora de horário: depende do passo 3.',
+            'Ajuste o encerramento por inatividade conforme o tempo médio do seu atendimento.',
+          ]}
+        >
           <div className="bot-config-messages-grid">
             <label className="bot-config-field">
               <span className="bot-config-label">Boas-vindas</span>
@@ -192,18 +276,23 @@ function CompanyBotPage() {
               className="app-input w-24"
             />
           </label>
-        </section>
+        </BotConfigStep>
 
-        <section className="bot-config-section">
+        <BotConfigStep
+          step={5}
+          title="Menu numerado do bot"
+          intro="Fluxo principal: opções numeradas, blocos e transferências para as áreas do passo 2."
+          rules={[
+            'Com modelo automático, revise textos antes de publicar; com fluxo personalizado, mantenha opções objetivas.',
+            'O editor em blocos permite navegação lateral sem empilhar tudo na mesma tela.',
+          ]}
+        >
           <div className="bot-config-section-header">
-            <div>
-              <h2 className="bot-config-section-title">Menu numerado do bot</h2>
-              <p className="bot-config-hint">
-                Monte o fluxo em blocos, com uma navegação lateral para editar sem ficar abrindo várias áreas para baixo.
-              </p>
-            </div>
+            <p className="bot-config-hint bot-config-hint--flush">
+              Monte o fluxo em blocos, com uma navegação lateral para editar sem ficar abrindo várias áreas para baixo.
+            </p>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <button
                 type="button"
                 onClick={loadSuggestedMenuTemplate}
@@ -248,60 +337,24 @@ function CompanyBotPage() {
           )}
 
           {menuFlowError && <p className="mt-3 text-sm text-red-600">{menuFlowError}</p>}
-        </section>
+        </BotConfigStep>
 
-        <section className="bot-config-section">
-          <h2 className="bot-config-section-title">Horário por dia</h2>
-          <div className="space-y-3">
-            {DAY_KEYS.map((day) => {
-              const cfg = settings.business_hours[day] || { enabled: false, start: '', end: '' };
-              return (
-                <div key={day} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-center border border-[#efefec] rounded p-3">
-                  <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(cfg.enabled)}
-                      onChange={(e) => updateDay(day, { enabled: e.target.checked })}
-                    />
-                    {DAY_LABELS[day]}
-                  </label>
-
-                  <label className="text-sm">
-                    Início
-                    <input
-                      type="time"
-                      value={cfg.start || ''}
-                      onChange={(e) => updateDay(day, { start: e.target.value })}
-                      disabled={!cfg.enabled}
-                      className="app-input disabled:opacity-50"
-                    />
-                  </label>
-
-                  <label className="text-sm">
-                    Fim
-                    <input
-                      type="time"
-                      value={cfg.end || ''}
-                      onChange={(e) => updateDay(day, { end: e.target.value })}
-                      disabled={!cfg.enabled}
-                      className="app-input disabled:opacity-50"
-                    />
-                  </label>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        <section className="bot-config-section">
-          <div className="bot-config-section-header">
-            <h2 className="bot-config-section-title">Respostas por palavra-chave</h2>
+        <BotConfigStep
+          step={6}
+          title="Respostas por palavra-chave"
+          intro="Atalhos opcionais: quando o cliente digita um termo, o bot responde com o texto associado."
+          rules={[
+            'Cadastre depois do menu para não duplicar o que já está no fluxo numerado.',
+            'Evite a mesma palavra em duas regras; normalize termos (ex.: minúsculas) para bater com o que o cliente digita.',
+          ]}
+        >
+          <div className="flex flex-wrap justify-end gap-2 mb-2">
             <button
               type="button"
               onClick={addKeywordReply}
               className="app-btn-secondary"
             >
-              Adicionar
+              Adicionar regra
             </button>
           </div>
 
@@ -344,7 +397,7 @@ function CompanyBotPage() {
               </div>
             ))}
           </div>
-        </section>
+        </BotConfigStep>
 
         <div className="bot-config-actions">
           <button
@@ -355,7 +408,7 @@ function CompanyBotPage() {
             {saveState === 'saving' ? 'Salvando...' : 'Salvar configurações'}
           </button>
 
-          {saveState === 'saved' && <p className="text-sm text-green-700">Configuracoes salvas com sucesso.</p>}
+          {saveState === 'saved' && <p className="text-sm text-green-700">Configurações guardadas com sucesso.</p>}
           {saveState === 'error' && <p className="text-sm text-red-600">{saveError}</p>}
         </div>
       </form>

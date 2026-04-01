@@ -53,7 +53,7 @@ function CompanySupportTicketRoute() {
 
 function AppRoutes() {
   return (
-    <Suspense fallback={<p className="text-sm text-[#706f6c]">Carregando pagina...</p>}>
+    <Suspense fallback={<p className="text-sm text-[#706f6c]">Carregando página...</p>}>
       <Routes>
         <Route path="/" element={<Navigate to="/entrar" replace />} />
         <Route path="/entrar" element={<EntrarPage />} />

@@ -237,7 +237,7 @@ function InternalChatPage() {
   if (error || !data?.authenticated || !user) {
     return (
       <Layout>
-        <p className="text-sm text-red-600">Nao foi possivel carregar o chat interno.</p>
+        <p className="text-sm text-red-600">Não foi possível carregar o chat interno.</p>
       </Layout>
     );
   }

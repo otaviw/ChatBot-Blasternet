@@ -80,7 +80,7 @@ function AdminSupportTicketShowPage({ ticketId: ticketIdProp }) {
     return (
       <Layout role="admin" onLogout={logout}>
         <p className="text-sm text-red-600">
-          Nao foi possivel carregar a solicitacao.
+          Não foi possível carregar a solicitação.
         </p>
       </Layout>
     );

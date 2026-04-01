@@ -52,7 +52,7 @@ function AiSettingsPage() {
   if (meLoading) {
     return (
       <Layout role="company" companyName={companyName} onLogout={logout}>
-        <p className="text-sm text-[#64748b]">Carregando configuracoes de IA...</p>
+        <p className="text-sm text-[#64748b]">Carregando configurações de IA...</p>
       </Layout>
     );
   }
@@ -60,7 +60,7 @@ function AiSettingsPage() {
   if (meError || !data?.authenticated) {
     return (
       <Layout role="company" companyName={companyName} onLogout={logout}>
-        <p className="text-sm text-red-600">Nao foi possivel carregar as configuracoes de IA.</p>
+        <p className="text-sm text-red-600">Não foi possível carregar as configurações de IA.</p>
       </Layout>
     );
   }
@@ -68,7 +68,7 @@ function AiSettingsPage() {
   if (!canManageUsers) {
     return (
       <Layout role="company" companyName={companyName} onLogout={logout}>
-        <p className="text-sm text-[#64748b]">Acesso restrito a admin da empresa.</p>
+        <p className="text-sm text-[#64748b]">Acesso restrito ao administrador da empresa.</p>
       </Layout>
     );
   }
@@ -92,8 +92,8 @@ function AiSettingsPage() {
   return (
     <Layout role="company" companyName={companyName} onLogout={logout}>
       <PageHeader
-        title="Configuracoes de IA"
-        subtitle="Defina ativacao, comportamento, limites de uso e permissoes da IA para a sua empresa."
+        title="Configurações de IA"
+        subtitle="Defina ativação, comportamento, limites de uso e permissões da IA para a sua empresa."
       />
 
       {toast.message ? (
@@ -104,7 +104,7 @@ function AiSettingsPage() {
 
       <form onSubmit={handleSave} className="space-y-4">
         <Card>
-          <h2 className="text-base font-semibold text-[#0f172a] mb-3">Ativacao</h2>
+          <h2 className="text-base font-semibold text-[#0f172a] mb-3">Ativação</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <CheckboxField
               checked={Boolean(settings.ai_enabled)}
@@ -116,7 +116,7 @@ function AiSettingsPage() {
               checked={Boolean(settings.ai_internal_chat_enabled)}
               onChange={(event) => updateField('ai_internal_chat_enabled', event.target.checked)}
             >
-              Chat interno IA
+              Chat interno com IA
             </CheckboxField>
           </div>
         </Card>
@@ -124,23 +124,23 @@ function AiSettingsPage() {
         <Card>
           <h2 className="text-base font-semibold text-[#0f172a] mb-3">Comportamento da IA</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Field label="Persona">
+            <Field label="Persona (papel da IA)">
               <TextInput
                 type="text"
                 value={settings.ai_persona ?? ''}
                 onChange={(event) => updateField('ai_persona', event.target.value)}
-                placeholder="Ex: Especialista em atendimento"
+                placeholder="Ex.: Especialista em atendimento"
               />
             </Field>
 
-            <Field label="Tom">
+            <Field label="Tom de voz">
               <SelectInput
                 value={settings.ai_tone ?? 'casual'}
                 onChange={(event) => updateField('ai_tone', event.target.value)}
               >
                 <option value="formal">Formal</option>
-                <option value="casual">Casual</option>
-                <option value="tecnico">Tecnico</option>
+                <option value="casual">Descontraído</option>
+                <option value="tecnico">Técnico</option>
               </SelectInput>
             </Field>
 
@@ -149,9 +149,9 @@ function AiSettingsPage() {
                 value={settings.ai_language ?? 'pt-BR'}
                 onChange={(event) => updateField('ai_language', event.target.value)}
               >
-                <option value="pt-BR">pt-BR</option>
-                <option value="en-US">en-US</option>
-                <option value="es-ES">es-ES</option>
+                <option value="pt-BR">Português (Brasil)</option>
+                <option value="en-US">Inglês (EUA)</option>
+                <option value="es-ES">Espanhol</option>
               </SelectInput>
             </Field>
 
@@ -161,18 +161,18 @@ function AiSettingsPage() {
                 onChange={(event) => updateField('ai_formality', event.target.value)}
               >
                 <option value="baixa">Baixa</option>
-                <option value="media">Media</option>
+                <option value="media">Média</option>
                 <option value="alta">Alta</option>
               </SelectInput>
             </Field>
           </div>
 
-          <Field label="System prompt" className="mt-3">
+          <Field label="Instruções de sistema (prompt)" className="mt-3">
             <TextAreaInput
               rows={5}
               value={settings.ai_system_prompt ?? ''}
               onChange={(event) => updateField('ai_system_prompt', event.target.value)}
-              placeholder="Instrucoes de sistema para orientar a IA."
+              placeholder="Instruções fixas para orientar o comportamento da IA."
             />
           </Field>
         </Card>
@@ -204,22 +204,22 @@ function AiSettingsPage() {
           </div>
 
           <Notice tone="info" className="mt-3">
-            Se o limite for atingido, a IA sera desativada automaticamente.
+            Se o limite for atingido, a IA será desativada automaticamente.
           </Notice>
         </Card>
 
         <Card>
-          <h2 className="text-base font-semibold text-[#0f172a] mb-3">Permissoes de usuarios</h2>
+          <h2 className="text-base font-semibold text-[#0f172a] mb-3">Permissões dos utilizadores</h2>
 
           {!usersRows.length ? (
-            <p className="text-sm text-[#64748b]">Nenhum usuario encontrado.</p>
+            <p className="text-sm text-[#64748b]">Nenhum utilizador encontrado.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
                 <thead>
                   <tr className="border-b border-[#e5e7eb] text-left text-[#64748b]">
                     <th className="py-2 pr-3 font-medium">Nome</th>
-                    <th className="py-2 pr-3 font-medium">Email</th>
+                    <th className="py-2 pr-3 font-medium">E-mail</th>
                     <th className="py-2 pr-3 font-medium">Pode usar IA</th>
                   </tr>
                 </thead>
@@ -245,7 +245,7 @@ function AiSettingsPage() {
                               }
                             />
                             <span className="text-xs text-[#64748b]">
-                              {isBusy ? 'Salvando...' : isAgent ? 'Ativo' : 'Sempre ativo para admin'}
+                              {isBusy ? 'Salvando...' : isAgent ? 'Ativo' : 'Sempre ativo para administradores'}
                             </span>
                           </label>
                         </td>
@@ -260,7 +260,7 @@ function AiSettingsPage() {
 
         <div className="flex items-center gap-3">
           <Button type="submit" variant="primary" disabled={!canSave}>
-            {saving ? 'Salvando...' : 'Salvar alteracoes'}
+            {saving ? 'Salvando...' : 'Salvar alterações'}
           </Button>
           {saveError ? <Notice tone="danger">{saveError}</Notice> : null}
         </div>

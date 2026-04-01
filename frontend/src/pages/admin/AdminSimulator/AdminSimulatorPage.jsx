@@ -84,7 +84,7 @@ function AdminSimulatorPage() {
   return (
     <Layout role="admin" onLogout={logout}>
       <PageHeader
-        title="Simulador (admin)"
+        title="Simulador (administração)"
         subtitle="Execute testes de mensagem para qualquer empresa sem sair do painel."
       />
 

@@ -55,7 +55,7 @@ function EntrarPage() {
 
           {!loading && !error && (
             <form onSubmit={handleLogin} className="space-y-4">
-              <Field label="Email">
+              <Field label="E-mail">
                 <TextInput
                   type="email"
                   value={email}
