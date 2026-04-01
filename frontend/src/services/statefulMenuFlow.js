@@ -30,8 +30,8 @@ function createEmptyStep(type = 'numeric_menu') {
   if (type === 'free_text') {
     return {
       id: makeId('step'),
-      flow: '',
-      step: '',
+      flow: makeId('flow'),
+      step: makeId('step'),
       type: 'free_text',
       reply_text: '',
       empty_input_reply_text: '',
@@ -43,8 +43,8 @@ function createEmptyStep(type = 'numeric_menu') {
 
   return {
     id: makeId('step'),
-    flow: '',
-    step: '',
+    flow: makeId('flow'),
+    step: makeId('step'),
     type: 'numeric_menu',
     reply_text: '',
     empty_input_reply_text: '',

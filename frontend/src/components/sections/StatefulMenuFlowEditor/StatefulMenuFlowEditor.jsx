@@ -837,50 +837,6 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
                 </section>
               )}
 
-              <section className="stateful-editor-card">
-                <div className="stateful-editor-card-header">
-                  <div>
-                    <h4 className="stateful-editor-card-title">Identificadores técnicos</h4>
-                    <p className="stateful-editor-card-subtitle">
-                      Usados internamente pelo sistema. Só altere se souber o que está fazendo.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="stateful-form-grid">
-                  <label className="stateful-field">
-                    <span className="stateful-field-label">Código do grupo</span>
-                    <input
-                      type="text"
-                      value={selectedStep.flow || ''}
-                      onChange={(e) =>
-                        updateStep(selectedStep.id, (current) => ({
-                          ...current,
-                          flow: e.target.value,
-                        }))
-                      }
-                      placeholder="Ex.: support"
-                      className="stateful-input"
-                    />
-                  </label>
-
-                  <label className="stateful-field">
-                    <span className="stateful-field-label">Código do bloco</span>
-                    <input
-                      type="text"
-                      value={selectedStep.step || ''}
-                      onChange={(e) =>
-                        updateStep(selectedStep.id, (current) => ({
-                          ...current,
-                          step: e.target.value,
-                        }))
-                      }
-                      placeholder="Ex.: issue_menu"
-                      className="stateful-input"
-                    />
-                  </label>
-                </div>
-              </section>
             </div>
           )}
         </div>
