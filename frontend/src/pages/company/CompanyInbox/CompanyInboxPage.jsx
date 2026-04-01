@@ -186,13 +186,14 @@ function CompanyInboxPage() {
   return (
     <Layout role="company" onLogout={logout} fullWidth>
       <div className="inbox-page">
-        <div className="inbox-header">
+        <div className={`inbox-header${selectedId ? ' inbox-header--hidden-mobile' : ''}`}>
           <h1 className="inbox-title">Conversas da empresa — atendimento em tempo real</h1>
         </div>
-        <div className="inbox-layout grid grid-cols-1 lg:grid-cols-[minmax(200px,240px)_minmax(0,1fr)]">
+        <div className="inbox-layout">
           <ConversationsSidebar
             serviceAreaNames={serviceAreaNames}
             selectedId={selectedId}
+            mobileVisible={!selectedId}
             convSearchInput={convSearchInput}
             onConvSearchInputChange={setConvSearchInput}
             onConvSearchEnter={handleConversationsSearchEnter}
@@ -207,7 +208,7 @@ function CompanyInboxPage() {
             loadedConversationPage={loadedConversationPageRef.current}
           />
 
-          <section className={`inbox-messages ${selectedId ? 'flex' : 'hidden lg:flex'} flex-col`}>
+          <section className={`inbox-messages flex-col${selectedId ? ' inbox-messages--visible' : ''}`}>
             {selectedId && <InboxBackButton onClick={() => setSelectedId(null)} />}
             {detailLoading && (
               <p className="inbox-empty-state text-sm text-[#737373]">Carregando conversa...</p>

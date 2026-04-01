@@ -99,14 +99,14 @@ function UserFormFields({
         />
       )}
 
-      {showAiPermissionField && (
+      {/* {showAiPermissionField && (
         <CheckboxField
           checked={Boolean(form.can_use_ai)}
           onChange={(event) => updateForm({ can_use_ai: event.target.checked })}
         >
           Permitir usar IA interna
         </CheckboxField>
-      )}
+      )} */}
 
       <CheckboxField
         checked={Boolean(form.is_active)}

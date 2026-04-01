@@ -51,7 +51,7 @@ function ReplyComposer({
         </div>
 
         <div className="company-inbox-upload-row">
-          <button
+          {/* <button
             type="button"
             onClick={onRequestAiSuggestion}
             disabled={manualBusy || aiSuggestionBusy || !canUseAiSuggestion}
@@ -63,7 +63,7 @@ function ReplyComposer({
             }
           >
             {aiSuggestionBusy ? 'IA gerando resposta...' : 'Sugerir resposta com IA'}
-          </button>
+          </button> */}
           <label className="app-btn-secondary text-xs cursor-pointer inbox-reply-action-btn">
             Anexar arquivo
             <input

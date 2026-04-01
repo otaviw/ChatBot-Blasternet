@@ -10,10 +10,12 @@
 }
 
 .inbox-header {
-  padding: 0.5rem 1rem;
+  padding: 0.4rem 1rem;
   flex-shrink: 0;
   background: #f5f5f5;
   border-bottom: 1px solid #e5e5e5;
+  display: flex;
+  align-items: center;
 }
 
 .inbox-title {
@@ -29,13 +31,6 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
-}
-
-@media (min-width: 1024px) {
-  .inbox-layout {
-    /* Lista mais estreita → mais espaço para mensagens (minmax(0,1fr) evita overflow) */
-    grid-template-columns: minmax(200px, 240px) minmax(0, 1fr);
-  }
 }
 
 /* Conversas (esquerda) */
@@ -107,17 +102,21 @@
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  font-size: 0.875rem;
-  color: #525252;
-  background: #f5f5f5;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #2563eb;
+  background: #eff6ff;
   border: none;
+  border-bottom: 1px solid #dbeafe;
   cursor: pointer;
+  transition: background 0.15s;
 }
 
 .inbox-back-btn:hover {
-  color: #171717;
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
 .inbox-empty-state {
@@ -133,7 +132,7 @@
 }
 
 .inbox-toolbar {
-  padding: 0.45rem 0.75rem;
+  padding: 0.35rem 0.6rem;
   background: #fafafa;
   border-bottom: 1px solid #e5e5e5;
 }
@@ -188,7 +187,7 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 0.75rem 0.85rem;
+  padding: 0.6rem 0.7rem;
   margin: 0;
   list-style: none;
 }
@@ -204,10 +203,10 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  max-width: min(92%, 52rem);
-  padding: 0.5rem 0.75rem;
+  max-width: min(85%, 48rem);
+  padding: 0.45rem 0.7rem;
   border-radius: 0.75rem;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.4rem;
 }
 
 .inbox-message-in {
@@ -305,7 +304,7 @@
 }
 
 .inbox-reply-form {
-  padding: 1rem;
+  padding: 0.75rem;
   background: #fafafa;
   border-top: 1px solid #e5e5e5;
 }
@@ -373,6 +372,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .inbox-transfer-wrap {
   position: relative;
 }
@@ -411,18 +411,6 @@
   border-radius: 0.5rem;
 }
 
-@media (max-width: 720px) {
-  .inbox-reply-compose {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .inbox-reply-submit {
-    width: 100%;
-    min-width: 0;
-  }
-}
-
 .inbox-tags-modal-overlay {
   position: fixed;
   inset: 0;
@@ -440,4 +428,105 @@
   min-width: 260px;
   max-width: min(20rem, 90vw);
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+}
+
+/* ─── MEDIA QUERIES (devem vir APÓS todas as classes base para ter precedência) ─── */
+
+/* Desktop: duas colunas lado a lado */
+@media (min-width: 1024px) {
+  .inbox-layout {
+    grid-template-columns: minmax(150px, 190px) minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 1280px) {
+  .inbox-layout {
+    grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
+  }
+}
+
+/* Mobile/tablet (< 1024px): uma coluna.
+   Ambos ficam display:none por padrão; só mostra quem tiver --visible. */
+@media (max-width: 1023px) {
+  .inbox-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .inbox-conversations {
+    display: none;
+  }
+
+  .inbox-conversations--visible {
+    display: flex;
+  }
+
+  .inbox-messages {
+    display: none;
+  }
+
+  .inbox-messages--visible {
+    display: flex;
+  }
+
+  .inbox-header--hidden-mobile {
+    display: none;
+  }
+}
+
+/* Telas menores (< 768px): troca grid por flex coluna para altura correta */
+@media (max-width: 768px) {
+  .inbox-layout {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .inbox-header {
+    padding-inline: 0.75rem;
+  }
+}
+
+/* Formulário de resposta em coluna em telas pequenas */
+@media (max-width: 720px) {
+  .inbox-reply-compose {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .inbox-reply-submit {
+    width: 100%;
+    min-width: 0;
+    min-height: 2.75rem;
+  }
+
+  .inbox-reply-form {
+    padding: 0.5rem;
+  }
+
+  .inbox-reply-input {
+    min-height: 2.75rem;
+  }
+}
+
+/* Padding compacto em telas muito pequenas */
+@media (max-width: 480px) {
+  .inbox-toolbar {
+    padding: 0.3rem 0.5rem;
+  }
+
+  .inbox-conversations-header {
+    padding: 0.5rem 0.75rem;
+  }
+
+  .inbox-conversations-list {
+    padding: 0 0.6rem 0.5rem;
+  }
+
+  .inbox-chat {
+    padding: 0.5rem;
+  }
+
+  .inbox-message-bubble {
+    max-width: min(90%, 48rem);
+    padding: 0.4rem 0.6rem;
+  }
 }

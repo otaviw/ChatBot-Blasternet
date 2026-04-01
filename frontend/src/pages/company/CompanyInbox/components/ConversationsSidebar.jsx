@@ -7,6 +7,7 @@ import ServiceAreaBadge from '@/components/company/ServiceAreaBadge/ServiceAreaB
 function ConversationsSidebar({
   serviceAreaNames = [],
   selectedId,
+  mobileVisible,
   convSearchInput,
   onConvSearchInputChange,
   onConvSearchEnter,
@@ -22,7 +23,7 @@ function ConversationsSidebar({
 }) {
   return (
     <aside
-      className={`inbox-conversations ${selectedId ? 'hidden lg:flex' : 'flex'} flex-col`}
+      className={`inbox-conversations flex-col min-w-0${mobileVisible ? ' inbox-conversations--visible' : ''}`}
     >
       <div className="inbox-conversations-header">
         <h2 className="inbox-conversations-title">Conversas</h2>
