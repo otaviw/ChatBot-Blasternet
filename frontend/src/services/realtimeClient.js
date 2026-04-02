@@ -328,28 +328,60 @@ class RealtimeClient {
   }
 
   async rejoinConversationRooms() {
+    const toRetry = [];
     for (const conversationId of this.joinedConversations) {
       try {
         const joinToken = await this.fetchJoinToken(conversationId);
         if (!joinToken) {
+          toRetry.push(conversationId);
           continue;
         }
-        await this.emitJoinConversation(conversationId, joinToken);
+        const ok = await this.emitJoinConversation(conversationId, joinToken);
+        if (!ok) {
+          toRetry.push(conversationId);
+        }
       } catch (_error) {
+        toRetry.push(conversationId);
       }
+    }
+
+    if (toRetry.length > 0) {
+      setTimeout(() => {
+        for (const id of toRetry) {
+          if (this.joinedConversations.has(id)) {
+            void this.joinConversation(id);
+          }
+        }
+      }, 3000);
     }
   }
 
   async rejoinChatConversationRooms() {
+    const toRetry = [];
     for (const conversationId of this.joinedChatConversations) {
       try {
         const joinToken = await this.fetchChatJoinToken(conversationId);
         if (!joinToken) {
+          toRetry.push(conversationId);
           continue;
         }
-        await this.emitJoinChatConversation(conversationId, joinToken);
+        const ok = await this.emitJoinChatConversation(conversationId, joinToken);
+        if (!ok) {
+          toRetry.push(conversationId);
+        }
       } catch (_error) {
+        toRetry.push(conversationId);
       }
+    }
+
+    if (toRetry.length > 0) {
+      setTimeout(() => {
+        for (const id of toRetry) {
+          if (this.joinedChatConversations.has(id)) {
+            void this.joinChatConversation(id);
+          }
+        }
+      }, 3000);
     }
   }
 
@@ -685,6 +717,8 @@ class RealtimeClient {
     return `message-reactions:${conversationId ?? 'na'}:${messageId}:${normalizedReactions.join(',')}`;
   }
 
+  // varre o mapa inteiro a cada evento recebido, oK no volume atual,
+  // mas vira gargalo se as conversas simultâneas ou a frequência de mensagens crescerem 
   pruneSeen(map, now) {
     for (const [key, timestamp] of map.entries()) {
       if (now - timestamp > SEEN_TTL_MS) {

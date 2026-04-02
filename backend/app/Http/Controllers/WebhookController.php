@@ -21,10 +21,9 @@ class WebhookController extends Controller
         private RealtimePublisher $realtimePublisher
     ) {}
 
-    /**
-     * Verificação do webhook (GET). Meta envia hub.mode, hub.verify_token, hub.challenge.
-     * Configure WHATSAPP_VERIFY_TOKEN no .env com o mesmo valor do painel Meta.
-     */
+    // a meta manda os parâmetros com ponto (hub.mode) mas o Laravel normaliza para _
+    // os fallbacks via query() direto existem porque nem sempre a normalização funciona dependendo
+    // de como o servidor está configurado, já queimou uma verificação em produção por isso
     public function verify(Request $request)
     {
         $mode = $request->input('hub_mode');
@@ -53,9 +52,8 @@ class WebhookController extends Controller
         return response('Forbidden', 403);
     }
 
-    /**
-     * Recebe notificações do Meta (POST). Payload: entry[].changes[].value (metadata, messages).
-     */
+    // retorna 200 mesmo para payloads que não são whatsapp_business_account porque o Meta
+    // espera 200 de qualquer jeito. resposta diferente faz ele retentar e encher o log.
     public function handle(Request $request): Response
     {
         if (! $this->isValidSignature($request)) {
@@ -75,7 +73,7 @@ class WebhookController extends Controller
                 if (($change['field'] ?? null) !== 'messages') {
                     continue;
                 }
-                $this->processValue($change['value'] ?? []);
+                $this->processWhatsAppChange($change['value'] ?? []);
             }
         }
 
@@ -118,7 +116,7 @@ class WebhookController extends Controller
         return hash_equals($expected, $provided);
     }
 
-    private function processValue(array $value): void
+    private function processWhatsAppChange(array $value): void
     {
         $metadata = is_array(Arr::get($value, 'metadata')) ? $value['metadata'] : [];
         $phoneNumberId = (string) ($metadata['phone_number_id'] ?? '');
@@ -604,35 +602,17 @@ class WebhookController extends Controller
 
     private function formatStatusError(mixed $errors): ?string
     {
-        if ($errors === null) {
+        // A API do Meta manda errors como array de objetos com title, message e code — ou não manda.
+        if (! is_array($errors) || ! isset($errors[0]) || ! is_array($errors[0])) {
             return null;
         }
 
-        if (is_string($errors)) {
-            $trimmed = trim($errors);
+        $first = $errors[0];
+        $title = trim((string) ($first['title'] ?? ''));
+        $message = trim((string) ($first['message'] ?? ''));
+        $code = trim((string) ($first['code'] ?? ''));
+        $summary = trim(implode(' - ', array_filter([$title, $message, $code])));
 
-            return $trimmed !== '' ? $trimmed : null;
-        }
-
-        if (is_scalar($errors)) {
-            return (string) $errors;
-        }
-
-        if (is_array($errors) && isset($errors[0])) {
-            $first = $errors[0];
-            if (is_array($first)) {
-                $title = trim((string) ($first['title'] ?? ''));
-                $message = trim((string) ($first['message'] ?? ''));
-                $code = trim((string) ($first['code'] ?? ''));
-                $summary = trim(implode(' - ', array_filter([$title, $message, $code])));
-                if ($summary !== '') {
-                    return $summary;
-                }
-            }
-        }
-
-        $encoded = json_encode($errors, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-
-        return $encoded !== false ? $encoded : 'whatsapp_status_failed';
+        return $summary !== '' ? $summary : null;
     }
 }

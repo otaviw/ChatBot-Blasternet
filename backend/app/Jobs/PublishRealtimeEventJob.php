@@ -16,6 +16,8 @@ class PublishRealtimeEventJob implements ShouldQueue
     use Queueable;
     use SerializesModels;
 
+    // tries = 1 significa que qualquer falha (realtime down, timeout) descarta o evento
+    // se notificações críticas passarem por aqui, vai precisar de retry com backoff
     public int $tries = 1;
 
     public int $timeout = 5;

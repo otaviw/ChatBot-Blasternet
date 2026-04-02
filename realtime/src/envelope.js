@@ -40,6 +40,7 @@ export const normalizeEnvelope = (input) => {
 };
 
 export const emitEnvelope = (io, envelope) => {
+  // encadear os .to() antes de emitir uma vez só, em avaliação, não descartado
   // let target = io;
   // for (const room of envelope.rooms) {
   //   target = target.to(room);
