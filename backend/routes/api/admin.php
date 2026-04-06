@@ -7,7 +7,7 @@ use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\SupportTicketMessageController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['web', 'auth'])->group(function () {
+Route::middleware(['web', 'auth', 'admin'])->group(function () {
     Route::prefix('admin')->group(function () {
         Route::get('/empresas', [CompanyController::class, 'index']);
         Route::post('/empresas', [CompanyController::class, 'store'])->middleware('throttle:bot-write');

@@ -95,11 +95,11 @@ class AuthController extends Controller
 
         $validated = $request->validate([
             'current_password' => ['required', 'string'],
-            'password' => ['required', 'string', 'min:6', 'confirmed'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
         ], [
             'current_password.required' => 'Informe a senha atual.',
             'password.required' => 'Informe a nova senha.',
-            'password.min' => 'A nova senha deve ter pelo menos 6 caracteres.',
+            'password.min' => 'A nova senha deve ter pelo menos 8 caracteres.',
             'password.confirmed' => 'A confirmacao da nova senha nao confere.',
         ]);
 

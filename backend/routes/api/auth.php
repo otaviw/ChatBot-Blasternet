@@ -11,7 +11,7 @@ Route::middleware('web')->group(function () {
     });
 
     Route::get('/entrar', [HomeController::class, 'index']);
-    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
     Route::post('/forgot-password', [PasswordResetController::class, 'sendLink'])->middleware('throttle:5,1');
     Route::post('/reset-password', [PasswordResetController::class, 'reset'])->middleware('throttle:5,1');
 

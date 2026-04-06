@@ -17,14 +17,6 @@ class ConversationController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $user = $request->user();
-        if (! $user || ! $user->isAdmin()) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
-        }
-
         $query = Conversation::query()
             ->with(['company:id,name'])
             ->withCount('messages')
@@ -55,14 +47,6 @@ class ConversationController extends Controller
 
     public function show(Request $request, int $conversationId): JsonResponse
     {
-        $user = $request->user();
-        if (! $user || ! $user->isAdmin()) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
-        }
-
         $conversation = Conversation::query()
             ->with(['company:id,name'])
             ->withCount('messages')
@@ -109,14 +93,6 @@ class ConversationController extends Controller
 
     public function updateContact(Request $request, int $conversationId): JsonResponse
     {
-        $user = $request->user();
-        if (! $user || ! $user->isAdmin()) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
-        }
-
         $validated = $request->validate([
             'customer_name' => ['nullable', 'string', 'max:160'],
         ]);
@@ -153,14 +129,6 @@ class ConversationController extends Controller
 
     private function blockedByPrivacyMode(Request $request, string $action, int $conversationId): JsonResponse
     {
-        $user = $request->user();
-        if (! $user || ! $user->isAdmin()) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
-        }
-
         $conversation = Conversation::query()
             ->select(['id', 'company_id'])
             ->find($conversationId);

@@ -728,18 +728,28 @@ class ConversationController extends Controller
             ->findOrFail($conversation);
 
         $msg = Message::query()
-            ->where('conversation_id', $conversation)
             ->findOrFail($message);
+
+        if ($msg->conversation_id !== $conv->id) {
+            abort(404);
+        }
 
         if (!$msg->media_key) {
             return response()->json(['error' => 'Sem arquivo'], 404);
         }
 
-        $filePath = storage_path("app/public/{$msg->media_key}");
+        $disk = Storage::disk('public');
+        $basePath = rtrim($disk->path(''), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+        $filePath = $disk->path($msg->media_key);
+
+        if (!str_starts_with($filePath, $basePath)) {
+            abort(404);
+        }
+
         if (!file_exists($filePath)) {
             return response()->json(['error' => 'Arquivo não encontrado'], 404);
         }
 
-        return response()->download($filePath, $msg->media_filename ?? 'arquivo');
+        return response()->download($filePath, basename($msg->media_filename ?? 'arquivo'));
     }
 }

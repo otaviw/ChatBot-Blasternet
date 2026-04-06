@@ -22,14 +22,6 @@ class CompanyController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $user = $request->user();
-        if (! $user || ! $user->isAdmin()) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
-        }
-
         $companies = Company::with(['botSetting'])
             ->withCount('conversations')
             ->orderBy('name')
@@ -44,14 +36,6 @@ class CompanyController extends Controller
 
     public function show(Request $request, Company $company): JsonResponse
     {
-        $user = $request->user();
-        if (! $user || ! $user->isAdmin()) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
-        }
-
         $company->loadCount('conversations');
         $company->load([
             'botSetting',
@@ -66,14 +50,6 @@ class CompanyController extends Controller
 
     public function updateBotSettings(Request $request, Company $company): JsonResponse
     {
-        $user = $request->user();
-        if (! $user || ! $user->isAdmin()) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
-        }
-
         $validated = $request->validate([
             'is_active' => ['required', 'boolean'],
             'ai_enabled' => ['sometimes', 'boolean'],
@@ -166,14 +142,6 @@ class CompanyController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $user = $request->user();
-        if (! $user || ! $user->isAdmin()) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
-        }
-
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:120', 'unique:companies,name'],
             'meta_phone_number_id' => ['nullable', 'string', 'max:255', 'unique:companies,meta_phone_number_id'],
@@ -232,14 +200,6 @@ class CompanyController extends Controller
 
     public function update(Request $request, Company $company): JsonResponse
     {
-        $user = $request->user();
-        if (! $user || ! $user->isAdmin()) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
-        }
-
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:120', Rule::unique('companies', 'name')->ignore($company->id)],
             'meta_phone_number_id' => [
@@ -323,14 +283,6 @@ class CompanyController extends Controller
 
     public function destroy(Request $request, Company $company): JsonResponse
     {
-        $user = $request->user();
-        if (! $user || ! $user->isAdmin()) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
-        }
-
         $companyId = $company->id;
         $companyName = $company->name;
 
@@ -503,11 +455,6 @@ class CompanyController extends Controller
 
     public function metrics(Request $request, Company $company): JsonResponse
     {
-        $user = $request->user();
-        if (!$user || !$user->isAdmin()) {
-            return response()->json(['authenticated' => false, 'redirect' => '/entrar'], 403);
-        }
-
         $conversationIds = $company->conversations()->select('id');
 
         $byStatus = $company->conversations()
