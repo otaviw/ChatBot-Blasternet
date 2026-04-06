@@ -5,6 +5,7 @@ import api from '@/services/api';
 import { useNotificationsContext } from '@/hooks/useNotificationsContext';
 import { NOTIFICATION_MODULE, NOTIFICATION_REFERENCE_TYPE } from '@/constants/notifications';
 import browserNotificationService from '@/services/browserNotificationService';
+import NotificationPreferencesPanel from '@/pages/Notifications/NotificationPreferencesPanel.jsx';
 
 const ICONS = {
   dashboard: (
@@ -184,6 +185,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
   const lastToastNotificationIdRef = useRef(null);
   const [toastNotification, setToastNotification] = useState(null);
   const [clearAllConfirmOpen, setClearAllConfirmOpen] = useState(false);
+  const [notifPrefsOpen, setNotifPrefsOpen] = useState(false);
   const [notifPermission, setNotifPermission] = useState(() => browserNotificationService.getPermission());
   const {
     unreadByModule,
@@ -193,6 +195,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
     error: notificationsError,
     refresh: refreshNotifications,
     markAsRead,
+    deleteMany,
     clearAllLocally,
   } = useNotificationsContext();
 
@@ -271,9 +274,14 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
     navigate(targetHref);
   };
 
-  const handleConfirmClearAllNotifications = () => {
-    clearAllLocally();
+  const handleConfirmClearAllNotifications = async () => {
     setClearAllConfirmOpen(false);
+    const ids = notifications.map((n) => Number(n.id)).filter((id) => id > 0);
+    if (ids.length > 0) {
+      await deleteMany(ids).catch(() => {});
+    } else {
+      clearAllLocally();
+    }
   };
 
   const handleRequestNotifPermission = async () => {
@@ -1019,6 +1027,8 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
         </div>
       )}
 
+      <NotificationPreferencesPanel open={notifPrefsOpen} onClose={() => setNotifPrefsOpen(false)} />
+
       {isLogged && notificationsPanelOpen && (
         <>
           <div
@@ -1029,17 +1039,31 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
           <aside className="layout-notifications__panel">
             <div className="layout-notifications__header">
               <h2 className="layout-notifications__title">Notificações</h2>
-              <button
-                type="button"
-                className="layout-notifications__close"
-                onClick={() => setNotificationsPanelOpen(false)}
-                title="Fechar"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
+              <div className="layout-notifications__header-actions">
+                <button
+                  type="button"
+                  className="layout-notifications__config-btn"
+                  onClick={() => { setNotificationsPanelOpen(false); setNotifPrefsOpen(true); }}
+                  title="Configurar notificações"
+                >
+                  <svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <circle cx="10" cy="10" r="3" stroke="currentColor" strokeWidth="1.6"/>
+                    <path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.22 4.22l1.42 1.42M14.36 14.36l1.42 1.42M4.22 15.78l1.42-1.42M14.36 5.64l1.42-1.42" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+                  </svg>
+                  Configurar
+                </button>
+                <button
+                  type="button"
+                  className="layout-notifications__close"
+                  onClick={() => setNotificationsPanelOpen(false)}
+                  title="Fechar"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
             </div>
             {browserNotificationService.isSupported() && notifPermission === 'default' && (
               <div className="layout-notifications__permission-banner">
@@ -1163,7 +1187,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
                     Limpar todas as notificacoes?
                   </h3>
                   <p className="layout-notifications__confirm-text">
-                    Isso remove as notificacoes apenas da interface. Nada sera apagado do banco.
+                    Todas as notificacoes serao apagadas permanentemente.
                   </p>
                   <div className="layout-notifications__confirm-actions">
                     <button

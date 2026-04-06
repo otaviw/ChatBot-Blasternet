@@ -5,6 +5,7 @@ import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
 import { useNotificationsContext } from '@/hooks/useNotificationsContext';
 import { NOTIFICATION_MODULE, NOTIFICATION_REFERENCE_TYPE } from '@/constants/notifications';
+import NotificationPreferencesPanel from './NotificationPreferencesPanel.jsx';
 
 function resolveUiRole(userRole) {
   return String(userRole ?? '') === 'system_admin' ? 'admin' : 'company';
@@ -93,6 +94,7 @@ function NotificationsPage() {
   } = useNotificationsContext();
   const [busyById, setBusyById] = useState({});
   const [selectedIds, setSelectedIds] = useState([]);
+  const [prefsOpen, setPrefsOpen] = useState(false);
 
   const uiRole = useMemo(() => resolveUiRole(data?.user?.role), [data?.user?.role]);
 
@@ -185,6 +187,8 @@ function NotificationsPage() {
         subtitle="Acompanhe pendencias por modulo e acesse rapidamente os itens relacionados."
       />
 
+      <NotificationPreferencesPanel open={prefsOpen} onClose={() => setPrefsOpen(false)} />
+
       <section className="app-panel space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3">
@@ -217,14 +221,27 @@ function NotificationsPage() {
               </button>
             )}
           </div>
-          <button
-            type="button"
-            onClick={() => void refresh()}
-            className="app-btn-secondary text-xs"
-            disabled={notificationsLoading}
-          >
-            {notificationsLoading ? 'Atualizando...' : 'Atualizar'}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void refresh()}
+              className="app-btn-secondary text-xs"
+              disabled={notificationsLoading}
+            >
+              {notificationsLoading ? 'Atualizando...' : 'Atualizar'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setPrefsOpen(true)}
+              className="app-btn-secondary text-xs flex items-center gap-1.5"
+            >
+              <svg width="13" height="13" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <circle cx="10" cy="10" r="3" stroke="currentColor" strokeWidth="1.6"/>
+                <path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.22 4.22l1.42 1.42M14.36 14.36l1.42 1.42M4.22 15.78l1.42-1.42M14.36 5.64l1.42-1.42" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+              </svg>
+              Configurar notificações
+            </button>
+          </div>
         </div>
 
         {notificationsError ? (

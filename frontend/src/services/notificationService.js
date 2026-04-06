@@ -56,6 +56,16 @@ const notificationService = {
     const response = await api.get('/notifications/unread-counts');
     return response.data ?? { ok: false, unread_by_module: {}, total_unread: 0 };
   },
+
+  async getPreferences() {
+    const response = await api.get('/notifications/preferences');
+    return response.data ?? { ok: false, preferences: {}, all_types: [] };
+  },
+
+  async updatePreferences(preferences) {
+    const response = await api.put('/notifications/preferences', { preferences });
+    return response.data ?? { ok: false, preferences: {} };
+  },
 };
 
 export default notificationService;

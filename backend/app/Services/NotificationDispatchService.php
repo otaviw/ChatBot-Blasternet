@@ -16,7 +16,8 @@ class NotificationDispatchService
 {
     public function __construct(
         private NotificationService $notificationService,
-        private ConversationPresenceService $presenceService
+        private ConversationPresenceService $presenceService,
+        private NotificationPreferenceService $preferenceService
     ) {}
 
     public function dispatchCustomerMessageNotification(Message $message): void
@@ -58,6 +59,10 @@ class NotificationDispatchService
         $text = $this->messageNotificationText($message);
 
         foreach ($recipientIds as $recipientId) {
+            if (! $this->preferenceService->isEnabled($recipientId, 'customer_message')) {
+                continue;
+            }
+
             $this->notificationService->createForUser($recipientId, [
                 'type' => 'customer_message',
                 'module' => 'inbox',
@@ -96,6 +101,10 @@ class NotificationDispatchService
         $title = 'Conversa transferida para voce';
         $text = "Voce recebeu o atendimento de {$label}.";
 
+        if (! $this->preferenceService->isEnabled((int) $targetUserId, 'conversation_transferred')) {
+            return;
+        }
+
         $this->notificationService->createForUser((int) $targetUserId, [
             'type' => 'conversation_transferred',
             'module' => 'inbox',
@@ -132,6 +141,10 @@ class NotificationDispatchService
         $text = trim((string) ($ticket->subject ?: $ticket->message));
 
         foreach ($superAdminIds as $recipientId) {
+            if (! $this->preferenceService->isEnabled($recipientId, 'support_ticket_created')) {
+                continue;
+            }
+
             $this->notificationService->createForUser($recipientId, [
                 'type' => 'support_ticket_created',
                 'module' => 'support',
@@ -200,6 +213,10 @@ class NotificationDispatchService
                 continue;
             }
 
+            if (! $this->preferenceService->isEnabled($recipientId, 'support_ticket_message')) {
+                continue;
+            }
+
             $this->notificationService->createForUser($recipientId, [
                 'type' => 'support_ticket_message',
                 'module' => 'support',
@@ -252,6 +269,10 @@ class NotificationDispatchService
             ->all();
 
         foreach ($recipientIds as $recipientId) {
+            if (! $this->preferenceService->isEnabled($recipientId, 'internal_chat_message')) {
+                continue;
+            }
+
             $this->notificationService->createForUser($recipientId, [
                 'type' => 'internal_chat_message',
                 'module' => 'internal_chat',
@@ -293,6 +314,10 @@ class NotificationDispatchService
         $text = $customerLabel !== ''
             ? "A conversa com {$customerLabel} foi encerrada."
             : 'Uma conversa foi encerrada.';
+
+        if (! $this->preferenceService->isEnabled((int) $targetUserId, 'conversation_closed')) {
+            return;
+        }
 
         $this->notificationService->createForUser((int) $targetUserId, [
             'type' => 'conversation_closed',
@@ -336,6 +361,10 @@ class NotificationDispatchService
             ? "Sua solicitacao \"{$subject}\" foi encerrada."
             : "Sua solicitacao #{$ticketNumber} foi encerrada.";
 
+        if (! $this->preferenceService->isEnabled((int) $activeRequesterId, 'support_ticket_closed')) {
+            return;
+        }
+
         $this->notificationService->createForUser((int) $activeRequesterId, [
             'type' => 'support_ticket_closed',
             'module' => 'support',
@@ -370,6 +399,10 @@ class NotificationDispatchService
             ->value('id');
 
         if (! $activeAddedUser) {
+            return;
+        }
+
+        if (! $this->preferenceService->isEnabled((int) $activeAddedUser, 'chat_participant_added')) {
             return;
         }
 

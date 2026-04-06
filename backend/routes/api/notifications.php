@@ -8,6 +8,10 @@ Route::middleware(['web', 'auth'])->group(function () {
         ->middleware('throttle:inbox-read');
     Route::get('/notifications/unread-counts', [NotificationController::class, 'unreadCounts'])
         ->middleware('throttle:inbox-read');
+    Route::get('/notifications/preferences', [NotificationController::class, 'getPreferences'])
+        ->middleware('throttle:inbox-read');
+    Route::put('/notifications/preferences', [NotificationController::class, 'updatePreferences'])
+        ->middleware('throttle:bot-write');
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markAsRead'])
         ->middleware('throttle:bot-write');
     Route::post('/notifications/read-by-reference', [NotificationController::class, 'markReadByReference'])

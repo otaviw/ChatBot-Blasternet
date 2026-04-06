@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Notification;
 use App\Models\User;
+use App\Services\NotificationPreferenceService;
 use App\Services\NotificationService;
 use App\Support\Notifications\NotificationSerializer;
 use Illuminate\Http\JsonResponse;
@@ -13,7 +14,8 @@ class NotificationController extends Controller
 {
     public function __construct(
         private NotificationService $notificationService,
-        private NotificationSerializer $notificationSerializer
+        private NotificationSerializer $notificationSerializer,
+        private NotificationPreferenceService $preferenceService
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -150,6 +152,40 @@ class NotificationController extends Controller
             'deleted' => $deleted,
             'unread_by_module' => $byModule,
             'total_unread' => $this->notificationService->totalUnread($byModule),
+        ]);
+    }
+
+    public function getPreferences(Request $request): JsonResponse
+    {
+        $user = $this->resolveAuthenticatedUser($request);
+        if (! $user instanceof User) {
+            return $this->unauthenticatedResponse();
+        }
+
+        return response()->json([
+            'ok' => true,
+            'preferences' => $this->preferenceService->getForUser($user),
+            'all_types' => NotificationPreferenceService::ALL_TYPES,
+        ]);
+    }
+
+    public function updatePreferences(Request $request): JsonResponse
+    {
+        $user = $this->resolveAuthenticatedUser($request);
+        if (! $user instanceof User) {
+            return $this->unauthenticatedResponse();
+        }
+
+        $validated = $request->validate([
+            'preferences' => ['required', 'array'],
+            'preferences.*' => ['boolean'],
+        ]);
+
+        $this->preferenceService->saveForUser($user, $validated['preferences']);
+
+        return response()->json([
+            'ok' => true,
+            'preferences' => $this->preferenceService->getForUser($user),
         ]);
     }
 

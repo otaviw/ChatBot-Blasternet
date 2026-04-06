@@ -557,6 +557,33 @@
   color: #171717;
 }
 
+.layout-notifications__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.layout-notifications__config-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #526175;
+  background: transparent;
+  border: 1px solid #e5e5e5;
+  border-radius: 0.4rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.layout-notifications__config-btn:hover {
+  background: #f0f0f0;
+  color: #171717;
+}
+
 .layout-notifications__close {
   display: flex;
   align-items: center;
@@ -1126,6 +1153,16 @@ body.theme-dark .layout-notifications__header {
 }
 
 body.theme-dark .layout-notifications__title {
+  color: #e8eaf2;
+}
+
+body.theme-dark .layout-notifications__config-btn {
+  color: #8b8fa8;
+  border-color: #343848;
+}
+
+body.theme-dark .layout-notifications__config-btn:hover {
+  background: #252836;
   color: #e8eaf2;
 }
 
