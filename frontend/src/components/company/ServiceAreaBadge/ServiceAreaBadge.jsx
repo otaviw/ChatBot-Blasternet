@@ -1,11 +1,24 @@
-import { getServiceAreaPaletteEntry } from '@/utils/serviceAreaColors';
+import { useState, useEffect } from 'react';
+import { getServiceAreaPaletteEntry, getServiceAreaPaletteEntryDark } from '@/utils/serviceAreaColors';
 
 /**
  * Etiqueta colorida para o nome de uma área de atendimento (alinhada à ordem em `serviceAreaNames`).
  */
 function ServiceAreaBadge({ areaName, serviceAreaNames = [], className = '' }) {
+  const [isDark, setIsDark] = useState(() => document.body.classList.contains('theme-dark'));
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsDark(document.body.classList.contains('theme-dark'));
+    });
+    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
+
   if (!areaName) return null;
-  const { bg, border, text } = getServiceAreaPaletteEntry(areaName, serviceAreaNames);
+  const { bg, border, text } = isDark
+    ? getServiceAreaPaletteEntryDark(areaName, serviceAreaNames)
+    : getServiceAreaPaletteEntry(areaName, serviceAreaNames);
 
   return (
     <span

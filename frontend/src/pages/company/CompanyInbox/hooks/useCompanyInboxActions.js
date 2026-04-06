@@ -37,6 +37,13 @@ export default function useCompanyInboxActions({
   const [transferBusy, setTransferBusy] = useState(false);
   const [transferError, setTransferError] = useState('');
   const [transferSuccess, setTransferSuccess] = useState('');
+  const [newConvModalOpen, setNewConvModalOpen] = useState(false);
+  const [newConvBusy, setNewConvBusy] = useState(false);
+  const [newConvError, setNewConvError] = useState('');
+  const [sendTemplateModalOpen, setSendTemplateModalOpen] = useState(false);
+  const [sendTemplateBusy, setSendTemplateBusy] = useState(false);
+  const [sendTemplateError, setSendTemplateError] = useState('');
+  const [sendTemplateSuccess, setSendTemplateSuccess] = useState('');
 
   useEffect(() => {
     return () => {
@@ -98,6 +105,9 @@ export default function useCompanyInboxActions({
     setAiSuggestionBusy(false);
     setAiSuggestionError('');
     setAiSuggestionStatus('');
+    setSendTemplateModalOpen(false);
+    setSendTemplateError('');
+    setSendTemplateSuccess('');
   }, []);
 
   const assumeConversation = useCallback(async () => {
@@ -418,6 +428,76 @@ export default function useCompanyInboxActions({
     return `/api/minha-conta/mensagens/${msg.id}/media`;
   }, []);
 
+  const createConversation = useCallback(
+    async ({ phone, name, sendTemplate, templateName }) => {
+      setNewConvBusy(true);
+      setNewConvError('');
+      try {
+        const response = await api.post('/minha-conta/conversas', {
+          customer_phone: phone,
+          customer_name: name || null,
+          send_template: sendTemplate,
+          template_name: templateName || 'iniciar_conversa',
+        });
+
+        const conversation = response.data?.conversation;
+        if (conversation) {
+          upsertConversationInList(conversation);
+          await refreshConversations();
+          setNewConvModalOpen(false);
+          // Abre a conversa recém-criada
+          if (conversation.id) {
+            shouldScrollChatToBottomRef.current = true;
+            setDetail(conversation);
+          }
+        }
+      } catch (err) {
+        setNewConvError(err.response?.data?.message || 'Falha ao criar conversa.');
+      } finally {
+        setNewConvBusy(false);
+      }
+    },
+    [refreshConversations, setDetail, shouldScrollChatToBottomRef, upsertConversationInList]
+  );
+
+  const sendTemplateToConversation = useCallback(async (templateName) => {
+    if (!detail?.id) return;
+
+    setSendTemplateBusy(true);
+    setSendTemplateError('');
+    setSendTemplateSuccess('');
+    try {
+      const response = await api.post(`/minha-conta/conversas/${detail.id}/enviar-template`, {
+        template_name: templateName || 'iniciar_conversa',
+      });
+
+      const message = response.data?.message;
+      shouldScrollChatToBottomRef.current = true;
+      wasChatNearBottomRef.current = true;
+      setDetail((prev) => ({
+        ...(prev ?? {}),
+        ...response.data?.conversation,
+        messages: message
+          ? appendUniqueMessage(prev?.messages ?? [], message)
+          : prev?.messages ?? [],
+      }));
+      upsertConversationInList(response.data?.conversation);
+      setSendTemplateSuccess('Template enviado com sucesso.');
+      await refreshConversations();
+    } catch (err) {
+      setSendTemplateError(err.response?.data?.message || 'Falha ao enviar template.');
+    } finally {
+      setSendTemplateBusy(false);
+    }
+  }, [
+    detail?.id,
+    refreshConversations,
+    setDetail,
+    shouldScrollChatToBottomRef,
+    upsertConversationInList,
+    wasChatNearBottomRef,
+  ]);
+
   return {
     actionBusy,
     addTag,
@@ -464,5 +544,16 @@ export default function useCompanyInboxActions({
     transferSuccess,
     transferUserId,
     transferConversation,
+    createConversation,
+    newConvModalOpen,
+    newConvBusy,
+    newConvError,
+    setNewConvModalOpen,
+    sendTemplateToConversation,
+    sendTemplateModalOpen,
+    sendTemplateBusy,
+    sendTemplateError,
+    sendTemplateSuccess,
+    setSendTemplateModalOpen,
   };
 }

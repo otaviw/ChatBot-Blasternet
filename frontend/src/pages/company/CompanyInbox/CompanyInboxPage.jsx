@@ -12,6 +12,8 @@ import MessagesPanel from './components/MessagesPanel.jsx';
 import ReplyComposer from './components/ReplyComposer.jsx';
 import TagsModal from './components/TagsModal.jsx';
 import TransferModal from './components/TransferModal.jsx';
+import NewConversationModal from './components/NewConversationModal.jsx';
+import SendTemplateModal from './components/SendTemplateModal.jsx';
 import useCompanyInboxConversations from './hooks/useCompanyInboxConversations';
 import useCompanyInboxDetailMessages from './hooks/useCompanyInboxDetailMessages';
 import useCompanyInboxActions from './hooks/useCompanyInboxActions';
@@ -128,6 +130,17 @@ function CompanyInboxPage() {
     transferSuccess,
     transferUserId,
     transferConversation,
+    createConversation,
+    newConvModalOpen,
+    newConvBusy,
+    newConvError,
+    setNewConvModalOpen,
+    sendTemplateToConversation,
+    sendTemplateModalOpen,
+    sendTemplateBusy,
+    sendTemplateError,
+    sendTemplateSuccess,
+    setSendTemplateModalOpen,
   } = useCompanyInboxActions({
     contactNameInput,
     detail,
@@ -213,6 +226,7 @@ function CompanyInboxPage() {
             onNextConversationPage={handleNextConversationPage}
             conversationsLoadingMore={conversationsLoadingMore}
             loadedConversationPage={loadedConversationPageRef.current}
+            onNewConversation={() => setNewConvModalOpen(true)}
           />
 
           <section className={`inbox-messages flex-col${selectedId ? ' inbox-messages--visible' : ''}`}>
@@ -241,6 +255,7 @@ function CompanyInboxPage() {
                   onCloseConversation={closeConversation}
                   onOpenTagsModal={() => setTagsModalOpen(true)}
                   onOpenTransferModal={() => setTransferModalOpen(true)}
+                  onOpenSendTemplateModal={() => setSendTemplateModalOpen(true)}
                 />
 
                 <MessagesPanel
@@ -305,6 +320,24 @@ function CompanyInboxPage() {
         transferSuccess={transferSuccess}
         transferError={transferError}
         onClose={() => setTransferModalOpen(false)}
+      />
+
+      <NewConversationModal
+        open={newConvModalOpen}
+        onClose={() => setNewConvModalOpen(false)}
+        onSubmit={createConversation}
+        busy={newConvBusy}
+        error={newConvError}
+      />
+
+      <SendTemplateModal
+        open={sendTemplateModalOpen}
+        detail={detail}
+        onClose={() => setSendTemplateModalOpen(false)}
+        onConfirm={sendTemplateToConversation}
+        busy={sendTemplateBusy}
+        error={sendTemplateError}
+        success={sendTemplateSuccess}
       />
     </Layout>
   );

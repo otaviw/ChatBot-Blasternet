@@ -471,24 +471,6 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
         icon: 'bot',
         ariaLabel: 'Configurações do bot e atendimento',
       });
-      links.push({
-        href: '/minha-conta/ia/analytics',
-        label: 'Analytics IA',
-        icon: 'chatIa',
-        ariaLabel: 'Métricas de uso da IA da empresa',
-      });
-      links.push({
-        href: '/minha-conta/ia/auditoria',
-        label: 'Auditoria IA',
-        icon: 'chatIa',
-        ariaLabel: 'Logs completos de ações da IA',
-      });
-      links.push({
-        href: '/minha-conta/base-conhecimento',
-        label: 'Base de conhecimento',
-        icon: 'respostas',
-        ariaLabel: 'Conteúdos usados pela IA para responder melhor',
-      });
     }
 
     links.push(

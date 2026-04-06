@@ -1,6 +1,7 @@
 import './routes.css';
 import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes, useParams } from 'react-router-dom';
+import useAuth from '@/hooks/useAuth';
 
 const EntrarPage = lazy(() => import('@/pages/Entrar/EntrarPage.jsx'));
 const EsqueceuSenhaPage = lazy(() => import('@/pages/EsqueceuSenha/EsqueceuSenhaPage.jsx'));
@@ -45,6 +46,13 @@ const SupportRequestPage = lazy(() => import('@/pages/support/SupportRequest/Sup
 const InternalChatPage = lazy(() => import('@/pages/shared/InternalChat/InternalChatPage.jsx'));
 const InternalAiChatPage = lazy(() => import('@/pages/shared/InternalAiChat/InternalAiChatPage.jsx'));
 
+function SuperAdminRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (user?.role !== 'system_admin') return <Navigate to="/dashboard" replace />;
+  return children;
+}
+
 function AdminCompanyShowRoute() {
   const { companyId = '' } = useParams();
   return <AdminCompanyShowPage companyId={companyId} />;
@@ -87,11 +95,11 @@ function AppRoutes() {
         <Route path="/minha-conta/conversas" element={<CompanyInboxPage />} />
         <Route path="/minha-conta/chat-interno" element={<InternalChatPage />} />
         <Route path="/minha-conta/chat-ia" element={<InternalAiChatPage />} />
-        <Route path="/minha-conta/ia/analytics" element={<CompanyAiAnalyticsPage />} />
-        <Route path="/minha-conta/ia/auditoria" element={<CompanyAiAuditPage />} />
+        <Route path="/minha-conta/ia/analytics" element={<SuperAdminRoute><CompanyAiAnalyticsPage /></SuperAdminRoute>} />
+        <Route path="/minha-conta/ia/auditoria" element={<SuperAdminRoute><CompanyAiAuditPage /></SuperAdminRoute>} />
         <Route path="/minha-conta/ia/configuracoes" element={<AiSettingsPage />} />
         <Route path="/minha-conta/bot" element={<CompanyBotPage />} />
-        <Route path="/minha-conta/base-conhecimento" element={<CompanyKnowledgeBasePage />} />
+        <Route path="/minha-conta/base-conhecimento" element={<SuperAdminRoute><CompanyKnowledgeBasePage /></SuperAdminRoute>} />
         <Route path="/minha-conta/respostas-rapidas" element={<CompanyQuickRepliesPage />} />
         <Route path="/minha-conta/usuarios" element={<CompanyUsersPage />} />
         <Route path="/minha-conta/suporte/solicitacoes" element={<CompanySupportTicketPage />} />

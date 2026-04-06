@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Company;
+use App\Models\Conversation;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -339,6 +340,164 @@ class WhatsAppSendService
     }
 
     /**
+     * Verifica se a janela de 24h da conversa ainda está aberta.
+     * Retorna true se o usuário enviou mensagem nas últimas 24h.
+     */
+    public function isConversationOpen(?Conversation $conversation): bool
+    {
+        if (! $conversation || ! $conversation->last_user_message_at) {
+            return false;
+        }
+
+        return $conversation->last_user_message_at->gt(now()->subHours(24));
+    }
+
+    /**
+     * Envia template de WhatsApp (usado para iniciar/reabrir conversas).
+     *
+     * @param  string[]  $variables  Parâmetros de texto para o body do template
+     * @return array{ok:bool,whatsapp_message_id:?string,status:'sent'|'failed',error:mixed,response:array<mixed>|null}
+     */
+    public function sendTemplateMessage(
+        ?Company $company,
+        string $toPhone,
+        string $templateName,
+        array $variables = [],
+        string $languageCode = 'pt_BR'
+    ): array {
+        $phoneNumberId = $this->resolvePhoneNumberId($company);
+        $accessToken   = $this->resolveAccessToken($company);
+        $normalizedTo  = $this->normalizeRecipient($toPhone);
+
+        if ($normalizedTo === '') {
+            return $this->failedResult('destinatario_invalido');
+        }
+
+        if ($phoneNumberId === '' || $accessToken === '') {
+            Log::info('WhatsApp [esqueleto]: envio de template simulado (sem token/number_id).', [
+                'company_id'    => $company?->id,
+                'to'            => $normalizedTo,
+                'template_name' => $templateName,
+            ]);
+
+            return $this->successResult(null, ['simulated' => true]);
+        }
+
+        $components = [];
+        if (! empty($variables)) {
+            $components[] = [
+                'type'       => 'body',
+                'parameters' => array_map(fn ($v) => ['type' => 'text', 'text' => (string) $v], $variables),
+            ];
+        }
+
+        $url  = $this->messagesUrl($phoneNumberId);
+        $body = [
+            'messaging_product' => 'whatsapp',
+            'to'                => $normalizedTo,
+            'type'              => 'template',
+            'template'          => [
+                'name'       => $templateName,
+                'language'   => ['code' => $languageCode],
+                'components' => $components,
+            ],
+        ];
+
+        Log::info('WhatsApp API template request.', [
+            'company_id'    => $company?->id,
+            'template_name' => $templateName,
+            'to'            => $normalizedTo,
+        ]);
+
+        /** @var Response $response */
+        $response = Http::withToken($accessToken)
+            ->withHeaders(['Content-Type' => 'application/json'])
+            ->asJson()
+            ->post($url, $body);
+
+        $responseJson   = $this->responseJson($response);
+        $graphMessageId = $this->normalizeGraphMessageId($response->json('messages.0.id'));
+
+        if (! $response->successful()) {
+            Log::warning('WhatsApp API erro ao enviar template.', [
+                'template_name' => $templateName,
+                'status'        => $response->status(),
+                'body'          => $responseJson,
+            ]);
+
+            return $this->failedResult(
+                $response->json('error') ?? $responseJson ?? $response->body(),
+                $responseJson
+            );
+        }
+
+        return $this->successResult($graphMessageId, $responseJson);
+    }
+
+    /**
+     * Envia mensagem de forma inteligente:
+     * - Dentro da janela de 24h → mensagem normal
+     * - Fora da janela ou conversa nova → template iniciar_conversa
+     * - Se envio normal falhar por janela expirada → fallback automático para template
+     *
+     * @return array{ok:bool,whatsapp_message_id:?string,status:'sent'|'failed',error:mixed,response:array<mixed>|null}
+     */
+    public function sendSmartMessage(
+        ?Company $company,
+        string $toPhone,
+        string $message,
+        ?Conversation $conversation = null,
+        string $templateName = 'iniciar_conversa',
+        array $templateVariables = ['Cliente', 'seu atendimento']
+    ): array {
+        if ($this->isConversationOpen($conversation)) {
+            $result = $this->sendText($company, $toPhone, $message);
+
+            // Fallback automático se a API retornar erro de janela expirada (código 131047)
+            if (! $result['ok'] && $this->isWindowExpiredError($result['error'])) {
+                Log::info('WhatsApp janela 24h expirada — fallback para template.', [
+                    'company_id' => $company?->id,
+                    'to'         => $toPhone,
+                    'template'   => $templateName,
+                ]);
+
+                return $this->sendTemplateMessage($company, $toPhone, $templateName, $templateVariables);
+            }
+
+            return $result;
+        }
+
+        Log::info('WhatsApp conversa fora da janela 24h — enviando template.', [
+            'company_id'             => $company?->id,
+            'to'                     => $toPhone,
+            'template'               => $templateName,
+            'last_user_message_at'   => $conversation?->last_user_message_at?->toIso8601String(),
+        ]);
+
+        return $this->sendTemplateMessage($company, $toPhone, $templateName, $templateVariables);
+    }
+
+    /**
+     * Verifica se o erro retornado pela API da Meta indica janela de 24h expirada.
+     * Código Meta: 131047
+     */
+    private function isWindowExpiredError(mixed $error): bool
+    {
+        if (is_array($error)) {
+            $code = (int) ($error['code'] ?? 0);
+            if ($code === 131047) {
+                return true;
+            }
+        }
+
+        if (is_string($error) && str_contains($error, '131047')) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
      * @return array{binary:string,mime_type:?string,size_bytes:?int}|null
      */
     public function downloadInboundImage(?Company $company, string $mediaId): ?array
@@ -383,6 +542,124 @@ class WhatsAppSendService
             'mime_type' => $metadata['mime_type'] ?? $mediaResponse->header('Content-Type'),
             'size_bytes' => isset($metadata['file_size']) ? (int) $metadata['file_size'] : strlen((string) $mediaResponse->body()),
         ];
+    }
+
+    /**
+     * Busca templates aprovados da Meta API para a empresa.
+     *
+     * Estratégia de resolução do WABA ID:
+     *  1. Usa meta_waba_id salvo na empresa
+     *  2. Se não tiver, tenta descobrir via phone_number_id (chamada extra à API)
+     *  3. Sem WABA ID → retorna lista vazia
+     *
+     * @return array{
+     *   ok: bool,
+     *   templates: array<int, array{name:string,status:string,language:string,category:string,components:array}>,
+     *   error: mixed
+     * }
+     */
+    public function fetchTemplates(?Company $company): array
+    {
+        $accessToken = $this->resolveAccessToken($company);
+        if ($accessToken === '') {
+            return ['ok' => false, 'templates' => [], 'error' => 'sem_access_token'];
+        }
+
+        $wabaId = $this->resolveWabaId($company, $accessToken);
+        if ($wabaId === '') {
+            return ['ok' => false, 'templates' => [], 'error' => 'sem_waba_id'];
+        }
+
+        $baseUrl  = rtrim((string) config('whatsapp.api_url'), '/');
+        $url      = "{$baseUrl}/{$wabaId}/message_templates";
+
+        $response = Http::withToken($accessToken)
+            ->get($url, [
+                'fields' => 'name,status,language,category,components',
+                'limit'  => 200,
+            ]);
+
+        if (! $response->successful()) {
+            Log::warning('WhatsApp: falha ao buscar templates da Meta.', [
+                'waba_id' => $wabaId,
+                'status'  => $response->status(),
+                'body'    => $response->json(),
+            ]);
+
+            return [
+                'ok'        => false,
+                'templates' => [],
+                'error'     => $response->json('error') ?? $response->body(),
+            ];
+        }
+
+        $raw = $response->json('data') ?? [];
+
+        $templates = collect($raw)
+            ->filter(fn ($t) => ($t['status'] ?? '') === 'APPROVED')
+            ->map(fn ($t) => [
+                'name'       => (string) ($t['name'] ?? ''),
+                'status'     => (string) ($t['status'] ?? ''),
+                'language'   => (string) ($t['language'] ?? ''),
+                'category'   => (string) ($t['category'] ?? ''),
+                'components' => is_array($t['components'] ?? null) ? $t['components'] : [],
+            ])
+            ->values()
+            ->all();
+
+        return ['ok' => true, 'templates' => $templates, 'error' => null];
+    }
+
+    /**
+     * Resolve o WABA ID: usa o salvo na empresa ou descobre via phone_number_id.
+     */
+    private function resolveWabaId(?Company $company, string $accessToken): string
+    {
+        $saved = trim((string) ($company?->meta_waba_id ?? ''));
+        if ($saved !== '') {
+            return $saved;
+        }
+
+        // Fallback: env
+        $fromEnv = trim((string) config('whatsapp.waba_id', ''));
+        if ($fromEnv !== '') {
+            return $fromEnv;
+        }
+
+        // Auto-descoberta: pergunta à Meta qual é o WABA do phone_number_id
+        $phoneNumberId = $this->resolvePhoneNumberId($company);
+        if ($phoneNumberId === '') {
+            return '';
+        }
+
+        $baseUrl  = rtrim((string) config('whatsapp.api_url'), '/');
+        $response = Http::withToken($accessToken)
+            ->get("{$baseUrl}/{$phoneNumberId}", [
+                'fields' => 'whatsapp_business_account',
+            ]);
+
+        if (! $response->successful()) {
+            Log::warning('WhatsApp: falha ao descobrir WABA ID via phone_number_id.', [
+                'phone_number_id' => $phoneNumberId,
+            ]);
+
+            return '';
+        }
+
+        $discoveredWabaId = trim((string) ($response->json('whatsapp_business_account.id') ?? ''));
+
+        if ($discoveredWabaId !== '' && $company?->id) {
+            // Persiste para evitar a chamada extra nas próximas vezes
+            $company->meta_waba_id = $discoveredWabaId;
+            $company->saveQuietly();
+
+            Log::info('WhatsApp: WABA ID auto-descoberto e salvo.', [
+                'company_id' => $company->id,
+                'waba_id'    => $discoveredWabaId,
+            ]);
+        }
+
+        return $discoveredWabaId;
     }
 
     private function resolvePhoneNumberId(?Company $company): string

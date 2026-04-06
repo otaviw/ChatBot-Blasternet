@@ -24,13 +24,24 @@ function ConversationsSidebar({
   onNextConversationPage,
   conversationsLoadingMore,
   loadedConversationPage,
+  onNewConversation,
 }) {
   return (
     <aside
       className={`inbox-conversations flex-col min-w-0${mobileVisible ? ' inbox-conversations--visible' : ''}`}
     >
       <div className="inbox-conversations-header">
-        <h2 className="inbox-conversations-title">Conversas</h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="inbox-conversations-title" style={{ margin: 0 }}>Conversas</h2>
+          <button
+            type="button"
+            onClick={onNewConversation}
+            title="Nova conversa"
+            className="app-btn-primary text-xs py-1 px-2.5 shrink-0"
+          >
+            + Nova
+          </button>
+        </div>
         <input
           type="search"
           value={convSearchInput}

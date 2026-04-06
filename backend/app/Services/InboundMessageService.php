@@ -395,13 +395,15 @@ class InboundMessageService
 
         if ($normalizedContactName !== null && $conversation->customer_name !== $normalizedContactName) {
             $conversation->customer_name = $normalizedContactName;
-            $conversation->save();
         }
 
         if ($conversation->status === ConversationStatus::CLOSED) {
             $this->reopenClosedConversation($conversation);
-            $conversation->save();
         }
+
+        // Registra o momento da última mensagem do usuário para controle da janela de 24h
+        $conversation->last_user_message_at = now();
+        $conversation->save();
 
         return $conversation;
     }

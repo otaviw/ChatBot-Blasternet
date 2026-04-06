@@ -20,6 +20,7 @@ function ConversationToolbar({
   onCloseConversation,
   onOpenTagsModal,
   onOpenTransferModal,
+  onOpenSendTemplateModal,
 }) {
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
   const actionsMenuRef = useRef(null);
@@ -159,6 +160,15 @@ function ConversationToolbar({
                 onClick={() => { onOpenTransferModal(); closeMenu(); }}
               >
                 Transferir…
+              </button>
+              <div className="inbox-toolbar-actions-sep" role="separator" />
+              <button
+                type="button"
+                role="menuitem"
+                disabled={actionBusy}
+                onClick={() => { onOpenSendTemplateModal(); closeMenu(); }}
+              >
+                Enviar template…
               </button>
             </div>
           ) : null}

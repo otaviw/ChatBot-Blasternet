@@ -1,0 +1,181 @@
+import { useEffect, useRef, useState } from 'react';
+import useWhatsAppTemplates from '../hooks/useWhatsAppTemplates';
+
+const CATEGORY_LABEL = {
+  MARKETING: 'Marketing',
+  UTILITY: 'Utilidade',
+  AUTHENTICATION: 'Autenticação',
+};
+
+function NewConversationModal({ open, onClose, onSubmit, busy, error }) {
+  const [phone, setPhone] = useState('');
+  const [name, setName] = useState('');
+  const [sendTemplate, setSendTemplate] = useState(true);
+  const [selectedTemplate, setSelectedTemplate] = useState('');
+  const phoneRef = useRef(null);
+
+  const { templates, templatesLoading, templatesError, loadTemplates } = useWhatsAppTemplates();
+
+  useEffect(() => {
+    if (open) {
+      setPhone('');
+      setName('');
+      setSendTemplate(true);
+      setSelectedTemplate('');
+      loadTemplates();
+      setTimeout(() => phoneRef.current?.focus(), 50);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') onClose();
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    const templateName = sendTemplate ? (selectedTemplate || 'iniciar_conversa') : null;
+    onSubmit({ phone: phone.trim(), name: name.trim(), sendTemplate, templateName });
+  };
+
+  const canSubmit = phone.trim() && (!sendTemplate || selectedTemplate || templates.length === 0);
+
+  return (
+    <div className="inbox-tags-modal-overlay" onClick={onClose}>
+      <div
+        className="inbox-tags-modal"
+        style={{ maxWidth: 420, width: '100%' }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold">Nova conversa</h3>
+          <button type="button" onClick={onClose} className="text-[#525252] hover:text-[#171717]">
+            ✕
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <div>
+            <label className="block text-xs text-[#525252] mb-1">
+              Telefone <span className="text-red-600">*</span>
+            </label>
+            <input
+              ref={phoneRef}
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="5511999999999"
+              required
+              disabled={busy}
+              className="w-full app-input text-xs py-1.5"
+            />
+            <p className="text-[10px] text-[#a3a3a3] mt-0.5">
+              Com código do país e DDD, sem espaços ou traços.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs text-[#525252] mb-1">Nome (opcional)</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Nome do contato"
+              disabled={busy}
+              className="w-full app-input text-xs py-1.5"
+            />
+          </div>
+
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={sendTemplate}
+              onChange={(e) => setSendTemplate(e.target.checked)}
+              disabled={busy}
+              className="rounded"
+            />
+            <span className="text-xs text-[#374151]">Enviar template ao criar</span>
+          </label>
+
+          {sendTemplate && (
+            <div>
+              <p className="text-xs font-medium text-[#374151] mb-1.5">Selecione o template:</p>
+
+              {templatesLoading && (
+                <p className="text-xs text-[#737373] py-1">Carregando templates da Meta...</p>
+              )}
+
+              {!templatesLoading && templatesError && (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+                  {templatesError}
+                </p>
+              )}
+
+              {!templatesLoading && !templatesError && templates.length === 0 && (
+                <p className="text-xs text-[#737373]">
+                  Nenhum template aprovado encontrado — será usado{' '}
+                  <strong>iniciar_conversa</strong> como padrão.
+                </p>
+              )}
+
+              {!templatesLoading && templates.length > 0 && (
+                <div className="flex flex-col gap-1.5 max-h-44 overflow-y-auto pr-1">
+                  {templates.map((t) => (
+                    <button
+                      key={`${t.name}-${t.language}`}
+                      type="button"
+                      onClick={() => setSelectedTemplate(t.name)}
+                      className={`w-full text-left px-3 py-2 rounded-lg border transition text-xs ${
+                        selectedTemplate === t.name
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-[#e5e5e5] hover:border-[#cbd5e1] hover:bg-[#f8fafc]'
+                      }`}
+                    >
+                      <div className="font-medium text-[#0f172a]">{t.name}</div>
+                      <div className="text-[#737373] mt-0.5">
+                        {CATEGORY_LABEL[t.category] ?? t.category}
+                        {' · '}
+                        {t.language}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {error && <p className="text-xs text-red-600">{error}</p>}
+
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={busy}
+              className="app-btn-secondary text-xs py-1.5"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={busy || !canSubmit}
+              className="app-btn-primary text-xs py-1.5"
+            >
+              {busy ? 'Criando...' : 'Criar conversa'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+export default NewConversationModal;

@@ -274,10 +274,13 @@ class ConversationController extends Controller
 
         if ($sendOutbound) {
             if ($contentType === 'text') {
-                $sendResult = $this->whatsAppSend->sendText(
+                // Usa envio inteligente: mensagem normal dentro da janela de 24h,
+                // template iniciar_conversa fora da janela ou para números novos.
+                $sendResult = $this->whatsAppSend->sendSmartMessage(
                     $conversation->company,
                     $conversation->customer_phone,
-                    $trimmedText
+                    $trimmedText,
+                    $conversation
                 );
             } else {
                 $disk = $message->media_provider ?: config('whatsapp.media_disk', 'public');
@@ -295,6 +298,11 @@ class ConversationController extends Controller
 
             $wasSent = (bool) ($sendResult['ok'] ?? false);
             $this->deliveryStatus->applySendResult($message, $sendResult, 'manual_reply');
+
+            if ($wasSent) {
+                $conversation->last_business_message_at = now();
+                $conversation->save();
+            }
         }
 
         $this->auditLog->record($request, 'company.conversation.manual_reply', $conversation->company_id, [
@@ -487,6 +495,222 @@ class ConversationController extends Controller
         }
 
         return response()->json($payload);
+    }
+
+    /**
+     * Lista templates aprovados da Meta para a empresa autenticada.
+     */
+    public function listTemplates(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (! $user || ! $user->isCompanyUser()) {
+            return response()->json(['authenticated' => false, 'redirect' => '/entrar'], 403);
+        }
+
+        $company = \App\Models\Company::find($user->company_id);
+        $result  = $this->whatsAppSend->fetchTemplates($company);
+
+        if (! $result['ok']) {
+            return response()->json([
+                'templates' => [],
+                'error'     => $result['error'],
+            ], 200); // 200 com lista vazia: frontend trata graciosamente
+        }
+
+        return response()->json([
+            'templates' => $result['templates'],
+        ]);
+    }
+
+    /**
+     * Cria uma nova conversa (ou reabre existente) e, opcionalmente, envia template de abertura.
+     */
+    public function createConversation(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (! $user || ! $user->isCompanyUser()) {
+            return response()->json(['authenticated' => false, 'redirect' => '/entrar'], 403);
+        }
+
+        $validated = $request->validate([
+            'customer_phone' => ['required', 'string', 'max:30'],
+            'customer_name'  => ['nullable', 'string', 'max:160'],
+            'send_template'  => ['sometimes', 'boolean'],
+            'template_name'  => ['sometimes', 'string', 'max:100'],
+        ]);
+
+        $normalizedPhone = preg_replace('/\D/', '', (string) $validated['customer_phone']);
+        if ($normalizedPhone === '') {
+            return response()->json(['message' => 'Telefone inválido.'], 422);
+        }
+
+        $customerName = trim((string) ($validated['customer_name'] ?? ''));
+
+        $conversation = Conversation::firstOrCreate(
+            [
+                'company_id'     => (int) $user->company_id,
+                'customer_phone' => $normalizedPhone,
+            ],
+            [
+                'status'         => ConversationStatus::OPEN,
+                'assigned_type'  => ConversationAssignedType::UNASSIGNED,
+                'handling_mode'  => ConversationHandlingMode::BOT,
+                'customer_name'  => $customerName ?: null,
+            ]
+        );
+
+        if ($customerName !== '' && $conversation->customer_name !== $customerName) {
+            $conversation->customer_name = $customerName;
+        }
+
+        if ($conversation->status === ConversationStatus::CLOSED) {
+            $conversation->status        = ConversationStatus::OPEN;
+            $conversation->closed_at     = null;
+            $conversation->handling_mode = ConversationHandlingMode::BOT;
+            $conversation->assigned_type = ConversationAssignedType::UNASSIGNED;
+            $conversation->assigned_id   = null;
+        }
+
+        $conversation->save();
+        $conversation->load(['company', 'currentArea:id,name', 'assignedUser:id,name,email']);
+
+        $sendTemplate = (bool) ($validated['send_template'] ?? false);
+        $message      = null;
+        $templateSent = false;
+
+        if ($sendTemplate) {
+            $templateName = trim((string) ($validated['template_name'] ?? 'iniciar_conversa'));
+            if ($templateName === '') {
+                $templateName = 'iniciar_conversa';
+            }
+
+            $sendResult = $this->whatsAppSend->sendTemplateMessage(
+                $conversation->company,
+                $normalizedPhone,
+                $templateName
+            );
+
+            $templateSent = (bool) ($sendResult['ok'] ?? false);
+            $templateText = "[Template: {$templateName}]";
+
+            $message = Message::create([
+                'conversation_id' => $conversation->id,
+                'direction'       => 'out',
+                'type'            => 'human',
+                'content_type'    => 'text',
+                'text'            => $templateText,
+                'delivery_status' => $templateSent ? MessageDeliveryStatus::SENT : MessageDeliveryStatus::FAILED,
+                'meta'            => [
+                    'source'        => 'template',
+                    'template_name' => $templateName,
+                    'actor_user_id' => $user->id,
+                    'send_result'   => $sendResult,
+                ],
+            ]);
+
+            if ($templateSent) {
+                $conversation->last_business_message_at = now();
+                $conversation->save();
+            }
+
+            $this->deliveryStatus->applySendResult($message, $sendResult, 'template_manual');
+            $message->refresh();
+        }
+
+        $this->auditLog->record($request, 'company.conversation.created', $conversation->company_id, [
+            'conversation_id' => $conversation->id,
+            'send_template'   => $sendTemplate,
+            'template_sent'   => $templateSent,
+        ]);
+
+        return response()->json([
+            'ok'           => true,
+            'conversation' => $conversation,
+            'message'      => $message,
+            'template_sent' => $templateSent,
+        ]);
+    }
+
+    /**
+     * Envia template para uma conversa existente (reabre janela de atendimento).
+     */
+    public function sendTemplate(Request $request, int $conversationId): JsonResponse
+    {
+        $user = $request->user();
+        if (! $user || ! $user->isCompanyUser()) {
+            return response()->json(['authenticated' => false, 'redirect' => '/entrar'], 403);
+        }
+
+        $validated = $request->validate([
+            'template_name' => ['sometimes', 'string', 'max:100'],
+        ]);
+
+        $conversation = Conversation::query()
+            ->where('company_id', (int) $user->company_id)
+            ->whereKey($conversationId)
+            ->with(['company'])
+            ->first();
+
+        if (! $conversation) {
+            return response()->json(['message' => 'Conversa não encontrada.'], 404);
+        }
+
+        $templateName = trim((string) ($validated['template_name'] ?? 'iniciar_conversa'));
+        if ($templateName === '') {
+            $templateName = 'iniciar_conversa';
+        }
+
+        $sendResult = $this->whatsAppSend->sendTemplateMessage(
+            $conversation->company,
+            $conversation->customer_phone,
+            $templateName
+        );
+
+        $templateSent = (bool) ($sendResult['ok'] ?? false);
+        $templateText = "[Template: {$templateName}]";
+
+        $message = Message::create([
+            'conversation_id' => $conversation->id,
+            'direction'       => 'out',
+            'type'            => 'human',
+            'content_type'    => 'text',
+            'text'            => $templateText,
+            'delivery_status' => $templateSent ? MessageDeliveryStatus::SENT : MessageDeliveryStatus::FAILED,
+            'meta'            => [
+                'source'        => 'template',
+                'template_name' => $templateName,
+                'actor_user_id' => $user->id,
+                'send_result'   => $sendResult,
+            ],
+        ]);
+
+        if ($templateSent) {
+            $conversation->last_business_message_at = now();
+
+            if ($conversation->status === ConversationStatus::CLOSED) {
+                $conversation->status    = ConversationStatus::OPEN;
+                $conversation->closed_at = null;
+            }
+
+            $conversation->save();
+        }
+
+        $this->deliveryStatus->applySendResult($message, $sendResult, 'template_manual');
+        $message->refresh();
+        $conversation->load(['currentArea:id,name', 'assignedUser:id,name,email']);
+
+        $this->auditLog->record($request, 'company.conversation.send_template', $conversation->company_id, [
+            'conversation_id' => $conversation->id,
+            'template_name'   => $templateName,
+            'sent'            => $templateSent,
+        ]);
+
+        return response()->json([
+            'ok'           => $templateSent,
+            'message'      => $message,
+            'conversation' => $conversation,
+            'error'        => $templateSent ? null : ($sendResult['error'] ?? 'Falha ao enviar template.'),
+        ]);
     }
 
     /**

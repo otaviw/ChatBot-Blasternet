@@ -24,6 +24,8 @@ class Conversation extends Model
         'bot_step',
         'bot_context',
         'bot_last_interaction_at',
+        'last_user_message_at',
+        'last_business_message_at',
         'tags',
     ];
 
@@ -31,6 +33,8 @@ class Conversation extends Model
         'assumed_at' => 'datetime',
         'closed_at' => 'datetime',
         'bot_last_interaction_at' => 'datetime',
+        'last_user_message_at' => 'datetime',
+        'last_business_message_at' => 'datetime',
         'bot_context' => 'array',
         'tags' => 'array',
     ];

@@ -11,6 +11,7 @@ class Company extends Model
     protected $fillable = [
         'name',
         'meta_phone_number_id',
+        'meta_waba_id',
         'meta_access_token',
     ];
 

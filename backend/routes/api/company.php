@@ -14,8 +14,12 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::prefix('minha-conta')->group(function () {
         Route::get('/bot', [BotController::class, 'index']);
         Route::put('/bot', [BotController::class, 'update'])->middleware('throttle:bot-write');
+        Route::get('/templates', [CompanyConversationController::class, 'listTemplates'])
+            ->middleware('throttle:inbox-read');
         Route::get('/conversas', [CompanyConversationController::class, 'index'])
             ->middleware('throttle:inbox-read');
+        Route::post('/conversas', [CompanyConversationController::class, 'createConversation'])
+            ->middleware('throttle:bot-write');
         Route::get('/conversas/{conversationId}', [CompanyConversationController::class, 'show'])
             ->middleware('throttle:inbox-read');
         Route::get('/mensagens/{messageId}/media', [CompanyConversationController::class, 'media'])
@@ -29,6 +33,8 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::post('/conversas/{conversationId}/ia/sugestao', [CompanyConversationController::class, 'suggestReply'])
             ->middleware('throttle:bot-write');
         Route::post('/conversas/{conversationId}/transferir', [CompanyConversationController::class, 'transfer'])
+            ->middleware('throttle:bot-write');
+        Route::post('/conversas/{conversationId}/enviar-template', [CompanyConversationController::class, 'sendTemplate'])
             ->middleware('throttle:bot-write');
         Route::post('/conversas/{conversationId}/encerrar', [CompanyConversationController::class, 'close'])
             ->middleware('throttle:bot-write');
