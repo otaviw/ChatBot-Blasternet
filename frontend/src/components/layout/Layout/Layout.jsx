@@ -105,6 +105,8 @@ const iconKey = (label) => {
     'Configuracoes de IA': 'bot',
     'Configuracoes da IA': 'bot',
     'Configurações de IA': 'bot',
+    'Analytics IA': 'chatIa',
+    'Auditoria IA': 'chatIa',
     'Chat interno': 'chatInterno',
     'Equipe interna': 'chatInterno',
     Assistente: 'chatIa',
@@ -122,6 +124,7 @@ const iconKey = (label) => {
     Bot: 'bot',
     Respostas: 'respostas',
     'Respostas rapidas': 'respostas',
+    'Base de conhecimento': 'respostas',
     Inicio: 'dashboard',
     Conversas: 'inbox',
   };
@@ -459,6 +462,24 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
         label: 'Bot',
         icon: 'bot',
         ariaLabel: 'Configurações do bot e atendimento',
+      });
+      links.push({
+        href: '/minha-conta/ia/analytics',
+        label: 'Analytics IA',
+        icon: 'chatIa',
+        ariaLabel: 'Métricas de uso da IA da empresa',
+      });
+      links.push({
+        href: '/minha-conta/ia/auditoria',
+        label: 'Auditoria IA',
+        icon: 'chatIa',
+        ariaLabel: 'Logs completos de ações da IA',
+      });
+      links.push({
+        href: '/minha-conta/base-conhecimento',
+        label: 'Base de conhecimento',
+        icon: 'respostas',
+        ariaLabel: 'Conteúdos usados pela IA para responder melhor',
       });
     }
 

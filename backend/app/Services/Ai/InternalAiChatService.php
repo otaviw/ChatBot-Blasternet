@@ -77,15 +77,6 @@ class InternalAiChatService
         ]);
 
         $this->touchLastMessageAt($targetConversation, $userMessage);
-        $this->aiAuditService->logMessageSent(
-            (int) $targetConversation->company_id,
-            (int) $user->id,
-            (int) $targetConversation->id,
-            [
-                'message_id' => (int) $userMessage->id,
-                'content_length' => mb_strlen($normalizedContent),
-            ]
-        );
 
         $contextMessages = $this->contextBuilder->build($targetConversation, $systemPrompt, null, $settings);
         $provider = $this->providerResolver->resolve($providerName);
@@ -104,6 +95,18 @@ class InternalAiChatService
         $responseTimeMs = $firstAttempt['response_time_ms'];
 
         if (! (bool) ($providerResult['ok'] ?? false)) {
+            $this->aiAuditService->logMessageSent(
+                (int) $targetConversation->company_id,
+                (int) $user->id,
+                (int) $targetConversation->id,
+                [
+                    'status' => 'error',
+                    'message_id' => (int) $userMessage->id,
+                    'user_message' => $normalizedContent,
+                    'assistant_response' => null,
+                    'error' => $this->providerFailureMessage($providerResult),
+                ]
+            );
             $this->logProviderFailure($targetConversation, $providerName, $modelName, $providerResult);
 
             throw ValidationException::withMessages([
@@ -177,6 +180,19 @@ class InternalAiChatService
             AiUsage::FEATURE_INTERNAL_CHAT,
             $toolUsed,
             $this->usageService->tokensFromProviderResult($providerResult)
+        );
+        $this->aiAuditService->logMessageSent(
+            (int) $targetConversation->company_id,
+            (int) $user->id,
+            (int) $targetConversation->id,
+            [
+                'status' => 'ok',
+                'message_id' => (int) $userMessage->id,
+                'assistant_message_id' => (int) $assistantMessage->id,
+                'user_message' => $normalizedContent,
+                'assistant_response' => $assistantText,
+                'tool_used' => $toolUsed,
+            ]
         );
 
         return [

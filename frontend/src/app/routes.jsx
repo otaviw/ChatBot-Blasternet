@@ -24,8 +24,17 @@ const NotFoundPage = lazy(() => import('@/pages/NotFound/NotFoundPage.jsx'));
 const CompanyQuickRepliesPage = lazy(
   () => import('@/pages/company/CompanyQuickReplies/CompanyQuickRepliesPage.jsx')
 );
+const CompanyKnowledgeBasePage = lazy(
+  () => import('@/pages/company/CompanyKnowledgeBase/CompanyKnowledgeBasePage.jsx')
+);
 const CompanyUsersPage = lazy(() => import('@/pages/company/CompanyUsers/CompanyUsersPage.jsx'));
 const AiSettingsPage = lazy(() => import('@/pages/company/AiSettings/AiSettingsPage.jsx'));
+const CompanyAiAnalyticsPage = lazy(
+  () => import('@/pages/company/CompanyAiAnalytics/CompanyAiAnalyticsPage.jsx')
+);
+const CompanyAiAuditPage = lazy(
+  () => import('@/pages/company/CompanyAiAudit/CompanyAiAuditPage.jsx')
+);
 const CompanySupportTicketPage = lazy(
   () => import('@/pages/company/CompanySupportTickets/CompanySupportTicketPage.jsx')
 );
@@ -78,8 +87,11 @@ function AppRoutes() {
         <Route path="/minha-conta/conversas" element={<CompanyInboxPage />} />
         <Route path="/minha-conta/chat-interno" element={<InternalChatPage />} />
         <Route path="/minha-conta/chat-ia" element={<InternalAiChatPage />} />
+        <Route path="/minha-conta/ia/analytics" element={<CompanyAiAnalyticsPage />} />
+        <Route path="/minha-conta/ia/auditoria" element={<CompanyAiAuditPage />} />
         <Route path="/minha-conta/ia/configuracoes" element={<AiSettingsPage />} />
         <Route path="/minha-conta/bot" element={<CompanyBotPage />} />
+        <Route path="/minha-conta/base-conhecimento" element={<CompanyKnowledgeBasePage />} />
         <Route path="/minha-conta/respostas-rapidas" element={<CompanyQuickRepliesPage />} />
         <Route path="/minha-conta/usuarios" element={<CompanyUsersPage />} />
         <Route path="/minha-conta/suporte/solicitacoes" element={<CompanySupportTicketPage />} />

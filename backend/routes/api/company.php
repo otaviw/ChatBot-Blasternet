@@ -1,7 +1,10 @@
 <?php
 
 use App\Http\Controllers\Company\BotController;
+use App\Http\Controllers\Company\AiCompanyKnowledgeController;
 use App\Http\Controllers\Company\AiConversationController;
+use App\Http\Controllers\Company\AiAnalyticsController;
+use App\Http\Controllers\Company\AiAuditController;
 use App\Http\Controllers\Company\ConversationController as CompanyConversationController;
 use App\Http\Controllers\Company\QuickReplyController;
 use App\Http\Controllers\Company\UserController as CompanyUserController;
@@ -38,6 +41,10 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::post('/respostas-rapidas', [QuickReplyController::class, 'store'])->middleware('throttle:bot-write');
         Route::put('/respostas-rapidas/{quickReply}', [QuickReplyController::class, 'update'])->middleware('throttle:bot-write');
         Route::delete('/respostas-rapidas/{quickReply}', [QuickReplyController::class, 'destroy'])->middleware('throttle:bot-write');
+        Route::get('/base-conhecimento', [AiCompanyKnowledgeController::class, 'index'])->middleware('throttle:inbox-read');
+        Route::post('/base-conhecimento', [AiCompanyKnowledgeController::class, 'store'])->middleware('throttle:bot-write');
+        Route::put('/base-conhecimento/{knowledgeItem}', [AiCompanyKnowledgeController::class, 'update'])->middleware('throttle:bot-write');
+        Route::delete('/base-conhecimento/{knowledgeItem}', [AiCompanyKnowledgeController::class, 'destroy'])->middleware('throttle:bot-write');
 
         Route::get('/users', [CompanyUserController::class, 'index'])->middleware('throttle:inbox-read');
         Route::post('/users', [CompanyUserController::class, 'store'])->middleware('throttle:bot-write');
@@ -45,6 +52,12 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::delete('/users/{user}', [CompanyUserController::class, 'destroy'])->middleware('throttle:bot-write');
 
         Route::get('/ia/conversas', [AiConversationController::class, 'index'])
+            ->middleware('throttle:inbox-read');
+        Route::get('/ia/analytics', [AiAnalyticsController::class, 'index'])
+            ->middleware('throttle:inbox-read');
+        Route::get('/ia/auditoria', [AiAuditController::class, 'index'])
+            ->middleware('throttle:inbox-read');
+        Route::get('/ia/auditoria/{logId}', [AiAuditController::class, 'show'])
             ->middleware('throttle:inbox-read');
         Route::post('/ia/conversas', [AiConversationController::class, 'store'])
             ->middleware('throttle:bot-write');
