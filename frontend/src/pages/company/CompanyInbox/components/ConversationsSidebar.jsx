@@ -3,14 +3,18 @@ import {
   CONVERSATION_STATUS,
 } from '@/constants/conversation';
 import ServiceAreaBadge from '@/components/company/ServiceAreaBadge/ServiceAreaBadge.jsx';
+import ConversationsFilter from './ConversationsFilter.jsx';
 
 function ConversationsSidebar({
   serviceAreaNames = [],
+  attendants = [],
   selectedId,
   mobileVisible,
   convSearchInput,
   onConvSearchInputChange,
   onConvSearchEnter,
+  filters,
+  onFiltersChange,
   conversationListRef,
   onConversationsScroll,
   conversations,
@@ -39,6 +43,12 @@ function ConversationsSidebar({
           }}
           placeholder="Buscar contatos..."
           className="inbox-search-input app-input"
+        />
+        <ConversationsFilter
+          filters={filters}
+          onFiltersChange={onFiltersChange}
+          serviceAreaNames={serviceAreaNames}
+          attendants={attendants}
         />
       </div>
       <ul

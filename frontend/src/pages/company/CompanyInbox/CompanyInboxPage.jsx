@@ -37,6 +37,7 @@ function CompanyInboxPage() {
     conversationsLoadingMore,
     conversationsPagination,
     convSearchInput,
+    filters,
     handleConversationsScroll,
     handleConversationsSearchEnter,
     handleNextConversationPage,
@@ -44,11 +45,14 @@ function CompanyInboxPage() {
     refreshConversations,
     setConversations,
     setConvSearchInput,
+    setFilters,
     upsertConversationInList,
   } = useCompanyInboxConversations({
     data,
     loading,
   });
+
+  const attendants = useMemo(() => data?.attendants ?? [], [data]);
 
   const {
     chatListRef,
@@ -192,11 +196,14 @@ function CompanyInboxPage() {
         <div className="inbox-layout">
           <ConversationsSidebar
             serviceAreaNames={serviceAreaNames}
+            attendants={attendants}
             selectedId={selectedId}
             mobileVisible={!selectedId}
             convSearchInput={convSearchInput}
             onConvSearchInputChange={setConvSearchInput}
             onConvSearchEnter={handleConversationsSearchEnter}
+            filters={filters}
+            onFiltersChange={setFilters}
             conversationListRef={conversationListRef}
             onConversationsScroll={handleConversationsScroll}
             conversations={conversations}

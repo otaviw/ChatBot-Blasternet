@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\Ai\AiAccessService;
 use App\Services\Company\CompanyConversationSupportService;
 use App\Services\ConversationInactivityService;
+use App\Support\ConversationStatus;
 use Illuminate\Http\Request;
 
 class ListCompanyConversationsAction
@@ -31,6 +32,13 @@ class ListCompanyConversationsAction
         $search = trim((string) $request->query('search', ''));
         $page = max(1, (int) $request->query('page', 1));
         $perPage = min(50, max(5, (int) $request->query('per_page', 15)));
+
+        // Filtros adicionais
+        $filterStatus = trim((string) $request->query('status', ''));
+        $filterArea = trim((string) $request->query('area', ''));
+        $filterAttendantId = (int) $request->query('attendant_id', 0);
+        $filterDateFrom = trim((string) $request->query('date_from', ''));
+        $filterDateTo = trim((string) $request->query('date_to', ''));
 
         $lastMessageIdSubquery = Message::query()
             ->select('id')
@@ -65,10 +73,39 @@ class ListCompanyConversationsAction
             });
         }
 
+        if ($filterStatus !== '' && in_array($filterStatus, ConversationStatus::all(), true)) {
+            $query->where('conversations.status', $filterStatus);
+        }
+
+        if ($filterArea !== '') {
+            $query->whereHas('currentArea', function ($q) use ($filterArea) {
+                $q->whereRaw('LOWER(areas.name) = ?', [mb_strtolower($filterArea)]);
+            });
+        }
+
+        if ($filterAttendantId > 0) {
+            $query->where('conversations.assigned_user_id', $filterAttendantId);
+        }
+
+        if ($filterDateFrom !== '') {
+            $query->whereDate('conversations.created_at', '>=', $filterDateFrom);
+        }
+
+        if ($filterDateTo !== '') {
+            $query->whereDate('conversations.created_at', '<=', $filterDateTo);
+        }
+
         $paginator = $query->paginate($perPage, ['*'], 'page', $page);
         $paginator->getCollection()->each(
             fn (Conversation $conversation) => $this->conversationSupport->normalizeConversationAssignmentRelations($conversation)
         );
+
+        $attendants = User::query()
+            ->where('company_id', $companyId)
+            ->whereIn('role', [User::ROLE_COMPANY_ADMIN, User::ROLE_AGENT])
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->toArray();
 
         return [
             'authenticated' => true,
@@ -82,6 +119,7 @@ class ListCompanyConversationsAction
                 'per_page' => $paginator->perPage(),
                 'total' => $paginator->total(),
             ],
+            'attendants' => $attendants,
         ];
     }
 }

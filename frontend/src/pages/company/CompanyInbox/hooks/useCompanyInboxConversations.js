@@ -4,6 +4,14 @@ import { sortConversationsByActivity } from '../inboxRealtimeUtils';
 
 const CONV_PER_PAGE = 25;
 
+const EMPTY_FILTERS = {
+  status: '',
+  area: '',
+  attendant_id: '',
+  date_from: '',
+  date_to: '',
+};
+
 export default function useCompanyInboxConversations({ data, loading }) {
   const [, setConvPage] = useState(1);
   const [convSearch, setConvSearch] = useState('');
@@ -11,14 +19,23 @@ export default function useCompanyInboxConversations({ data, loading }) {
   const [conversations, setConversations] = useState([]);
   const [conversationsPagination, setConversationsPagination] = useState(null);
   const [conversationsLoadingMore, setConversationsLoadingMore] = useState(false);
+  const [filters, setFilters] = useState(EMPTY_FILTERS);
   const conversationListRef = useRef(null);
   const loadedConversationPageRef = useRef(1);
 
   const buildConversationsUrl = useCallback(
-    (page = 1, search = '') =>
-      `/minha-conta/conversas?page=${page}&per_page=${CONV_PER_PAGE}${
-        search ? `&search=${encodeURIComponent(search)}` : ''
-      }`,
+    (page = 1, search = '', activeFilters = EMPTY_FILTERS) => {
+      const params = new URLSearchParams();
+      params.set('page', String(page));
+      params.set('per_page', String(CONV_PER_PAGE));
+      if (search) params.set('search', search);
+      if (activeFilters.status) params.set('status', activeFilters.status);
+      if (activeFilters.area) params.set('area', activeFilters.area);
+      if (activeFilters.attendant_id) params.set('attendant_id', activeFilters.attendant_id);
+      if (activeFilters.date_from) params.set('date_from', activeFilters.date_from);
+      if (activeFilters.date_to) params.set('date_to', activeFilters.date_to);
+      return `/minha-conta/conversas?${params.toString()}`;
+    },
     []
   );
 
@@ -30,7 +47,7 @@ export default function useCompanyInboxConversations({ data, loading }) {
       loadedConversationPageRef.current = 1;
 
       try {
-        const response = await api.get(buildConversationsUrl(1, search));
+        const response = await api.get(buildConversationsUrl(1, search, filters));
         if (canceled) return;
         const incomingConversations = sortConversationsByActivity(response.data?.conversations ?? []);
         setConversations(incomingConversations);
@@ -48,7 +65,7 @@ export default function useCompanyInboxConversations({ data, loading }) {
       canceled = true;
       clearTimeout(handle);
     };
-  }, [buildConversationsUrl, convSearchInput]);
+  }, [buildConversationsUrl, convSearchInput, filters]);
 
   useEffect(() => {
     setConversations(sortConversationsByActivity(data?.conversations ?? []));
@@ -85,7 +102,7 @@ export default function useCompanyInboxConversations({ data, loading }) {
   }, []);
 
   const refreshConversations = useCallback(async () => {
-    const response = await api.get(buildConversationsUrl(1, convSearch));
+    const response = await api.get(buildConversationsUrl(1, convSearch, filters));
     const incomingConversations = sortConversationsByActivity(response.data?.conversations ?? []);
     const incomingPagination = response.data?.conversations_pagination ?? null;
 
@@ -118,7 +135,7 @@ export default function useCompanyInboxConversations({ data, loading }) {
         ),
       };
     });
-  }, [buildConversationsUrl, convSearch]);
+  }, [buildConversationsUrl, convSearch, filters]);
 
   const loadMoreConversations = useCallback(async () => {
     if (loading || conversationsLoadingMore || !conversationsPagination) {
@@ -134,7 +151,7 @@ export default function useCompanyInboxConversations({ data, loading }) {
     setConversationsLoadingMore(true);
 
     try {
-      const response = await api.get(buildConversationsUrl(nextPage, convSearch));
+      const response = await api.get(buildConversationsUrl(nextPage, convSearch, filters));
       const incomingConversations = response.data?.conversations ?? [];
       const incomingPagination = response.data?.conversations_pagination ?? null;
 
@@ -160,7 +177,7 @@ export default function useCompanyInboxConversations({ data, loading }) {
     } finally {
       setConversationsLoadingMore(false);
     }
-  }, [buildConversationsUrl, convSearch, conversationsLoadingMore, conversationsPagination, loading]);
+  }, [buildConversationsUrl, convSearch, filters, conversationsLoadingMore, conversationsPagination, loading]);
 
   const handleConversationsScroll = useCallback(
     (event) => {
@@ -194,6 +211,7 @@ export default function useCompanyInboxConversations({ data, loading }) {
     conversationsLoadingMore,
     conversationsPagination,
     convSearchInput,
+    filters,
     handleConversationsScroll,
     handleConversationsSearchEnter,
     handleNextConversationPage,
@@ -201,6 +219,7 @@ export default function useCompanyInboxConversations({ data, loading }) {
     refreshConversations,
     setConversations,
     setConvSearchInput,
+    setFilters,
     upsertConversationInList,
   };
 }
