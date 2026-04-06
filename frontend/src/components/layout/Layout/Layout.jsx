@@ -170,7 +170,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
       const storedMode = String(window.localStorage.getItem('ui-theme-mode') ?? '')
         .trim()
         .toLowerCase();
-      return storedMode === 'high-contrast' ? 'high-contrast' : 'light';
+      return storedMode === 'dark' ? 'dark' : 'light';
     } catch {
       return 'light';
     }
@@ -320,12 +320,11 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
 
   useEffect(() => {
     const root = document.body;
-    const highContrastClass = 'theme-high-contrast';
 
-    if (themeMode === 'high-contrast') {
-      root.classList.add(highContrastClass);
+    if (themeMode === 'dark') {
+      root.classList.add('theme-dark');
     } else {
-      root.classList.remove(highContrastClass);
+      root.classList.remove('theme-dark');
     }
 
     window.localStorage.setItem('ui-theme-mode', themeMode);
@@ -395,7 +394,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
   };
 
   const toggleThemeMode = () => {
-    setThemeMode((previous) => (previous === 'high-contrast' ? 'light' : 'high-contrast'));
+    setThemeMode((previous) => (previous === 'dark' ? 'light' : 'dark'));
   };
 
   const adminMainLinks = useMemo(() => {
@@ -938,15 +937,15 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
                     <button
                       type="button"
                       className={`layout-profile__item layout-profile__theme-toggle ${
-                        themeMode === 'high-contrast' ? 'layout-profile__theme-toggle--active' : ''
+                        themeMode === 'dark' ? 'layout-profile__theme-toggle--active' : ''
                       }`}
                       onClick={toggleThemeMode}
-                      aria-pressed={themeMode === 'high-contrast'}
-                      title="Alternar tema"
+                      aria-pressed={themeMode === 'dark'}
+                      title="Alternar tema escuro"
                     >
-                      <span className="layout-profile__theme-toggle-label">Alto contraste</span>
+                      <span className="layout-profile__theme-toggle-label">Tema escuro</span>
                       <span className="layout-profile__theme-toggle-value">
-                        {themeMode === 'high-contrast' ? 'Ativo' : 'Inativo'}
+                        {themeMode === 'dark' ? 'Ativo' : 'Inativo'}
                       </span>
                     </button>
                     <button

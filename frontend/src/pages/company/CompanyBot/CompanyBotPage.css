@@ -117,3 +117,15 @@
   gap: 1rem;
   padding-top: 0.5rem;
 }
+
+/* ── Dark Theme ─────────────────────────────────────────── */
+body.theme-dark .bot-config-toc-list { color: #8b8fa8; }
+body.theme-dark .bot-config-toc-list li::marker { color: #4f8ef7; }
+body.theme-dark .bot-config-section {
+  background: #1a1d27;
+  border-color: #252836;
+}
+body.theme-dark .bot-config-section-title { color: #e8eaf2; }
+body.theme-dark .bot-config-hint { color: #8b8fa8; }
+body.theme-dark .bot-config-label { color: #9095b0; }
+

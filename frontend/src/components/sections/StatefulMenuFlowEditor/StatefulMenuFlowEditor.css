@@ -325,3 +325,98 @@
     text-align: left;
   }
 }
+
+/* ── Dark Theme ─────────────────────────────────────────── */
+body.theme-dark .stateful-editor-sidebar,
+body.theme-dark .stateful-editor-card,
+body.theme-dark .stateful-editor-empty {
+  background: #1a1d27;
+  border-color: #252836;
+}
+body.theme-dark .stateful-editor-card--soft {
+  background: #13151f;
+  border-color: #343848;
+}
+body.theme-dark .stateful-editor-card-title { color: #e8eaf2; }
+body.theme-dark .stateful-editor-card-subtitle { color: #8b8fa8; }
+body.theme-dark .stateful-editor-empty { color: #8b8fa8; }
+
+body.theme-dark .stateful-step-list-item {
+  background: #1a1d27;
+  border-color: #252836;
+}
+body.theme-dark .stateful-step-list-item:hover {
+  background: #1e2130;
+  border-color: #343848;
+}
+body.theme-dark .stateful-step-list-item--active {
+  background: rgba(79, 142, 247, 0.1);
+  border-color: #4f8ef7;
+}
+body.theme-dark .stateful-step-list-item-title { color: #e8eaf2; }
+body.theme-dark .stateful-step-list-item-index { color: #5c6078; }
+body.theme-dark .stateful-step-list-item-meta { color: #8b8fa8; }
+
+body.theme-dark .stateful-badge {
+  background: #1e2130;
+  border-color: #343848;
+  color: #8b8fa8;
+}
+body.theme-dark .stateful-badge--success {
+  background: rgba(52, 211, 153, 0.1);
+  border-color: rgba(52, 211, 153, 0.3);
+  color: #34d399;
+}
+
+body.theme-dark .stateful-field-label { color: #9095b0; }
+
+body.theme-dark .stateful-input {
+  background: #13151f;
+  border-color: #343848;
+  color: #e8eaf2;
+}
+body.theme-dark .stateful-input:focus {
+  border-color: #4f8ef7;
+  box-shadow: 0 0 0 2px rgba(79, 142, 247, 0.2);
+}
+
+body.theme-dark .stateful-preview-box {
+  background: #13151f;
+  border-color: #343848;
+}
+body.theme-dark .stateful-preview-label { color: #8b8fa8; }
+body.theme-dark .stateful-preview-content { color: #e8eaf2; }
+
+body.theme-dark .stateful-btn-secondary {
+  background: #1e2130;
+  border-color: #343848;
+  color: #9095b0;
+}
+body.theme-dark .stateful-btn-secondary:hover {
+  background: #252836;
+  color: #e8eaf2;
+}
+body.theme-dark .stateful-btn-danger {
+  background: rgba(248, 113, 113, 0.08);
+  border-color: rgba(248, 113, 113, 0.3);
+  color: #f87171;
+}
+body.theme-dark .stateful-btn-danger:hover {
+  background: rgba(248, 113, 113, 0.15);
+}
+
+body.theme-dark .stateful-option-list-item {
+  background: #1a1d27;
+  border-color: #252836;
+}
+body.theme-dark .stateful-option-list-item:hover {
+  background: #1e2130;
+  border-color: #343848;
+}
+body.theme-dark .stateful-option-list-item--active {
+  background: rgba(79, 142, 247, 0.1);
+  border-color: #4f8ef7;
+}
+body.theme-dark .stateful-option-list-title { color: #e8eaf2; }
+body.theme-dark .stateful-option-list-meta { color: #8b8fa8; }
+body.theme-dark .stateful-option-list-summary { color: #5c6078; }

@@ -66,3 +66,13 @@
 .bot-config-step-body > *:first-child {
   margin-top: 0;
 }
+
+/* ── Dark Theme ─────────────────────────────────────────── */
+body.theme-dark .bot-config-rules-wrap {
+  background: #13151f;
+  border-color: #252836;
+}
+body.theme-dark .bot-config-rules-label { color: #8b8fa8; }
+body.theme-dark .bot-config-rules { color: #9095b0; }
+body.theme-dark .bot-config-step-intro { color: #8b8fa8; }
+

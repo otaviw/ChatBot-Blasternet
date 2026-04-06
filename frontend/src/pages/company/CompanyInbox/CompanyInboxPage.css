@@ -530,3 +530,101 @@
     padding: 0.4rem 0.6rem;
   }
 }
+
+/* ── Dark Theme ─────────────────────────────────────────── */
+body.theme-dark .inbox-header {
+  background: #1a1d27;
+  border-bottom-color: #252836;
+}
+body.theme-dark .inbox-title { color: #e8eaf2; }
+
+body.theme-dark .inbox-conversations {
+  background: #13151f;
+  border-right-color: #252836;
+}
+body.theme-dark .inbox-conversations-title { color: #e8eaf2; }
+body.theme-dark .inbox-conversations-status {
+  background: #161921;
+  border-top-color: #252836;
+}
+
+body.theme-dark .inbox-messages { background: #0f1117; }
+
+body.theme-dark .inbox-back-btn {
+  background: rgba(79, 142, 247, 0.08);
+  border-bottom-color: rgba(79, 142, 247, 0.2);
+  color: #6aa3ff;
+}
+body.theme-dark .inbox-back-btn:hover {
+  background: rgba(79, 142, 247, 0.15);
+  color: #7ab3ff;
+}
+
+body.theme-dark .inbox-toolbar {
+  background: #1a1d27;
+  border-bottom-color: #252836;
+}
+body.theme-dark .inbox-toolbar-actions-menu {
+  background: #22263a;
+  border-color: #343848;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+body.theme-dark .inbox-toolbar-actions-menu button { color: #9095b0; }
+body.theme-dark .inbox-toolbar-actions-menu button:hover:not(:disabled) {
+  background: #2a2d3e;
+  color: #e8eaf2;
+}
+body.theme-dark .inbox-toolbar-actions-menu .inbox-toolbar-actions-sep {
+  background: #343848;
+}
+
+body.theme-dark .inbox-chat-loader { color: #5c6078; }
+
+body.theme-dark .inbox-message-in {
+  background: #1e2130;
+  color: #e8eaf2;
+}
+body.theme-dark .inbox-message-out {
+  background: #1a3560;
+  color: #c8deff;
+}
+
+body.theme-dark .inbox-message-reaction-pill {
+  background: #1e2130;
+  border-color: #343848;
+}
+body.theme-dark .inbox-message-reaction-count { color: #8b8fa8; }
+
+body.theme-dark .company-inbox-message-image {
+  border-color: #252836;
+}
+body.theme-dark .company-inbox-message-caption { color: #8b8fa8; }
+
+body.theme-dark .inbox-reply-form {
+  background: #1a1d27;
+  border-top-color: #252836;
+}
+body.theme-dark .inbox-reply-attachment {
+  background: rgba(79, 142, 247, 0.08);
+  border-color: rgba(79, 142, 247, 0.25);
+}
+body.theme-dark .inbox-reply-attachment-label { color: #6aa3ff; }
+body.theme-dark .inbox-reply-attachment-name { color: #c8deff; }
+
+body.theme-dark .inbox-transfer-dropdown {
+  background: #22263a;
+  border-color: #343848;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+
+body.theme-dark .company-inbox-image-preview {
+  background: #1a1d27;
+  border-color: #252836;
+}
+body.theme-dark .company-inbox-image-preview img { border-color: #252836; }
+
+body.theme-dark .inbox-tags-modal {
+  background: #1a1d27;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+}
+
