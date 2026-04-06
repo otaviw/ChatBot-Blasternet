@@ -145,6 +145,7 @@ class CompanyController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:120', 'unique:companies,name'],
             'meta_phone_number_id' => ['nullable', 'string', 'max:255', 'unique:companies,meta_phone_number_id'],
+            'meta_waba_id' => ['nullable', 'string', 'max:255'],
             'ai_enabled' => ['sometimes', 'boolean'],
             'ai_internal_chat_enabled' => ['sometimes', 'boolean'],
             'ai_chatbot_enabled' => ['sometimes', 'boolean'],
@@ -157,6 +158,7 @@ class CompanyController extends Controller
         $company = Company::create([
             'name' => $validated['name'],
             'meta_phone_number_id' => $validated['meta_phone_number_id'] ?? null,
+            'meta_waba_id' => $validated['meta_waba_id'] ?? null,
         ]);
 
         CompanyBotSetting::firstOrCreate(
@@ -208,6 +210,7 @@ class CompanyController extends Controller
                 'max:255',
                 Rule::unique('companies', 'meta_phone_number_id')->ignore($company->id),
             ],
+            'meta_waba_id' => ['nullable', 'string', 'max:255'],
             'ai_enabled' => ['sometimes', 'boolean'],
             'ai_internal_chat_enabled' => ['sometimes', 'boolean'],
             'ai_chatbot_enabled' => ['sometimes', 'boolean'],
@@ -225,6 +228,7 @@ class CompanyController extends Controller
 
         $company->name = $validated['name'];
         $company->meta_phone_number_id = $validated['meta_phone_number_id'] ?? null;
+        $company->meta_waba_id = $validated['meta_waba_id'] ?? null;
         $company->save();
         $company->refresh();
 

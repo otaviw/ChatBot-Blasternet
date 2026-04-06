@@ -22,6 +22,7 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
   const [companyForm, setCompanyForm] = useState({
     name: '',
     meta_phone_number_id: '',
+    meta_waba_id: '',
     ai_enabled: false,
     ai_internal_chat_enabled: false,
   });
@@ -83,6 +84,7 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
     setCompanyForm({
       name: data.company.name ?? '',
       meta_phone_number_id: data.company.meta_phone_number_id ?? '',
+      meta_waba_id: data.company.meta_waba_id ?? '',
       ai_enabled: Boolean(data.company.bot_setting?.ai_enabled),
       ai_internal_chat_enabled: Boolean(data.company.bot_setting?.ai_internal_chat_enabled),
     });
@@ -97,6 +99,7 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
       const payload = {
         name: companyForm.name,
         meta_phone_number_id: companyForm.meta_phone_number_id || null,
+        meta_waba_id: companyForm.meta_waba_id || null,
         ai_enabled: Boolean(companyForm.ai_enabled),
         ai_internal_chat_enabled: Boolean(companyForm.ai_internal_chat_enabled),
       };
@@ -110,6 +113,7 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
         setCompanyForm({
           name: updatedCompany.name ?? '',
           meta_phone_number_id: updatedCompany.meta_phone_number_id ?? '',
+          meta_waba_id: updatedCompany.meta_waba_id ?? '',
           ai_enabled: Boolean(updatedCompany.bot_setting?.ai_enabled ?? companyForm.ai_enabled),
           ai_internal_chat_enabled: Boolean(
             updatedCompany.bot_setting?.ai_internal_chat_enabled ?? companyForm.ai_internal_chat_enabled
@@ -177,6 +181,14 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
             </p>
             <p className="mt-0.5 text-sm font-medium text-[#171717] font-mono">
               {company.meta_phone_number_id || '—'}
+            </p>
+          </div>
+          <div className="rounded-lg bg-[#fafafa] px-4 py-3">
+            <p className="text-xs font-medium text-[#737373] uppercase tracking-wider">
+              WABA ID (WhatsApp Business Account)
+            </p>
+            <p className="mt-0.5 text-sm font-medium text-[#171717] font-mono">
+              {company.meta_waba_id || '—'}
             </p>
           </div>
           <div className="rounded-lg bg-[#fafafa] px-4 py-3">
@@ -282,6 +294,16 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
               type="text"
               value={companyForm.meta_phone_number_id}
               onChange={(e) => setCompanyForm((p) => ({ ...p, meta_phone_number_id: e.target.value }))}
+              className="app-input"
+            />
+          </label>
+
+          <label className="block text-sm">
+            WABA ID (WhatsApp Business Account)
+            <input
+              type="text"
+              value={companyForm.meta_waba_id}
+              onChange={(e) => setCompanyForm((p) => ({ ...p, meta_waba_id: e.target.value }))}
               className="app-input"
             />
           </label>
