@@ -16,20 +16,20 @@ class InternalAiConversationService
         private readonly AiAccessService $aiAccessService
     ) {}
 
-    public function ensureInternalChatEnabled(User $user): void
+    public function ensureInternalChatEnabled(User $user, ?int $companyId = null): void
     {
-        $settings = $this->requireInternalChatSettings($user);
+        $settings = $this->requireInternalChatSettings($user, $companyId);
         $this->aiAccessService->assertCanUseInternalAi($user, $settings);
     }
 
-    public function requireInternalChatSettings(User $user): CompanyBotSetting
+    public function requireInternalChatSettings(User $user, ?int $companyId = null): CompanyBotSetting
     {
-        $companyId = $this->requireCompanyUser($user);
+        $resolvedCompanyId = $this->resolveCompanyId($user, $companyId);
 
         $settings = CompanyBotSetting::query()
-            ->where('company_id', $companyId)
+            ->where('company_id', $resolvedCompanyId)
             ->first() ?? new CompanyBotSetting([
-                'company_id' => $companyId,
+                'company_id' => $resolvedCompanyId,
                 'ai_enabled' => false,
                 'ai_internal_chat_enabled' => false,
                 'ai_usage_enabled' => true,
@@ -47,15 +47,15 @@ class InternalAiConversationService
 
     public function assertOwnedInternalConversation(AiConversation $conversation, User $user): void
     {
-        if ((int) $conversation->company_id !== (int) $user->company_id) {
-            throw ValidationException::withMessages([
-                'conversation' => ['Conversa de IA nao pertence a empresa do usuario.'],
-            ]);
-        }
-
         if ((string) $conversation->origin !== AiConversation::ORIGIN_INTERNAL_CHAT) {
             throw ValidationException::withMessages([
                 'conversation' => ['Conversa de IA invalida para o chat interno.'],
+            ]);
+        }
+
+        if (! $user->isSystemAdmin() && (int) $conversation->company_id !== (int) $user->company_id) {
+            throw ValidationException::withMessages([
+                'conversation' => ['Conversa de IA nao pertence a empresa do usuario.'],
             ]);
         }
 
@@ -67,30 +67,34 @@ class InternalAiConversationService
         }
     }
 
-    public function queryForUser(User $user): Builder
+    public function queryForUser(User $user, ?int $companyId = null): Builder
     {
+        $resolvedCompanyId = $user->isSystemAdmin() ? ($companyId ?? 0) : (int) $user->company_id;
+
         return AiConversation::query()
-            ->where('company_id', (int) $user->company_id)
+            ->where('company_id', $resolvedCompanyId)
             ->where('opened_by_user_id', (int) $user->id)
             ->where('origin', AiConversation::ORIGIN_INTERNAL_CHAT);
     }
 
-    public function findForUser(User $user, int $conversationId): ?AiConversation
+    public function findForUser(User $user, int $conversationId, ?int $companyId = null): ?AiConversation
     {
-        return $this->queryForUser($user)
+        return $this->queryForUser($user, $companyId)
             ->whereKey($conversationId)
             ->first();
     }
 
-    public function createForUser(User $user, ?string $title = null): AiConversation
+    public function createForUser(User $user, ?string $title = null, ?int $companyId = null): AiConversation
     {
+        $resolvedCompanyId = $this->resolveCompanyId($user, $companyId);
+
         $normalizedTitle = trim((string) $title);
         if ($normalizedTitle !== '') {
             $normalizedTitle = mb_substr($normalizedTitle, 0, 190);
         }
 
         return AiConversation::query()->create([
-            'company_id' => (int) $user->company_id,
+            'company_id' => $resolvedCompanyId,
             'opened_by_user_id' => (int) $user->id,
             'origin' => AiConversation::ORIGIN_INTERNAL_CHAT,
             'title' => $normalizedTitle !== '' ? $normalizedTitle : null,
@@ -171,8 +175,18 @@ class InternalAiConversationService
         ];
     }
 
-    private function requireCompanyUser(User $user): int
+    private function resolveCompanyId(User $user, ?int $override = null): int
     {
+        if ($user->isSystemAdmin()) {
+            if ($override !== null && $override > 0) {
+                return $override;
+            }
+
+            throw ValidationException::withMessages([
+                'user' => ['Selecione uma empresa para usar o chat interno com IA.'],
+            ]);
+        }
+
         $companyId = (int) ($user->company_id ?? 0);
 
         if (! (bool) $user->is_active || $companyId <= 0) {

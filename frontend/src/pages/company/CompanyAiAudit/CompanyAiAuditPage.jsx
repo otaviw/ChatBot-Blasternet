@@ -4,7 +4,9 @@ import Button from '@/components/ui/Button/Button.jsx';
 import Card from '@/components/ui/Card/Card.jsx';
 import PageHeader from '@/components/ui/PageHeader/PageHeader.jsx';
 import usePageData from '@/hooks/usePageData';
+import useAuth from '@/hooks/useAuth';
 import useLogout from '@/hooks/useLogout';
+import useAdminCompanySelector from '@/hooks/useAdminCompanySelector';
 import api from '@/services/api';
 
 function formatDateTime(value) {
@@ -14,18 +16,24 @@ function formatDateTime(value) {
   return new Date(ts).toLocaleString('pt-BR');
 }
 
-function buildAuditUrl(filters) {
+function buildAuditUrl(filters, companyId) {
   const params = new URLSearchParams();
   if (filters.userId) params.set('user_id', String(filters.userId));
   if (filters.type && filters.type !== 'all') params.set('type', filters.type);
   if (filters.startDate) params.set('start_date', filters.startDate);
   if (filters.endDate) params.set('end_date', filters.endDate);
+  if (companyId) params.set('company_id', String(companyId));
   const query = params.toString();
   return `/minha-conta/ia/auditoria${query ? `?${query}` : ''}`;
 }
 
 function CompanyAiAuditPage() {
+  const { user } = useAuth();
   const { logout } = useLogout();
+  const isAdmin = user?.role === 'system_admin';
+
+  const { companies, selectedCompanyId, setSelectedCompanyId } = useAdminCompanySelector({ isAdmin });
+
   const [filters, setFilters] = useState({
     userId: '',
     type: 'all',
@@ -42,7 +50,8 @@ function CompanyAiAuditPage() {
   const [detailError, setDetailError] = useState('');
   const [detailItem, setDetailItem] = useState(null);
 
-  const dataUrl = useMemo(() => buildAuditUrl(filters), [filters]);
+  const adminCompanyId = isAdmin && selectedCompanyId ? selectedCompanyId : '';
+  const dataUrl = useMemo(() => buildAuditUrl(filters, adminCompanyId), [filters, adminCompanyId]);
   const { data, loading, error } = usePageData(dataUrl);
 
   const items = Array.isArray(data?.items) ? data.items : [];
@@ -63,7 +72,10 @@ function CompanyAiAuditPage() {
     setDetailError('');
     setDetailItem(null);
     try {
-      const response = await api.get(`/minha-conta/ia/auditoria/${id}`);
+      const detailUrl = adminCompanyId
+        ? `/minha-conta/ia/auditoria/${id}?company_id=${adminCompanyId}`
+        : `/minha-conta/ia/auditoria/${id}`;
+      const response = await api.get(detailUrl);
       setDetailItem(response.data?.item ?? null);
     } catch (err) {
       setDetailError(err.response?.data?.message ?? 'Não foi possível carregar o detalhe.');
@@ -78,9 +90,11 @@ function CompanyAiAuditPage() {
     setDetailError('');
   };
 
+  const layoutRole = isAdmin ? 'admin' : 'company';
+
   if (loading) {
     return (
-      <Layout role="company" onLogout={logout}>
+      <Layout role={layoutRole} onLogout={logout}>
         <p className="text-sm text-[#64748b]">Carregando auditoria da IA...</p>
       </Layout>
     );
@@ -88,17 +102,28 @@ function CompanyAiAuditPage() {
 
   if (error || !data?.authenticated) {
     return (
-      <Layout role="company" onLogout={logout}>
+      <Layout role={layoutRole} onLogout={logout}>
         <p className="text-sm text-red-600">Não foi possível carregar a auditoria da IA.</p>
       </Layout>
     );
   }
 
   return (
-    <Layout role="company" onLogout={logout}>
+    <Layout role={layoutRole} onLogout={logout}>
       <PageHeader
         title="Auditoria da IA"
         subtitle="Acompanhe tudo o que a IA fez com logs completos para debug e confiança."
+        action={isAdmin && companies.length > 0 ? (
+          <select
+            value={selectedCompanyId}
+            onChange={(e) => setSelectedCompanyId(e.target.value)}
+            className="rounded-lg border border-[#d4d4d4] bg-white px-3 py-2 text-sm text-[#1f2937] outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
+          >
+            {companies.map((c) => (
+              <option key={c.id} value={String(c.id)}>{c.name}</option>
+            ))}
+          </select>
+        ) : undefined}
       />
 
       <Card className="mb-4 p-4">

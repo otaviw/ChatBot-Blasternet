@@ -12,16 +12,26 @@ import {
 import Notice from '@/components/ui/Notice/Notice.jsx';
 import PageHeader from '@/components/ui/PageHeader/PageHeader.jsx';
 import usePageData from '@/hooks/usePageData';
+import useAuth from '@/hooks/useAuth';
 import useLogout from '@/hooks/useLogout';
+import useAdminCompanySelector from '@/hooks/useAdminCompanySelector';
 import useAiSettings from './hooks/useAiSettings';
 
 function AiSettingsPage() {
   const { data, loading: meLoading, error: meError } = usePageData('/me');
+  const { user: authUser } = useAuth();
   const { logout } = useLogout();
+  const isAdmin = authUser?.role === 'system_admin';
+
+  const { companies: selectorCompanies, selectedCompanyId, setSelectedCompanyId } = useAdminCompanySelector({ isAdmin });
 
   const canManageUsers = Boolean(
-    data?.user?.can_manage_users || (data?.user?.role === 'company_admin' && data?.user?.company_id)
+    data?.user?.can_manage_users ||
+    (data?.user?.role === 'company_admin' && data?.user?.company_id) ||
+    data?.user?.role === 'system_admin'
   );
+
+  const resolvedCompanyId = isAdmin ? selectedCompanyId : '';
 
   const {
     company,
@@ -38,9 +48,10 @@ function AiSettingsPage() {
     saveSettingsChanges,
     toggleUserPermission,
     hideToast,
-  } = useAiSettings({ enabled: canManageUsers });
+  } = useAiSettings({ enabled: canManageUsers, companyId: resolvedCompanyId });
 
   const companyName = data?.user?.company_name ?? company?.name ?? 'Empresa';
+  const layoutRole = isAdmin ? 'admin' : 'company';
 
   const usersRows = useMemo(() => users ?? [], [users]);
 
@@ -51,7 +62,7 @@ function AiSettingsPage() {
 
   if (meLoading) {
     return (
-      <Layout role="company" companyName={companyName} onLogout={logout}>
+      <Layout role={layoutRole} companyName={companyName} onLogout={logout}>
         <p className="text-sm text-[#64748b]">Carregando configurações de IA...</p>
       </Layout>
     );
@@ -59,7 +70,7 @@ function AiSettingsPage() {
 
   if (meError || !data?.authenticated) {
     return (
-      <Layout role="company" companyName={companyName} onLogout={logout}>
+      <Layout role={layoutRole} companyName={companyName} onLogout={logout}>
         <p className="text-sm text-red-600">Não foi possível carregar as configurações de IA.</p>
       </Layout>
     );
@@ -67,7 +78,7 @@ function AiSettingsPage() {
 
   if (!canManageUsers) {
     return (
-      <Layout role="company" companyName={companyName} onLogout={logout}>
+      <Layout role={layoutRole} companyName={companyName} onLogout={logout}>
         <p className="text-sm text-[#64748b]">Acesso restrito ao administrador da empresa.</p>
       </Layout>
     );
@@ -75,7 +86,7 @@ function AiSettingsPage() {
 
   if (loading || !settings) {
     return (
-      <Layout role="company" companyName={companyName} onLogout={logout}>
+      <Layout role={layoutRole} companyName={companyName} onLogout={logout}>
         <p className="text-sm text-[#64748b]">Carregando dados de IA...</p>
       </Layout>
     );
@@ -83,17 +94,28 @@ function AiSettingsPage() {
 
   if (error) {
     return (
-      <Layout role="company" companyName={companyName} onLogout={logout}>
+      <Layout role={layoutRole} companyName={companyName} onLogout={logout}>
         <p className="text-sm text-red-600">{error}</p>
       </Layout>
     );
   }
 
   return (
-    <Layout role="company" companyName={companyName} onLogout={logout}>
+    <Layout role={layoutRole} companyName={companyName} onLogout={logout}>
       <PageHeader
         title="Configurações de IA"
         subtitle="Defina ativação, comportamento, limites de uso e permissões da IA para a sua empresa."
+        action={isAdmin && selectorCompanies.length > 0 ? (
+          <select
+            value={selectedCompanyId}
+            onChange={(e) => setSelectedCompanyId(e.target.value)}
+            className="rounded-lg border border-[#d4d4d4] bg-white px-3 py-2 text-sm text-[#1f2937] outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
+          >
+            {selectorCompanies.map((c) => (
+              <option key={c.id} value={String(c.id)}>{c.name}</option>
+            ))}
+          </select>
+        ) : undefined}
       />
 
       {toast.message ? (

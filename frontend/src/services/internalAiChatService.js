@@ -183,7 +183,7 @@ export const upsertInternalAiConversationInList = (list, incoming) => {
   return sortInternalAiConversationsByActivity(found ? next : [incoming, ...next]);
 };
 
-export async function listInternalAiConversations({ search = '', page = 1, perPage = 15 } = {}) {
+export async function listInternalAiConversations({ search = '', page = 1, perPage = 15, companyId = null } = {}) {
   const query = {};
   const normalizedSearch = String(search ?? '').trim();
   if (normalizedSearch) {
@@ -198,6 +198,11 @@ export async function listInternalAiConversations({ search = '', page = 1, perPa
   const normalizedPerPage = toPositiveInt(perPage);
   if (normalizedPerPage) {
     query.per_page = Math.min(normalizedPerPage, 50);
+  }
+
+  const normalizedCompanyId = toPositiveInt(companyId);
+  if (normalizedCompanyId) {
+    query.company_id = normalizedCompanyId;
   }
 
   const response = await api.get('/minha-conta/ia/conversas', {
@@ -215,11 +220,16 @@ export async function listInternalAiConversations({ search = '', page = 1, perPa
   };
 }
 
-export async function createInternalAiConversation({ title = '' } = {}) {
+export async function createInternalAiConversation({ title = '', companyId = null } = {}) {
   const payload = {};
   const normalizedTitle = String(title ?? '').trim();
   if (normalizedTitle) {
     payload.title = normalizedTitle;
+  }
+
+  const normalizedCompanyId = toPositiveInt(companyId);
+  if (normalizedCompanyId) {
+    payload.company_id = normalizedCompanyId;
   }
 
   const response = await api.post('/minha-conta/ia/conversas', payload);
@@ -236,6 +246,7 @@ export async function getInternalAiConversation({
   conversationId,
   messagesPage = null,
   messagesPerPage = 30,
+  companyId = null,
 }) {
   const normalizedConversationId = toPositiveInt(conversationId);
   if (!normalizedConversationId) {
@@ -251,6 +262,11 @@ export async function getInternalAiConversation({
   const normalizedMessagesPerPage = toPositiveInt(messagesPerPage);
   if (normalizedMessagesPerPage) {
     query.messages_per_page = Math.min(normalizedMessagesPerPage, 100);
+  }
+
+  const normalizedCompanyId = toPositiveInt(companyId);
+  if (normalizedCompanyId) {
+    query.company_id = normalizedCompanyId;
   }
 
   const response = await api.get(`/minha-conta/ia/conversas/${normalizedConversationId}`, {
@@ -271,7 +287,7 @@ export async function getInternalAiConversation({
   };
 }
 
-export async function sendInternalAiConversationMessage({ conversationId, content }) {
+export async function sendInternalAiConversationMessage({ conversationId, content, companyId = null }) {
   const normalizedConversationId = toPositiveInt(conversationId);
   if (!normalizedConversationId) {
     throw new Error('Conversa invalida.');
@@ -282,10 +298,17 @@ export async function sendInternalAiConversationMessage({ conversationId, conten
     throw new Error('Informe uma mensagem para continuar.');
   }
 
-  const response = await api.post(`/minha-conta/ia/conversas/${normalizedConversationId}/mensagens`, {
+  const requestBody = {
     content: normalizedContent,
     text: normalizedContent,
-  });
+  };
+
+  const normalizedCompanyId = toPositiveInt(companyId);
+  if (normalizedCompanyId) {
+    requestBody.company_id = normalizedCompanyId;
+  }
+
+  const response = await api.post(`/minha-conta/ia/conversas/${normalizedConversationId}/mensagens`, requestBody);
 
   const payload = response.data ?? {};
   const conversation = normalizeInternalAiConversation(

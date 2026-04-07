@@ -5,6 +5,7 @@ import Notice from '@/components/ui/Notice/Notice.jsx';
 import PageHeader from '@/components/ui/PageHeader/PageHeader.jsx';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
+import useAdminCompanySelector from '@/hooks/useAdminCompanySelector';
 import useInternalAiChatPage from './hooks/useInternalAiChatPage';
 
 const parseRoleFromUser = (user) => {
@@ -73,9 +74,16 @@ function InternalAiChatPage() {
   const user = data?.user ?? null;
   const role = useMemo(() => parseRoleFromUser(user), [user]);
   const companyName = user?.company_name ?? '';
+  const isSystemAdmin = user?.role === 'system_admin';
   const canAccessInternalAiChat = Boolean(
     user?.can_access_internal_ai_chat ?? user?.can_use_ai
   );
+
+  const { companies, selectedCompanyId, setSelectedCompanyId } = useAdminCompanySelector({
+    isAdmin: isSystemAdmin,
+  });
+
+  const companyId = isSystemAdmin ? (selectedCompanyId || null) : null;
 
   const {
     chatListRef,
@@ -106,7 +114,8 @@ function InternalAiChatPage() {
     setDraftMessage,
     handleChatScroll,
   } = useInternalAiChatPage({
-    enabled: Boolean(data?.authenticated && user && canAccessInternalAiChat),
+    enabled: Boolean(data?.authenticated && user && canAccessInternalAiChat && (!isSystemAdmin || companyId)),
+    companyId,
   });
   const hasConversations = conversations.length > 0;
   const totalConversations = Number(conversationsPagination?.total ?? conversations.length ?? 0);
@@ -141,6 +150,30 @@ function InternalAiChatPage() {
     );
   }
 
+  if (isSystemAdmin && !companyId) {
+    return (
+      <Layout role={role} onLogout={logout} fullWidth>
+        <PageHeader
+          title="Chat interno com IA"
+          subtitle="Selecione uma empresa para iniciar o chat."
+          action={companies.length > 0 ? (
+            <select
+              value={selectedCompanyId}
+              onChange={(e) => setSelectedCompanyId(e.target.value)}
+              className="rounded-lg border border-[#d4d4d4] bg-white px-3 py-2 text-sm text-[#1f2937] outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
+            >
+              <option value="">Selecione uma empresa...</option>
+              {companies.map((c) => (
+                <option key={c.id} value={String(c.id)}>{c.name}</option>
+              ))}
+            </select>
+          ) : undefined}
+        />
+        <Notice tone="info">Selecione uma empresa no menu acima para usar o chat com IA.</Notice>
+      </Layout>
+    );
+  }
+
   return (
     <Layout role={role} companyName={companyName || undefined} onLogout={logout} fullWidth>
       <div className="internal-ai-chat-page">
@@ -149,6 +182,17 @@ function InternalAiChatPage() {
           subtitle="Converse com a IA usando as configurações da sua empresa."
           action={
             <div className="internal-ai-chat-page__actions">
+              {isSystemAdmin && companies.length > 0 && (
+                <select
+                  value={selectedCompanyId}
+                  onChange={(e) => setSelectedCompanyId(e.target.value)}
+                  className="rounded-lg border border-[#d4d4d4] bg-white px-3 py-2 text-sm text-[#1f2937] outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
+                >
+                  {companies.map((c) => (
+                    <option key={c.id} value={String(c.id)}>{c.name}</option>
+                  ))}
+                </select>
+              )}
               <button
                 type="button"
                 className="app-btn-secondary"

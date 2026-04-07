@@ -4,6 +4,8 @@
   min-height: calc(100dvh - 57px);
   display: flex;
   flex-direction: column;
+  gap: 16px;
+  padding-bottom: 16px;
   overflow: hidden;
 }
 
@@ -472,7 +474,7 @@
 /* ── Dark Theme ─────────────────────────────────────────── */
 body.theme-dark .internal-ai-chat {
   background: #0f1117;
-  border-color: #252836;
+  border-color: #343848;
 }
 body.theme-dark .internal-ai-chat__sidebar {
   background: #13151f;

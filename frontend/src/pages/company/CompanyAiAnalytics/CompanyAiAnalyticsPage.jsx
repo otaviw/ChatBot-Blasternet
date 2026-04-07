@@ -3,7 +3,9 @@ import Layout from '@/components/layout/Layout/Layout.jsx';
 import Card from '@/components/ui/Card/Card.jsx';
 import PageHeader from '@/components/ui/PageHeader/PageHeader.jsx';
 import usePageData from '@/hooks/usePageData';
+import useAuth from '@/hooks/useAuth';
 import useLogout from '@/hooks/useLogout';
+import useAdminCompanySelector from '@/hooks/useAdminCompanySelector';
 
 const PERIOD_OPTIONS = [
   { value: 7, label: 'Últimos 7 dias' },
@@ -21,8 +23,23 @@ function SummaryCard({ title, value }) {
 
 function CompanyAiAnalyticsPage() {
   const [periodDays, setPeriodDays] = useState(7);
-  const { data, loading, error } = usePageData(`/minha-conta/ia/analytics?days=${periodDays}`);
+  const { user } = useAuth();
   const { logout } = useLogout();
+  const isAdmin = user?.role === 'system_admin';
+
+  const { companies, selectedCompanyId, setSelectedCompanyId } = useAdminCompanySelector({ isAdmin });
+
+  const companyParam = isAdmin
+    ? (selectedCompanyId === 'all' || selectedCompanyId === '' ? 'all' : selectedCompanyId)
+    : '';
+
+  const url = isAdmin
+    ? `/minha-conta/ia/analytics?days=${periodDays}&company_id=${companyParam}`
+    : `/minha-conta/ia/analytics?days=${periodDays}`;
+
+  const { data, loading, error } = usePageData(url);
+
+  const layoutRole = isAdmin ? 'admin' : 'company';
 
   const dailyData = useMemo(() => (Array.isArray(data?.daily_messages) ? data.daily_messages : []), [data]);
   const usageByUser = useMemo(() => (Array.isArray(data?.usage_by_user) ? data.usage_by_user : []), [data]);
@@ -32,9 +49,11 @@ function CompanyAiAnalyticsPage() {
     [dailyData]
   );
 
+  const showCompanyColumn = isAdmin && selectedCompanyId === 'all';
+
   if (loading) {
     return (
-      <Layout role="company" onLogout={logout}>
+      <Layout role={layoutRole} onLogout={logout}>
         <p className="text-sm text-[#64748b]">Carregando analytics da IA...</p>
       </Layout>
     );
@@ -42,29 +61,43 @@ function CompanyAiAnalyticsPage() {
 
   if (error || !data?.authenticated) {
     return (
-      <Layout role="company" onLogout={logout}>
+      <Layout role={layoutRole} onLogout={logout}>
         <p className="text-sm text-red-600">Não foi possível carregar analytics da IA.</p>
       </Layout>
     );
   }
 
   return (
-    <Layout role="company" onLogout={logout}>
+    <Layout role={layoutRole} onLogout={logout}>
       <PageHeader
         title="Analytics da IA"
-        subtitle="Acompanhe o uso da IA pela empresa com métricas de mensagens, usuários e tools."
+        subtitle="Acompanhe o uso da IA com métricas de mensagens, usuários e tools."
         action={(
-          <select
-            value={String(periodDays)}
-            onChange={(event) => setPeriodDays(Number(event.target.value))}
-            className="rounded-lg border border-[#d4d4d4] bg-white px-3 py-2 text-sm text-[#1f2937] outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
-          >
-            {PERIOD_OPTIONS.map((option) => (
-              <option key={option.value} value={String(option.value)}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+          <div className="flex items-center gap-2 flex-wrap">
+            {isAdmin && companies.length > 0 && (
+              <select
+                value={selectedCompanyId}
+                onChange={(e) => setSelectedCompanyId(e.target.value)}
+                className="rounded-lg border border-[#d4d4d4] bg-white px-3 py-2 text-sm text-[#1f2937] outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
+              >
+                <option value="all">Todas as empresas</option>
+                {companies.map((c) => (
+                  <option key={c.id} value={String(c.id)}>{c.name}</option>
+                ))}
+              </select>
+            )}
+            <select
+              value={String(periodDays)}
+              onChange={(event) => setPeriodDays(Number(event.target.value))}
+              className="rounded-lg border border-[#d4d4d4] bg-white px-3 py-2 text-sm text-[#1f2937] outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
+            >
+              {PERIOD_OPTIONS.map((option) => (
+                <option key={option.value} value={String(option.value)}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
         )}
       />
 
@@ -119,13 +152,15 @@ function CompanyAiAnalyticsPage() {
                 <thead className="bg-[#f8fafc]">
                   <tr className="border-b border-[#e2e8f0] text-left text-[#64748b]">
                     <th className="px-4 py-3 font-medium">Nome</th>
+                    {showCompanyColumn && <th className="px-4 py-3 font-medium">Empresa</th>}
                     <th className="px-4 py-3 font-medium">Mensagens</th>
                   </tr>
                 </thead>
                 <tbody>
                   {usageByUser.map((item) => (
-                    <tr key={item.user_id} className="border-b border-[#f1f5f9]">
+                    <tr key={`${item.user_id}-${item.company_name ?? ''}`} className="border-b border-[#f1f5f9]">
                       <td className="px-4 py-3 text-[#0f172a]">{item.name || '-'}</td>
+                      {showCompanyColumn && <td className="px-4 py-3 text-[#334155]">{item.company_name || '-'}</td>}
                       <td className="px-4 py-3 text-[#334155]">{Number(item.count ?? 0)}</td>
                     </tr>
                   ))}

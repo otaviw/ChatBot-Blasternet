@@ -7,6 +7,7 @@ use App\Models\Area;
 use App\Models\Company;
 use App\Models\CompanyBotSetting;
 use App\Services\AuditLogService;
+use App\Services\Ai\AiAccessService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -14,34 +15,52 @@ use Illuminate\Validation\Rule;
 class BotController extends Controller
 {
     public function __construct(
-        private AuditLogService $auditLog
+        private AuditLogService $auditLog,
+        private AiAccessService $aiAccess
     ) {}
 
     /** Configuracoes do bot da empresa logada (respostas, horarios etc.). */
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
-        if (! $user || ! $user->isCompanyUser()) {
+        if (! $user || ! $this->aiAccess->canManageAi($user)) {
             return response()->json([
                 'authenticated' => false,
                 'redirect' => '/entrar',
             ], 403);
         }
-        $companyId = (int) $user->company_id;
+
+        $companies = $user->isSystemAdmin()
+            ? Company::orderBy('name')->get(['id', 'name'])
+            : null;
+
+        $companyId = $user->isSystemAdmin()
+            ? (int) $request->integer('company_id', 0)
+            : (int) $user->company_id;
+
+        if ($companyId <= 0) {
+            return response()->json([
+                'authenticated' => true,
+                'role' => 'admin',
+                'is_admin' => true,
+                'companies' => $companies,
+                'company' => null,
+                'settings' => null,
+            ]);
+        }
 
         $company = Company::find($companyId);
         if (! $company) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 404);
+            return response()->json(['message' => 'Empresa não encontrada.'], 404);
         }
 
         $settings = $company->botSetting ?: $this->buildDefaultSettings($company->id);
 
         return response()->json([
             'authenticated' => true,
-            'role' => 'company',
+            'role' => $user->isSystemAdmin() ? 'admin' : 'company',
+            'is_admin' => $user->isSystemAdmin(),
+            'companies' => $companies,
             'company' => $company,
             'settings' => $settings,
         ]);
@@ -50,20 +69,24 @@ class BotController extends Controller
     public function update(Request $request): JsonResponse
     {
         $user = $request->user();
-        if (! $user || ! $user->isCompanyUser()) {
+        if (! $user || ! $this->aiAccess->canManageAi($user)) {
             return response()->json([
                 'authenticated' => false,
                 'redirect' => '/entrar',
             ], 403);
         }
-        $companyId = (int) $user->company_id;
+
+        $companyId = $user->isSystemAdmin()
+            ? (int) $request->integer('company_id', 0)
+            : (int) $user->company_id;
+
+        if ($companyId <= 0) {
+            return response()->json(['message' => 'Informe company_id.'], 422);
+        }
 
         $company = Company::find($companyId);
         if (! $company) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 404);
+            return response()->json(['message' => 'Empresa não encontrada.'], 404);
         }
 
         $validated = $request->validate([

@@ -429,14 +429,38 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
       },
     ];
 
-    if (canAccessInternalAiChat) {
-      links.push({
+    links.push(
+      {
         href: '/admin/chat-ia',
         label: 'Assistente',
         icon: 'chatIa',
-        ariaLabel: 'Tela de conversa com assistente de texto (teste)',
-      });
-    }
+        ariaLabel: 'Chat com assistente de IA',
+      },
+      {
+        href: '/minha-conta/ia/configuracoes',
+        label: 'Configurações de IA',
+        icon: 'bot',
+        ariaLabel: 'Configurações de inteligência artificial',
+      },
+      {
+        href: '/minha-conta/ia/analytics',
+        label: 'Analytics IA',
+        icon: 'chatIa',
+        ariaLabel: 'Analytics de uso da IA',
+      },
+      {
+        href: '/minha-conta/ia/auditoria',
+        label: 'Auditoria IA',
+        icon: 'chatIa',
+        ariaLabel: 'Auditoria de ações da IA',
+      },
+      {
+        href: '/minha-conta/base-conhecimento',
+        label: 'Base de conhecimento',
+        icon: 'bot',
+        ariaLabel: 'Base de conhecimento da IA',
+      },
+    );
 
     links.push({
       href: '/admin/simulador',
@@ -446,7 +470,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
     });
 
     return links;
-  }, [canAccessInternalAiChat]);
+  }, []);
 
   const adminSupportLinks = [
     {
@@ -497,6 +521,44 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
       ariaLabel: 'Mensagens prontas para resposta rápida',
     });
 
+    if (canAccessInternalAiChat) {
+      links.push({
+        href: '/minha-conta/chat-ia',
+        label: 'Assistente',
+        icon: 'chatIa',
+        ariaLabel: 'Chat com assistente de IA',
+      });
+    }
+
+    if (userData?.can_manage_ai) {
+      links.push(
+        {
+          href: '/minha-conta/ia/configuracoes',
+          label: 'Configurações de IA',
+          icon: 'bot',
+          ariaLabel: 'Configurações de inteligência artificial',
+        },
+        {
+          href: '/minha-conta/ia/analytics',
+          label: 'Analytics IA',
+          icon: 'chatIa',
+          ariaLabel: 'Analytics de uso da IA',
+        },
+        {
+          href: '/minha-conta/ia/auditoria',
+          label: 'Auditoria IA',
+          icon: 'chatIa',
+          ariaLabel: 'Auditoria de ações da IA',
+        },
+        {
+          href: '/minha-conta/base-conhecimento',
+          label: 'Base de conhecimento',
+          icon: 'bot',
+          ariaLabel: 'Base de conhecimento da IA',
+        },
+      );
+    }
+
     if (canManageUsers) {
       links.push({
         href: '/minha-conta/usuarios',
@@ -507,7 +569,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
     }
 
     return links;
-  }, [canManageUsers, userData?.role]);
+  }, [canManageUsers, canAccessInternalAiChat, userData?.role, userData?.can_manage_ai]);
 
   const companySupportLinks = [
     { href: '/suporte', label: 'Pedir ajuda', icon: 'suporte', ariaLabel: 'Registrar chamado de suporte' },

@@ -53,6 +53,14 @@ function SuperAdminRoute({ children }) {
   return children;
 }
 
+function AiManagementRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/entrar" replace />;
+  if (user.role === 'system_admin' || user.can_manage_ai) return children;
+  return <Navigate to="/dashboard" replace />;
+}
+
 function AdminCompanyShowRoute() {
   const { companyId = '' } = useParams();
   return <AdminCompanyShowPage companyId={companyId} />;
@@ -95,11 +103,11 @@ function AppRoutes() {
         <Route path="/minha-conta/conversas" element={<CompanyInboxPage />} />
         <Route path="/minha-conta/chat-interno" element={<InternalChatPage />} />
         <Route path="/minha-conta/chat-ia" element={<InternalAiChatPage />} />
-        <Route path="/minha-conta/ia/analytics" element={<SuperAdminRoute><CompanyAiAnalyticsPage /></SuperAdminRoute>} />
-        <Route path="/minha-conta/ia/auditoria" element={<SuperAdminRoute><CompanyAiAuditPage /></SuperAdminRoute>} />
-        <Route path="/minha-conta/ia/configuracoes" element={<AiSettingsPage />} />
+        <Route path="/minha-conta/ia/analytics" element={<AiManagementRoute><CompanyAiAnalyticsPage /></AiManagementRoute>} />
+        <Route path="/minha-conta/ia/auditoria" element={<AiManagementRoute><CompanyAiAuditPage /></AiManagementRoute>} />
+        <Route path="/minha-conta/ia/configuracoes" element={<AiManagementRoute><AiSettingsPage /></AiManagementRoute>} />
         <Route path="/minha-conta/bot" element={<CompanyBotPage />} />
-        <Route path="/minha-conta/base-conhecimento" element={<SuperAdminRoute><CompanyKnowledgeBasePage /></SuperAdminRoute>} />
+        <Route path="/minha-conta/base-conhecimento" element={<AiManagementRoute><CompanyKnowledgeBasePage /></AiManagementRoute>} />
         <Route path="/minha-conta/respostas-rapidas" element={<CompanyQuickRepliesPage />} />
         <Route path="/minha-conta/usuarios" element={<CompanyUsersPage />} />
         <Route path="/minha-conta/suporte/solicitacoes" element={<CompanySupportTicketPage />} />

@@ -4,6 +4,7 @@ namespace App\Actions\Company\Ai;
 
 use App\Models\User;
 use App\Services\Ai\InternalAiConversationService;
+use Illuminate\Http\Request;
 
 class CreateCompanyAiConversationAction
 {
@@ -12,17 +13,18 @@ class CreateCompanyAiConversationAction
     ) {}
 
     /**
-     * @param  array<string, mixed>  $validated
      * @return array<string, mixed>
      */
-    public function handle(User $user, array $validated): array
+    public function handle(User $user, Request $request): array
     {
-        $this->conversationService->ensureInternalChatEnabled($user);
-        $title = isset($validated['title']) ? (string) $validated['title'] : null;
+        $companyId = $user->isSystemAdmin() ? ((int) $request->input('company_id', 0) ?: null) : null;
+        $this->conversationService->ensureInternalChatEnabled($user, $companyId);
+        $title = $request->has('title') ? (string) $request->input('title') : null;
 
         $conversation = $this->conversationService->createForUser(
             $user,
-            $title
+            $title,
+            $companyId
         );
 
         $conversation->setRelation('lastMessage', null);

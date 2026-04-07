@@ -5,6 +5,7 @@ namespace App\Actions\Company\Ai;
 use App\Models\User;
 use App\Services\Ai\InternalAiChatService;
 use App\Services\Ai\InternalAiConversationService;
+use Illuminate\Http\Request;
 
 class SendCompanyAiConversationMessageAction
 {
@@ -14,21 +15,21 @@ class SendCompanyAiConversationMessageAction
     ) {}
 
     /**
-     * @param  array<string, mixed>  $validated
      * @return array<string, mixed>|null
      */
-    public function handle(User $user, int $conversationId, array $validated): ?array
+    public function handle(User $user, int $conversationId, Request $request): ?array
     {
-        $this->conversationService->ensureInternalChatEnabled($user);
+        $companyId = $user->isSystemAdmin() ? ((int) $request->input('company_id', 0) ?: null) : null;
+        $this->conversationService->ensureInternalChatEnabled($user, $companyId);
 
-        $conversation = $this->conversationService->findForUser($user, $conversationId);
+        $conversation = $this->conversationService->findForUser($user, $conversationId, $companyId);
         if (! $conversation) {
             return null;
         }
 
-        $content = (string) ($validated['content'] ?? $validated['text'] ?? '');
+        $content = (string) ($request->input('content') ?? $request->input('text') ?? '');
 
-        $result = $this->internalAiChatService->sendMessage($user, $content, $conversation);
+        $result = $this->internalAiChatService->sendMessage($user, $content, $conversation, $companyId);
 
         $resultConversation = $result['conversation'];
         $assistantMessage = $result['assistant_message'];

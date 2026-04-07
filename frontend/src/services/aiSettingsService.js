@@ -110,27 +110,31 @@ const normalizeUser = (raw) => {
   };
 };
 
-export async function getSettings() {
-  const response = await api.get('/minha-conta/bot');
+export async function getSettings(companyId) {
+  const url = companyId ? `/minha-conta/bot?company_id=${companyId}` : '/minha-conta/bot';
+  const response = await api.get(url);
   const payload = response.data ?? {};
 
   return {
     company: payload.company ?? null,
+    companies: Array.isArray(payload.companies) ? payload.companies : [],
     settings: normalizeAiSettings(payload.settings),
   };
 }
 
-export async function updateSettings(data) {
+export async function updateSettings(data, companyId) {
   const payload = normalizeAiSettings(data);
-  const response = await api.put('/minha-conta/bot', payload);
+  const url = companyId ? `/minha-conta/bot?company_id=${companyId}` : '/minha-conta/bot';
+  const response = await api.put(url, payload);
 
   return {
     settings: normalizeAiSettings(response.data?.settings ?? payload),
   };
 }
 
-export async function getUsers() {
-  const response = await api.get('/minha-conta/users');
+export async function getUsers(companyId) {
+  const url = companyId ? `/minha-conta/users?company_id=${companyId}` : '/minha-conta/users';
+  const response = await api.get(url);
   const users = Array.isArray(response.data?.users) ? response.data.users : [];
 
   return {
@@ -138,13 +142,13 @@ export async function getUsers() {
   };
 }
 
-export async function updateUserPermission(userId, canUseAi) {
+export async function updateUserPermission(userId, canUseAi, companyId) {
   const normalizedUserId = toPositiveInt(userId);
   if (!normalizedUserId) {
     throw new Error('Usuario invalido.');
   }
 
-  const usersResponse = await getUsers();
+  const usersResponse = await getUsers(companyId);
   const currentUser = (usersResponse.users ?? []).find((item) => item.id === normalizedUserId);
 
   if (!currentUser) {

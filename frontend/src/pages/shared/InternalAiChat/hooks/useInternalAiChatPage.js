@@ -17,7 +17,7 @@ import {
 const CONVERSATIONS_PER_PAGE = 15;
 const MESSAGES_PER_PAGE = 30;
 
-export default function useInternalAiChatPage({ enabled }) {
+export default function useInternalAiChatPage({ enabled, companyId = null }) {
   const [conversations, setConversations] = useState([]);
   const [conversationsPagination, setConversationsPagination] = useState(null);
   const [conversationsLoading, setConversationsLoading] = useState(false);
@@ -97,6 +97,7 @@ export default function useInternalAiChatPage({ enabled }) {
         const response = await listInternalAiConversations({
           page: normalizedPage,
           perPage: CONVERSATIONS_PER_PAGE,
+          companyId,
         });
 
         setConversations((previous) => {
@@ -148,7 +149,7 @@ export default function useInternalAiChatPage({ enabled }) {
         }
       }
     },
-    [enabled]
+    [enabled, companyId]
   );
 
   const openConversation = useCallback(
@@ -177,6 +178,7 @@ export default function useInternalAiChatPage({ enabled }) {
         const response = await getInternalAiConversation({
           conversationId: id,
           messagesPerPage: MESSAGES_PER_PAGE,
+          companyId,
         });
 
         if (!response.conversation) {
@@ -240,6 +242,7 @@ export default function useInternalAiChatPage({ enabled }) {
         conversationId,
         messagesPage: currentPage - 1,
         messagesPerPage: MESSAGES_PER_PAGE,
+        companyId,
       });
 
       if (!response.conversation) {
@@ -286,6 +289,7 @@ export default function useInternalAiChatPage({ enabled }) {
       const response = await sendInternalAiConversationMessage({
         conversationId,
         content,
+        companyId,
       });
 
       setDraftMessage('');
@@ -346,7 +350,7 @@ export default function useInternalAiChatPage({ enabled }) {
     setCreateError('');
 
     try {
-      const response = await createInternalAiConversation();
+      const response = await createInternalAiConversation({ companyId });
       if (!response.conversation?.id) {
         throw new Error('Conversa nao retornada pela API.');
       }

@@ -5,7 +5,9 @@ import Card from '@/components/ui/Card/Card.jsx';
 import Notice from '@/components/ui/Notice/Notice.jsx';
 import PageHeader from '@/components/ui/PageHeader/PageHeader.jsx';
 import usePageData from '@/hooks/usePageData';
+import useAuth from '@/hooks/useAuth';
 import useLogout from '@/hooks/useLogout';
+import useAdminCompanySelector from '@/hooks/useAdminCompanySelector';
 import api from '@/services/api';
 
 const MAX_CONTENT_ITEMS = 50;
@@ -24,8 +26,17 @@ function formatDate(value) {
 }
 
 function CompanyKnowledgeBasePage() {
-  const { data, loading, error } = usePageData('/minha-conta/base-conhecimento');
+  const { user } = useAuth();
   const { logout } = useLogout();
+  const isAdmin = user?.role === 'system_admin';
+
+  const { companies, selectedCompanyId, setSelectedCompanyId } = useAdminCompanySelector({ isAdmin });
+
+  const baseUrl = isAdmin && selectedCompanyId
+    ? `/minha-conta/base-conhecimento?company_id=${selectedCompanyId}`
+    : '/minha-conta/base-conhecimento';
+
+  const { data, loading, error } = usePageData(baseUrl);
 
   const [items, setItems] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -97,6 +108,7 @@ function CompanyKnowledgeBasePage() {
         title,
         content,
         is_active: Boolean(form.is_active),
+        ...(isAdmin && selectedCompanyId ? { company_id: Number(selectedCompanyId) } : {}),
       };
 
       if (editingId) {
@@ -158,9 +170,11 @@ function CompanyKnowledgeBasePage() {
     }
   };
 
+  const layoutRole = isAdmin ? 'admin' : 'company';
+
   if (loading) {
     return (
-      <Layout role="company" onLogout={logout}>
+      <Layout role={layoutRole} onLogout={logout}>
         <p className="text-sm text-[#64748b]">Carregando base de conhecimento...</p>
       </Layout>
     );
@@ -168,26 +182,39 @@ function CompanyKnowledgeBasePage() {
 
   if (error || !data?.authenticated) {
     return (
-      <Layout role="company" onLogout={logout}>
+      <Layout role={layoutRole} onLogout={logout}>
         <p className="text-sm text-red-600">Não foi possível carregar a base de conhecimento.</p>
       </Layout>
     );
   }
 
   return (
-    <Layout role="company" onLogout={logout}>
+    <Layout role={layoutRole} onLogout={logout}>
       <PageHeader
         title="Base de conhecimento"
         subtitle="Gerencie conteúdos usados pela IA para melhorar a qualidade das respostas."
-        action={
-          <Button
-            variant="primary"
-            onClick={openCreateModal}
-            disabled={!canManageKnowledge || reachedLimit}
-          >
-            Novo
-          </Button>
-        }
+        action={(
+          <div className="flex items-center gap-2 flex-wrap">
+            {isAdmin && companies.length > 0 && (
+              <select
+                value={selectedCompanyId}
+                onChange={(e) => setSelectedCompanyId(e.target.value)}
+                className="rounded-lg border border-[#d4d4d4] bg-white px-3 py-2 text-sm text-[#1f2937] outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
+              >
+                {companies.map((c) => (
+                  <option key={c.id} value={String(c.id)}>{c.name}</option>
+                ))}
+              </select>
+            )}
+            <Button
+              variant="primary"
+              onClick={openCreateModal}
+              disabled={!canManageKnowledge || reachedLimit || (isAdmin && !selectedCompanyId)}
+            >
+              Novo
+            </Button>
+          </div>
+        )}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-3 text-sm">

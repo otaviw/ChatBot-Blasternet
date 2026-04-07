@@ -26,14 +26,24 @@ class UserController extends Controller
                 'redirect' => '/entrar',
             ], 403);
         }
-        if (! $actor->isCompanyAdmin()) {
+        if (! $actor->isCompanyAdmin() && ! $actor->isSystemAdmin()) {
             return response()->json([
                 'authenticated' => true,
                 'message' => 'Somente admin da empresa pode gerenciar usuários.',
             ], 403);
         }
 
-        $companyId = (int) $actor->company_id;
+        $companyId = $actor->isSystemAdmin()
+            ? (int) $request->integer('company_id', 0)
+            : (int) $actor->company_id;
+
+        if ($companyId <= 0) {
+            return response()->json([
+                'authenticated' => true,
+                'users' => [],
+            ]);
+        }
+
         $users = User::query()
             ->where('company_id', $companyId)
             ->whereIn('role', User::companyRoleValues())
@@ -41,11 +51,15 @@ class UserController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'email', 'role', 'company_id', 'is_active', 'can_use_ai', 'disabled_at', 'created_at']);
 
+        $companyName = $actor->isSystemAdmin()
+            ? ($users->first()?->company?->name ?? null)
+            : $actor->company?->name;
+
         return response()->json([
             'authenticated' => true,
             'company' => [
                 'id' => $companyId,
-                'name' => $actor->company?->name,
+                'name' => $companyName,
             ],
             'users' => $users->map(fn(User $user) => $this->serializeUser($user))->values(),
         ]);
@@ -123,14 +137,14 @@ class UserController extends Controller
                 'redirect' => '/entrar',
             ], 403);
         }
-        if (! $actor->isCompanyAdmin()) {
+        if (! $actor->isCompanyAdmin() && ! $actor->isSystemAdmin()) {
             return response()->json([
                 'authenticated' => true,
                 'message' => 'Somente admin da empresa pode gerenciar usuários.',
             ], 403);
         }
 
-        $companyId = (int) $actor->company_id;
+        $companyId = $actor->isSystemAdmin() ? (int) $user->company_id : (int) $actor->company_id;
         if ((int) $user->company_id !== $companyId || ! in_array($user->role, User::companyRoleValues(), true)) {
             return response()->json([
                 'message' => 'Usuario nao pertence a empresa.',

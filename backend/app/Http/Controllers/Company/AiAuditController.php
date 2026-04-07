@@ -5,13 +5,19 @@ namespace App\Http\Controllers\Company;
 use App\Http\Controllers\Controller;
 use App\Models\AiAuditLog;
 use App\Models\AiMessage;
+use App\Models\Company;
 use App\Models\User;
+use App\Services\Ai\AiAccessService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class AiAuditController extends Controller
 {
+    public function __construct(
+        private AiAccessService $aiAccess
+    ) {}
+
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -22,23 +28,31 @@ class AiAuditController extends Controller
             ], 403);
         }
 
-        if (! $user->isCompanyAdmin()) {
+        if (! $this->aiAccess->canManageAi($user)) {
             return response()->json([
                 'authenticated' => true,
                 'message' => 'Somente admin da empresa pode acessar a auditoria da IA.',
             ], 403);
         }
 
-        $companyId = (int) $user->company_id;
+        $companies = $user->isSystemAdmin()
+            ? Company::orderBy('name')->get(['id', 'name'])
+            : null;
+
+        $companyId = $user->isSystemAdmin()
+            ? (int) $request->integer('company_id', 0)
+            : (int) $user->company_id;
         $userId = (int) $request->integer('user_id', 0);
         $type = mb_strtolower(trim((string) $request->query('type', 'all')));
 
         $start = $this->parseDateOrNull((string) $request->query('start_date', ''), true);
         $end = $this->parseDateOrNull((string) $request->query('end_date', ''), false);
 
-        $query = AiAuditLog::query()
-            ->where('company_id', $companyId)
-            ->with(['user:id,name']);
+        $query = AiAuditLog::query()->with(['user:id,name']);
+
+        if ($companyId > 0) {
+            $query->where('company_id', $companyId);
+        }
 
         if ($userId > 0) {
             $query->where('user_id', $userId);
@@ -82,11 +96,15 @@ class AiAuditController extends Controller
             ];
         })->values();
 
-        $users = User::query()
-            ->where('company_id', $companyId)
+        $usersQuery = User::query()
             ->whereIn('role', User::companyRoleValues())
-            ->orderBy('name')
-            ->get(['id', 'name'])
+            ->orderBy('name');
+
+        if ($companyId > 0) {
+            $usersQuery->where('company_id', $companyId);
+        }
+
+        $users = $usersQuery->get(['id', 'name'])
             ->map(fn (User $companyUser) => [
                 'id' => (int) $companyUser->id,
                 'name' => (string) $companyUser->name,
@@ -95,6 +113,9 @@ class AiAuditController extends Controller
 
         return response()->json([
             'authenticated' => true,
+            'is_admin' => $user->isSystemAdmin(),
+            'companies' => $companies,
+            'selected_company_id' => $companyId > 0 ? $companyId : null,
             'filters' => [
                 'user_id' => $userId > 0 ? $userId : null,
                 'type' => in_array($type, ['all', 'message', 'tool'], true) ? $type : 'all',
@@ -122,16 +143,19 @@ class AiAuditController extends Controller
             ], 403);
         }
 
-        if (! $user->isCompanyAdmin()) {
+        if (! $this->aiAccess->canManageAi($user)) {
             return response()->json([
                 'authenticated' => true,
                 'message' => 'Somente admin da empresa pode acessar a auditoria da IA.',
             ], 403);
         }
 
-        $log = AiAuditLog::query()
-            ->where('company_id', (int) $user->company_id)
-            ->whereKey($logId)
+        $logQuery = AiAuditLog::query()->whereKey($logId);
+        if (! $user->isSystemAdmin()) {
+            $logQuery->where('company_id', (int) $user->company_id);
+        }
+
+        $log = $logQuery
             ->with(['user:id,name'])
             ->first();
 

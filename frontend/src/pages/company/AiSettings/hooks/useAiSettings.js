@@ -13,8 +13,9 @@ const parseRequestError = (error, fallback) =>
   error?.response?.data?.errors?.ai?.[0] ??
   fallback;
 
-export default function useAiSettings({ enabled }) {
+export default function useAiSettings({ enabled, companyId }) {
   const [company, setCompany] = useState(null);
+  const [companies, setCompanies] = useState([]);
   const [settings, setSettings] = useState(null);
   const [users, setUsers] = useState([]);
 
@@ -52,8 +53,12 @@ export default function useAiSettings({ enabled }) {
     setError('');
 
     try {
-      const [settingsResponse, usersResponse] = await Promise.all([getSettings(), getUsers()]);
+      const [settingsResponse, usersResponse] = await Promise.all([
+        getSettings(companyId),
+        getUsers(companyId),
+      ]);
       setCompany(settingsResponse.company ?? null);
+      setCompanies(settingsResponse.companies ?? []);
       setSettings(settingsResponse.settings ?? null);
       setUsers(usersResponse.users ?? []);
     } catch (requestError) {
@@ -61,7 +66,7 @@ export default function useAiSettings({ enabled }) {
     } finally {
       setLoading(false);
     }
-  }, [enabled]);
+  }, [enabled, companyId]);
 
   useEffect(() => {
     void loadData();
@@ -89,7 +94,7 @@ export default function useAiSettings({ enabled }) {
     setSaveError('');
 
     try {
-      const response = await updateSettings(settings);
+      const response = await updateSettings(settings, companyId);
       setSettings(response.settings ?? settings);
       setToast({
         type: 'success',
@@ -107,7 +112,7 @@ export default function useAiSettings({ enabled }) {
     } finally {
       setSaving(false);
     }
-  }, [enabled, settings]);
+  }, [enabled, settings, companyId]);
 
   const toggleUserPermission = useCallback(
     async (userId, canUseAi) => {
@@ -119,7 +124,7 @@ export default function useAiSettings({ enabled }) {
       setPermissionBusyById((previous) => ({ ...previous, [normalizedUserId]: true }));
 
       try {
-        const response = await updateUserPermission(normalizedUserId, canUseAi);
+        const response = await updateUserPermission(normalizedUserId, canUseAi, companyId);
         const updatedUser = response.user;
 
         setUsers((previous) =>
@@ -150,13 +155,14 @@ export default function useAiSettings({ enabled }) {
         setPermissionBusyById((previous) => ({ ...previous, [normalizedUserId]: false }));
       }
     },
-    [enabled]
+    [enabled, companyId]
   );
 
   const canSave = useMemo(() => Boolean(settings) && !saving, [saving, settings]);
 
   return {
     company,
+    companies,
     settings,
     users,
     loading,

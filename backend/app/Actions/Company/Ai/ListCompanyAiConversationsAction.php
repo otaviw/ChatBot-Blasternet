@@ -18,12 +18,13 @@ class ListCompanyAiConversationsAction
      */
     public function handle(User $user, Request $request): array
     {
-        $this->conversationService->ensureInternalChatEnabled($user);
+        $companyId = $user->isSystemAdmin() ? ((int) $request->query('company_id', 0) ?: null) : null;
+        $this->conversationService->ensureInternalChatEnabled($user, $companyId);
 
         $search = trim((string) $request->query('search', ''));
         $perPage = min(50, max(5, (int) $request->query('per_page', 15)));
 
-        $query = $this->conversationService->queryForUser($user)
+        $query = $this->conversationService->queryForUser($user, $companyId)
             ->with('lastMessage')
             ->orderByRaw('COALESCE(last_message_at, created_at) DESC')
             ->orderByDesc('id');

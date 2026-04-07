@@ -17,9 +17,10 @@ class ShowCompanyAiConversationAction
      */
     public function handle(User $user, int $conversationId, Request $request): ?array
     {
-        $this->conversationService->ensureInternalChatEnabled($user);
+        $companyId = $user->isSystemAdmin() ? ((int) $request->query('company_id', 0) ?: null) : null;
+        $this->conversationService->ensureInternalChatEnabled($user, $companyId);
 
-        $conversation = $this->conversationService->findForUser($user, $conversationId);
+        $conversation = $this->conversationService->findForUser($user, $conversationId, $companyId);
         if (! $conversation) {
             return null;
         }

@@ -39,7 +39,7 @@ class InternalAiChatService
      *     tool_call_request:?array{tool:string,params:array<string,mixed>}
      * }
      */
-    public function sendMessage(User $user, string $content, ?AiConversation $conversation = null): array
+    public function sendMessage(User $user, string $content, ?AiConversation $conversation = null, ?int $companyId = null): array
     {
         $normalizedContent = trim($content);
         if ($normalizedContent === '') {
@@ -48,10 +48,10 @@ class InternalAiChatService
             ]);
         }
 
-        $settings = $this->conversationService->requireInternalChatSettings($user);
+        $settings = $this->conversationService->requireInternalChatSettings($user, $companyId);
         $this->aiAccessService->assertCanUseInternalAi($user, $settings);
 
-        $targetConversation = $this->resolveConversation($conversation, $user);
+        $targetConversation = $this->resolveConversation($conversation, $user, $companyId);
         $providerName = $this->resolveProviderName($settings);
         $modelName = $this->resolveModelName($settings);
         $systemPrompt = $this->resolveSystemPrompt();
@@ -205,7 +205,7 @@ class InternalAiChatService
         ];
     }
 
-    private function resolveConversation(?AiConversation $conversation, User $user): AiConversation
+    private function resolveConversation(?AiConversation $conversation, User $user, ?int $companyId = null): AiConversation
     {
         if ($conversation instanceof AiConversation) {
             $this->conversationService->assertOwnedInternalConversation($conversation, $user);
@@ -213,7 +213,7 @@ class InternalAiChatService
             return $conversation;
         }
 
-        return $this->conversationService->createForUser($user);
+        return $this->conversationService->createForUser($user, null, $companyId);
     }
 
     private function resolveProviderName(?CompanyBotSetting $settings): string

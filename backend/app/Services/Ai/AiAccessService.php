@@ -32,6 +32,26 @@ class AiAccessService
             ]);
     }
 
+    public function canManageAi(User $user): bool
+    {
+        if (! (bool) $user->is_active) {
+            return false;
+        }
+
+        if ($user->isSystemAdmin()) {
+            return true;
+        }
+
+        $normalizedRole = User::normalizeRole((string) $user->role);
+        if ($normalizedRole !== User::ROLE_COMPANY_ADMIN) {
+            return false;
+        }
+
+        $settings = $this->resolveCompanySettings($user);
+
+        return (bool) ($settings?->ai_enabled ?? false);
+    }
+
     public function companyAllowsInternalAi(?CompanyBotSetting $settings): bool
     {
         return (bool) ($settings?->ai_enabled ?? false)

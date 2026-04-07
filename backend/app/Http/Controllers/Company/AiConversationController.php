@@ -42,7 +42,7 @@ class AiConversationController extends Controller
         }
 
         try {
-            $payload = $action->handle($user, $request->validated());
+            $payload = $action->handle($user, $request);
         } catch (ValidationException $exception) {
             return $this->validationErrorResponse($exception, 'Nao foi possivel criar a conversa interna de IA.');
         }
@@ -83,7 +83,7 @@ class AiConversationController extends Controller
         }
 
         try {
-            $payload = $action->handle($user, $conversationId, $request->validated());
+            $payload = $action->handle($user, $conversationId, $request);
         } catch (ValidationException $exception) {
             return $this->validationErrorResponse($exception, 'Nao foi possivel enviar mensagem para a IA.');
         }

@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Company;
 
 use App\Http\Controllers\Controller;
 use App\Models\AiUsage;
+use App\Models\Company;
 use App\Models\User;
+use App\Services\Ai\AiAccessService;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\JsonResponse;
@@ -13,6 +15,10 @@ use Illuminate\Support\Facades\DB;
 
 class AiAnalyticsController extends Controller
 {
+    public function __construct(
+        private AiAccessService $aiAccess
+    ) {}
+
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -23,21 +29,30 @@ class AiAnalyticsController extends Controller
             ], 403);
         }
 
-        if (! $user->isCompanyUser()) {
-            return response()->json([
-                'authenticated' => true,
-                'message' => 'Acesso restrito a usuários da empresa.',
-            ], 403);
-        }
-
-        if (! $user->isCompanyAdmin()) {
+        if (! $this->aiAccess->canManageAi($user)) {
             return response()->json([
                 'authenticated' => true,
                 'message' => 'Somente admin da empresa pode acessar analytics da IA.',
             ], 403);
         }
 
-        $companyId = (int) $user->company_id;
+        $companies = $user->isSystemAdmin()
+            ? Company::orderBy('name')->get(['id', 'name'])
+            : null;
+
+        $allCompanies = false;
+        if ($user->isSystemAdmin()) {
+            $companyIdParam = trim((string) $request->query('company_id', ''));
+            if ($companyIdParam === 'all' || $companyIdParam === '0' || $companyIdParam === '') {
+                $allCompanies = true;
+                $companyId = null;
+            } else {
+                $companyId = (int) $companyIdParam;
+            }
+        } else {
+            $companyId = (int) $user->company_id;
+        }
+
         $days = (int) $request->integer('days', 7);
         $days = in_array($days, [7, 30], true) ? $days : 7;
 
@@ -47,22 +62,25 @@ class AiAnalyticsController extends Controller
         $monthEnd = Carbon::now()->endOfMonth();
 
         $baseQuery = AiUsage::query()
-            ->where('company_id', $companyId)
-            ->where('feature', AiUsage::FEATURE_INTERNAL_CHAT);
+            ->where('ai_usages.feature', AiUsage::FEATURE_INTERNAL_CHAT);
+
+        if (! $allCompanies && $companyId !== null) {
+            $baseQuery->where('ai_usages.company_id', $companyId);
+        }
 
         $totalMessages = (clone $baseQuery)->count();
         $totalMonth = (clone $baseQuery)
-            ->whereBetween('created_at', [$monthStart, $monthEnd])
+            ->whereBetween('ai_usages.created_at', [$monthStart, $monthEnd])
             ->count();
         $totalUsersPeriod = (clone $baseQuery)
-            ->whereBetween('created_at', [$startDate, $endDate])
-            ->whereNotNull('user_id')
-            ->distinct('user_id')
-            ->count('user_id');
+            ->whereBetween('ai_usages.created_at', [$startDate, $endDate])
+            ->whereNotNull('ai_usages.user_id')
+            ->distinct('ai_usages.user_id')
+            ->count('ai_usages.user_id');
 
         $dailyRows = (clone $baseQuery)
-            ->selectRaw('DATE(created_at) as day, COUNT(*) as total')
-            ->whereBetween('created_at', [$startDate, $endDate])
+            ->selectRaw('DATE(ai_usages.created_at) as day, COUNT(*) as total')
+            ->whereBetween('ai_usages.created_at', [$startDate, $endDate])
             ->groupBy('day')
             ->orderBy('day')
             ->get();
@@ -82,31 +100,48 @@ class AiAnalyticsController extends Controller
             ];
         }
 
-        $usageByUser = (clone $baseQuery)
+        $usageByUserQuery = (clone $baseQuery)
             ->join('users', 'users.id', '=', 'ai_usages.user_id')
-            ->whereBetween('ai_usages.created_at', [$startDate, $endDate])
-            ->select(
-                'users.id as user_id',
-                'users.name as user_name',
-                DB::raw('COUNT(ai_usages.id) as total_messages')
-            )
-            ->groupBy('users.id', 'users.name')
+            ->whereBetween('ai_usages.created_at', [$startDate, $endDate]);
+
+        if ($allCompanies) {
+            $usageByUserQuery
+                ->leftJoin('companies', 'companies.id', '=', 'ai_usages.company_id')
+                ->select(
+                    'users.id as user_id',
+                    'users.name as user_name',
+                    'companies.name as company_name',
+                    DB::raw('COUNT(ai_usages.id) as total_messages')
+                )
+                ->groupBy('users.id', 'users.name', 'companies.id', 'companies.name');
+        } else {
+            $usageByUserQuery
+                ->select(
+                    'users.id as user_id',
+                    'users.name as user_name',
+                    DB::raw('COUNT(ai_usages.id) as total_messages')
+                )
+                ->groupBy('users.id', 'users.name');
+        }
+
+        $usageByUser = $usageByUserQuery
             ->orderByDesc('total_messages')
             ->limit(50)
             ->get()
-            ->map(fn ($row) => [
+            ->map(fn ($row) => array_filter([
                 'user_id' => (int) $row->user_id,
                 'name' => (string) ($row->user_name ?: 'Sem nome'),
+                'company_name' => $allCompanies ? (string) ($row->company_name ?? '-') : null,
                 'count' => (int) $row->total_messages,
-            ])
+            ], fn ($v) => $v !== null))
             ->values();
 
         $toolsUsage = (clone $baseQuery)
-            ->whereBetween('created_at', [$startDate, $endDate])
-            ->whereNotNull('tool_used')
-            ->whereRaw("TRIM(COALESCE(tool_used, '')) <> ''")
-            ->select('tool_used', DB::raw('COUNT(*) as total_uses'))
-            ->groupBy('tool_used')
+            ->whereBetween('ai_usages.created_at', [$startDate, $endDate])
+            ->whereNotNull('ai_usages.tool_used')
+            ->whereRaw("TRIM(COALESCE(ai_usages.tool_used, '')) <> ''")
+            ->select('ai_usages.tool_used', DB::raw('COUNT(*) as total_uses'))
+            ->groupBy('ai_usages.tool_used')
             ->orderByDesc('total_uses')
             ->limit(20)
             ->get()
@@ -118,6 +153,9 @@ class AiAnalyticsController extends Controller
 
         return response()->json([
             'authenticated' => true,
+            'is_admin' => $user->isSystemAdmin(),
+            'companies' => $companies,
+            'selected_company_id' => $allCompanies ? 'all' : $companyId,
             'days' => $days,
             'range' => [
                 'start' => $startDate->toDateString(),
