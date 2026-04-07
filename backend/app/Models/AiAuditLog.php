@@ -9,11 +9,13 @@ class AiAuditLog extends Model
     public const ACTION_MESSAGE_SENT = 'message_sent';
     public const ACTION_TOOL_EXECUTED = 'tool_executed';
     public const ACTION_TOOL_FAILED = 'tool_failed';
+    public const ACTION_SAFETY_BLOCKED = 'safety_blocked';
 
     public const ALLOWED_ACTIONS = [
         self::ACTION_MESSAGE_SENT,
         self::ACTION_TOOL_EXECUTED,
         self::ACTION_TOOL_FAILED,
+        self::ACTION_SAFETY_BLOCKED,
     ];
 
     public $timestamps = false;

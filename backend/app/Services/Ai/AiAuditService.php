@@ -80,6 +80,26 @@ class AiAuditService
         $this->logAction($companyId, $userId, $conversationId, AiAuditLog::ACTION_TOOL_FAILED, $metadata);
     }
 
+    /**
+     * Registra bloqueio pelo pipeline de segurança.
+     *
+     * Metadados esperados (sem conteúdo de mensagem — apenas metadados):
+     *   stage    — etapa que bloqueou (ex.: 'prompt_injection')
+     *   reason   — chave do motivo (ex.: 'prompt_injection:jailbreak')
+     *   flags    — array de flags detectadas
+     *   feature  — feature de origem (internal_chat | conversation_suggestion | chatbot)
+     *
+     * @param  array<string, mixed>  $metadata
+     */
+    public function logSafetyBlocked(
+        int $companyId,
+        ?int $userId,
+        ?int $conversationId,
+        array $metadata = []
+    ): void {
+        $this->logAction($companyId, $userId, $conversationId, AiAuditLog::ACTION_SAFETY_BLOCKED, $metadata);
+    }
+
     private function normalizeAction(string $action): string
     {
         $normalized = mb_strtolower(trim($action));

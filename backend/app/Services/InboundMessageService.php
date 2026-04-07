@@ -2,9 +2,14 @@
 
 namespace App\Services;
 
+use App\Models\AiUsageLog;
 use App\Models\Company;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Services\Ai\AiMetricsService;
+use App\Services\Ai\AiSafetyPipelineService;
+use App\Services\Ai\ChatbotAiDecisionService;
+use App\Services\Ai\ConversationAiSuggestionService;
 use App\Services\Bot\StatefulBotService;
 use App\Support\ConversationAssignedType;
 use App\Support\ConversationHandlingMode;
@@ -14,6 +19,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class InboundMessageService
 {
@@ -23,7 +29,11 @@ class InboundMessageService
         private StatefulBotService $statefulBot,
         private MessageMediaStorageService $mediaStorage,
         private MessageDeliveryStatusService $deliveryStatus,
-        private ConversationInactivityService $conversationInactivityService
+        private ConversationInactivityService $conversationInactivityService,
+        private ChatbotAiDecisionService $chatbotAiDecision,
+        private ConversationAiSuggestionService $chatbotAiSuggestion,
+        private AiMetricsService $aiMetrics,
+        private AiSafetyPipelineService $safetyPipeline
     ) {}
 
     public function handleIncomingText(
@@ -94,6 +104,27 @@ class InboundMessageService
         if ($reply === '') {
             $statefulHandled = false;
             $reply = $this->botReply->buildReply($company, $normalizedText, $isFirstInboundMessage);
+        }
+
+        // Tenta substituir resposta clássica por resposta gerada via IA, quando habilitado
+        if ($company !== null && $this->chatbotAiDecision->shouldUseAi($company)) {
+            $safetyResult = $this->safetyPipeline->run($normalizedText);
+            if ($safetyResult->blocked) {
+                // Bloqueio de segurança: permanece com bot clássico, registra evento
+                Log::info('chatbot.safety_blocked', [
+                    'conversation_id' => (int) $conversation->id,
+                    'company_id' => (int) ($company->id ?? 0),
+                    'stage' => $safetyResult->blockStage,
+                    'reason' => $safetyResult->blockReason,
+                    'flags' => $safetyResult->flags,
+                ]);
+            } else {
+                $aiReply = $this->generateChatbotAiReply($company, $conversation);
+                if ($aiReply !== null) {
+                    $reply = $aiReply;
+                    $statefulHandled = false; // resposta de IA não é fluxo stateful
+                }
+            }
         }
 
         [$outMessage, $updatedConversation] = DB::transaction(function () use (
@@ -509,6 +540,35 @@ class InboundMessageService
         $conversation->bot_step = null;
         $conversation->bot_context = null;
         $conversation->bot_last_interaction_at = null;
+    }
+
+    /**
+     * Tenta gerar uma resposta via IA para o chatbot.
+     * Retorna null se a configuração da empresa estiver ausente ou se a IA falhar
+     * (nesse caso o bot clássico assume como fallback).
+     */
+    private function generateChatbotAiReply(Company $company, Conversation $conversation): ?string
+    {
+        $settings = $company->botSetting;
+        if (! $settings) {
+            return null;
+        }
+
+        try {
+            $reply = $this->chatbotAiSuggestion->generateSuggestion($conversation, $settings);
+
+            return $reply !== '' ? $reply : null;
+        } catch (Throwable $exception) {
+            // A métrica de erro já foi registrada dentro de generateSuggestion.
+            // Aqui apenas garantimos o fallback silencioso para o bot clássico.
+            Log::warning('chatbot.ai_reply_fallback', [
+                'conversation_id' => (int) $conversation->id,
+                'company_id' => (int) $company->id,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return null;
+        }
     }
 }
 

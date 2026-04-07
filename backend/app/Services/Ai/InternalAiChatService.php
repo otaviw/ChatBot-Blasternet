@@ -5,8 +5,10 @@ namespace App\Services\Ai;
 use App\Models\AiConversation;
 use App\Models\AiMessage;
 use App\Models\AiUsage;
+use App\Models\AiUsageLog;
 use App\Models\CompanyBotSetting;
 use App\Models\User;
+use App\Services\Ai\AiSafetyPipelineService;
 use App\Services\Ai\Providers\AiProvider;
 use App\Services\Ai\Tools\AiToolManager;
 use Illuminate\Support\Facades\Log;
@@ -26,7 +28,9 @@ class InternalAiChatService
         private readonly AiUsageService $usageService,
         private readonly AiAuditService $aiAuditService,
         private readonly AiAccessService $aiAccessService,
-        private readonly AiToolManager $toolManager
+        private readonly AiToolManager $toolManager,
+        private readonly AiMetricsService $metricsService,
+        private readonly AiSafetyPipelineService $safetyPipeline
     ) {}
 
     /**
@@ -64,6 +68,27 @@ class InternalAiChatService
             $normalizedContent
         );
 
+        // ── Pipeline de segurança ─────────────────────────────────────────────
+        $safetyResult = $this->safetyPipeline->run($normalizedContent);
+        if ($safetyResult->blocked) {
+            $this->aiAuditService->logSafetyBlocked(
+                (int) $targetConversation->company_id,
+                (int) $user->id,
+                (int) $targetConversation->id,
+                [
+                    'feature' => AiUsageLog::FEATURE_INTERNAL_CHAT,
+                    'stage' => $safetyResult->blockStage,
+                    'reason' => $safetyResult->blockReason,
+                    'flags' => $safetyResult->flags,
+                ]
+            );
+            throw ValidationException::withMessages([
+                'ai' => ['Sua mensagem não pôde ser processada. Reformule e tente novamente.'],
+            ]);
+        }
+        // Usar entrada sanitizada (PII redactado) daqui em diante
+        $normalizedContent = $safetyResult->sanitizedInput;
+
         $userMessage = AiMessage::query()->create([
             'ai_conversation_id' => (int) $targetConversation->id,
             'user_id' => (int) $user->id,
@@ -79,6 +104,7 @@ class InternalAiChatService
         $this->touchLastMessageAt($targetConversation, $userMessage);
 
         $contextMessages = $this->contextBuilder->build($targetConversation, $systemPrompt, null, $settings);
+        $contextMessages = $this->safetyPipeline->redactContextMessages($contextMessages);
         $provider = $this->providerResolver->resolve($providerName);
         $providerOptions = [
             'company_id' => (int) $targetConversation->company_id,
@@ -93,6 +119,18 @@ class InternalAiChatService
         $providerResult = $firstAttempt['provider_result'];
         $this->usageService->updateTokensUsed($usageLog, $providerResult);
         $responseTimeMs = $firstAttempt['response_time_ms'];
+        $tokensUsed = $this->usageService->tokensFromProviderResult($providerResult);
+
+        // Registra métricas da primeira chamada ao provider
+        $this->metricsService->updateFromProviderResult(
+            $usageLog,
+            $providerName,
+            $modelName,
+            AiUsageLog::FEATURE_INTERNAL_CHAT,
+            $providerResult,
+            $responseTimeMs,
+            $tokensUsed
+        );
 
         if (! (bool) ($providerResult['ok'] ?? false)) {
             $this->aiAuditService->logMessageSent(
@@ -152,6 +190,18 @@ class InternalAiChatService
             }
 
             $responseTimeMs += (int) ($toolFlow['response_time_ms'] ?? 0);
+
+            // Atualiza métricas com o tempo cumulativo (incluindo chamadas de tool)
+            $finalTokens = $this->usageService->tokensFromProviderResult($providerResult);
+            $this->metricsService->updateFromProviderResult(
+                $usageLog,
+                $providerName,
+                $modelName,
+                AiUsageLog::FEATURE_INTERNAL_CHAT,
+                $providerResult,
+                $responseTimeMs,
+                $finalTokens
+            );
         }
 
         $assistantMessage = AiMessage::query()->create([

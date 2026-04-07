@@ -55,6 +55,25 @@ return [
         'null' => NullAiProvider::class,
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Guardrails de segurança
+    |--------------------------------------------------------------------------
+    |
+    | forbidden_words — lista de palavras/frases proibidas (array ou string
+    |   separada por vírgula via env AI_SAFETY_FORBIDDEN_WORDS).
+    |   Vazio por padrão para evitar falsos positivos.
+    |
+    | Exemplo de .env:
+    |   AI_SAFETY_FORBIDDEN_WORDS="palavra1,frase proibida"
+    |
+    */
+    'safety' => [
+        'forbidden_words' => array_filter(
+            array_map('trim', explode(',', (string) env('AI_SAFETY_FORBIDDEN_WORDS', '')))
+        ),
+    ],
+
     'providers' => [
         'ollama' => [
             'base_url' => env('AI_OLLAMA_BASE_URL', 'http://127.0.0.1:11434'),

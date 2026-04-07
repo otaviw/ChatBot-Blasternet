@@ -5,6 +5,7 @@ use App\Http\Controllers\Company\AiCompanyKnowledgeController;
 use App\Http\Controllers\Company\AiConversationController;
 use App\Http\Controllers\Company\AiAnalyticsController;
 use App\Http\Controllers\Company\AiAuditController;
+use App\Http\Controllers\Company\AiMetricsController;
 use App\Http\Controllers\Company\ConversationController as CompanyConversationController;
 use App\Http\Controllers\Company\QuickReplyController;
 use App\Http\Controllers\Company\UserController as CompanyUserController;
@@ -60,6 +61,8 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::get('/ia/conversas', [AiConversationController::class, 'index'])
             ->middleware('throttle:inbox-read');
         Route::get('/ia/analytics', [AiAnalyticsController::class, 'index'])
+            ->middleware('throttle:inbox-read');
+        Route::get('/ia/metricas', [AiMetricsController::class, 'index'])
             ->middleware('throttle:inbox-read');
         Route::get('/ia/auditoria', [AiAuditController::class, 'index'])
             ->middleware('throttle:inbox-read');

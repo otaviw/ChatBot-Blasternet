@@ -4,16 +4,21 @@ namespace App\Services\Ai;
 
 use App\Models\AiCompanyKnowledge;
 use App\Models\AiMessage;
+use App\Models\AiUsageLog;
 use App\Models\CompanyBotSetting;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Services\Ai\AiSafetyPipelineService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class ConversationAiSuggestionService
 {
     public function __construct(
-        private readonly AiProviderResolver $providerResolver
+        private readonly AiProviderResolver $providerResolver,
+        private readonly AiMetricsService $metricsService,
+        private readonly AiSafetyPipelineService $safetyPipeline,
+        private readonly AiAuditService $aiAuditService
     ) {}
 
     public function generateSuggestion(Conversation $conversation, CompanyBotSetting $settings): string
@@ -25,15 +30,85 @@ class ConversationAiSuggestionService
         $historyLimit = $this->resolveHistoryLimit($settings);
         $contextMessages = $this->buildContextMessages($conversation, $settings, $historyLimit);
 
+        // ── Pipeline de segurança ─────────────────────────────────────────────
+        // Checa a última mensagem do usuário; redacta PII de todos os turnos.
+        $lastUserText = $this->extractLastUserText($contextMessages);
+        if ($lastUserText !== null && $lastUserText !== '') {
+            $safetyResult = $this->safetyPipeline->run($lastUserText);
+            if ($safetyResult->blocked) {
+                // conversation_id = null porque AiAuditLog.conversation_id referencia ai_conversations
+                // o ID da conversa regular fica em metadata
+                $this->aiAuditService->logSafetyBlocked(
+                    companyId: (int) $conversation->company_id,
+                    userId: null,
+                    conversationId: null,
+                    metadata: [
+                        'feature' => AiUsageLog::FEATURE_CONVERSATION_SUGGESTION,
+                        'stage' => $safetyResult->blockStage,
+                        'reason' => $safetyResult->blockReason,
+                        'flags' => $safetyResult->flags,
+                        'inbox_conversation_id' => (int) $conversation->id,
+                    ]
+                );
+                $this->metricsService->record(
+                    companyId: (int) $conversation->company_id,
+                    userId: null,
+                    conversationId: (int) $conversation->id,
+                    provider: $providerName,
+                    model: $modelName,
+                    feature: AiUsageLog::FEATURE_CONVERSATION_SUGGESTION,
+                    status: AiUsageLog::STATUS_ERROR,
+                    responseTimeMs: 0,
+                    tokensUsed: null,
+                    errorType: 'safety_blocked'
+                );
+                throw ValidationException::withMessages([
+                    'ai' => ['Não foi possível gerar sugestão para esta conversa.'],
+                ]);
+            }
+        }
+        // Redacta PII dos turnos de usuário antes de enviar ao provider
+        $contextMessages = $this->safetyPipeline->redactContextMessages($contextMessages);
+
         $provider = $this->providerResolver->resolve($providerName);
-        $providerResult = $provider->reply($contextMessages, [
+        $providerOptions = [
             'company_id' => (int) $conversation->company_id,
             'conversation_id' => (int) $conversation->id,
             'model' => $modelName,
             'temperature' => $temperature,
             'max_response_tokens' => $maxResponseTokens,
             'request_timeout_ms' => (int) config('ai.request_timeout_ms', 30000),
-        ]);
+        ];
+
+        $measured = $this->metricsService->measure(fn () => $provider->reply($contextMessages, $providerOptions));
+        $responseTimeMs = $measured['response_time_ms'];
+        $exception = $measured['exception'];
+
+        if ($exception !== null) {
+            $this->recordErrorMetric($conversation, $providerName, $modelName, $responseTimeMs, 'provider_exception', $exception);
+            throw ValidationException::withMessages([
+                'ai' => ['Falha ao obter sugestao da IA.'],
+            ]);
+        }
+
+        $providerResult = is_array($measured['result']) ? $measured['result'] : ['ok' => false, 'error' => 'invalid_result'];
+        $tokensUsed = $this->extractTokensUsed($providerResult);
+
+        // Registra métricas da chamada
+        $this->metricsService->record(
+            companyId: (int) $conversation->company_id,
+            userId: null,
+            conversationId: (int) $conversation->id,
+            provider: $providerName,
+            model: $modelName,
+            feature: AiUsageLog::FEATURE_CONVERSATION_SUGGESTION,
+            status: (bool) ($providerResult['ok'] ?? false) ? AiUsageLog::STATUS_OK : AiUsageLog::STATUS_ERROR,
+            responseTimeMs: $responseTimeMs,
+            tokensUsed: $tokensUsed,
+            errorType: ! (bool) ($providerResult['ok'] ?? false)
+                ? AiMetricsService::normalizeErrorType($providerResult['error'] ?? null)
+                : null
+        );
 
         if (! (bool) ($providerResult['ok'] ?? false)) {
             $this->logProviderFailure($conversation, $providerName, $modelName, $providerResult);
@@ -51,6 +126,70 @@ class ConversationAiSuggestionService
         }
 
         return $suggestion;
+    }
+
+    /**
+     * Extrai o texto da última mensagem de role=user do array de contexto.
+     *
+     * @param  list<array{role: string, content: string}>  $messages
+     */
+    private function extractLastUserText(array $messages): ?string
+    {
+        foreach (array_reverse($messages) as $message) {
+            if (($message['role'] ?? '') === 'user') {
+                return trim((string) ($message['content'] ?? ''));
+            }
+        }
+
+        return null;
+    }
+
+    private function recordErrorMetric(
+        Conversation $conversation,
+        string $providerName,
+        ?string $modelName,
+        int $responseTimeMs,
+        string $errorKey,
+        ?\Throwable $exception = null
+    ): void {
+        $this->metricsService->record(
+            companyId: (int) $conversation->company_id,
+            userId: null,
+            conversationId: (int) $conversation->id,
+            provider: $providerName,
+            model: $modelName,
+            feature: AiUsageLog::FEATURE_CONVERSATION_SUGGESTION,
+            status: AiUsageLog::STATUS_ERROR,
+            responseTimeMs: $responseTimeMs,
+            tokensUsed: null,
+            errorType: AiMetricsService::normalizeErrorType($errorKey, $exception)
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $providerResult
+     */
+    private function extractTokensUsed(array $providerResult): ?int
+    {
+        $meta = is_array($providerResult['meta'] ?? null) ? $providerResult['meta'] : [];
+
+        $candidates = [
+            $providerResult['tokens_used'] ?? null,
+            $meta['tokens_used'] ?? null,
+            data_get($meta, 'usage.total_tokens'),
+            data_get($meta, 'usage.tokens'),
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (is_numeric($candidate)) {
+                $value = (int) $candidate;
+                if ($value >= 0) {
+                    return $value;
+                }
+            }
+        }
+
+        return null;
     }
 
     /**
