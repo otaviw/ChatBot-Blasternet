@@ -32,6 +32,30 @@ class AiAccessService
             ]);
     }
 
+    /**
+     * Verifica se o usuário pode acessar e editar as configurações do bot/IA da empresa.
+     * Não exige ai_enabled — qualquer company_admin ativo pode configurar (inclusive habilitar IA).
+     * Resolve o catch-22 onde era preciso ter IA habilitada para poder habilitá-la.
+     */
+    public function canAccessBotSettings(User $user): bool
+    {
+        if (! (bool) $user->is_active) {
+            return false;
+        }
+
+        if ($user->isSystemAdmin()) {
+            return true;
+        }
+
+        $normalizedRole = User::normalizeRole((string) $user->role);
+
+        return $normalizedRole === User::ROLE_COMPANY_ADMIN;
+    }
+
+    /**
+     * Verifica se o usuário pode usar funcionalidades de IA (requer ai_enabled = true na empresa).
+     * Usado para proteger endpoints que consumem IA, não a tela de configuração.
+     */
     public function canManageAi(User $user): bool
     {
         if (! (bool) $user->is_active) {

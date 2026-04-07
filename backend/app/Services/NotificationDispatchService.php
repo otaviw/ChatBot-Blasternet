@@ -63,6 +63,10 @@ class NotificationDispatchService
                 continue;
             }
 
+            if ($this->presenceService->isConversationOpenByUser($recipientId, (int) $conversation->id)) {
+                continue;
+            }
+
             $this->notificationService->createForUser($recipientId, [
                 'type' => 'customer_message',
                 'module' => 'inbox',

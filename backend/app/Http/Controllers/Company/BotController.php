@@ -23,7 +23,7 @@ class BotController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
-        if (! $user || ! $this->aiAccess->canManageAi($user)) {
+        if (! $user || ! $this->aiAccess->canAccessBotSettings($user)) {
             return response()->json([
                 'authenticated' => false,
                 'redirect' => '/entrar',
@@ -69,7 +69,7 @@ class BotController extends Controller
     public function update(Request $request): JsonResponse
     {
         $user = $request->user();
-        if (! $user || ! $this->aiAccess->canManageAi($user)) {
+        if (! $user || ! $this->aiAccess->canAccessBotSettings($user)) {
             return response()->json([
                 'authenticated' => false,
                 'redirect' => '/entrar',
@@ -90,6 +90,7 @@ class BotController extends Controller
         }
 
         $validated = $request->validate([
+            // ── Campos legados do bot clássico ─────────────────────────────
             'is_active' => ['required', 'boolean'],
             'timezone' => ['required', 'string', Rule::in(timezone_identifiers_list())],
             'welcome_message' => ['nullable', 'string', 'max:2000'],
@@ -106,22 +107,62 @@ class BotController extends Controller
             'service_areas.*' => ['string', 'max:120'],
             'stateful_menu_flow' => ['nullable', 'array'],
             'inactivity_close_hours' => ['nullable', 'integer', 'min:1', 'max:720'],
+            // ── Campos de IA (todos opcionais para manter compat. legada) ──
+            'ai_enabled' => ['sometimes', 'boolean'],
+            'ai_internal_chat_enabled' => ['sometimes', 'boolean'],
+            'ai_usage_enabled' => ['sometimes', 'boolean'],
+            'ai_usage_limit_monthly' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'ai_chatbot_enabled' => ['sometimes', 'boolean'],
+            'ai_chatbot_auto_reply_enabled' => ['sometimes', 'boolean'],
+            'ai_chatbot_mode' => ['sometimes', 'nullable', 'string', Rule::in(['disabled', 'always', 'fallback', 'outside_business_hours'])],
+            'ai_persona' => ['sometimes', 'nullable', 'string', 'max:500'],
+            'ai_tone' => ['sometimes', 'nullable', 'string', 'max:120'],
+            'ai_language' => ['sometimes', 'nullable', 'string', 'max:50'],
+            'ai_formality' => ['sometimes', 'nullable', 'string', 'max:50'],
+            'ai_system_prompt' => ['sometimes', 'nullable', 'string', 'max:4000'],
+            'ai_max_context_messages' => ['sometimes', 'nullable', 'integer', 'min:10', 'max:20'],
+            'ai_temperature' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:2'],
+            'ai_max_response_tokens' => ['sometimes', 'nullable', 'integer', 'min:64', 'max:4096'],
+            'ai_provider' => ['sometimes', 'nullable', 'string', 'max:60'],
+            'ai_model' => ['sometimes', 'nullable', 'string', 'max:120'],
+            'ai_chatbot_rules' => ['sometimes', 'nullable', 'array', 'max:50'],
+            'ai_chatbot_rules.*' => ['string', 'max:500'],
         ]);
+
+        // Campos de IA presentes no request são adicionados dinamicamente para
+        // não sobrescrever valores existentes quando payloads legados os omitem.
+        $aiFields = [
+            'ai_enabled', 'ai_internal_chat_enabled', 'ai_usage_enabled',
+            'ai_usage_limit_monthly', 'ai_chatbot_enabled', 'ai_chatbot_auto_reply_enabled',
+            'ai_chatbot_mode', 'ai_persona', 'ai_tone', 'ai_language', 'ai_formality',
+            'ai_system_prompt', 'ai_max_context_messages', 'ai_temperature',
+            'ai_max_response_tokens', 'ai_provider', 'ai_model', 'ai_chatbot_rules',
+        ];
+
+        $aiData = [];
+        foreach ($aiFields as $field) {
+            if (array_key_exists($field, $validated)) {
+                $aiData[$field] = $validated[$field];
+            }
+        }
 
         $settings = CompanyBotSetting::updateOrCreate(
             ['company_id' => $company->id],
-            [
-                'is_active' => (bool) $validated['is_active'],
-                'timezone' => $validated['timezone'],
-                'welcome_message' => $validated['welcome_message'] ?? null,
-                'fallback_message' => $validated['fallback_message'] ?? null,
-                'out_of_hours_message' => $validated['out_of_hours_message'] ?? null,
-                'business_hours' => $this->normalizeBusinessHours($validated['business_hours']),
-                'keyword_replies' => $this->normalizeKeywordReplies($validated['keyword_replies'] ?? []),
-                'service_areas' => $this->normalizeServiceAreas($validated['service_areas'] ?? []),
-                'stateful_menu_flow' => $this->normalizeStatefulMenuFlow($validated['stateful_menu_flow'] ?? null),
-                'inactivity_close_hours' => $this->resolveInactivityCloseHours($company, $validated),
-            ]
+            array_merge(
+                [
+                    'is_active' => (bool) $validated['is_active'],
+                    'timezone' => $validated['timezone'],
+                    'welcome_message' => $validated['welcome_message'] ?? null,
+                    'fallback_message' => $validated['fallback_message'] ?? null,
+                    'out_of_hours_message' => $validated['out_of_hours_message'] ?? null,
+                    'business_hours' => $this->normalizeBusinessHours($validated['business_hours']),
+                    'keyword_replies' => $this->normalizeKeywordReplies($validated['keyword_replies'] ?? []),
+                    'service_areas' => $this->normalizeServiceAreas($validated['service_areas'] ?? []),
+                    'stateful_menu_flow' => $this->normalizeStatefulMenuFlow($validated['stateful_menu_flow'] ?? null),
+                    'inactivity_close_hours' => $this->resolveInactivityCloseHours($company, $validated),
+                ],
+                $aiData
+            )
         );
 
         $this->syncServiceAreas($company->id, $settings->service_areas ?? []);
@@ -146,6 +187,7 @@ class BotController extends Controller
     private function buildDefaultSettings(int $companyId): CompanyBotSetting
     {
         return new CompanyBotSetting([
+            // Campos do bot clássico
             'company_id' => $companyId,
             'is_active' => true,
             'timezone' => 'America/Sao_Paulo',
@@ -157,6 +199,25 @@ class BotController extends Controller
             'service_areas' => [],
             'stateful_menu_flow' => null,
             'inactivity_close_hours' => 24,
+            // Campos de IA — espelham os defaults das colunas no banco
+            'ai_enabled' => false,
+            'ai_internal_chat_enabled' => false,
+            'ai_usage_enabled' => true,
+            'ai_usage_limit_monthly' => null,
+            'ai_chatbot_enabled' => false,
+            'ai_chatbot_auto_reply_enabled' => false,
+            'ai_chatbot_mode' => 'disabled',
+            'ai_chatbot_rules' => null,
+            'ai_persona' => null,
+            'ai_tone' => null,
+            'ai_language' => null,
+            'ai_formality' => null,
+            'ai_system_prompt' => null,
+            'ai_max_context_messages' => 10,
+            'ai_temperature' => null,
+            'ai_max_response_tokens' => null,
+            'ai_provider' => null,
+            'ai_model' => null,
         ]);
     }
 
