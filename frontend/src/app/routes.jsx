@@ -59,9 +59,8 @@ function SuperAdminRoute({ children }) {
 function AiManagementRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) return null;
-  if (!user) return <Navigate to="/entrar" replace />;
-  if (user.role === 'system_admin' || user.can_manage_ai) return children;
-  return <Navigate to="/dashboard" replace />;
+  if (user?.role !== 'system_admin') return <Navigate to="/dashboard" replace />;
+  return children;
 }
 
 function AdminCompanyShowRoute() {
@@ -105,7 +104,7 @@ function AppRoutes() {
         <Route path="/minha-conta/simulador" element={<CompanySimulatorPage />} />
         <Route path="/minha-conta/conversas" element={<CompanyInboxPage />} />
         <Route path="/minha-conta/chat-interno" element={<InternalChatPage />} />
-        <Route path="/minha-conta/chat-ia" element={<InternalAiChatPage />} />
+        <Route path="/minha-conta/chat-ia" element={<SuperAdminRoute><InternalAiChatPage /></SuperAdminRoute>} />
         <Route path="/minha-conta/ia/analytics" element={<AiManagementRoute><CompanyAiAnalyticsPage /></AiManagementRoute>} />
         <Route path="/minha-conta/ia/auditoria" element={<AiManagementRoute><CompanyAiAuditPage /></AiManagementRoute>} />
         <Route path="/minha-conta/ia/configuracoes" element={<AiManagementRoute><AiSettingsPage /></AiManagementRoute>} />

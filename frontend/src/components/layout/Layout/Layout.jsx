@@ -542,17 +542,14 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
       ariaLabel: 'Mensagens prontas para resposta rápida',
     });
 
-    if (canAccessInternalAiChat) {
-      links.push({
-        href: '/minha-conta/chat-ia',
-        label: 'Assistente',
-        icon: 'chatIa',
-        ariaLabel: 'Chat com assistente de IA',
-      });
-    }
-
-    if (userData?.can_manage_ai) {
+    if (userData?.role === 'system_admin') {
       links.push(
+        {
+          href: '/minha-conta/chat-ia',
+          label: 'Assistente',
+          icon: 'chatIa',
+          ariaLabel: 'Chat com assistente de IA',
+        },
         {
           href: '/minha-conta/ia/configuracoes',
           label: 'Configurações de IA',
@@ -590,7 +587,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
     }
 
     return links;
-  }, [canManageUsers, canAccessInternalAiChat, userData?.role, userData?.can_manage_ai]);
+  }, [canManageUsers, userData?.role]);
 
   const companySupportLinks = [
     { href: '/suporte', label: 'Pedir ajuda', icon: 'suporte', ariaLabel: 'Registrar chamado de suporte' },
