@@ -2,6 +2,7 @@
 
 namespace App\Services\Bot;
 
+use App\Models\AppointmentService;
 use App\Models\Company;
 
 class BotFlowRegistry
@@ -222,6 +223,17 @@ class BotFlowRegistry
             ];
         }
 
+        if ($kind === 'appointments_start') {
+            $targetAreaName = trim((string) ($raw['target_area_name'] ?? self::AREA_ATTENDANCE));
+            $replyText = trim((string) ($raw['reply_text'] ?? ''));
+
+            return [
+                'kind' => 'appointments_start',
+                'target_area_name' => $targetAreaName !== '' ? $targetAreaName : self::AREA_ATTENDANCE,
+                'reply_text' => $replyText === '' ? null : $replyText,
+            ];
+        }
+
         return null;
     }
 
@@ -354,6 +366,7 @@ class BotFlowRegistry
     private function defaultDefinition(?Company $company = null): array
     {
         $mainMenuReply = $this->defaultMainMenuReply($company);
+        $appointmentsEnabled = $this->hasActiveAppointments($company);
 
         $steps = [
             $this->stateKey(self::FLOW_MAIN, self::STEP_MENU) => [
@@ -362,7 +375,7 @@ class BotFlowRegistry
                 'invalid_option_text' => null,
                 'options' => [
                     '1' => [
-                        'label' => 'Suporte técnico',
+                        'label' => 'Suporte tÃ©cnico',
                         'action' => [
                             'kind' => 'go_to',
                             'flow' => self::FLOW_SUPPORT,
@@ -402,11 +415,11 @@ class BotFlowRegistry
                         ],
                     ],
                     '2' => [
-                        'label' => 'Sem conexão',
+                        'label' => 'Sem conexÃ£o',
                         'action' => [
                             'kind' => 'handoff',
                             'target_area_name' => self::AREA_SUPPORT,
-                            'reply_text' => 'Entendi: sem conexão. Vou te encaminhar para o Suporte.',
+                            'reply_text' => 'Entendi: sem conexÃ£o. Vou te encaminhar para o Suporte.',
                         ],
                     ],
                     '3' => [
@@ -432,6 +445,17 @@ class BotFlowRegistry
             ],
         ];
 
+        if ($appointmentsEnabled) {
+            $steps[$this->stateKey(self::FLOW_MAIN, self::STEP_MENU)]['options']['4'] = [
+                'label' => 'Marcar agendamento',
+                'action' => [
+                    'kind' => 'appointments_start',
+                    'target_area_name' => self::AREA_ATTENDANCE,
+                    'reply_text' => null,
+                ],
+            ];
+        }
+
         return [
             'commands' => ['#', 'menu'],
             'initial' => [
@@ -445,11 +469,25 @@ class BotFlowRegistry
     private function defaultMainMenuReply(?Company $company): string
     {
         $welcome = trim((string) ($company?->botSetting?->welcome_message ?? ''));
+        $appointmentsEnabled = $this->hasActiveAppointments($company);
+        $appointmentsLine = $appointmentsEnabled ? "\n4 - Marcar agendamento" : '';
         if ($welcome === '') {
-            return $this->mainMenuText();
+            return "Olá! O que você precisa?\n1 - Suporte técnico\n2 - Vendas\n3 - Falar com atendente{$appointmentsLine}";
         }
 
-        return "{$welcome}\n1 - Suporte técnico\n2 - Vendas\n3 - Falar com atendente";
+        return "{$welcome}\n1 - Suporte técnico\n2 - Vendas\n3 - Falar com atendente{$appointmentsLine}";
+    }
+
+    private function hasActiveAppointments(?Company $company): bool
+    {
+        if (! $company?->id) {
+            return false;
+        }
+
+        return AppointmentService::query()
+            ->where('company_id', (int) $company->id)
+            ->where('is_active', true)
+            ->exists();
     }
 
     private function stateKey(string $flow, string $step): string
@@ -457,3 +495,5 @@ class BotFlowRegistry
         return "{$flow}.{$step}";
     }
 }
+
+

@@ -68,6 +68,42 @@ return [
     |   AI_SAFETY_FORBIDDEN_WORDS="palavra1,frase proibida"
     |
     */
+    /*
+    |--------------------------------------------------------------------------
+    | RAG — Retrieval-Augmented Generation
+    |--------------------------------------------------------------------------
+    |
+    | When AI_RAG_ENABLED=true, each AI call retrieves the most semantically
+    | relevant knowledge chunks via cosine similarity instead of injecting the
+    | top-5 most-recently-updated items.
+    |
+    | AI_RAG_EMBEDDING_MODEL — the Ollama model used to generate embeddings
+    |   (e.g. "nomic-embed-text"). MUST be different from the chat model.
+    |   When empty, RAG is effectively disabled even if AI_RAG_ENABLED=true.
+    |
+    | AI_RAG_TOP_K         — number of chunks to inject into each prompt (default 3)
+    | AI_RAG_CHUNK_SIZE    — max characters per chunk (default 400)
+    | AI_RAG_CHUNK_OVERLAP — overlap chars between adjacent chunks (default 50)
+    |
+    | Embedding path (rarely needs changing):
+    |   AI_RAG_EMBEDDING_PATH=/api/embeddings  (Ollama legacy; new: /api/embed)
+    |
+    | Example .env for production:
+    |   AI_RAG_ENABLED=true
+    |   AI_RAG_EMBEDDING_MODEL=nomic-embed-text
+    |   AI_RAG_TOP_K=3
+    |
+    */
+    'rag' => [
+        'enabled' => (bool) env('AI_RAG_ENABLED', false),
+        'embedding_model' => env('AI_RAG_EMBEDDING_MODEL', ''),
+        'embedding_path' => env('AI_RAG_EMBEDDING_PATH', '/api/embeddings'),
+        'embedding_timeout_seconds' => (int) env('AI_RAG_EMBEDDING_TIMEOUT_SECONDS', 15),
+        'top_k' => (int) env('AI_RAG_TOP_K', 3),
+        'chunk_size' => (int) env('AI_RAG_CHUNK_SIZE', 400),
+        'chunk_overlap' => (int) env('AI_RAG_CHUNK_OVERLAP', 50),
+    ],
+
     'safety' => [
         'forbidden_words' => array_filter(
             array_map('trim', explode(',', (string) env('AI_SAFETY_FORBIDDEN_WORDS', '')))

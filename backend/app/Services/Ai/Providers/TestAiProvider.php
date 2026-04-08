@@ -2,7 +2,7 @@
 
 namespace App\Services\Ai\Providers;
 
-class TestAiProvider implements AiProvider
+class TestAiProvider implements AiProvider, AiStreamingProvider
 {
     /**
      * @param  array<int, array<string, mixed>>  $messages
@@ -31,6 +31,35 @@ class TestAiProvider implements AiProvider
                 'messages_count' => count($messages),
             ],
         ];
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $messages
+     * @param  array<string, mixed>  $options
+     * @param  callable(string):void  $onChunk
+     * @return array{
+     *     ok:bool,
+     *     text:?string,
+     *     error:mixed,
+     *     meta:array<string, mixed>|null
+     * }
+     */
+    public function streamReply(array $messages, array $options, callable $onChunk): array
+    {
+        $result = $this->reply($messages, $options);
+
+        if (! (bool) ($result['ok'] ?? false) || $result['text'] === null) {
+            return $result;
+        }
+
+        // Fake streaming: emit word by word to simulate token-by-token output
+        $words = explode(' ', $result['text']);
+        foreach ($words as $index => $word) {
+            $chunk = $index === 0 ? $word : ' '.$word;
+            $onChunk($chunk);
+        }
+
+        return $result;
     }
 
     /**

@@ -22,6 +22,7 @@ use App\Support\ConversationAssignedType;
 use App\Support\ConversationHandlingMode;
 use App\Support\ConversationStatus;
 use App\Support\MessageDeliveryStatus;
+use App\Support\PhoneNumberNormalizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -539,28 +540,37 @@ class ConversationController extends Controller
             'template_name'  => ['sometimes', 'string', 'max:100'],
         ]);
 
-        $normalizedPhone = preg_replace('/\D/', '', (string) $validated['customer_phone']);
+        $normalizedPhone = PhoneNumberNormalizer::normalizeBrazil((string) $validated['customer_phone']);
         if ($normalizedPhone === '') {
             return response()->json(['message' => 'Telefone inválido.'], 422);
         }
 
         $customerName = trim((string) ($validated['customer_name'] ?? ''));
+        $phoneVariants = PhoneNumberNormalizer::variantsForLookup($normalizedPhone);
 
-        $conversation = Conversation::firstOrCreate(
-            [
+        $conversation = Conversation::query()
+            ->where('company_id', (int) $user->company_id)
+            ->whereIn('customer_phone', $phoneVariants !== [] ? $phoneVariants : [$normalizedPhone])
+            ->orderByDesc('id')
+            ->first();
+
+        if (! $conversation) {
+            $conversation = Conversation::create([
                 'company_id'     => (int) $user->company_id,
                 'customer_phone' => $normalizedPhone,
-            ],
-            [
                 'status'         => ConversationStatus::OPEN,
                 'assigned_type'  => ConversationAssignedType::UNASSIGNED,
                 'handling_mode'  => ConversationHandlingMode::BOT,
                 'customer_name'  => $customerName ?: null,
-            ]
-        );
+            ]);
+        }
 
         if ($customerName !== '' && $conversation->customer_name !== $customerName) {
             $conversation->customer_name = $customerName;
+        }
+
+        if ($conversation->customer_phone !== $normalizedPhone) {
+            $conversation->customer_phone = $normalizedPhone;
         }
 
         if ($conversation->status === ConversationStatus::CLOSED) {

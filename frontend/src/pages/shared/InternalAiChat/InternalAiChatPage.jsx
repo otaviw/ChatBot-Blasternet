@@ -112,6 +112,7 @@ function InternalAiChatPage() {
     sendError,
     sendMessage,
     setDraftMessage,
+    streamingContent,
     handleChatScroll,
   } = useInternalAiChatPage({
     enabled: Boolean(data?.authenticated && user && canAccessInternalAiChat && (!isSystemAdmin || companyId)),
@@ -441,7 +442,16 @@ function InternalAiChatPage() {
                       className="internal-ai-chat__bubble internal-ai-chat__bubble--assistant internal-ai-chat__bubble--pending"
                     >
                       <span className="internal-ai-chat__sender">IA</span>
-                      <p className="internal-ai-chat__text">Gerando resposta...</p>
+                      {streamingContent ? (
+                        <p className="internal-ai-chat__text">
+                          {streamingContent}
+                          <span className="internal-ai-chat__cursor" aria-hidden="true">▌</span>
+                        </p>
+                      ) : (
+                        <p className="internal-ai-chat__text internal-ai-chat__text--muted">
+                          Gerando resposta...
+                        </p>
+                      )}
                     </li>
                   ) : null}
                 </ul>
@@ -484,7 +494,7 @@ function InternalAiChatPage() {
 
                   {sendBusy ? (
                     <p className="internal-ai-chat__sending-feedback" role="status">
-                      Aguardando resposta da IA...
+                      {streamingContent ? 'Recebendo resposta...' : 'Aguardando resposta da IA...'}
                     </p>
                   ) : null}
 

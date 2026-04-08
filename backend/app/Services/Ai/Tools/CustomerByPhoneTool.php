@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Tools;
 
 use App\Models\Conversation;
+use App\Support\PhoneNumberNormalizer;
 
 class CustomerByPhoneTool implements AiToolInterface
 {
@@ -23,7 +24,7 @@ class CustomerByPhoneTool implements AiToolInterface
     public function execute(array $params): array
     {
         $companyId = (int) ($params['company_id'] ?? 0);
-        $phone = $this->normalizePhone((string) ($params['phone'] ?? ''));
+        $phone = PhoneNumberNormalizer::normalizeBrazil((string) ($params['phone'] ?? ''));
 
         if ($companyId <= 0 || $phone === '') {
             return [
@@ -33,9 +34,11 @@ class CustomerByPhoneTool implements AiToolInterface
             ];
         }
 
+        $phoneVariants = PhoneNumberNormalizer::variantsForLookup($phone);
+
         $conversation = Conversation::query()
             ->where('company_id', $companyId)
-            ->where('customer_phone', $phone)
+            ->whereIn('customer_phone', $phoneVariants !== [] ? $phoneVariants : [$phone])
             ->orderByDesc('updated_at')
             ->orderByDesc('id')
             ->first(['id', 'company_id', 'customer_name', 'bot_context']);
@@ -56,11 +59,6 @@ class CustomerByPhoneTool implements AiToolInterface
             'name' => $customerName !== '' ? $customerName : null,
             'plan' => $plan,
         ];
-    }
-
-    private function normalizePhone(string $phone): string
-    {
-        return preg_replace('/\D/', '', $phone) ?? '';
     }
 
     /**
@@ -84,4 +82,3 @@ class CustomerByPhoneTool implements AiToolInterface
         return null;
     }
 }
-

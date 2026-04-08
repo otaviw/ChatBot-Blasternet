@@ -3,10 +3,16 @@
 namespace Tests\Feature;
 
 use App\Models\Area;
+use App\Models\AppointmentService;
+use App\Models\AppointmentSetting;
+use App\Models\AppointmentStaffProfile;
+use App\Models\AppointmentWorkingHour;
+use App\Models\Appointment;
 use App\Models\Company;
 use App\Models\CompanyBotSetting;
 use App\Models\Conversation;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -256,6 +262,135 @@ class StatefulBotMenuFlowTest extends TestCase
         $afterHandoff->assertOk();
         $afterHandoff->assertJsonPath('auto_replied', false);
         $afterHandoff->assertJsonPath('out_message.id', null);
+    }
+
+    public function test_menu_shows_appointment_option_and_books_slot(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-18 08:00:00', 'America/Sao_Paulo'));
+
+        $company = $this->createCompanyWithAlwaysOnBot('Empresa Agenda Bot');
+        Area::create([
+            'company_id' => $company->id,
+            'name' => 'Atendimento',
+        ]);
+        AppointmentSetting::create([
+            'company_id' => $company->id,
+            'timezone' => 'America/Sao_Paulo',
+            'slot_interval_minutes' => 30,
+            'booking_min_notice_minutes' => 0,
+            'booking_max_advance_days' => 30,
+            'cancellation_min_notice_minutes' => 120,
+            'reschedule_min_notice_minutes' => 120,
+            'allow_customer_choose_staff' => true,
+        ]);
+        $service = AppointmentService::create([
+            'company_id' => $company->id,
+            'name' => 'Consulta',
+            'duration_minutes' => 30,
+            'buffer_before_minutes' => 0,
+            'buffer_after_minutes' => 0,
+            'max_bookings_per_slot' => 1,
+            'is_active' => true,
+        ]);
+        $staffUser = User::create([
+            'name' => 'Atendente Agenda',
+            'email' => 'staff-agenda@test.local',
+            'password' => 'secret123',
+            'role' => User::ROLE_AGENT,
+            'company_id' => $company->id,
+            'is_active' => true,
+        ]);
+        $staffProfile = AppointmentStaffProfile::create([
+            'company_id' => $company->id,
+            'user_id' => $staffUser->id,
+            'display_name' => 'Atendente Agenda',
+            'is_bookable' => true,
+            'slot_interval_minutes' => 30,
+            'booking_min_notice_minutes' => 0,
+            'booking_max_advance_days' => 30,
+        ]);
+        AppointmentWorkingHour::create([
+            'company_id' => $company->id,
+            'staff_profile_id' => $staffProfile->id,
+            'day_of_week' => 1,
+            'start_time' => '09:00:00',
+            'end_time' => '11:00:00',
+            'is_active' => true,
+        ]);
+
+        $user = $this->createCompanyUser($company, 'agenda-flow@test.local');
+
+        $start = $this->simulateInbound($user, $company, '551187654321', '#');
+        $start->assertOk();
+        $this->assertStringContainsString('4 - Marcar agendamento', (string) $start->json('reply'));
+
+        // Com apenas 1 atendente, pula seleção de atendente e vai direto para o dia
+        $toDays = $this->simulateInbound($user, $company, '551187654321', '4');
+        $toDays->assertOk();
+        $this->assertStringContainsString('Qual dia você prefere', (string) $toDays->json('reply'));
+
+        // 2026-05-18 é uma segunda-feira; o atendente trabalha segunda (day_of_week=1)
+        $toSlots = $this->simulateInbound($user, $company, '551187654321', 'segunda');
+        $toSlots->assertOk();
+        $this->assertStringContainsString('Horários de', (string) $toSlots->json('reply'));
+
+        $toConfirm = $this->simulateInbound($user, $company, '551187654321', '1');
+        $toConfirm->assertOk();
+        $this->assertStringContainsString('Confirma o agendamento?', (string) $toConfirm->json('reply'));
+
+        $confirmed = $this->simulateInbound($user, $company, '551187654321', '1');
+        $confirmed->assertOk();
+        $this->assertStringContainsString('Agendamento confirmado', (string) $confirmed->json('reply'));
+
+        $appointment = Appointment::query()->where('company_id', $company->id)->first();
+        $this->assertNotNull($appointment);
+        $this->assertSame((int) $service->id, (int) $appointment->service_id);
+        $this->assertSame((int) $staffProfile->id, (int) $appointment->staff_profile_id);
+        $this->assertSame('5511987654321', (string) $appointment->customer_phone);
+    }
+
+    public function test_appointment_flow_allows_handoff_with_option_nine(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-18 08:00:00', 'America/Sao_Paulo'));
+
+        $company = $this->createCompanyWithAlwaysOnBot('Empresa Agenda Handoff');
+        Area::create([
+            'company_id' => $company->id,
+            'name' => 'Atendimento',
+        ]);
+        AppointmentSetting::create([
+            'company_id' => $company->id,
+            'timezone' => 'America/Sao_Paulo',
+            'slot_interval_minutes' => 30,
+            'booking_min_notice_minutes' => 0,
+            'booking_max_advance_days' => 30,
+            'cancellation_min_notice_minutes' => 120,
+            'reschedule_min_notice_minutes' => 120,
+            'allow_customer_choose_staff' => true,
+        ]);
+        AppointmentService::create([
+            'company_id' => $company->id,
+            'name' => 'Consulta',
+            'duration_minutes' => 30,
+            'buffer_before_minutes' => 0,
+            'buffer_after_minutes' => 0,
+            'max_bookings_per_slot' => 1,
+            'is_active' => true,
+        ]);
+
+        $user = $this->createCompanyUser($company, 'agenda-handoff@test.local');
+
+        $this->simulateInbound($user, $company, '5511999990009', '#')->assertOk();
+        $this->simulateInbound($user, $company, '5511999990009', '4')->assertOk();
+        $handoff = $this->simulateInbound($user, $company, '5511999990009', '9');
+
+        $handoff->assertOk();
+        $handoff->assertJsonPath('reply', 'Certo. Vou te encaminhar para um atendente.');
+
+        $conversation = Conversation::findOrFail((int) $handoff->json('conversation.id'));
+        $this->assertSame('human', $conversation->handling_mode);
+        $this->assertSame('area', $conversation->assigned_type);
+        $this->assertSame('Atendimento', $conversation->assigned_area);
     }
 
     /**

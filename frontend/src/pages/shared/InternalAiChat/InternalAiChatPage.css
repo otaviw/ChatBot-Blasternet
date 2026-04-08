@@ -319,6 +319,22 @@
   border-style: dashed;
 }
 
+.internal-ai-chat__text--muted {
+  color: #94a3b8;
+}
+
+.internal-ai-chat__cursor {
+  display: inline-block;
+  margin-left: 1px;
+  animation: ai-cursor-blink 0.8s step-end infinite;
+  color: #2563eb;
+}
+
+@keyframes ai-cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
 .internal-ai-chat__sender {
   font-size: 11px;
   font-weight: 700;

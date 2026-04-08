@@ -2,13 +2,13 @@
 
 namespace App\Services\Ai;
 
-use App\Models\AiCompanyKnowledge;
 use App\Models\AiMessage;
 use App\Models\AiUsageLog;
 use App\Models\CompanyBotSetting;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Services\Ai\AiSafetyPipelineService;
+use App\Services\Ai\Rag\AiKnowledgeRetrieverService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
@@ -18,7 +18,8 @@ class ConversationAiSuggestionService
         private readonly AiProviderResolver $providerResolver,
         private readonly AiMetricsService $metricsService,
         private readonly AiSafetyPipelineService $safetyPipeline,
-        private readonly AiAuditService $aiAuditService
+        private readonly AiAuditService $aiAuditService,
+        private readonly AiKnowledgeRetrieverService $retrieverService
     ) {}
 
     public function generateSuggestion(Conversation $conversation, CompanyBotSetting $settings): string
@@ -28,11 +29,13 @@ class ConversationAiSuggestionService
         $temperature = $this->resolveTemperature($settings);
         $maxResponseTokens = $this->resolveMaxResponseTokens($settings);
         $historyLimit = $this->resolveHistoryLimit($settings);
-        $contextMessages = $this->buildContextMessages($conversation, $settings, $historyLimit);
 
-        // ── Pipeline de segurança ─────────────────────────────────────────────
-        // Checa a última mensagem do usuário; redacta PII de todos os turnos.
-        $lastUserText = $this->extractLastUserText($contextMessages);
+        // Extract last user message BEFORE building context so we can use it
+        // as the RAG query to retrieve the most relevant knowledge chunks.
+        $rawHistory = $this->fetchRawHistory($conversation, $historyLimit);
+        $lastUserText = $this->extractLastUserTextFromHistory($rawHistory);
+
+        $contextMessages = $this->buildContextMessages($conversation, $settings, $historyLimit, $lastUserText, $rawHistory);
         if ($lastUserText !== null && $lastUserText !== '') {
             $safetyResult = $this->safetyPipeline->run($lastUserText);
             if ($safetyResult->blocked) {
@@ -128,22 +131,6 @@ class ConversationAiSuggestionService
         return $suggestion;
     }
 
-    /**
-     * Extrai o texto da última mensagem de role=user do array de contexto.
-     *
-     * @param  list<array{role: string, content: string}>  $messages
-     */
-    private function extractLastUserText(array $messages): ?string
-    {
-        foreach (array_reverse($messages) as $message) {
-            if (($message['role'] ?? '') === 'user') {
-                return trim((string) ($message['content'] ?? ''));
-            }
-        }
-
-        return null;
-    }
-
     private function recordErrorMetric(
         Conversation $conversation,
         string $providerName,
@@ -195,14 +182,55 @@ class ConversationAiSuggestionService
     /**
      * @return array<int, array<string, string>>
      */
+    /**
+     * Fetch the raw message history without building context (used for early RAG query extraction).
+     *
+     * @return \Illuminate\Support\Collection<int, Message>
+     */
+    private function fetchRawHistory(Conversation $conversation, int $historyLimit): \Illuminate\Support\Collection
+    {
+        return Message::query()
+            ->where('conversation_id', (int) $conversation->id)
+            ->orderByDesc('id')
+            ->limit($historyLimit)
+            ->get(['id', 'direction', 'text', 'content_type'])
+            ->reverse()
+            ->values();
+    }
+
+    /**
+     * Extract the last user (direction=in) message text from raw history.
+     *
+     * @param  \Illuminate\Support\Collection<int, Message>  $history
+     */
+    private function extractLastUserTextFromHistory(\Illuminate\Support\Collection $history): ?string
+    {
+        foreach ($history->reverse() as $item) {
+            if (mb_strtolower(trim((string) ($item->direction ?? ''))) === 'in') {
+                $content = $this->normalizeContent($item);
+                if ($content !== '') {
+                    return $content;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, Message>|null  $preloadedHistory
+     * @return list<array{role: string, content: string}>
+     */
     private function buildContextMessages(
         Conversation $conversation,
         CompanyBotSetting $settings,
-        int $historyLimit
+        int $historyLimit,
+        ?string $ragQuery = null,
+        ?\Illuminate\Support\Collection $preloadedHistory = null
     ): array {
         $messages = [];
 
-        $systemPrompt = $this->buildSystemPrompt($conversation, $settings);
+        $systemPrompt = $this->buildSystemPrompt($conversation, $settings, $ragQuery);
         if ($systemPrompt !== '') {
             $messages[] = [
                 'role' => AiMessage::ROLE_SYSTEM,
@@ -210,13 +238,7 @@ class ConversationAiSuggestionService
             ];
         }
 
-        $history = Message::query()
-            ->where('conversation_id', (int) $conversation->id)
-            ->orderByDesc('id')
-            ->limit($historyLimit)
-            ->get(['id', 'direction', 'text', 'content_type'])
-            ->reverse()
-            ->values();
+        $history = $preloadedHistory ?? $this->fetchRawHistory($conversation, $historyLimit);
 
         foreach ($history as $item) {
             $role = $this->normalizeRole((string) ($item->direction ?? ''));
@@ -235,7 +257,7 @@ class ConversationAiSuggestionService
         return $messages;
     }
 
-    private function buildSystemPrompt(Conversation $conversation, CompanyBotSetting $settings): string
+    private function buildSystemPrompt(Conversation $conversation, CompanyBotSetting $settings, ?string $ragQuery = null): string
     {
         $sections = [];
 
@@ -272,7 +294,7 @@ class ConversationAiSuggestionService
             $sections[] = implode(PHP_EOL, $companyStyleLines);
         }
 
-        $knowledgePrompt = $this->buildKnowledgePrompt((int) $conversation->company_id);
+        $knowledgePrompt = $this->buildKnowledgePrompt((int) $conversation->company_id, $ragQuery);
         if ($knowledgePrompt !== '') {
             $sections[] = $knowledgePrompt;
         }
@@ -280,37 +302,33 @@ class ConversationAiSuggestionService
         return implode(PHP_EOL.PHP_EOL, $sections);
     }
 
-    private function buildKnowledgePrompt(int $companyId): string
+    private function buildKnowledgePrompt(int $companyId, ?string $query = null): string
     {
         if ($companyId <= 0) {
             return '';
         }
 
-        $knowledgeItems = AiCompanyKnowledge::query()
-            ->where('company_id', $companyId)
-            ->where('is_active', true)
-            ->orderByDesc('updated_at')
-            ->orderByDesc('id')
-            ->limit(3)
-            ->get(['title', 'content']);
+        $topK = (int) config('ai.rag.top_k', 3);
+        $chunks = $this->retrieverService->retrieve($companyId, $query, $topK);
 
-        if ($knowledgeItems->isEmpty()) {
+        if ($chunks === []) {
             return '';
         }
 
         $lines = ['Base de conhecimento da empresa:'];
+        $number = 1;
 
-        foreach ($knowledgeItems as $index => $item) {
-            $title = trim((string) ($item->title ?? ''));
-            $content = trim((string) ($item->content ?? ''));
+        foreach ($chunks as $chunk) {
+            $title = trim((string) ($chunk['title'] ?? ''));
+            $content = trim((string) ($chunk['content'] ?? ''));
 
             if ($content === '') {
                 continue;
             }
 
-            $number = $index + 1;
             $label = $title !== '' ? $title : 'Sem titulo';
             $lines[] = "{$number}. {$label}: {$content}";
+            $number++;
         }
 
         if (count($lines) === 1) {

@@ -287,6 +287,147 @@ export async function getInternalAiConversation({
   };
 }
 
+/**
+ * Stream the AI response using Server-Sent Events via fetch.
+ *
+ * Emits three types of events:
+ *  - onDelta(chunk: string)  — called for each text token as it arrives
+ *  - onDone({ userMessage, assistantMessage, conversation }) — called when the full response is persisted
+ *  - onError(message: string) — called on any error
+ *
+ * @param {AbortSignal|null} signal - optional AbortController signal to cancel the stream
+ */
+export async function streamInternalAiConversationMessage({
+  conversationId,
+  content,
+  companyId = null,
+  onDelta = null,
+  onDone = null,
+  onError = null,
+  signal = null,
+}) {
+  const normalizedConversationId = toPositiveInt(conversationId);
+  if (!normalizedConversationId) {
+    onError?.('Conversa invalida.');
+    return;
+  }
+
+  const normalizedContent = String(content ?? '').trim();
+  if (!normalizedContent) {
+    onError?.('Informe uma mensagem para continuar.');
+    return;
+  }
+
+  const baseUrl = import.meta.env.VITE_API_BASE ?? '/api';
+  const url = `${baseUrl}/minha-conta/ia/conversas/${normalizedConversationId}/mensagens/stream`;
+
+  const requestBody = { content: normalizedContent, text: normalizedContent };
+  const normalizedCompanyId = toPositiveInt(companyId);
+  if (normalizedCompanyId) {
+    requestBody.company_id = normalizedCompanyId;
+  }
+
+  const headers = {
+    'Content-Type': 'application/json',
+    Accept: 'text/event-stream',
+    'X-Requested-With': 'XMLHttpRequest',
+  };
+
+  // Include Laravel's CSRF token (stored in XSRF-TOKEN cookie by Sanctum)
+  const xsrfToken = readXsrfToken();
+  if (xsrfToken) {
+    headers['X-XSRF-TOKEN'] = xsrfToken;
+  }
+
+  let response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      credentials: 'include',
+      headers,
+      body: JSON.stringify(requestBody),
+      signal,
+    });
+  } catch (fetchError) {
+    if (fetchError?.name === 'AbortError') return;
+    onError?.('Nao foi possivel conectar ao servidor. Tente novamente.');
+    return;
+  }
+
+  if (!response.ok) {
+    let message = 'Nao foi possivel iniciar o streaming de resposta.';
+    try {
+      const json = await response.json();
+      if (json?.message) message = String(json.message);
+    } catch {
+      // ignore parse errors
+    }
+    onError?.(message);
+    return;
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) {
+    onError?.('Streaming nao suportado neste navegador. Use um navegador moderno.');
+    return;
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  try {
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+
+      // SSE events are separated by "\n\n"
+      const parts = buffer.split('\n\n');
+      buffer = parts.pop() ?? '';
+
+      for (const block of parts) {
+        const dataLine = block.split('\n').find((line) => line.startsWith('data: '));
+        if (!dataLine) continue;
+
+        let parsed;
+        try {
+          parsed = JSON.parse(dataLine.slice(6));
+        } catch {
+          continue;
+        }
+
+        if (parsed.type === 'delta') {
+          onDelta?.(String(parsed.content ?? ''));
+        } else if (parsed.type === 'done') {
+          const userMessage = normalizeInternalAiMessage(pickObject(parsed.user_message));
+          const assistantMessage = normalizeInternalAiMessage(pickObject(parsed.assistant_message));
+          const conversation = normalizeInternalAiConversation(pickObject(parsed.conversation));
+          onDone?.({ userMessage, assistantMessage, conversation });
+        } else if (parsed.type === 'error') {
+          onError?.(String(parsed.message ?? 'Erro ao processar resposta da IA.'));
+        }
+      }
+    }
+  } catch (readError) {
+    if (readError?.name === 'AbortError') return;
+    onError?.('Conexao interrompida durante o streaming. Tente novamente.');
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+function readXsrfToken() {
+  const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+  if (!match) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return null;
+  }
+}
+
 export async function sendInternalAiConversationMessage({ conversationId, content, companyId = null }) {
   const normalizedConversationId = toPositiveInt(conversationId);
   if (!normalizedConversationId) {

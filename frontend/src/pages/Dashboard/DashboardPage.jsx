@@ -87,6 +87,11 @@ function DashboardPage() {
       description: 'Acompanhe conversas, etiquetas e transferências da equipe.',
     },
     {
+      href: '/minha-conta/agendamentos',
+      title: 'Agendamentos',
+      description: 'Veja horarios livres, registre bloqueios e crie agendamentos manuais.',
+    },
+    {
       href: '/minha-conta/chat-interno',
       title: 'Chat interno',
       description: 'Canal rápido para falar com administradores e colegas em tempo real.',
@@ -140,3 +145,4 @@ function DashboardPage() {
 }
 
 export default DashboardPage;
+

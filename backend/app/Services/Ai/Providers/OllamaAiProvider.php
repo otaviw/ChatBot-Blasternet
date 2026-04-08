@@ -2,10 +2,13 @@
 
 namespace App\Services\Ai\Providers;
 
+use GuzzleHttp\Client as GuzzleClient;
+use GuzzleHttp\Exception\ConnectException as GuzzleConnectException;
+use GuzzleHttp\Exception\RequestException as GuzzleRequestException;
 use Illuminate\Support\Facades\Http;
 use Throwable;
 
-class OllamaAiProvider implements AiProvider
+class OllamaAiProvider implements AiProvider, AiStreamingProvider
 {
     /**
      * @param  array<int, array<string, mixed>>  $messages
@@ -123,6 +126,166 @@ class OllamaAiProvider implements AiProvider
                     'total_tokens' => $totalTokens > 0 ? $totalTokens : null,
                 ],
                 'done_reason' => data_get($responseJson, 'done_reason'),
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $messages
+     * @param  array<string, mixed>  $options
+     * @param  callable(string):void  $onChunk
+     * @return array{
+     *     ok:bool,
+     *     text:?string,
+     *     error:mixed,
+     *     meta:array<string, mixed>|null
+     * }
+     */
+    public function streamReply(array $messages, array $options, callable $onChunk): array
+    {
+        $model = trim((string) ($options['model'] ?? config('ai.model', '')));
+        if ($model === '') {
+            return $this->errorResult('Modelo da IA nao configurado para o provider Ollama.', [
+                'provider' => 'ollama',
+            ]);
+        }
+
+        $baseUrl = rtrim((string) config('ai.providers.ollama.base_url', 'http://127.0.0.1:11434'), '/');
+        $chatPath = '/'.ltrim((string) config('ai.providers.ollama.chat_path', '/api/chat'), '/');
+        $url = $baseUrl.$chatPath;
+        $timeoutSeconds = $this->resolveTimeoutSeconds($options);
+
+        $payload = [
+            'model' => $model,
+            'stream' => true,
+            'messages' => $this->normalizeMessages($messages),
+        ];
+
+        $providerOptions = $this->resolveProviderOptions($options);
+        if ($providerOptions !== []) {
+            $payload['options'] = $providerOptions;
+        }
+
+        try {
+            $client = new GuzzleClient();
+            $response = $client->post($url, [
+                'json' => $payload,
+                'stream' => true,
+                'timeout' => $timeoutSeconds,
+                'connect_timeout' => min($timeoutSeconds, 10),
+            ]);
+        } catch (GuzzleConnectException $exception) {
+            return $this->errorResult(
+                "Falha ao conectar no Ollama em {$url}. Verifique se o servidor esta ativo.",
+                [
+                    'provider' => 'ollama',
+                    'model' => $model,
+                    'url' => $url,
+                    'exception' => $exception->getMessage(),
+                ]
+            );
+        } catch (GuzzleRequestException $exception) {
+            $exceptionMessage = trim($exception->getMessage());
+            $normalizedException = mb_strtolower($exceptionMessage);
+            $isTimeout = str_contains($normalizedException, 'timed out')
+                || str_contains($normalizedException, 'timeout');
+
+            $message = $isTimeout
+                ? "Ollama demorou mais que {$timeoutSeconds}s para responder. Aumente AI_REQUEST_TIMEOUT_MS e/ou reduza AI_MAX_RESPONSE_TOKENS."
+                : "Erro na requisicao ao Ollama em {$url}: {$exceptionMessage}";
+
+            return $this->errorResult($message, [
+                'provider' => 'ollama',
+                'model' => $model,
+                'url' => $url,
+                'exception' => $exceptionMessage,
+            ]);
+        } catch (Throwable $exception) {
+            return $this->errorResult(
+                "Erro inesperado ao conectar no Ollama em {$url}.",
+                [
+                    'provider' => 'ollama',
+                    'model' => $model,
+                    'url' => $url,
+                    'exception' => $exception->getMessage(),
+                ]
+            );
+        }
+
+        $body = $response->getBody();
+        $buffer = '';
+        $fullText = '';
+        $lastData = null;
+
+        while (! $body->eof()) {
+            $read = $body->read(4096);
+            if ($read === '' || $read === false) {
+                break;
+            }
+
+            $buffer .= $read;
+
+            while (($pos = strpos($buffer, "\n")) !== false) {
+                $line = trim(substr($buffer, 0, $pos));
+                $buffer = substr($buffer, $pos + 1);
+
+                if ($line === '') {
+                    continue;
+                }
+
+                $data = json_decode($line, true);
+                if (! is_array($data)) {
+                    continue;
+                }
+
+                $lastData = $data;
+                $chunk = (string) data_get($data, 'message.content', '');
+                if ($chunk !== '') {
+                    $fullText .= $chunk;
+                    $onChunk($chunk);
+                }
+            }
+        }
+
+        // Process any remaining buffer after stream ends
+        $remaining = trim($buffer);
+        if ($remaining !== '') {
+            $data = json_decode($remaining, true);
+            if (is_array($data)) {
+                $lastData = $data;
+                $chunk = (string) data_get($data, 'message.content', '');
+                if ($chunk !== '') {
+                    $fullText .= $chunk;
+                    $onChunk($chunk);
+                }
+            }
+        }
+
+        if ($fullText === '') {
+            return $this->errorResult('Ollama nao retornou conteudo de resposta.', [
+                'provider' => 'ollama',
+                'model' => $model,
+                'url' => $url,
+            ]);
+        }
+
+        $promptTokens = (int) data_get($lastData, 'prompt_eval_count', 0);
+        $completionTokens = (int) data_get($lastData, 'eval_count', 0);
+        $totalTokens = $promptTokens + $completionTokens;
+
+        return [
+            'ok' => true,
+            'text' => $fullText,
+            'error' => null,
+            'meta' => [
+                'provider' => 'ollama',
+                'model' => $model,
+                'usage' => [
+                    'prompt_tokens' => $promptTokens > 0 ? $promptTokens : null,
+                    'completion_tokens' => $completionTokens > 0 ? $completionTokens : null,
+                    'total_tokens' => $totalTokens > 0 ? $totalTokens : null,
+                ],
+                'done_reason' => data_get($lastData, 'done_reason'),
             ],
         ];
     }

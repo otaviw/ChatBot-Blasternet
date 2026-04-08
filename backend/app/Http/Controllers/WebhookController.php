@@ -8,6 +8,7 @@ use App\Models\MessageReaction;
 use App\Services\InboundMessageService;
 use App\Services\RealtimePublisher;
 use App\Support\MessageDeliveryStatus;
+use App\Support\PhoneNumberNormalizer;
 use App\Support\RealtimeEvents;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -583,7 +584,7 @@ class WebhookController extends Controller
 
     private function normalizePhone(string $phone): string
     {
-        return preg_replace('/\D/', '', $phone) ?? '';
+        return PhoneNumberNormalizer::normalizeBrazil($phone);
     }
 
     private function resolveMetaTimestamp(mixed $rawTimestamp): ?\Illuminate\Support\Carbon

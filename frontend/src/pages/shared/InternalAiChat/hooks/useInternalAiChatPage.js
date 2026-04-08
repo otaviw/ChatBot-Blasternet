@@ -3,7 +3,7 @@ import {
   createInternalAiConversation,
   getInternalAiConversation,
   listInternalAiConversations,
-  sendInternalAiConversationMessage,
+  streamInternalAiConversationMessage,
   sortInternalAiConversationsByActivity,
   upsertInternalAiConversationInList,
 } from '@/services/internalAiChatService';
@@ -34,6 +34,7 @@ export default function useInternalAiChatPage({ enabled, companyId = null }) {
   const [draftMessage, setDraftMessage] = useState('');
   const [sendBusy, setSendBusy] = useState(false);
   const [sendError, setSendError] = useState('');
+  const [streamingContent, setStreamingContent] = useState('');
 
   const [createBusy, setCreateBusy] = useState(false);
   const [createError, setCreateError] = useState('');
@@ -42,6 +43,7 @@ export default function useInternalAiChatPage({ enabled, companyId = null }) {
   const chatListRef = useRef(null);
   const shouldScrollToBottomRef = useRef(false);
   const wasChatNearBottomRef = useRef(true);
+  const streamAbortControllerRef = useRef(null);
 
   useEffect(() => {
     selectedConversationIdRef.current = selectedConversationId;
@@ -282,64 +284,74 @@ export default function useInternalAiChatPage({ enabled, companyId = null }) {
       return;
     }
 
+    // Cancel any previous in-flight stream
+    streamAbortControllerRef.current?.abort();
+    const abortController = new AbortController();
+    streamAbortControllerRef.current = abortController;
+
     setSendBusy(true);
     setSendError('');
+    setStreamingContent('');
+    setDraftMessage('');
+    shouldScrollToBottomRef.current = true;
+    wasChatNearBottomRef.current = true;
 
-    try {
-      const response = await sendInternalAiConversationMessage({
-        conversationId,
-        content,
-        companyId,
-      });
+    await streamInternalAiConversationMessage({
+      conversationId,
+      content,
+      companyId,
+      signal: abortController.signal,
 
-      setDraftMessage('');
-      shouldScrollToBottomRef.current = true;
-      wasChatNearBottomRef.current = true;
+      onDelta: (chunk) => {
+        setStreamingContent((previous) => previous + chunk);
+        if (wasChatNearBottomRef.current) {
+          shouldScrollToBottomRef.current = true;
+        }
+      },
 
-      if (response.conversation) {
-        setConversations((previous) =>
-          upsertInternalAiConversationInList(previous, response.conversation)
-        );
-      }
+      onDone: ({ userMessage, assistantMessage, conversation }) => {
+        setStreamingContent('');
 
-      setDetail((previous) => {
-        if (!previous || Number(previous.id) !== conversationId) {
-          return previous;
+        if (conversation) {
+          setConversations((previous) =>
+            upsertInternalAiConversationInList(previous, conversation)
+          );
         }
 
-        const nextMessages = mergeMessagesById(previous.messages ?? [], [
-          response.userMessage,
-          response.assistantMessage,
-        ]);
+        setDetail((previous) => {
+          if (!previous || Number(previous.id) !== conversationId) {
+            return previous;
+          }
 
-        return {
-          ...previous,
-          ...(response.conversation ?? {}),
-          messages: nextMessages,
-          last_message: response.assistantMessage ?? response.conversation?.last_message ?? null,
-          last_message_at:
-            response.assistantMessage?.created_at ??
-            response.conversation?.last_message_at ??
-            previous.last_message_at,
-        };
-      });
-    } catch (requestError) {
-      const status = toStatusCode(requestError);
-      if (status === 404) {
-        removeConversationFromList(conversationId);
-      }
+          const nextMessages = mergeMessagesById(previous.messages ?? [], [
+            userMessage,
+            assistantMessage,
+          ]);
 
-      setSendError(
-        parseRequestErrorMessage(requestError, {
-          fallback422: 'Nao foi possivel enviar a mensagem para IA.',
-          fallback404: 'Conversa nao encontrada para seu usuario.',
-          fallbackUnexpected: 'Falha ao enviar mensagem.',
-        })
-      );
-    } finally {
-      setSendBusy(false);
-    }
-  }, [draftMessage, removeConversationFromList, sendBusy]);
+          return {
+            ...previous,
+            ...(conversation ?? {}),
+            messages: nextMessages,
+            last_message: assistantMessage ?? conversation?.last_message ?? null,
+            last_message_at:
+              assistantMessage?.created_at ??
+              conversation?.last_message_at ??
+              previous.last_message_at,
+          };
+        });
+
+        shouldScrollToBottomRef.current = true;
+        wasChatNearBottomRef.current = true;
+        setSendBusy(false);
+      },
+
+      onError: (message) => {
+        setStreamingContent('');
+        setSendError(message ?? 'Falha ao enviar mensagem.');
+        setSendBusy(false);
+      },
+    });
+  }, [draftMessage, removeConversationFromList, sendBusy, companyId]);
 
   const createConversation = useCallback(async () => {
     if (!enabled || createBusy) {
@@ -379,13 +391,22 @@ export default function useInternalAiChatPage({ enabled, companyId = null }) {
     wasChatNearBottomRef.current = remaining <= 72;
   }, []);
 
+  // Abort any in-flight stream when the hook unmounts
+  useEffect(() => {
+    return () => {
+      streamAbortControllerRef.current?.abort();
+    };
+  }, []);
+
   useEffect(() => {
     if (!enabled) {
+      streamAbortControllerRef.current?.abort();
       setConversations([]);
       setConversationsPagination(null);
       clearConversationSelection();
       setConversationsError('');
       setCreateError('');
+      setStreamingContent('');
       return;
     }
 
@@ -454,6 +475,7 @@ export default function useInternalAiChatPage({ enabled, companyId = null }) {
     sendError,
     sendMessage,
     setDraftMessage,
+    streamingContent,
     handleChatScroll,
   };
 }

@@ -29,6 +29,9 @@ const CompanyKnowledgeBasePage = lazy(
   () => import('@/pages/company/CompanyKnowledgeBase/CompanyKnowledgeBasePage.jsx')
 );
 const CompanyUsersPage = lazy(() => import('@/pages/company/CompanyUsers/CompanyUsersPage.jsx'));
+const CompanyAppointmentsPage = lazy(
+  () => import('@/pages/company/CompanyAppointments/CompanyAppointmentsPage.jsx')
+);
 const AiSettingsPage = lazy(() => import('@/pages/company/AiSettings/AiSettingsPage.jsx'));
 const CompanyAiAnalyticsPage = lazy(
   () => import('@/pages/company/CompanyAiAnalytics/CompanyAiAnalyticsPage.jsx')
@@ -110,6 +113,7 @@ function AppRoutes() {
         <Route path="/minha-conta/base-conhecimento" element={<AiManagementRoute><CompanyKnowledgeBasePage /></AiManagementRoute>} />
         <Route path="/minha-conta/respostas-rapidas" element={<CompanyQuickRepliesPage />} />
         <Route path="/minha-conta/usuarios" element={<CompanyUsersPage />} />
+        <Route path="/minha-conta/agendamentos" element={<CompanyAppointmentsPage />} />
         <Route path="/minha-conta/suporte/solicitacoes" element={<CompanySupportTicketPage />} />
         <Route
           path="/minha-conta/suporte/solicitacoes/:ticketId"

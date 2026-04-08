@@ -16,6 +16,7 @@ function UserFormFields({
   onToggleArea,
   areaEmptyMessage = 'Nenhuma area disponivel.',
   showAiPermissionField = false,
+  showAppointmentFields = false,
 }) {
   const updateForm = (patch) => {
     setForm((prev) => ({ ...prev, ...patch }));
@@ -32,6 +33,17 @@ function UserFormFields({
           required
         />
       </Field>
+
+      {showAppointmentFields && (
+        <Field label="Nome exibido no agendamento">
+          <TextInput
+            type="text"
+            placeholder="Ex.: Dra. Ana / Joao - Suporte"
+            value={form.appointment_display_name ?? ''}
+            onChange={(event) => updateForm({ appointment_display_name: event.target.value })}
+          />
+        </Field>
+      )}
 
       <Field label="E-mail">
         <TextInput
@@ -72,6 +84,15 @@ function UserFormFields({
           ))}
         </SelectInput>
       </Field>
+
+      {showAppointmentFields && (
+        <CheckboxField
+          checked={Boolean(form.appointment_is_staff)}
+          onChange={(event) => updateForm({ appointment_is_staff: event.target.checked })}
+        >
+          Pode atender agendamentos
+        </CheckboxField>
+      )}
 
       {showCompanyField && (
         <Field label="Empresa">

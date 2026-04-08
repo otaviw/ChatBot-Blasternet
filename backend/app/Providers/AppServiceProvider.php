@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\AiCompanyKnowledge;
 use App\Models\CompanyBotSetting;
 use App\Models\Area;
 use App\Models\ChatConversation;
@@ -12,6 +13,7 @@ use App\Models\Message;
 use App\Models\Notification;
 use App\Models\SupportTicket;
 use App\Models\SupportTicketMessage;
+use App\Observers\AiCompanyKnowledgeObserver;
 use App\Observers\ChatMessageObserver;
 use App\Observers\CompanyBotSettingObserver;
 use App\Observers\ConversationTransferObserver;
@@ -24,6 +26,7 @@ use App\Policies\ChatPolicy;
 use App\Policies\ConversationPolicy;
 use App\Services\Ai\AiProviderResolver;
 use App\Services\Ai\Providers\AiProvider;
+use Carbon\Carbon;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -50,8 +53,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Carbon::setLocale('pt_BR');
+
         Gate::policy(Area::class, AreaPolicy::class);
         Gate::policy(Conversation::class, ConversationPolicy::class);
+        AiCompanyKnowledge::observe(AiCompanyKnowledgeObserver::class);
         Message::observe(MessageObserver::class);
         CompanyBotSetting::observe(CompanyBotSettingObserver::class);
         ConversationTransfer::observe(ConversationTransferObserver::class);

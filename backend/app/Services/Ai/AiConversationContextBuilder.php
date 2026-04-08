@@ -5,23 +5,28 @@ namespace App\Services\Ai;
 use App\Models\AiConversation;
 use App\Models\AiMessage;
 use App\Models\CompanyBotSetting;
+use App\Services\Ai\Rag\AiKnowledgeRetrieverService;
 use App\Services\Ai\Tools\AiToolManager;
 
 class AiConversationContextBuilder
 {
     public function __construct(
         private readonly AiCompanyKnowledgeService $knowledgeService,
-        private readonly AiToolManager $toolManager
+        private readonly AiToolManager $toolManager,
+        private readonly AiKnowledgeRetrieverService $retrieverService
     ) {}
 
     /**
+     * @param  string|null  $currentQuery  The user's current message — used for RAG retrieval.
+     *                                     When null, falls back to static (recency-ordered) knowledge.
      * @return array<int, array<string, string>>
      */
     public function build(
         AiConversation $conversation,
         ?string $systemPrompt = null,
         ?int $historyLimit = null,
-        ?CompanyBotSetting $companySettings = null
+        ?CompanyBotSetting $companySettings = null,
+        ?string $currentQuery = null
     ): array {
         $messages = [];
         $limit = $this->resolveHistoryLimit($historyLimit, $companySettings);
@@ -43,7 +48,7 @@ class AiConversationContextBuilder
             ];
         }
 
-        $knowledgePrompt = $this->buildKnowledgePrompt((int) $conversation->company_id);
+        $knowledgePrompt = $this->buildKnowledgePrompt((int) $conversation->company_id, $currentQuery);
         if ($knowledgePrompt !== '') {
             $messages[] = [
                 'role' => AiMessage::ROLE_SYSTEM,
@@ -139,19 +144,24 @@ class AiConversationContextBuilder
         return implode(PHP_EOL.PHP_EOL, $sections);
     }
 
-    private function buildKnowledgePrompt(int $companyId): string
+    private function buildKnowledgePrompt(int $companyId, ?string $query = null): string
     {
-        $knowledgeItems = $this->knowledgeService->getActiveForCompany($companyId, 5);
+        $ragEnabled = (bool) config('ai.rag.enabled', false);
+        // When RAG is disabled preserve original static behaviour (top-5 by recency).
+        // When RAG is enabled use the configured top_k (default 3, fewer and more targeted).
+        $topK = $ragEnabled ? (int) config('ai.rag.top_k', 3) : 5;
 
-        if ($knowledgeItems->isEmpty()) {
+        $chunks = $this->retrieverService->retrieve($companyId, $query, $topK);
+
+        if ($chunks === []) {
             return '';
         }
 
         $lines = ['Informacoes da empresa:'];
 
-        foreach ($knowledgeItems as $item) {
-            $title = trim((string) $item->title);
-            $content = trim((string) $item->content);
+        foreach ($chunks as $chunk) {
+            $title = trim((string) ($chunk['title'] ?? ''));
+            $content = trim((string) ($chunk['content'] ?? ''));
 
             if ($content === '') {
                 continue;

@@ -103,7 +103,7 @@ class InternalAiChatService
 
         $this->touchLastMessageAt($targetConversation, $userMessage);
 
-        $contextMessages = $this->contextBuilder->build($targetConversation, $systemPrompt, null, $settings);
+        $contextMessages = $this->contextBuilder->build($targetConversation, $systemPrompt, null, $settings, $normalizedContent);
         $contextMessages = $this->safetyPipeline->redactContextMessages($contextMessages);
         $provider = $this->providerResolver->resolve($providerName);
         $providerOptions = [

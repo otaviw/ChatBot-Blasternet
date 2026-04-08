@@ -5,7 +5,8 @@ function makeId(prefix = 'id') {
 }
 
 function toActionEditor(action) {
-  const kind = action?.kind === 'handoff' ? 'handoff' : 'go_to';
+  const rawKind = action?.kind;
+  const kind = rawKind === 'handoff' || rawKind === 'appointments_start' ? rawKind : 'go_to';
 
   return {
     id: makeId('action'),
@@ -161,7 +162,8 @@ function statefulMenuFlowToEditor(flow, welcomeMessage = 'Ola! O que voce precis
 }
 
 function fromActionEditor(action) {
-  const kind = action?.kind === 'handoff' ? 'handoff' : 'go_to';
+  const rawKind = action?.kind;
+  const kind = rawKind === 'handoff' || rawKind === 'appointments_start' ? rawKind : 'go_to';
   const payload = { kind };
 
   const reply = String(action?.reply_text ?? '').trim();
@@ -169,7 +171,7 @@ function fromActionEditor(action) {
     payload.reply_text = reply;
   }
 
-  if (kind === 'handoff') {
+  if (kind === 'handoff' || kind === 'appointments_start') {
     payload.target_area_name = String(action?.target_area_name ?? '').trim();
   } else {
     payload.flow = String(action?.flow ?? '').trim();
@@ -241,7 +243,13 @@ function editorToStatefulMenuFlow(editor) {
 
 function validateAction(action, stepLabel) {
   const errors = [];
-  const kind = action?.kind === 'handoff' ? 'handoff' : 'go_to';
+  const rawKind = action?.kind;
+  const kind = rawKind === 'handoff' || rawKind === 'appointments_start' ? rawKind : 'go_to';
+
+  if (kind === 'appointments_start') {
+    // Não requer campos extras além do target_area_name (que tem padrão)
+    return errors;
+  }
 
   if (kind === 'handoff') {
     const target = String(action?.target_area_name ?? '').trim();

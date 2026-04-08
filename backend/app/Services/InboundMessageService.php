@@ -15,6 +15,7 @@ use App\Support\ConversationAssignedType;
 use App\Support\ConversationHandlingMode;
 use App\Support\ConversationStatus;
 use App\Support\MessageDeliveryStatus;
+use App\Support\PhoneNumberNormalizer;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -374,7 +375,7 @@ class InboundMessageService
 
     private function normalizePhone(string $phone): string
     {
-        return preg_replace('/\D/', '', $phone) ?? '';
+        return PhoneNumberNormalizer::normalizeBrazil($phone);
     }
 
     /**
@@ -411,21 +412,32 @@ class InboundMessageService
             $this->conversationInactivityService->closeInactiveConversations((int) $company->id);
         }
 
-        $conversation = Conversation::firstOrCreate(
-            [
-                'company_id' => $company?->id,
+        $companyId = (int) ($company?->id ?? 0);
+        $variants = PhoneNumberNormalizer::variantsForLookup($normalizedFrom);
+
+        $conversation = Conversation::query()
+            ->where('company_id', $companyId)
+            ->whereIn('customer_phone', $variants !== [] ? $variants : [$normalizedFrom])
+            ->orderByDesc('id')
+            ->first();
+
+        if (! $conversation) {
+            $conversation = Conversation::create([
+                'company_id' => $companyId,
                 'customer_phone' => $normalizedFrom,
-            ],
-            [
                 'status' => ConversationStatus::OPEN,
                 'assigned_type' => ConversationAssignedType::UNASSIGNED,
                 'handling_mode' => ConversationHandlingMode::BOT,
                 'customer_name' => $normalizedContactName,
-            ]
-        );
+            ]);
+        }
 
         if ($normalizedContactName !== null && $conversation->customer_name !== $normalizedContactName) {
             $conversation->customer_name = $normalizedContactName;
+        }
+
+        if ($conversation->customer_phone !== $normalizedFrom) {
+            $conversation->customer_phone = $normalizedFrom;
         }
 
         if ($conversation->status === ConversationStatus::CLOSED) {
@@ -571,4 +583,3 @@ class InboundMessageService
         }
     }
 }
-

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Company\BotController;
+use App\Http\Controllers\Company\AppointmentController;
 use App\Http\Controllers\Company\AiCompanyKnowledgeController;
 use App\Http\Controllers\Company\AiConversationController;
 use App\Http\Controllers\Company\AiAnalyticsController;
@@ -58,6 +59,37 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::put('/users/{user}', [CompanyUserController::class, 'update'])->middleware('throttle:bot-write');
         Route::delete('/users/{user}', [CompanyUserController::class, 'destroy'])->middleware('throttle:bot-write');
 
+        Route::get('/agendamentos/configuracoes', [AppointmentController::class, 'settings'])
+            ->middleware('throttle:inbox-read');
+        Route::put('/agendamentos/configuracoes', [AppointmentController::class, 'updateSettings'])
+            ->middleware('throttle:bot-write');
+        Route::get('/agendamentos/servicos', [AppointmentController::class, 'listServices'])
+            ->middleware('throttle:inbox-read');
+        Route::post('/agendamentos/servicos', [AppointmentController::class, 'createService'])
+            ->middleware('throttle:bot-write');
+        Route::put('/agendamentos/servicos/{service}', [AppointmentController::class, 'updateService'])
+            ->middleware('throttle:bot-write');
+        Route::delete('/agendamentos/servicos/{service}', [AppointmentController::class, 'disableService'])
+            ->middleware('throttle:bot-write');
+        Route::get('/agendamentos/atendentes', [AppointmentController::class, 'listStaff'])
+            ->middleware('throttle:inbox-read');
+        Route::put('/agendamentos/atendentes/{staffProfile}', [AppointmentController::class, 'updateStaff'])
+            ->middleware('throttle:bot-write');
+        Route::put('/agendamentos/atendentes/{staffProfile}/jornada', [AppointmentController::class, 'replaceWorkingHours'])
+            ->middleware('throttle:bot-write');
+        Route::get('/agendamentos/bloqueios', [AppointmentController::class, 'listTimeOffs'])
+            ->middleware('throttle:inbox-read');
+        Route::post('/agendamentos/bloqueios', [AppointmentController::class, 'createTimeOff'])
+            ->middleware('throttle:bot-write');
+        Route::delete('/agendamentos/bloqueios/{timeOff}', [AppointmentController::class, 'deleteTimeOff'])
+            ->middleware('throttle:bot-write');
+        Route::get('/agendamentos/disponibilidade', [AppointmentController::class, 'availability'])
+            ->middleware('throttle:inbox-read');
+        Route::get('/agendamentos', [AppointmentController::class, 'listAppointments'])
+            ->middleware('throttle:inbox-read');
+        Route::post('/agendamentos', [AppointmentController::class, 'createAppointment'])
+            ->middleware('throttle:bot-write');
+
         Route::get('/ia/conversas', [AiConversationController::class, 'index'])
             ->middleware('throttle:inbox-read');
         Route::get('/ia/analytics', [AiAnalyticsController::class, 'index'])
@@ -73,6 +105,8 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::get('/ia/conversas/{conversationId}', [AiConversationController::class, 'show'])
             ->middleware('throttle:inbox-read');
         Route::post('/ia/conversas/{conversationId}/mensagens', [AiConversationController::class, 'sendMessage'])
+            ->middleware('throttle:bot-write');
+        Route::post('/ia/conversas/{conversationId}/mensagens/stream', [AiConversationController::class, 'streamMessage'])
             ->middleware('throttle:bot-write');
     });
 });

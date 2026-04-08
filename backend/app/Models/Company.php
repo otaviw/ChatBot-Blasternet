@@ -98,4 +98,24 @@ class Company extends Model
     {
         return $this->hasMany(AiCompanyKnowledge::class);
     }
+
+    public function appointmentSetting()
+    {
+        return $this->hasOne(AppointmentSetting::class);
+    }
+
+    public function appointmentServices()
+    {
+        return $this->hasMany(AppointmentService::class);
+    }
+
+    public function appointmentStaffProfiles()
+    {
+        return $this->hasMany(AppointmentStaffProfile::class);
+    }
+
+    public function appointments()
+    {
+        return $this->hasMany(Appointment::class)->latest('starts_at');
+    }
 }

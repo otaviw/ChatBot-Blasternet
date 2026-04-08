@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Company;
 
 use App\Http\Controllers\Controller;
 use App\Models\Area;
+use App\Models\AppointmentStaffProfile;
 use App\Models\User;
 use App\Services\AuditLogService;
 use Illuminate\Http\JsonResponse;
@@ -47,7 +48,7 @@ class UserController extends Controller
         $users = User::query()
             ->where('company_id', $companyId)
             ->whereIn('role', User::companyRoleValues())
-            ->with(['company:id,name', 'areas:id,name,company_id'])
+            ->with(['company:id,name', 'areas:id,name,company_id', 'appointmentStaffProfile'])
             ->orderBy('name')
             ->get(['id', 'name', 'email', 'role', 'company_id', 'is_active', 'can_use_ai', 'disabled_at', 'created_at']);
 
@@ -92,6 +93,8 @@ class UserController extends Controller
             'area_ids.*' => ['integer', 'exists:areas,id'],
             'areas' => ['sometimes', 'array', 'max:50'],
             'areas.*' => ['string', 'max:120'],
+            'appointment_is_staff' => ['sometimes', 'boolean'],
+            'appointment_display_name' => ['nullable', 'string', 'max:120'],
         ]);
 
         $companyId = (int) $actor->company_id;
@@ -112,7 +115,8 @@ class UserController extends Controller
         ]);
 
         $user->areas()->sync($areaIds);
-        $user->load(['company:id,name', 'areas:id,name,company_id']);
+        $this->syncAppointmentProfile($companyId, $user, $validated);
+        $user->load(['company:id,name', 'areas:id,name,company_id', 'appointmentStaffProfile']);
 
         $this->auditLog->record($request, 'company.user.created', $companyId, [
             'user_id' => $user->id,
@@ -162,6 +166,8 @@ class UserController extends Controller
             'area_ids.*' => ['integer', 'exists:areas,id'],
             'areas' => ['sometimes', 'array', 'max:50'],
             'areas.*' => ['string', 'max:120'],
+            'appointment_is_staff' => ['sometimes', 'boolean'],
+            'appointment_display_name' => ['nullable', 'string', 'max:120'],
         ]);
 
         $normalizedRole = User::normalizeRole((string) $validated['role']);
@@ -191,7 +197,8 @@ class UserController extends Controller
         $user->save();
 
         $user->areas()->sync($areaIds);
-        $user->load(['company:id,name', 'areas:id,name,company_id']);
+        $this->syncAppointmentProfile($companyId, $user, $validated);
+        $user->load(['company:id,name', 'areas:id,name,company_id', 'appointmentStaffProfile']);
 
         $this->auditLog->record($request, 'company.user.updated', $companyId, [
             'user_id' => $user->id,
@@ -330,6 +337,8 @@ class UserController extends Controller
      */
     private function serializeUser(User $user): array
     {
+        $staffProfile = $user->appointmentStaffProfile;
+
         return [
             'id' => $user->id,
             'name' => $user->name,
@@ -351,6 +360,39 @@ class UserController extends Controller
                 'company_id' => $area->company_id,
             ])->values()->all(),
             'created_at' => $user->created_at,
+            'appointment_is_staff' => $staffProfile ? (bool) $staffProfile->is_bookable : true,
+            'appointment_display_name' => $staffProfile?->display_name,
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function syncAppointmentProfile(int $companyId, User $user, array $validated): void
+    {
+        if (! array_key_exists('appointment_is_staff', $validated) && ! array_key_exists('appointment_display_name', $validated)) {
+            return;
+        }
+
+        $profile = AppointmentStaffProfile::query()->firstOrCreate(
+            [
+                'company_id' => $companyId,
+                'user_id' => (int) $user->id,
+            ],
+            [
+                'display_name' => $user->name,
+                'is_bookable' => true,
+            ]
+        );
+
+        if (array_key_exists('appointment_is_staff', $validated)) {
+            $profile->is_bookable = (bool) $validated['appointment_is_staff'];
+        }
+        if (array_key_exists('appointment_display_name', $validated)) {
+            $text = trim((string) ($validated['appointment_display_name'] ?? ''));
+            $profile->display_name = $text !== '' ? $text : null;
+        }
+
+        $profile->save();
     }
 }

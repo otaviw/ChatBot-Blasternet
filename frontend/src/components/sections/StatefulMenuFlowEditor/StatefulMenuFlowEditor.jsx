@@ -31,6 +31,10 @@ function getActionSummary(action, stepOptions = []) {
     return 'Ação não configurada';
   }
 
+  if (action.kind === 'appointments_start') {
+    return 'Iniciar agendamento automático';
+  }
+
   if (action.kind === 'handoff') {
     return `Transferir para: ${action.target_area_name || 'área não definida'}`;
   }
@@ -77,6 +81,15 @@ function ActionEditor({
       return;
     }
 
+    if (value === 'appointments_start') {
+      onChange({
+        ...safeAction,
+        kind: 'appointments_start',
+        target_area_name: safeAction.target_area_name || 'Atendimento',
+      });
+      return;
+    }
+
     onChange({
       ...safeAction,
       kind: 'go_to',
@@ -115,6 +128,7 @@ function ActionEditor({
           >
             <option value="go_to">Abrir outro bloco</option>
             <option value="handoff">Transferir para uma área</option>
+            <option value="appointments_start">Iniciar agendamento automático</option>
           </select>
         </label>
 
@@ -130,7 +144,28 @@ function ActionEditor({
         </label>
       </div>
 
-      {safeAction.kind === 'handoff' ? (
+      {safeAction.kind === 'appointments_start' ? (
+        <div className="space-y-3">
+          <p className="stateful-editor-card-subtitle">
+            O cliente será encaminhado para o fluxo de agendamento automático. Configure o serviço e os horários em <strong>Agendamentos</strong>.
+          </p>
+          <label className="stateful-field">
+            <span className="stateful-field-label">Área de fallback (se não houver horários disponíveis)</span>
+            <select
+              value={safeAction.target_area_name || 'Atendimento'}
+              onChange={(e) => onChange({ ...safeAction, target_area_name: e.target.value })}
+              className="stateful-input"
+            >
+              <option value="Atendimento">Atendimento (padrão)</option>
+              {(serviceAreas ?? []).map((area) => (
+                <option key={String(area)} value={String(area)}>
+                  {String(area)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      ) : safeAction.kind === 'handoff' ? (
         <label className="stateful-field">
           <span className="stateful-field-label">Área de atendimento</span>
           <select

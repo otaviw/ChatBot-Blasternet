@@ -10,9 +10,13 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\SendInternalAiConversationMessageRequest;
 use App\Http\Requests\StoreInternalAiConversationRequest;
 use App\Models\User;
+use App\Services\Ai\InternalAiChatStreamService;
+use App\Services\Ai\InternalAiConversationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class AiConversationController extends Controller
 {
@@ -95,6 +99,98 @@ class AiConversationController extends Controller
         }
 
         return response()->json($payload);
+    }
+
+    /**
+     * SSE streaming endpoint for internal AI chat.
+     * Returns a text/event-stream response with delta / done / error events.
+     */
+    public function streamMessage(
+        SendInternalAiConversationMessageRequest $request,
+        int $conversationId,
+        InternalAiChatStreamService $streamService,
+        InternalAiConversationService $conversationService
+    ): JsonResponse|Response {
+        $user = $this->resolveAuthenticatedUser($request);
+        if (! $user) {
+            return $this->unauthenticatedResponse();
+        }
+
+        $companyId = $user->isSystemAdmin()
+            ? ((int) $request->input('company_id', 0) ?: null)
+            : null;
+
+        $conversation = $conversationService->findForUser($user, $conversationId, $companyId);
+        if (! $conversation) {
+            return response()->json(['message' => 'Conversa interna de IA nao encontrada.'], 404);
+        }
+
+        $content = (string) ($request->input('content') ?? $request->input('text') ?? '');
+
+        $controller = $this;
+
+        return response()->stream(
+            function () use ($user, $conversation, $content, $companyId, $streamService, $conversationService, $controller): void {
+                try {
+                    $result = $streamService->streamMessage(
+                        user: $user,
+                        content: $content,
+                        conversation: $conversation,
+                        onChunk: static function (string $chunk) use ($controller): void {
+                            echo 'data: '.json_encode(
+                                ['type' => 'delta', 'content' => $chunk],
+                                JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+                            )."\n\n";
+                            $controller->flushSseOutput();
+                        },
+                        companyId: $companyId
+                    );
+
+                    echo 'data: '.json_encode([
+                        'type' => 'done',
+                        'user_message' => $conversationService->serializeMessage($result['user_message']),
+                        'assistant_message' => $conversationService->serializeMessage($result['assistant_message']),
+                        'conversation' => $conversationService->serializeConversationSummary($result['conversation']),
+                        'provider' => $result['provider'],
+                        'model' => $result['model'],
+                    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)."\n\n";
+                    $controller->flushSseOutput();
+
+                } catch (ValidationException $exception) {
+                    $errors = $exception->errors();
+                    $message = collect($errors)->flatten()->first()
+                        ?? 'Nao foi possivel processar a mensagem.';
+
+                    echo 'data: '.json_encode(
+                        ['type' => 'error', 'message' => $message],
+                        JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+                    )."\n\n";
+                    $controller->flushSseOutput();
+
+                } catch (Throwable) {
+                    echo 'data: '.json_encode(
+                        ['type' => 'error', 'message' => 'Erro inesperado ao processar a mensagem.'],
+                        JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+                    )."\n\n";
+                    $controller->flushSseOutput();
+                }
+            },
+            200,
+            [
+                'Content-Type' => 'text/event-stream',
+                'Cache-Control' => 'no-cache, no-store',
+                'X-Accel-Buffering' => 'no',
+                'Connection' => 'keep-alive',
+            ]
+        );
+    }
+
+    public function flushSseOutput(): void
+    {
+        if (ob_get_level() > 0) {
+            ob_flush();
+        }
+        flush();
     }
 
     private function validationErrorResponse(ValidationException $exception, string $fallback): JsonResponse

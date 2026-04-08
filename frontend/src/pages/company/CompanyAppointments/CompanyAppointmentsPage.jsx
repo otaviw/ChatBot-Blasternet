@@ -1,0 +1,337 @@
+import { useEffect, useMemo, useState } from 'react';
+import './CompanyAppointmentsPage.css';
+import Layout from '@/components/layout/Layout/Layout.jsx';
+import usePageData from '@/hooks/usePageData';
+import useLogout from '@/hooks/useLogout';
+import {
+  createAppointment,
+  createAppointmentService,
+  createTimeOff,
+  deleteTimeOff,
+  fetchAppointmentAvailability,
+  fetchAppointments,
+  fetchAppointmentServices,
+  fetchAppointmentSettings,
+  fetchAppointmentStaff,
+  fetchTimeOffs,
+  replaceStaffWorkingHours,
+  updateAppointmentService,
+  updateAppointmentSettings,
+  unwrapError,
+} from '@/services/appointmentService';
+
+const DAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'];
+const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const parseYmd = (v) => new Date(`${v}T00:00:00`);
+const plusDays = (v, n) => { const d = parseYmd(v); d.setDate(d.getDate() + n); return ymd(d); };
+const weekStart = (v) => plusDays(v, -parseYmd(v).getDay());
+const weekEnd = (v) => plusDays(weekStart(v), 6);
+const monthStart = (v) => { const d = parseYmd(v); d.setDate(1); return ymd(d); };
+const monthEnd = (v) => { const d = parseYmd(v); d.setMonth(d.getMonth() + 1, 0); return ymd(d); };
+const fmtDt = (v) => (!v ? '-' : new Date(v).toLocaleString('pt-BR'));
+const fmtHm = (v) => (!v ? '--:--' : new Date(v).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+const fmtYmd = (v) => parseYmd(v).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+const toLocalInput = (v) => {
+  if (!v) return '';
+  const d = new Date(v); if (Number.isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+};
+const initHours = () => Array.from({ length: 7 }, (_, i) => ({ day_of_week: i, is_active: false, start_time: '09:00', break_start_time: '', break_end_time: '', end_time: '18:00' }));
+const mapHours = (s) => {
+  const base = initHours();
+  (s?.working_hours || []).forEach((h) => { const d = Number(h.day_of_week); if (d >= 0 && d <= 6) base[d] = { day_of_week: d, is_active: !!h.is_active, start_time: h.start_time || '09:00', break_start_time: h.break_start_time || '', break_end_time: h.break_end_time || '', end_time: h.end_time || '18:00' }; });
+  return base;
+};
+
+export default function CompanyAppointmentsPage() {
+  const { data, loading, error } = usePageData('/me');
+  const { logout } = useLogout();
+  const today = useMemo(() => ymd(new Date()), []);
+
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [errMsg, setErrMsg] = useState('');
+  const [settings, setSettings] = useState(null);
+  const [service, setService] = useState(null);
+  const [serviceForm, setServiceForm] = useState({ name: 'Atendimento', description: '', duration_minutes: 30, is_active: true });
+  const [staff, setStaff] = useState([]);
+  const [selectedStaffId, setSelectedStaffId] = useState('');
+  const [hoursStaffId, setHoursStaffId] = useState('');
+  const [hours, setHours] = useState(initHours);
+  const [availDate, setAvailDate] = useState(today);
+  const [availability, setAvailability] = useState([]);
+  const [timeOffs, setTimeOffs] = useState([]);
+  const [appointments, setAppointments] = useState([]);
+  const [calendarView, setCalendarView] = useState('week');
+  const [anchorDate, setAnchorDate] = useState(today);
+  const [newTimeOff, setNewTimeOff] = useState({ staff_profile_id: '', starts_at: '', ends_at: '', reason: '' });
+  const [newAppt, setNewAppt] = useState({ starts_at: '', customer_name: '', customer_phone: '' });
+
+  const canManage = !!(data?.user?.role === 'company_admin' || data?.user?.role === 'agent');
+  const serviceId = service?.id ? String(service.id) : '';
+
+  const calRange = useMemo(() => {
+    if (calendarView === 'month') {
+      const start = weekStart(monthStart(anchorDate));
+      const end = weekEnd(monthEnd(anchorDate));
+      return { start, end };
+    }
+    return { start: weekStart(anchorDate), end: weekEnd(anchorDate) };
+  }, [calendarView, anchorDate]);
+
+  const calDays = useMemo(() => {
+    const out = []; let c = calRange.start;
+    while (c <= calRange.end) { out.push(c); c = plusDays(c, 1); }
+    return out;
+  }, [calRange]);
+
+  const apptByDay = useMemo(() => {
+    const map = {};
+    appointments.forEach((a) => { const d = a?.starts_at ? ymd(new Date(a.starts_at)) : null; if (!d) return; if (!map[d]) map[d] = []; map[d].push(a); });
+    Object.keys(map).forEach((k) => map[k].sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()));
+    return map;
+  }, [appointments]);
+
+  const run = async (fn, fallback) => { setBusy(true); setErrMsg(''); try { await fn(); } catch (e) { setErrMsg(unwrapError(e, fallback)); } finally { setBusy(false); } };
+
+  const reloadBase = async () => run(async () => {
+    const [s1, s2, s3] = await Promise.all([fetchAppointmentSettings(), fetchAppointmentServices(), fetchAppointmentStaff()]);
+    const nextSettings = s1?.settings ?? null;
+    const nextService = (s2?.services || [])[0] || null;
+    const nextStaff = s3?.staff || [];
+    setSettings(nextSettings); setService(nextService); setStaff(nextStaff);
+    if (nextService) setServiceForm({ name: nextService.name || 'Atendimento', description: nextService.description || '', duration_minutes: Number(nextService.duration_minutes || 30), is_active: !!nextService.is_active });
+    if (!selectedStaffId && nextStaff[0]) setSelectedStaffId(String(nextStaff[0].id));
+    if (!hoursStaffId && nextStaff[0]) { setHoursStaffId(String(nextStaff[0].id)); setHours(mapHours(nextStaff[0])); }
+  }, 'Nao foi possivel carregar dados de agendamento.');
+
+  const reloadCalendar = async () => run(async () => {
+    const [a1, a2] = await Promise.all([
+      fetchAppointments({ date_from: calRange.start, date_to: calRange.end, staff_profile_id: selectedStaffId || undefined, per_page: 100 }),
+      fetchTimeOffs({ date_from: calRange.start, date_to: calRange.end, staff_profile_id: selectedStaffId || undefined }),
+    ]);
+    setAppointments(a1?.items || []); setTimeOffs(a2?.time_offs || []);
+  }, 'Nao foi possivel carregar calendario.');
+
+  const reloadAvailability = async () => {
+    if (!serviceId) { setAvailability([]); return; }
+    await run(async () => {
+      const r = await fetchAppointmentAvailability({ service_id: Number(serviceId), date: availDate, staff_profile_id: selectedStaffId || undefined });
+      setAvailability(r?.staff || []);
+    }, 'Nao foi possivel carregar horarios livres.');
+  };
+
+  useEffect(() => { if (data?.authenticated) void reloadBase(); }, [data?.authenticated]);
+  useEffect(() => { if (data?.authenticated) void reloadCalendar(); }, [data?.authenticated, calRange.start, calRange.end, selectedStaffId]);
+  useEffect(() => { if (data?.authenticated) void reloadAvailability(); }, [data?.authenticated, serviceId, availDate, selectedStaffId]);
+
+  const saveSettings = () => run(async () => {
+    const payload = { timezone: settings.timezone, slot_interval_minutes: Number(settings.slot_interval_minutes), booking_min_notice_minutes: Number(settings.booking_min_notice_minutes), booking_max_advance_days: Number(settings.booking_max_advance_days), cancellation_min_notice_minutes: Number(settings.cancellation_min_notice_minutes), reschedule_min_notice_minutes: Number(settings.reschedule_min_notice_minutes), allow_customer_choose_staff: !!settings.allow_customer_choose_staff };
+    const r = await updateAppointmentSettings(payload); setSettings(r?.settings || settings); setMsg('Configuracoes salvas.'); await reloadAvailability();
+  }, 'Falha ao salvar configuracoes.');
+
+  const saveService = (e) => run(async () => {
+    e.preventDefault(); const payload = { ...serviceForm, duration_minutes: Number(serviceForm.duration_minutes), buffer_before_minutes: 0, buffer_after_minutes: 0, max_bookings_per_slot: 1, is_active: !!serviceForm.is_active };
+    const r = service?.id ? await updateAppointmentService(service.id, payload) : await createAppointmentService(payload);
+    setService(r?.service || service); setMsg(service?.id ? 'Servico atualizado.' : 'Servico criado.'); await reloadAvailability();
+  }, 'Falha ao salvar servico.');
+
+  const saveHours = (e) => run(async () => {
+    e.preventDefault(); if (!hoursStaffId) throw new Error('Selecione um atendente.');
+    const payload = {
+      hours: hours.filter((h) => h.is_active).map((h) => ({
+        day_of_week: h.day_of_week,
+        start_time: h.start_time,
+        break_start_time: h.break_start_time || null,
+        break_end_time: h.break_end_time || null,
+        end_time: h.end_time,
+        is_active: true,
+      })),
+    };
+    const r = await replaceStaffWorkingHours(Number(hoursStaffId), payload); const updated = r?.staff;
+    if (updated) { setStaff((prev) => prev.map((x) => (String(x.id) === String(updated.id) ? updated : x))); setHours(mapHours(updated)); }
+    setMsg('Jornada atualizada.'); await reloadAvailability();
+  }, 'Falha ao salvar jornada.');
+
+  const addTimeOff = (e) => run(async () => {
+    e.preventDefault(); await createTimeOff({ staff_profile_id: newTimeOff.staff_profile_id ? Number(newTimeOff.staff_profile_id) : null, starts_at: newTimeOff.starts_at, ends_at: newTimeOff.ends_at, reason: newTimeOff.reason, source: 'manual' });
+    setNewTimeOff({ staff_profile_id: '', starts_at: '', ends_at: '', reason: '' }); setMsg('Bloqueio registrado.'); await Promise.all([reloadCalendar(), reloadAvailability()]);
+  }, 'Falha ao criar bloqueio.');
+
+  const removeTimeOff = (id) => run(async () => { await deleteTimeOff(Number(id)); setMsg('Bloqueio removido.'); await Promise.all([reloadCalendar(), reloadAvailability()]); }, 'Falha ao remover bloqueio.');
+
+  const addAppointment = (e) => run(async () => {
+    e.preventDefault();
+    if (!serviceId || !selectedStaffId) {
+      throw new Error('Selecione servico e atendente para criar agendamento.');
+    }
+    await createAppointment({ service_id: Number(serviceId), staff_profile_id: Number(selectedStaffId), starts_at: newAppt.starts_at, customer_name: newAppt.customer_name, customer_phone: newAppt.customer_phone, source: 'dashboard' });
+    setNewAppt({ starts_at: '', customer_name: '', customer_phone: '' }); setMsg('Agendamento criado.'); await Promise.all([reloadCalendar(), reloadAvailability()]);
+  }, 'Falha ao criar agendamento.');
+
+  if (loading) return <Layout role="company" onLogout={logout}><p className="text-sm text-[#64748b]">Carregando agenda...</p></Layout>;
+  if (error || !data?.authenticated) return <Layout><p className="text-sm text-red-600">Nao foi possivel carregar a agenda.</p></Layout>;
+  if (!canManage) return <Layout role="company" companyName={data?.user?.company_name} onLogout={logout}><p className="text-sm text-[#64748b]">Acesso restrito ao time da empresa.</p></Layout>;
+
+  return (
+    <Layout role="company" companyName={data?.user?.company_name} onLogout={logout}>
+      <section className="appointments-page">
+        <header className="appointments-header">
+          <h1 className="appointments-title">Agendamentos</h1>
+          <p className="appointments-subtitle">Servico unico, atendentes, horarios livres por dia e calendario semanal/mensal.</p>
+          <div className="appointments-filters"><label>Atendente (filtro geral)<select value={selectedStaffId} onChange={(e) => setSelectedStaffId(e.target.value)}><option value="">Todos</option>{staff.map((s) => <option key={s.id} value={String(s.id)}>{s.display_name || s.user_name}</option>)}</select></label></div>
+          {busy && <p className="appointments-note">Atualizando...</p>}
+          {msg && <p className="appointments-note appointments-note--ok">{msg}</p>}
+          {errMsg && <p className="appointments-note appointments-note--error">{errMsg}</p>}
+        </header>
+
+        <div className="appointments-grid">
+          <article className="appointments-card"><h2>Configuracoes</h2>{settings && <div className="appointments-form-grid">
+            <label>Fuso<input value={settings.timezone || ''} onChange={(e) => setSettings((p) => ({ ...p, timezone: e.target.value }))} /></label>
+            <label>Intervalo entre atendimentos (min)<input type="number" min="5" value={settings.slot_interval_minutes || 15} onChange={(e) => setSettings((p) => ({ ...p, slot_interval_minutes: Number(e.target.value) }))} /></label>
+            <label>Antecedencia minima (tempo minimo antes do horario, em minutos)<input type="number" min="0" value={settings.booking_min_notice_minutes || 0} onChange={(e) => setSettings((p) => ({ ...p, booking_min_notice_minutes: Number(e.target.value) }))} /></label>
+            <label>Maximo em dias (quantos dias no futuro pode marcar)<input type="number" min="0" value={settings.booking_max_advance_days || 0} onChange={(e) => setSettings((p) => ({ ...p, booking_max_advance_days: Number(e.target.value) }))} /></label>
+          </div>}<button type="button" className="appointments-btn" onClick={saveSettings}>Salvar configuracoes</button></article>
+
+          <article className="appointments-card"><h2>Servico (unico)</h2><p className="appointments-help">Duracao = tempo de atendimento. O intervalo entre horarios e configurado na jornada de cada dia.</p>
+            <form onSubmit={saveService} className="appointments-form-grid">
+              <label>Nome<input required value={serviceForm.name} onChange={(e) => setServiceForm((p) => ({ ...p, name: e.target.value }))} /></label>
+              <label>Duracao (min)<input required type="number" min="5" value={serviceForm.duration_minutes} onChange={(e) => setServiceForm((p) => ({ ...p, duration_minutes: Number(e.target.value) }))} /></label>
+              <label className="appointments-checkbox"><input type="checkbox" checked={!!serviceForm.is_active} onChange={(e) => setServiceForm((p) => ({ ...p, is_active: e.target.checked }))} />Ativo</label>
+              <button className="appointments-btn" type="submit">{service?.id ? 'Salvar servico' : 'Criar servico'}</button>
+            </form>
+            <p className="appointments-help">Para o bot mostrar "4 - Marcar agendamento", o servico precisa estar ativo e deve existir ao menos um usuario marcado como atendente na tela de Usuarios.</p>
+          </article>
+
+          <article className="appointments-card appointments-card--full"><h2>Jornada por atendente</h2>
+            <div className="appointments-inline"><label>Atendente<select value={hoursStaffId} onChange={(e) => { setHoursStaffId(e.target.value); const t = staff.find((x) => String(x.id) === e.target.value); setHours(mapHours(t)); }}><option value="">Selecione</option>{staff.map((s) => <option key={s.id} value={String(s.id)}>{s.display_name || s.user_name}</option>)}</select></label></div>
+            <form onSubmit={saveHours}>
+              <div className="appointments-hours-grid">
+                {hours.map((h, i) => (
+                  <div className="appointments-hour-row" key={h.day_of_week}>
+                    <label className="appointments-hour-day">
+                      <input
+                        type="checkbox"
+                        checked={!!h.is_active}
+                        onChange={(e) =>
+                          setHours((p) =>
+                            p.map((x, idx) => (idx === i ? { ...x, is_active: e.target.checked } : x))
+                          )
+                        }
+                      />
+                      {DAYS[h.day_of_week]}
+                    </label>
+
+                    <label className="appointments-hour-field">
+                      <span>Início</span>
+                      <input
+                        type="time"
+                        disabled={!h.is_active}
+                        value={h.start_time}
+                        onChange={(e) =>
+                          setHours((p) => p.map((x, idx) => (idx === i ? { ...x, start_time: e.target.value } : x)))
+                        }
+                      />
+                    </label>
+
+                    <label className="appointments-hour-field">
+                      <span>Pausa início</span>
+                      <input
+                        type="time"
+                        disabled={!h.is_active}
+                        value={h.break_start_time || ''}
+                        onChange={(e) =>
+                          setHours((p) =>
+                            p.map((x, idx) =>
+                              idx === i ? { ...x, break_start_time: e.target.value } : x
+                            )
+                          )
+                        }
+                      />
+                    </label>
+
+                    <label className="appointments-hour-field">
+                      <span>Pausa fim</span>
+                      <input
+                        type="time"
+                        disabled={!h.is_active}
+                        value={h.break_end_time || ''}
+                        onChange={(e) =>
+                          setHours((p) =>
+                            p.map((x, idx) =>
+                              idx === i ? { ...x, break_end_time: e.target.value } : x
+                            )
+                          )
+                        }
+                      />
+                    </label>
+
+                    <label className="appointments-hour-field">
+                      <span>Fim</span>
+                      <input
+                        type="time"
+                        disabled={!h.is_active}
+                        value={h.end_time}
+                        onChange={(e) =>
+                          setHours((p) => p.map((x, idx) => (idx === i ? { ...x, end_time: e.target.value } : x)))
+                        }
+                      />
+                    </label>
+                  </div>
+                ))}
+              </div>
+              <button className="appointments-btn" disabled={!hoursStaffId}>Salvar jornada</button>
+            </form>
+          </article>
+
+          <article className="appointments-card"><h2>Horarios livres</h2><div className="appointments-inline">
+            <button className="appointments-btn appointments-btn--light" type="button" onClick={() => setAvailDate((p) => plusDays(p, -1))}>Dia anterior</button><strong>{fmtYmd(availDate)}</strong>
+            <button className="appointments-btn appointments-btn--light" type="button" onClick={() => setAvailDate((p) => plusDays(p, 1))}>Proximo dia</button>
+          </div>{!serviceId && <p className="appointments-empty">Crie o servico para ver horarios.</p>}
+            <div className="appointments-availability-list">{availability.map((s) => <div className="appointments-availability-group" key={s.staff_profile_id}><h3>{s.staff_name}</h3>
+              {s.slots?.length ? <div className="appointments-slots">{s.slots.map((slot) => <button key={`${s.staff_profile_id}-${slot.starts_at}`} type="button" className="appointments-slot-btn" onClick={() => { setSelectedStaffId(String(s.staff_profile_id)); setNewAppt((p) => ({ ...p, starts_at: toLocalInput(slot.starts_at_local || slot.starts_at) })); }}>{fmtHm(slot.starts_at_local || slot.starts_at)}</button>)}</div> : <p className="appointments-empty">Sem horarios.</p>}
+            </div>)}</div>
+          </article>
+
+          <article className="appointments-card"><h2>Novo agendamento</h2><form onSubmit={addAppointment} className="appointments-form-grid">
+            <label>Data e hora<input required type="datetime-local" value={newAppt.starts_at} onChange={(e) => setNewAppt((p) => ({ ...p, starts_at: e.target.value }))} /></label>
+            <label>Cliente<input value={newAppt.customer_name} onChange={(e) => setNewAppt((p) => ({ ...p, customer_name: e.target.value }))} /></label>
+            <label>Telefone<input required value={newAppt.customer_phone} onChange={(e) => setNewAppt((p) => ({ ...p, customer_phone: e.target.value }))} /></label>
+            <button className="appointments-btn" type="submit">Criar agendamento</button></form>
+          </article>
+
+          <article className="appointments-card appointments-card--full"><h2>Bloqueio / folga</h2><form onSubmit={addTimeOff} className="appointments-form-grid">
+            <label>Atendente<select value={newTimeOff.staff_profile_id} onChange={(e) => setNewTimeOff((p) => ({ ...p, staff_profile_id: e.target.value }))}><option value="">Todos</option>{staff.map((s) => <option key={s.id} value={String(s.id)}>{s.display_name || s.user_name}</option>)}</select></label>
+            <label>Inicio<input required type="datetime-local" value={newTimeOff.starts_at} onChange={(e) => setNewTimeOff((p) => ({ ...p, starts_at: e.target.value }))} /></label>
+            <label>Fim<input required type="datetime-local" value={newTimeOff.ends_at} onChange={(e) => setNewTimeOff((p) => ({ ...p, ends_at: e.target.value }))} /></label>
+            <label>Motivo<input value={newTimeOff.reason} onChange={(e) => setNewTimeOff((p) => ({ ...p, reason: e.target.value }))} /></label>
+            <button className="appointments-btn" type="submit">Registrar bloqueio</button></form>
+          </article>
+
+          <article className="appointments-card appointments-card--full"><h2>Calendario</h2><div className="appointments-calendar-toolbar">
+            <div className="appointments-inline"><button type="button" className="appointments-btn appointments-btn--light" onClick={() => setAnchorDate((v) => calendarView === 'month' ? ymd(new Date(parseYmd(v).setMonth(parseYmd(v).getMonth() - 1))) : plusDays(v, -7))}>Anterior</button>
+              <button type="button" className="appointments-btn appointments-btn--light" onClick={() => setAnchorDate(today)}>Hoje</button>
+              <button type="button" className="appointments-btn appointments-btn--light" onClick={() => setAnchorDate((v) => calendarView === 'month' ? ymd(new Date(parseYmd(v).setMonth(parseYmd(v).getMonth() + 1))) : plusDays(v, 7))}>Proximo</button></div>
+            <div className="appointments-inline"><button type="button" className={`appointments-btn appointments-btn--light ${calendarView === 'week' ? 'is-active' : ''}`} onClick={() => setCalendarView('week')}>Semana</button><button type="button" className={`appointments-btn appointments-btn--light ${calendarView === 'month' ? 'is-active' : ''}`} onClick={() => setCalendarView('month')}>Mes</button></div>
+          </div>
+            <div className="appointments-calendar-grid">{calDays.map((d) => <div key={d} className={`appointments-calendar-cell ${calendarView === 'month' && d.slice(0, 7) !== anchorDate.slice(0, 7) ? 'is-muted' : ''}`}>
+              <div className="appointments-calendar-date">{fmtYmd(d)}</div>
+              {(apptByDay[d] || []).length === 0 && !(timeOffs || []).some((t) => (t.starts_at || '').slice(0, 10) <= d && (t.ends_at || '').slice(0, 10) >= d)
+                ? <p className="appointments-empty">Sem agendamentos</p>
+                : <div className="appointments-calendar-events">
+                    {(timeOffs || [])
+                      .filter((t) => (t.starts_at || '').slice(0, 10) <= d && (t.ends_at || '').slice(0, 10) >= d)
+                      .map((t) => <div key={`block-${t.id}-${d}`} className="appointments-calendar-block">Bloqueio: {t.staff_name || 'Todos'}{t.reason ? ` - ${t.reason}` : ''}</div>)}
+                    {(apptByDay[d] || []).map((a) => <button key={a.id} className="appointments-calendar-event" type="button" onClick={() => { setSelectedStaffId(String(a.staff_profile_id)); setNewAppt((p) => ({ ...p, starts_at: toLocalInput(a.starts_at) })); }}><strong>{fmtHm(a.starts_at)}</strong> {a.customer_name || 'Cliente'} ({a.staff_name || 'Atendente'})</button>)}
+                  </div>}
+            </div>)}</div>
+          </article>
+
+          <article className="appointments-card appointments-card--full"><h2>Bloqueios do periodo</h2>
+            {!timeOffs.length ? <p className="appointments-empty">Nenhum bloqueio.</p> : <ul className="appointments-block-list">{timeOffs.map((t) => <li key={t.id}><div><strong>{t.staff_name || 'Todos os atendentes'}</strong><p>{fmtDt(t.starts_at)} ate {fmtDt(t.ends_at)}</p><p>{t.reason || 'Sem motivo informado'}</p></div><button type="button" className="appointments-btn appointments-btn--danger" onClick={() => void removeTimeOff(t.id)}>Remover</button></li>)}</ul>}
+          </article>
+        </div>
+      </section>
+    </Layout>
+  );
+}

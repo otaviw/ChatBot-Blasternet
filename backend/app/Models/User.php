@@ -218,4 +218,14 @@ class User extends Authenticatable
             ->whereRaw('LOWER(areas.name) = ?', [$targetName])
             ->exists();
     }
+
+    public function appointmentStaffProfile()
+    {
+        return $this->hasOne(AppointmentStaffProfile::class, 'user_id');
+    }
+
+    public function createdAppointments()
+    {
+        return $this->hasMany(Appointment::class, 'created_by_user_id')->latest('id');
+    }
 }
