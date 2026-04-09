@@ -236,8 +236,8 @@ function CompanyKnowledgeBasePage() {
         {!sortedItems.length ? (
           <div className="p-6 text-sm text-[#64748b]">Nenhum conteúdo cadastrado ainda.</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
+          <div className="overflow-x-auto app-responsive-table-wrap">
+            <table className="min-w-full text-sm app-responsive-table">
               <thead className="bg-[#f8fafc]">
                 <tr className="text-left text-[#64748b] border-b border-[#e2e8f0]">
                   <th className="px-4 py-3 font-medium">Título</th>
@@ -249,10 +249,10 @@ function CompanyKnowledgeBasePage() {
               <tbody>
                 {sortedItems.map((item) => (
                   <tr key={item.id} className="border-b border-[#f1f5f9]">
-                    <td className="px-4 py-3 text-[#0f172a]">
+                    <td data-label="Título" className="px-4 py-3 text-[#0f172a]">
                       <p className="font-medium">{item.title || '-'}</p>
                     </td>
-                    <td className="px-4 py-3">
+                    <td data-label="Status" className="px-4 py-3">
                       <span
                         className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
                           item.is_active
@@ -263,8 +263,8 @@ function CompanyKnowledgeBasePage() {
                         {item.is_active ? 'Ativo' : 'Inativo'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-[#475569]">{formatDate(item.updated_at)}</td>
-                    <td className="px-4 py-3">
+                    <td data-label="Atualizado em" className="px-4 py-3 text-[#475569]">{formatDate(item.updated_at)}</td>
+                    <td data-label="Ações" className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <Button
                           variant="secondary"

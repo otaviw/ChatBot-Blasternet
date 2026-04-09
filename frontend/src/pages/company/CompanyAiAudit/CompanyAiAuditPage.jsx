@@ -200,8 +200,8 @@ function CompanyAiAuditPage() {
         {!items.length ? (
           <p className="p-6 text-sm text-[#64748b]">Nenhum log encontrado com os filtros aplicados.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
+          <div className="overflow-x-auto app-responsive-table-wrap">
+            <table className="min-w-full text-sm app-responsive-table">
               <thead className="bg-[#f8fafc]">
                 <tr className="border-b border-[#e2e8f0] text-left text-[#64748b]">
                   <th className="px-4 py-3 font-medium">Usuário</th>
@@ -217,18 +217,18 @@ function CompanyAiAuditPage() {
               <tbody>
                 {items.map((item) => (
                   <tr key={item.id} className="border-b border-[#f1f5f9] align-top">
-                    <td className="px-4 py-3 text-[#0f172a]">{item.user_name || '-'}</td>
-                    <td className="px-4 py-3 text-[#334155] max-w-[260px]">
+                    <td data-label="Usuário" className="px-4 py-3 text-[#0f172a]">{item.user_name || '-'}</td>
+                    <td data-label="Mensagem enviada" className="px-4 py-3 text-[#334155] max-w-[260px]">
                       <p className="line-clamp-3">{item.message || '-'}</p>
                     </td>
-                    <td className="px-4 py-3 text-[#334155] max-w-[260px]">
+                    <td data-label="Resposta da IA" className="px-4 py-3 text-[#334155] max-w-[260px]">
                       <p className="line-clamp-3">{item.assistant_response || '-'}</p>
                     </td>
-                    <td className="px-4 py-3 text-[#334155]">{item.tool_used || '-'}</td>
-                    <td className="px-4 py-3 text-[#334155]">
+                    <td data-label="Tool" className="px-4 py-3 text-[#334155]">{item.tool_used || '-'}</td>
+                    <td data-label="Tipo" className="px-4 py-3 text-[#334155]">
                       {item.type === 'tool' ? 'Tool' : 'Mensagem'}
                     </td>
-                    <td className="px-4 py-3">
+                    <td data-label="Status" className="px-4 py-3">
                       <span
                         className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
                           item.status === 'erro'
@@ -239,8 +239,8 @@ function CompanyAiAuditPage() {
                         {item.status === 'erro' ? 'Erro' : 'OK'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-[#334155]">{formatDateTime(item.created_at)}</td>
-                    <td className="px-4 py-3">
+                    <td data-label="Data/hora" className="px-4 py-3 text-[#334155]">{formatDateTime(item.created_at)}</td>
+                    <td data-label="Ação" className="px-4 py-3">
                       <Button
                         variant="secondary"
                         className="px-3 py-1.5 text-xs"
@@ -302,8 +302,8 @@ function CompanyAiAuditPage() {
                 <div>
                   <h3 className="text-sm font-semibold text-[#0f172a] mb-2">Contexto da conversa</h3>
                   {Array.isArray(detailItem.conversation_messages) && detailItem.conversation_messages.length ? (
-                    <div className="max-h-64 overflow-auto rounded-lg border border-[#e2e8f0]">
-                      <table className="min-w-full text-sm">
+                    <div className="max-h-64 overflow-auto rounded-lg border border-[#e2e8f0] app-responsive-table-wrap">
+                      <table className="min-w-full text-sm app-responsive-table">
                         <thead className="bg-[#f8fafc]">
                           <tr className="border-b border-[#e2e8f0] text-left text-[#64748b]">
                             <th className="px-3 py-2 font-medium">Papel</th>
@@ -314,9 +314,9 @@ function CompanyAiAuditPage() {
                         <tbody>
                           {detailItem.conversation_messages.map((message) => (
                             <tr key={message.id} className="border-b border-[#f1f5f9] align-top">
-                              <td className="px-3 py-2 text-[#334155]">{message.role}</td>
-                              <td className="px-3 py-2 text-[#0f172a] whitespace-pre-wrap">{message.content}</td>
-                              <td className="px-3 py-2 text-[#334155]">{formatDateTime(message.created_at)}</td>
+                              <td data-label="Papel" className="px-3 py-2 text-[#334155]">{message.role}</td>
+                              <td data-label="Conteúdo" className="px-3 py-2 text-[#0f172a] whitespace-pre-wrap">{message.content}</td>
+                              <td data-label="Data" className="px-3 py-2 text-[#334155]">{formatDateTime(message.created_at)}</td>
                             </tr>
                           ))}
                         </tbody>
