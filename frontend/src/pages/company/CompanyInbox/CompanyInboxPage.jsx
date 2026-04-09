@@ -203,7 +203,7 @@ function CompanyInboxPage() {
     return (
       <Layout>
         <p className="text-sm text-red-600 dark:text-red-400">
-          NÃ£o foi possÃ­vel carregar as conversas.
+          Não foi possível carregar as conversas.
         </p>
       </Layout>
     );
@@ -213,7 +213,7 @@ function CompanyInboxPage() {
     <Layout role="company" onLogout={logout} fullWidth>
       <div className="inbox-page">
         <div className={`inbox-header${selectedId ? ' inbox-header--hidden-mobile' : ''}`}>
-          <h1 className="inbox-title">Conversas da empresa â€” atendimento em tempo real</h1>
+          <h1 className="inbox-title">Conversas da empresa — atendimento em tempo real</h1>
         </div>
         <div className="inbox-layout">
           <ConversationsSidebar

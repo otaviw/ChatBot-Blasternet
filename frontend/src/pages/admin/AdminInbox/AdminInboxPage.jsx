@@ -42,7 +42,7 @@ function AdminInboxPage() {
         setConversations(response.data?.conversations ?? []);
         if (response.data?.privacy_mode) {
           setPrivacyMessage(
-            'Modo privacidade ativo: mensagens e dados pessoais do cliente nÃ£o sÃ£o exibidos para superadmin.'
+            'Modo privacidade ativo: mensagens e dados pessoais do cliente não são exibidos para superadmin.'
           );
         }
       })
@@ -71,7 +71,7 @@ function AdminInboxPage() {
       setDetail(conversation);
       if (response.data?.privacy_mode) {
         setPrivacyMessage(
-          'Modo privacidade ativo: detalhes sensÃ­veis e histÃ³rico de mensagens permanecem ocultos.'
+          'Modo privacidade ativo: detalhes sensíveis e histórico de mensagens permanecem ocultos.'
         );
       }
     } catch (err) {
@@ -98,7 +98,7 @@ function AdminInboxPage() {
   if (error || !data?.authenticated) {
     return (
       <Layout>
-        <p className="text-sm text-red-600 dark:text-red-400">NÃ£o foi possÃ­vel carregar a inbox.</p>
+        <p className="text-sm text-red-600 dark:text-red-400">Não foi possível carregar a inbox.</p>
       </Layout>
     );
   }
@@ -108,8 +108,8 @@ function AdminInboxPage() {
       <div className="inbox-page">
       <div className="inbox-header px-4 py-4 lg:px-6 shrink-0">
         <PageHeader
-          title="Conversas (administraÃ§Ã£o)"
-          subtitle="Acompanhe conversas por empresa, assuma atendimentos crÃ­ticos e responda com agilidade."
+          title="Conversas (administração)"
+          subtitle="Acompanhe conversas por empresa, assuma atendimentos críticos e responda com agilidade."
         />
       <div className="mb-4 max-w-sm mt-2">
         <label className="block text-sm">
@@ -192,7 +192,7 @@ function AdminInboxPage() {
             <InboxBackButton
               onClick={() => setSelectedId(null)}
               className="lg:hidden flex items-center gap-2 text-sm text-[#525252] hover:text-[#171717] mb-4"
-              label="Voltar Ã s conversas"
+              label="Voltar às conversas"
             />
           )}
           <h2 className="text-base font-semibold mb-3">Mensagens</h2>
@@ -223,8 +223,8 @@ function AdminInboxPage() {
                 <li>Tags: {detail.tags_count ?? 0}</li>
               </ul>
 
-              {/* Superadmin nÃ£o deve gerenciar contato do cliente a partir deste painel.
-                  Mantemos apenas metadados da conversa visÃ­veis. */}
+              {/* Superadmin não deve gerenciar contato do cliente a partir deste painel.
+                  Mantemos apenas metadados da conversa visíveis. */}
             </>
           )}
         </section>

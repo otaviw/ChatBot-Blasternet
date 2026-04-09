@@ -375,7 +375,7 @@ class BotFlowRegistry
                 'invalid_option_text' => null,
                 'options' => [
                     '1' => [
-                        'label' => 'Suporte tÃ©cnico',
+                        'label' => 'Suporte técnico',
                         'action' => [
                             'kind' => 'go_to',
                             'flow' => self::FLOW_SUPPORT,
@@ -415,11 +415,11 @@ class BotFlowRegistry
                         ],
                     ],
                     '2' => [
-                        'label' => 'Sem conexÃ£o',
+                        'label' => 'Sem conexão',
                         'action' => [
                             'kind' => 'handoff',
                             'target_area_name' => self::AREA_SUPPORT,
-                            'reply_text' => 'Entendi: sem conexÃ£o. Vou te encaminhar para o Suporte.',
+                            'reply_text' => 'Entendi: sem conexão. Vou te encaminhar para o Suporte.',
                         ],
                     ],
                     '3' => [

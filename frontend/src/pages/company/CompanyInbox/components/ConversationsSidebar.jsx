@@ -124,7 +124,7 @@ function ConversationsSidebar({
                   ) : null}
                   {conv.current_area?.name ? (
                     <span className="ml-2 inline-flex flex-wrap items-center gap-1">
-                      <span className="text-[#94a3b8]">Ã¡rea</span>
+                      <span className="text-[#94a3b8]">área</span>
                       <ServiceAreaBadge areaName={conv.current_area.name} serviceAreaNames={serviceAreaNames} />
                     </span>
                   ) : null}
@@ -140,7 +140,7 @@ function ConversationsSidebar({
       {conversationsPagination && conversationsPagination.last_page > 1 && (
         <div className="inbox-conversations-pagination">
           <span className="text-xs text-[#737373]">
-            PÃ¡g. {conversationsPagination.current_page} / {conversationsPagination.last_page}
+            Pág. {conversationsPagination.current_page} / {conversationsPagination.last_page}
           </span>
           <button
             type="button"
@@ -148,7 +148,7 @@ function ConversationsSidebar({
             disabled={conversationsPagination.current_page >= conversationsPagination.last_page}
             className="app-btn-secondary text-xs"
           >
-            PrÃ³xima
+            Próxima
           </button>
         </div>
       )}

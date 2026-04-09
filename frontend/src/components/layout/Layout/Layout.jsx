@@ -119,7 +119,7 @@ const iconKey = (label) => {
     IA: 'bot',
     'Configuracoes de IA': 'bot',
     'Configuracoes da IA': 'bot',
-    'ConfiguraÃ§Ãµes de IA': 'bot',
+    'Configurações de IA': 'bot',
     'Analytics IA': 'chatIa',
     'Auditoria IA': 'chatIa',
     'Chat interno': 'chatInterno',
@@ -388,7 +388,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
       return;
     }
     if (passwordNew !== passwordConfirm) {
-      setPasswordSaveError('A confirmaÃ§Ã£o da nova senha nÃ£o confere.');
+      setPasswordSaveError('A confirmação da nova senha não confere.');
       return;
     }
 
@@ -425,9 +425,9 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
 
   const adminMainLinks = useMemo(() => {
     const links = [
-      { href: '/dashboard', label: 'InÃ­cio', icon: 'dashboard', ariaLabel: 'Ir para o painel inicial' },
-      { href: '/admin/empresas', label: 'Empresas', icon: 'empresas', ariaLabel: 'Cadastro e gestÃ£o de empresas' },
-      { href: '/admin/usuarios', label: 'UsuÃ¡rios', icon: 'usuarios', ariaLabel: 'UsuÃ¡rios do sistema' },
+      { href: '/dashboard', label: 'Início', icon: 'dashboard', ariaLabel: 'Ir para o painel inicial' },
+      { href: '/admin/empresas', label: 'Empresas', icon: 'empresas', ariaLabel: 'Cadastro e gestão de empresas' },
+      { href: '/admin/usuarios', label: 'Usuários', icon: 'usuarios', ariaLabel: 'Usuários do sistema' },
       {
         href: '/admin/conversas',
         label: 'Conversas',
@@ -453,9 +453,9 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
       },
       {
         href: '/minha-conta/ia/configuracoes',
-        label: 'ConfiguraÃ§Ãµes de IA',
+        label: 'Configurações de IA',
         icon: 'bot',
-        ariaLabel: 'ConfiguraÃ§Ãµes de inteligÃªncia artificial',
+        ariaLabel: 'Configurações de inteligência artificial',
       },
       {
         href: '/minha-conta/ia/analytics',
@@ -467,7 +467,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
         href: '/minha-conta/ia/auditoria',
         label: 'Auditoria IA',
         icon: 'chatIa',
-        ariaLabel: 'Auditoria de aÃ§Ãµes da IA',
+        ariaLabel: 'Auditoria de ações da IA',
       },
       {
         href: '/minha-conta/base-conhecimento',
@@ -492,15 +492,15 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
       href: '/admin/suporte',
       label: 'Chamados',
       icon: 'chamados',
-      ariaLabel: 'SolicitaÃ§Ãµes de suporte',
+      ariaLabel: 'Solicitações de suporte',
       module: NOTIFICATION_MODULE.SUPPORT,
     },
-    { href: '/suporte', label: 'Novo chamado', icon: 'novoChamado', ariaLabel: 'Abrir nova solicitaÃ§Ã£o de suporte' },
+    { href: '/suporte', label: 'Novo chamado', icon: 'novoChamado', ariaLabel: 'Abrir nova solicitação de suporte' },
   ];
   
   const companyMainLinks = useMemo(() => {
     const links = [
-      { href: '/dashboard', label: 'InÃ­cio', icon: 'dashboard', ariaLabel: 'Ir para o painel inicial' },
+      { href: '/dashboard', label: 'Início', icon: 'dashboard', ariaLabel: 'Ir para o painel inicial' },
     ];
 
     if (userData?.role !== 'agent') {
@@ -508,7 +508,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
         href: '/minha-conta/bot',
         label: 'Bot',
         icon: 'bot',
-        ariaLabel: 'ConfiguraÃ§Ãµes do bot e atendimento',
+        ariaLabel: 'Configurações do bot e atendimento',
       });
     }
 
@@ -537,9 +537,9 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
 
     links.push({
       href: '/minha-conta/respostas-rapidas',
-      label: 'Respostas rÃ¡pidas',
+      label: 'Respostas rápidas',
       icon: 'respostas',
-      ariaLabel: 'Mensagens prontas para resposta rÃ¡pida',
+      ariaLabel: 'Mensagens prontas para resposta rápida',
     });
 
     if (userData?.role === 'system_admin') {
@@ -552,9 +552,9 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
         },
         {
           href: '/minha-conta/ia/configuracoes',
-          label: 'ConfiguraÃ§Ãµes de IA',
+          label: 'Configurações de IA',
           icon: 'bot',
-          ariaLabel: 'ConfiguraÃ§Ãµes de inteligÃªncia artificial',
+          ariaLabel: 'Configurações de inteligência artificial',
         },
         {
           href: '/minha-conta/ia/analytics',
@@ -566,7 +566,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
           href: '/minha-conta/ia/auditoria',
           label: 'Auditoria IA',
           icon: 'chatIa',
-          ariaLabel: 'Auditoria de aÃ§Ãµes da IA',
+          ariaLabel: 'Auditoria de ações da IA',
         },
         {
           href: '/minha-conta/base-conhecimento',
@@ -580,9 +580,9 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
     if (canManageUsers) {
       links.push({
         href: '/minha-conta/usuarios',
-        label: 'UsuÃ¡rios',
+        label: 'Usuários',
         icon: 'usuarios',
-        ariaLabel: 'UsuÃ¡rios da empresa',
+        ariaLabel: 'Usuários da empresa',
       });
     }
 
@@ -714,8 +714,8 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
                   type="button"
                   className={`layout-sidebar__accordion-trigger ${supportAccordionOpen || isAnySupportActive ? 'layout-sidebar__accordion-trigger--active' : ''}`}
                   onClick={() => setSupportAccordionOpen((v) => !v)}
-                  title="Ajuda e suporte â€” expandir ou recolher"
-                  aria-label="Ajuda e suporte â€” expandir ou recolher"
+                  title="Ajuda e suporte — expandir ou recolher"
+                  aria-label="Ajuda e suporte — expandir ou recolher"
                   aria-expanded={supportAccordionOpen}
                   aria-controls="sidebar-support-panel"
                 >
@@ -781,7 +781,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
             className={`layout-sidebar layout-sidebar--mobile ${sidebarMobileOpen ? 'layout-sidebar--mobile-open' : ''}`}
           >
             <div className="layout-sidebar__mobile-header">
-              <span className="layout-sidebar__mobile-title">NavegaÃ§Ã£o</span>
+              <span className="layout-sidebar__mobile-title">Navegação</span>
               <button
                 type="button"
                 className="layout-sidebar__mobile-close"
@@ -823,8 +823,8 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
                     type="button"
                     className={`layout-sidebar__accordion-trigger ${supportAccordionOpen || isAnySupportActive ? 'layout-sidebar__accordion-trigger--active' : ''}`}
                     onClick={() => setSupportAccordionOpen((v) => !v)}
-                    title="Ajuda e suporte â€” expandir ou recolher"
-                    aria-label="Ajuda e suporte â€” expandir ou recolher"
+                    title="Ajuda e suporte — expandir ou recolher"
+                    aria-label="Ajuda e suporte — expandir ou recolher"
                     aria-expanded={supportAccordionOpen}
                     aria-controls="sidebar-support-panel-mobile"
                   >
@@ -906,7 +906,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
               {role === 'admin' && (
                 <span
                   className="rounded-full bg-[#dbeafe] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#1d4ed8]"
-                  title="Ãrea do administrador"
+                  title="Área do administrador"
                 >
                   Administrador
                 </span>
@@ -921,14 +921,14 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
                   type="button"
                   className={`layout-header__btn ${notificationsPanelOpen ? 'layout-header__btn--active' : ''}`}
                   onClick={() => setNotificationsPanelOpen((v) => !v)}
-                  title="Notificacoes"
+                  title="Notificações"
                   aria-label="Abrir notificacoes"
                 >
                   {ICONS.notificacoes}
                   {totalUnreadCount > 0 && (
                     <span className="layout-header__badge">{totalUnreadCount > 99 ? '99+' : totalUnreadCount}</span>
                   )}
-                  <span className="layout-header__btn-label">NotificaÃ§Ãµes</span>
+                  <span className="layout-header__btn-label">Notificações</span>
                 </button>
               </div>
               <div className="layout-profile" ref={profileRef}>
@@ -945,7 +945,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
                 {profileOpen && (
                   <div className="layout-profile__dropdown" onClick={(e) => e.stopPropagation()}>
                     <div className="layout-profile__info">
-                      <span className="layout-profile__name">{userData?.name ?? 'UsuÃ¡rio'}</span>
+                      <span className="layout-profile__name">{userData?.name ?? 'Usuário'}</span>
                       <span className="layout-profile__email">{userData?.email ?? ''}</span>
                       {role === 'company' && companyName && (
                         <span className="layout-profile__company">{companyName}</span>
@@ -995,7 +995,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
                           type="password"
                           value={passwordNew}
                           onChange={(e) => { setPasswordNew(e.target.value); setPasswordSaveError(''); setPasswordSaveSuccess(''); }}
-                          placeholder="Nova senha (mÃ­n. 6 caracteres)"
+                          placeholder="Nova senha (mín. 6 caracteres)"
                           className="layout-profile__input"
                           autoComplete="new-password"
                         />
@@ -1062,14 +1062,14 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
         <div className="layout-toast">
           <div className="layout-toast__content">
             <div className="layout-toast__header">
-              <span className="layout-toast__title">{toastNotification.title || 'Nova notificaÃ§Ã£o'}</span>
+              <span className="layout-toast__title">{toastNotification.title || 'Nova notificação'}</span>
               <button
                 type="button"
                 className="layout-toast__close"
                 onClick={() => setToastNotification(null)}
-                aria-label="Fechar notificacao"
+                aria-label="Fechar notificação"
               >
-                Ã—
+                ×
               </button>
             </div>
             <p className="layout-toast__text">{toastNotification.text}</p>
@@ -1103,7 +1103,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
           />
           <aside className="layout-notifications__panel">
             <div className="layout-notifications__header">
-              <h2 className="layout-notifications__title">NotificaÃ§Ãµes</h2>
+              <h2 className="layout-notifications__title">Notificações</h2>
               <div className="layout-notifications__header-actions">
                 <button
                   type="button"
@@ -1140,13 +1140,13 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
                     <path d="M13.73 21a2 2 0 0 1-3.46 0" />
                   </svg>
                 </div>
-                <p className="layout-notifications__permission-text">Ative as notificaÃ§Ãµes do Windows para receber alertas mesmo em outras abas.</p>
+                <p className="layout-notifications__permission-text">Ative as notificações do Windows para receber alertas mesmo em outras abas.</p>
                 <button
                   type="button"
                   className="layout-notifications__permission-btn"
                   onClick={() => void handleRequestNotifPermission()}
                 >
-                  Ativar notificaÃ§Ãµes
+                  Ativar notificações
                 </button>
               </div>
             )}
@@ -1158,11 +1158,11 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
                     <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
                   </svg>
                 </div>
-                <p className="layout-notifications__permission-text">NotificaÃ§Ãµes bloqueadas no navegador. Libere nas configuraÃ§Ãµes do site para ativÃ¡-las.</p>
+                <p className="layout-notifications__permission-text">Notificações bloqueadas no navegador. Libere nas configurações do site para ativá-las.</p>
               </div>
             )}
             <div className="layout-notifications__toolbar">
-              <span className="layout-notifications__count">NÃ£o lidas: <strong>{totalUnreadCount}</strong></span>
+              <span className="layout-notifications__count">Não lidas: <strong>{totalUnreadCount}</strong></span>
               <div className="layout-notifications__toolbar-actions">
                 <button
                   type="button"
@@ -1186,7 +1186,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
               {notificationsError ? (
                 <p className="layout-notifications__error">{notificationsError}</p>
               ) : !notifications.length ? (
-                <p className="layout-notifications__empty">Nenhuma notificaÃ§Ã£o no momento.</p>
+                <p className="layout-notifications__empty">Nenhuma notificação no momento.</p>
               ) : (
                 <ul className="layout-notifications__list">
                   {notifications.map((notification) => {
@@ -1283,7 +1283,6 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
 }
 
 export default Layout;
-
 
 
 

@@ -312,7 +312,7 @@ export default function UsersPage({ scope = "company" }) {
 
   const loadingAny = loading || extraLoading;
   const pageError = error || extraError;
-  const pageErrorMessage = pageError?.response?.data?.message || "NÃ£o foi possÃ­vel carregar usuÃ¡rios.";
+  const pageErrorMessage = pageError?.response?.data?.message || "Não foi possível carregar usuários.";
 
   if (loadingAny) {
     return (
@@ -348,22 +348,22 @@ export default function UsersPage({ scope = "company" }) {
     );
   }
 
-  const pageTitle = isAdminScope ? "Usuarios" : "Usuarios da empresa";
+  const pageTitle = isAdminScope ? "Usuários" : "Usuários da empresa";
   const pageSubtitle = isAdminScope
-    ? "Gerencie acessos globais com perfis e areas alinhadas por empresa."
-    : "Crie, edite e organize o time por perfil e Ã¡reas de atuaÃ§Ã£o.";
+    ? "Gerencie acessos globais com perfis e áreas alinhadas por empresa."
+    : "Crie, edite e organize o time por perfil e áreas de atuação.";
 
   const createAreaMessage = isAdminScope
     ? createForm.company_id
-      ? "Empresa sem areas cadastradas. Configure em Config. do bot da empresa."
-      : "Selecione a empresa para escolher as areas."
-    : "Empresa sem areas cadastradas. Configure em Config. do bot da empresa.";
+      ? "Empresa sem áreas cadastradas. Configure em Config. do bot da empresa."
+      : "Selecione a empresa para escolher as áreas."
+    : "Empresa sem áreas cadastradas. Configure em Config. do bot da empresa.";
 
   const editAreaMessage = isAdminScope
     ? editForm?.company_id
-      ? "Empresa sem areas cadastradas. Configure em Config. do bot da empresa."
-      : "Selecione a empresa para escolher as areas."
-    : "Empresa sem areas cadastradas. Configure em Config. do bot da empresa.";
+      ? "Empresa sem áreas cadastradas. Configure em Config. do bot da empresa."
+      : "Selecione a empresa para escolher as áreas."
+    : "Empresa sem áreas cadastradas. Configure em Config. do bot da empresa.";
 
   return (
     <Layout
@@ -375,7 +375,7 @@ export default function UsersPage({ scope = "company" }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
-          <h2 className="text-base font-semibold text-[#0f172a] mb-3">Criar usuÃ¡rio</h2>
+          <h2 className="text-base font-semibold text-[#0f172a] mb-3">Criar usuário</h2>
           <form onSubmit={handleCreate} className="space-y-3">
             <UserFormFields
               form={createForm}
@@ -407,14 +407,14 @@ export default function UsersPage({ scope = "company" }) {
             />
 
             <Button type="submit" variant="primary" disabled={createBusy}>
-              {createBusy ? "Criando..." : "Criar usuÃ¡rio"}
+              {createBusy ? "Criando..." : "Criar usuário"}
             </Button>
 
           </form>
         </Card>
 
         <Card>
-          <h2 className="text-base font-semibold text-[#0f172a] mb-3">Usuarios cadastrados</h2>
+          <h2 className="text-base font-semibold text-[#0f172a] mb-3">Usuários cadastrados</h2>
           <UsersListPanel
             users={users}
             roleLabel={roleLabel}
@@ -425,7 +425,7 @@ export default function UsersPage({ scope = "company" }) {
 
           {editForm && (
             <form onSubmit={handleEdit} className="space-y-3 border-t border-[#e2e8f0] pt-4">
-              <h3 className="text-sm font-semibold text-[#0f172a]">Editar usuÃ¡rio #{selectedUserId}</h3>
+              <h3 className="text-sm font-semibold text-[#0f172a]">Editar usuário #{selectedUserId}</h3>
 
               <UserFormFields
                 form={editForm}
@@ -458,7 +458,7 @@ export default function UsersPage({ scope = "company" }) {
               />
 
               <Button type="submit" variant="primary" disabled={editBusy}>
-                {editBusy ? "Salvando..." : "Salvar usuÃ¡rio"}
+                {editBusy ? "Salvando..." : "Salvar usuário"}
               </Button>
 
             </form>
@@ -485,6 +485,5 @@ export default function UsersPage({ scope = "company" }) {
     </Layout>
   );
 }
-
 
 

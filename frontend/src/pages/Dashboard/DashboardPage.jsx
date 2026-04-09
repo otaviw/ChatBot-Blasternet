@@ -35,7 +35,7 @@ function DashboardPage() {
   if (error || !data?.authenticated) {
     return (
       <Layout>
-        <p className="text-sm text-red-600">NÃ£o foi possÃ­vel carregar o dashboard.</p>
+        <p className="text-sm text-red-600">Não foi possível carregar o dashboard.</p>
       </Layout>
     );
   }
@@ -45,17 +45,17 @@ function DashboardPage() {
       {
         href: '/admin/empresas',
         title: 'Empresas',
-        description: 'Acompanhe mÃ©tricas e estado tÃ©cnico sem acesso a conteÃºdo sensÃ­vel.',
+        description: 'Acompanhe métricas e estado técnico sem acesso a conteúdo sensível.',
       },
       {
         href: '/admin/usuarios',
-        title: 'UsuÃ¡rios',
-        description: 'Gerencie utilizadores, perfis e vÃ­nculo com empresas.',
+        title: 'Usuários',
+        description: 'Gerencie utilizadores, perfis e vínculo com empresas.',
       },
       {
         href: '/admin/suporte',
-        title: 'SolicitaÃ§Ãµes de suporte',
-        description: 'Veja chamados abertos ou fechados e atualize o estado de resoluÃ§Ã£o.',
+        title: 'Solicitações de suporte',
+        description: 'Veja chamados abertos ou fechados e atualize o estado de resolução.',
       },
       {
         href: '/admin/chat-interno',
@@ -78,7 +78,7 @@ function DashboardPage() {
       <Layout role="admin" onLogout={logout}>
         <PageHeader
           title="Painel do sistema"
-          subtitle="VisÃ£o central para gerir empresas, utilizadores e fluxo de atendimento."
+          subtitle="Visão central para gerir empresas, utilizadores e fluxo de atendimento."
         />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {adminItems.map((item) => (
@@ -86,7 +86,7 @@ function DashboardPage() {
               <Card className="h-full transition group-hover:-translate-y-0.5 group-hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] group-hover:border-[#e5e5e5]">
                 <p className="text-base font-semibold text-[#171717]">{item.title}</p>
                 <p className="mt-2 text-sm text-[#737373] leading-relaxed">{item.description}</p>
-                <p className="mt-4 text-xs font-medium text-[#2563eb]">Abrir mÃ³dulo â†’</p>
+                <p className="mt-4 text-xs font-medium text-[#2563eb]">Abrir módulo →</p>
               </Card>
             </a>
           ))}
@@ -99,7 +99,7 @@ function DashboardPage() {
     {
       href: '/minha-conta/conversas',
       title: 'Conversas',
-      description: 'Acompanhe conversas, etiquetas e transferÃªncias da equipe.',
+      description: 'Acompanhe conversas, etiquetas e transferências da equipe.',
     },
     {
       href: '/minha-conta/agendamentos',
@@ -109,17 +109,17 @@ function DashboardPage() {
     {
       href: '/minha-conta/chat-interno',
       title: 'Chat interno',
-      description: 'Canal rÃ¡pido para falar com administradores e colegas em tempo real.',
+      description: 'Canal rápido para falar com administradores e colegas em tempo real.',
     },
     {
       href: '/suporte',
       title: 'Suporte',
-      description: 'Abra solicitaÃ§Ãµes para o time da plataforma quando precisar de ajuda.',
+      description: 'Abra solicitações para o time da plataforma quando precisar de ajuda.',
     },
     {
       href: '/minha-conta/suporte/solicitacoes',
-      title: 'Minhas solicitaÃ§Ãµes',
-      description: 'Acompanhe apenas os chamados que vocÃª abriu.',
+      title: 'Minhas solicitações',
+      description: 'Acompanhe apenas os chamados que você abriu.',
     },
   ];
 
@@ -128,21 +128,21 @@ function DashboardPage() {
   if (isAdmin) {
     companyItems.push({
       href: '/minha-conta/usuarios',
-      title: 'UsuÃ¡rios',
-      description: 'Controle acessos, perfis e Ã¡reas de atuaÃ§Ã£o do time.',
+      title: 'Usuários',
+      description: 'Controle acessos, perfis e áreas de atuação do time.',
     });
     companyItems.push({
       href: '/minha-conta/bot',
-      title: 'ConfiguraÃ§Ãµes do bot',
-      description: 'Ajuste mensagens, Ã¡reas, horÃ¡rios e regras de resposta.',
+      title: 'Configurações do bot',
+      description: 'Ajuste mensagens, áreas, horários e regras de resposta.',
     });
   }
 
   return (
     <Layout role="company" companyName={data.companyName} onLogout={logout}>
       <PageHeader
-        title={`Painel â€” ${data.companyName ?? 'Empresa'}`}
-        subtitle="Resumo de operaÃ§Ã£o para manter o bot alinhado com o atendimento humano."
+        title={`Painel — ${data.companyName ?? 'Empresa'}`}
+        subtitle="Resumo de operação para manter o bot alinhado com o atendimento humano."
       />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {companyItems.map((item) => (
@@ -150,7 +150,7 @@ function DashboardPage() {
             <Card className="h-full transition group-hover:-translate-y-0.5 group-hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] group-hover:border-[#e5e5e5]">
               <p className="text-base font-semibold text-[#171717]">{item.title}</p>
               <p className="mt-2 text-sm text-[#737373] leading-relaxed">{item.description}</p>
-              <p className="mt-4 text-xs font-medium text-[#2563eb]">Abrir mÃ³dulo â†’</p>
+              <p className="mt-4 text-xs font-medium text-[#2563eb]">Abrir módulo →</p>
             </Card>
           </a>
         ))}
