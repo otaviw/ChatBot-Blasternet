@@ -236,8 +236,8 @@ function AiSettingsPage() {
           {!usersRows.length ? (
             <p className="text-sm text-[#64748b]">Nenhum utilizador encontrado.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
+            <div className="overflow-x-auto app-responsive-table-wrap">
+              <table className="min-w-full text-sm app-responsive-table">
                 <thead>
                   <tr className="border-b border-[#e5e7eb] text-left text-[#64748b]">
                     <th className="py-2 pr-3 font-medium">Nome</th>
@@ -253,9 +253,9 @@ function AiSettingsPage() {
 
                     return (
                       <tr key={user.id} className="border-b border-[#f1f5f9]">
-                        <td className="py-2 pr-3 text-[#0f172a]">{user.name || '-'}</td>
-                        <td className="py-2 pr-3 text-[#475569]">{user.email || '-'}</td>
-                        <td className="py-2 pr-3">
+                        <td data-label="Nome" className="py-2 pr-3 text-[#0f172a]">{user.name || '-'}</td>
+                        <td data-label="E-mail" className="py-2 pr-3 text-[#475569]">{user.email || '-'}</td>
+                        <td data-label="Pode usar IA" className="py-2 pr-3">
                           <label className="inline-flex items-center gap-2 text-[#1f2937]">
                             <input
                               type="checkbox"

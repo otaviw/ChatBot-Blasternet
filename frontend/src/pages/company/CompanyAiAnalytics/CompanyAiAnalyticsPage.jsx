@@ -67,8 +67,8 @@ function SimpleTable({ cols, rows, emptyText = 'Sem dados no período.' }) {
     return <p className="px-4 py-4 text-sm text-[#64748b]">{emptyText}</p>;
   }
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full text-sm">
+    <div className="overflow-x-auto app-responsive-table-wrap">
+      <table className="min-w-full text-sm app-responsive-table">
         <thead className="bg-[#f8fafc]">
           <tr className="border-b border-[#e2e8f0] text-left text-[#64748b]">
             {cols.map((col) => (
@@ -80,7 +80,7 @@ function SimpleTable({ cols, rows, emptyText = 'Sem dados no período.' }) {
           {rows.map((row, i) => (
             <tr key={i} className="border-b border-[#f1f5f9]">
               {cols.map((col) => (
-                <td key={col.key} className="px-4 py-3 text-[#334155]">
+                <td key={col.key} data-label={col.label} className="px-4 py-3 text-[#334155]">
                   {col.render ? col.render(row) : (row[col.key] ?? '—')}
                 </td>
               ))}

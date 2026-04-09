@@ -701,6 +701,68 @@ body.theme-dark table tr:hover {
   background-color: #1e2130;
 }
 
+/* --- Tabela responsiva (desktop tabela, mobile cards) ------- */
+@media (max-width: 767px) {
+  .app-responsive-table-wrap {
+    overflow-x: visible;
+  }
+
+  .app-responsive-table {
+    width: 100%;
+    min-width: 0;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .app-responsive-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .app-responsive-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    padding: 0.65rem;
+  }
+
+  .app-responsive-table tr {
+    display: block;
+    border: 1px solid var(--ui-border);
+    border-radius: 0.75rem;
+    background: var(--ui-surface);
+    padding: 0.65rem;
+  }
+
+  .app-responsive-table td {
+    display: grid;
+    grid-template-columns: minmax(110px, 42%) minmax(0, 1fr);
+    gap: 0.5rem;
+    align-items: start;
+    border: 0 !important;
+    padding: 0.35rem 0 !important;
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .app-responsive-table td::before {
+    content: attr(data-label);
+    font-size: 0.74rem;
+    line-height: 1.25;
+    font-weight: 700;
+    color: var(--ui-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+}
+
 /* --- Divisores hr ------------------------------------------- */
 body.theme-dark hr { border-color: #252836; }
 
