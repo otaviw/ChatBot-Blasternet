@@ -72,9 +72,12 @@ class AiAuditController extends Controller
             $query->whereIn('action', [AiAuditLog::ACTION_TOOL_EXECUTED, AiAuditLog::ACTION_TOOL_FAILED]);
         }
 
+        $perPage = max(1, min(100, (int) $request->integer('per_page', 20)));
+        $page = max(1, (int) $request->integer('page', 1));
+
         $logs = $query
             ->orderByDesc('id')
-            ->paginate(50);
+            ->paginate($perPage, ['*'], 'page', $page);
 
         $items = $logs->getCollection()->map(function (AiAuditLog $log): array {
             $meta = is_array($log->metadata) ? $log->metadata : [];
