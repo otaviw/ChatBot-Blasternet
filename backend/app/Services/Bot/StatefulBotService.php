@@ -372,7 +372,7 @@ class StatefulBotService
             return $this->handoffResult($companyEntity, $conversation, $replyText, $targetAreaName);
         }
 
-        // Auto-seleciona o serviço (único por empresa) e vai direto para escolha de atendente
+        // vai direto para escolha de atendente
         $service = $services[0];
         $context = $this->appointmentContext($conversation);
         $context['service_id'] = (int) $service['id'];
@@ -384,7 +384,7 @@ class StatefulBotService
         $allowChooseStaff = (bool) ($settings?->allow_customer_choose_staff ?? true);
         $hasMoreThanOne = count($staffProfiles) > 1;
 
-        // Guarda se o cliente pode trocar de atendente (usado nos menus de dia/slot)
+        // guarda se o cliente pode trocar de atendente
         $context['has_staff_choice'] = $allowChooseStaff && $hasMoreThanOne;
 
         if (! $allowChooseStaff || ! $hasMoreThanOne) {
@@ -434,6 +434,7 @@ class StatefulBotService
             'staff_select' => $this->handleAppointmentStaffSelection($companyEntity, $conversation, $normalizedText, $context),
             'day_select' => $this->handleAppointmentDaySelection($companyEntity, $conversation, $normalizedText, $context),
             'slot_select' => $this->handleAppointmentSlotSelection($companyEntity, $conversation, $normalizedText, $context),
+            'nearest_select' => $this->handleAppointmentNearestSelection($companyEntity, $conversation, $normalizedText, $context),
             'confirm' => $this->handleAppointmentConfirmation($companyEntity, $conversation, $normalizedText, $context),
             default => $this->buildInitialMenuResponse($this->registry->definitionForCompany($companyEntity)),
         };
@@ -518,7 +519,7 @@ class StatefulBotService
         if ($normalizedText === '8') {
             $context['staff_profile_id'] = null;
             $context['staff_name'] = null;
-            // Reseta histórico de dia ao trocar para "qualquer atendente"
+            // reseta histórico de dia ao trocar para qualquer atendente
             unset($context['last_day_key'], $context['last_day_date'], $context['selected_date'], $context['slot_page']);
 
             return $this->replyWithAppointmentDayMenu($company, $context);
@@ -538,7 +539,7 @@ class StatefulBotService
         $selectedStaff = $staffOptions[$normalizedText];
         $context['staff_profile_id'] = (int) $selectedStaff['id'];
         $context['staff_name'] = (string) $selectedStaff['name'];
-        // Reseta histórico de dia ao trocar de atendente
+        // reseta histórico de dia ao trocar de atendente
         unset($context['last_day_key'], $context['last_day_date'], $context['selected_date'], $context['slot_page']);
 
         return $this->replyWithAppointmentDayMenu($company, $context);
@@ -558,8 +559,8 @@ class StatefulBotService
         $timezone = (string) ($settings?->timezone ?: 'America/Sao_Paulo');
         $maxDays = (int) ($settings?->booking_max_advance_days ?? 30);
 
-        // Opção 8: voltar para escolher atendente (só aparece quando há essa opção)
-        if ($normalizedText === '8' && (bool) ($context['has_staff_choice'] ?? false)) {
+        // 0: voltar para escolher atendente, só aparece quando há essa opção
+        if ($normalizedText === '0' && (bool) ($context['has_staff_choice'] ?? false)) {
             $staffProfiles = $this->activeAppointmentStaff($company);
             $context['staff_options'] = $this->enumerateStaff($staffProfiles);
             unset($context['last_day_key'], $context['last_day_date'], $context['selected_date'], $context['slot_page']);
@@ -574,29 +575,58 @@ class StatefulBotService
             );
         }
 
+        // 7: próxima semana, só aparece quando um dia já foi selecionado antes
+        $lastDayKey = trim((string) ($context['last_day_key'] ?? ''));
+        $lastDayDate = trim((string) ($context['last_day_date'] ?? ''));
+        if ($normalizedText === '7' && $lastDayKey !== '' && $lastDayDate !== '') {
+            $fromDate = CarbonImmutable::parse($lastDayDate, $timezone)->addWeek()->toDateString();
+            $maxDate = CarbonImmutable::now($timezone)->addDays($maxDays)->toDateString();
+            if ($fromDate > $maxDate) {
+                return $this->replyWithAppointmentDayMenu($company, $context, false,
+                    "Não há semanas disponíveis dentro do limite de {$maxDays} dias.");
+            }
+            // mantém o mesmo dia da semana do último acesso
+            $lastDt = CarbonImmutable::parse($lastDayDate, $timezone);
+            $selectedDate = $this->nextOccurrenceOfDay((int) $lastDt->dayOfWeek, $fromDate, $timezone);
+            $context['last_day_date'] = $selectedDate;
+            $selectedDt = CarbonImmutable::parse($selectedDate, $timezone);
+            $slots = $this->appointmentSlotsForDate($company, $context, $selectedDate);
+            if ($slots === []) {
+                $noSlotMsg = "Não há horários disponíveis em " . $selectedDt->translatedFormat('D d/m') . ".";
+                $noSlotMsg .= "\n\n" . $this->appointmentDayPromptText($context);
+
+                return $this->botStateResult($noSlotMsg, [
+                    'flow' => 'appointments',
+                    'step' => 'day_select',
+                    'context' => ['appointment' => $context],
+                ]);
+            }
+            $context['selected_date'] = $selectedDate;
+            $context['slot_page'] = 0;
+
+            return $this->replyWithAppointmentSlotMenu($company, $context);
+        }
+
+        // 8: próximos horários disponíveis
+        if ($normalizedText === '8') {
+            return $this->replyWithNearestSlots($company, $context);
+        }
+
         $parsed = $this->parseDayInput($normalizedText, $timezone);
         if ($parsed === null) {
             return $this->replyWithAppointmentDayMenu($company, $context, true);
         }
 
-        // Lógica de avanço de semana:
-        // - mesmo dia digitado novamente (dia da semana) → avança +7 a partir do último dia exibido
-        // - dia diferente ou data absoluta → próxima ocorrência a partir de hoje
-        $lastDayKey = trim((string) ($context['last_day_key'] ?? ''));
-        $lastDayDate = trim((string) ($context['last_day_date'] ?? ''));
-
-        if ($parsed['type'] === 'weekday' && $lastDayKey === $parsed['key'] && $lastDayDate !== '') {
-            $fromDate = CarbonImmutable::parse($lastDayDate, $timezone)->addWeek()->toDateString();
-        } elseif ($parsed['type'] === 'weekday') {
+        // logica de dia diferente, próxima ocorrência a partir de hoje
+        if ($parsed['type'] === 'weekday') {
             $fromDate = CarbonImmutable::now($timezone)->startOfDay()->toDateString();
         } else {
-            // Data absoluta (hoje, amanhã, dd/mm) → usa direto
             $fromDate = $parsed['date'];
         }
 
         $selectedDate = $this->nextOccurrenceOfDay($parsed['day_of_week'], $fromDate, $timezone);
 
-        // Verifica limite máximo de antecedência
+        // verifica limite máximo de antecedência
         $maxDate = CarbonImmutable::now($timezone)->addDays($maxDays)->toDateString();
         if ($selectedDate > $maxDate) {
             return $this->botStateResult(
@@ -609,7 +639,7 @@ class StatefulBotService
             );
         }
 
-        // Salva o último dia digitado para detectar repetição na próxima mensagem
+        // salva o último dia selecionado para o 7 - proxima semana
         $context['last_day_key'] = $parsed['key'];
         $context['last_day_date'] = $selectedDate;
 
@@ -618,9 +648,6 @@ class StatefulBotService
 
         if ($slots === []) {
             $noSlotMsg = "Não há horários disponíveis em " . $selectedDt->translatedFormat('D d/m') . ".";
-            if ($parsed['type'] === 'weekday') {
-                $noSlotMsg .= "\n\nDigite *{$normalizedText}* novamente para ver a semana seguinte, ou escolha outro dia.";
-            }
             $noSlotMsg .= "\n\n" . $this->appointmentDayPromptText($context);
 
             return $this->botStateResult(
@@ -856,10 +883,9 @@ class StatefulBotService
         $replyText = "✅ Agendamento confirmado!\n\nData: {$dayName}, {$startsAtDate}\nHorário: {$startsAtTime}\nServiço: {$serviceName}{$staffPart}\n\nAté lá! 😊";
 
         $menu = $this->buildInitialMenuResponse($this->registry->definitionForCompany($companyEntity));
-        $replyWithMenu = $replyText . "\n\n" . (string) ($menu['reply_text'] ?? '');
 
         return $this->botStateResult(
-            $replyWithMenu,
+            $replyText,
             $menu['new_state'] ?? [
                 'flow' => 'main',
                 'step' => 'menu',
@@ -875,12 +901,20 @@ class StatefulBotService
     private function replyWithAppointmentDayMenu(
         ?Company $company,
         array $context,
-        bool $invalidOption = false
+        bool $invalidOption = false,
+        string $extraMessage = ''
     ): array {
-        $prefix = $invalidOption ? "Não entendi. Diga um dia como: segunda, terça, hoje, amanhã ou 15/04\n\n" : '';
+        $parts = [];
+        if ($invalidOption) {
+            $parts[] = "Não entendi. Diga um dia como: segunda, terça, hoje, amanhã ou 15/04";
+        }
+        if ($extraMessage !== '') {
+            $parts[] = $extraMessage;
+        }
+        $parts[] = $this->appointmentDayPromptText($context);
 
         return $this->botStateResult(
-            $prefix . $this->appointmentDayPromptText($context),
+            implode("\n\n", $parts),
             [
                 'flow' => 'appointments',
                 'step' => 'day_select',
@@ -929,6 +963,141 @@ class StatefulBotService
                 'context' => ['appointment' => $context],
             ]
         );
+    }
+
+    /**
+     * Coleta os próximos horários disponíveis a partir de hoje, até encontrar $limit slots ou atingir maxDays.
+     *
+     * @param  array<string, mixed>  $context
+     * @return array<int, array<string, mixed>>
+     */
+    private function appointmentNearestSlots(?Company $company, array $context, int $limit = 7): array
+    {
+        $settings = $this->appointmentSettings($company);
+        $timezone = (string) ($settings?->timezone ?: 'America/Sao_Paulo');
+        $maxDays = (int) ($settings?->booking_max_advance_days ?? 30);
+
+        $result = [];
+        $date = CarbonImmutable::now($timezone)->startOfDay();
+        $maxDate = $date->addDays($maxDays);
+
+        while ($date->lte($maxDate) && count($result) < $limit) {
+            $slots = $this->appointmentSlotsForDate($company, $context, $date->toDateString());
+            foreach ($slots as $slot) {
+                $result[] = array_merge($slot, ['date' => $date->toDateString()]);
+                if (count($result) >= $limit) {
+                    break;
+                }
+            }
+            $date = $date->addDay();
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     * @return array<string, mixed>
+     */
+    private function replyWithNearestSlots(?Company $company, array $context): array
+    {
+        $slots = $this->appointmentNearestSlots($company, $context);
+
+        if ($slots === []) {
+            return $this->replyWithAppointmentDayMenu($company, $context, false,
+                'Não há horários disponíveis nos próximos dias.');
+        }
+
+        $context['nearest_slots'] = $slots;
+        $timezone = (string) ($this->appointmentSettings($company)?->timezone ?: 'America/Sao_Paulo');
+        $hasStaffChoice = (bool) ($context['has_staff_choice'] ?? false);
+
+        return $this->botStateResult(
+            $this->appointmentNearestSlotsText($slots, $timezone, $hasStaffChoice),
+            [
+                'flow' => 'appointments',
+                'step' => 'nearest_select',
+                'context' => ['appointment' => $context],
+            ]
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     * @return array<string, mixed>
+     */
+    private function handleAppointmentNearestSelection(
+        ?Company $company,
+        Conversation $conversation,
+        string $normalizedText,
+        array $context
+    ): array {
+        if ($normalizedText === '0') {
+            return $this->replyWithAppointmentDayMenu($company, $context);
+        }
+
+        $slots = $context['nearest_slots'] ?? [];
+        if (! is_array($slots) || $slots === []) {
+            return $this->replyWithNearestSlots($company, $context);
+        }
+
+        $slotOptions = [];
+        foreach (array_slice($slots, 0, 7) as $index => $slot) {
+            $slotOptions[(string) ($index + 1)] = $slot;
+        }
+
+        if (! isset($slotOptions[$normalizedText])) {
+            $timezone = (string) ($this->appointmentSettings($company)?->timezone ?: 'America/Sao_Paulo');
+            $hasStaffChoice = (bool) ($context['has_staff_choice'] ?? false);
+
+            return $this->botStateResult(
+                "Opção inválida.\n\n" . $this->appointmentNearestSlotsText($slots, $timezone, $hasStaffChoice),
+                [
+                    'flow' => 'appointments',
+                    'step' => 'nearest_select',
+                    'context' => ['appointment' => $context],
+                ]
+            );
+        }
+
+        $selectedSlot = $slotOptions[$normalizedText];
+        $timezone = $this->appointmentSettings($company)?->timezone ?: 'America/Sao_Paulo';
+        $context['selected_date'] = (string) ($selectedSlot['date'] ?? '');
+        $context['slot_starts_at'] = (string) ($selectedSlot['starts_at_local'] ?? $selectedSlot['starts_at'] ?? '');
+        $context['slot_ends_at'] = (string) ($selectedSlot['ends_at_local'] ?? $selectedSlot['ends_at'] ?? '');
+        $context['staff_profile_id'] = (int) ($selectedSlot['staff_profile_id'] ?? ($context['staff_profile_id'] ?? 0));
+        $context['staff_name'] = (string) ($selectedSlot['staff_name'] ?? ($context['staff_name'] ?? ''));
+
+        return $this->botStateResult(
+            $this->appointmentConfirmText($context, $timezone),
+            [
+                'flow' => 'appointments',
+                'step' => 'confirm',
+                'context' => ['appointment' => $context],
+            ]
+        );
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $slots
+     */
+    private function appointmentNearestSlotsText(array $slots, string $timezone = 'America/Sao_Paulo', bool $hasStaffChoice = false): string
+    {
+        $tz = $timezone ?: 'America/Sao_Paulo';
+        $lines = ['Próximos horários disponíveis:'];
+        foreach (array_slice($slots, 0, 7) as $index => $slot) {
+            $candidate = (string) ($slot['starts_at_local'] ?? $slot['starts_at'] ?? '');
+            $startsAt = CarbonImmutable::parse($candidate)->setTimezone($tz);
+            $dateLabel = $startsAt->translatedFormat('D d/m');
+            $timeLabel = $startsAt->format('H:i');
+            $staffName = trim((string) ($slot['staff_name'] ?? ''));
+            $suffix = $staffName !== '' ? " ({$staffName})" : '';
+            $lines[] = ($index + 1) . " - {$dateLabel} {$timeLabel}{$suffix}";
+        }
+        $lines[] = '0 - Voltar';
+        $lines[] = '9 - Falar com atendente';
+
+        return implode("\n", $lines);
     }
 
     /**
@@ -1004,9 +1173,24 @@ class StatefulBotService
         $staffName = trim((string) ($context['staff_name'] ?? ''));
         $staffLine = $staffName !== '' ? "Atendente: {$staffName}" : 'Atendente: qualquer disponível';
         $hasStaffChoice = (bool) ($context['has_staff_choice'] ?? false);
-        $trocarLine = $hasStaffChoice ? "\n8 - Trocar atendente" : '';
+        $hasLastDay = trim((string) ($context['last_day_date'] ?? '')) !== '';
 
-        return "{$staffLine}\n\nQual dia você prefere?\nDigite: segunda, terça, quarta, hoje, amanhã...\n💡 Repita o dia para ver a próxima semana.{$trocarLine}\n9 - Falar com atendente";
+        $lines = [
+            $staffLine,
+            '',
+            'Qual dia você prefere?',
+            'Digite: segunda, terça, quarta, hoje, amanhã...',
+        ];
+        if ($hasLastDay) {
+            $lines[] = '7 - Próxima semana';
+        }
+        $lines[] = '8 - Próximos horários';
+        $lines[] = '9 - Falar com atendente';
+        if ($hasStaffChoice) {
+            $lines[] = '0 - Trocar atendente';
+        }
+
+        return implode("\n", $lines);
     }
 
     /**
