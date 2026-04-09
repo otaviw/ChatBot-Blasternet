@@ -1,18 +1,22 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useForm } from 'react-hook-form';
 import Layout from '@/components/layout/Layout/Layout.jsx';
 import Button from '@/components/ui/Button/Button.jsx';
 import Card from '@/components/ui/Card/Card.jsx';
-import Notice from '@/components/ui/Notice/Notice.jsx';
 import PageHeader from '@/components/ui/PageHeader/PageHeader.jsx';
 import usePageData from '@/hooks/usePageData';
 import useAuth from '@/hooks/useAuth';
 import useLogout from '@/hooks/useLogout';
 import useAdminCompanySelector from '@/hooks/useAdminCompanySelector';
 import api from '@/services/api';
+import ConfirmDialog from '@/components/ui/ConfirmDialog/ConfirmDialog.jsx';
+import LoadingSkeleton from '@/components/ui/LoadingSkeleton/LoadingSkeleton.jsx';
+import EmptyState from '@/components/ui/EmptyState/EmptyState.jsx';
+import { showError, showSuccess } from '@/services/toastService';
 
 const MAX_CONTENT_ITEMS = 50;
 
-const emptyForm = {
+const EMPTY_FORM = {
   title: '',
   content: '',
   is_active: true,
@@ -37,13 +41,22 @@ function CompanyKnowledgeBasePage() {
     : '/minha-conta/base-conhecimento';
 
   const { data, loading, error } = usePageData(baseUrl);
-
   const [items, setItems] = useState([]);
   const [busy, setBusy] = useState(false);
-  const [feedback, setFeedback] = useState({ type: '', message: '' });
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState(emptyForm);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isValid },
+  } = useForm({
+    mode: 'onChange',
+    reValidateMode: 'onChange',
+    defaultValues: EMPTY_FORM,
+  });
 
   useEffect(() => {
     setItems(Array.isArray(data?.knowledge_items) ? data.knowledge_items : []);
@@ -66,16 +79,14 @@ function CompanyKnowledgeBasePage() {
   );
 
   const openCreateModal = () => {
-    setFeedback({ type: '', message: '' });
     setEditingId(null);
-    setForm(emptyForm);
+    reset(EMPTY_FORM);
     setModalOpen(true);
   };
 
   const openEditModal = (item) => {
-    setFeedback({ type: '', message: '' });
     setEditingId(item.id);
-    setForm({
+    reset({
       title: String(item.title ?? ''),
       content: String(item.content ?? ''),
       is_active: Boolean(item.is_active),
@@ -87,84 +98,63 @@ function CompanyKnowledgeBasePage() {
     if (busy) return;
     setModalOpen(false);
     setEditingId(null);
-    setForm(emptyForm);
+    reset(EMPTY_FORM);
   };
 
-  const handleSave = async (event) => {
-    event.preventDefault();
+  const handleSave = async (values) => {
     if (!canManageKnowledge) return;
 
-    const title = String(form.title ?? '').trim();
-    const content = String(form.content ?? '').trim();
-    if (!title || !content) {
-      setFeedback({ type: 'danger', message: 'Preencha título e conteúdo.' });
-      return;
-    }
+    const payload = {
+      title: String(values.title ?? '').trim(),
+      content: String(values.content ?? '').trim(),
+      is_active: Boolean(values.is_active),
+      ...(isAdmin && selectedCompanyId ? { company_id: Number(selectedCompanyId) } : {}),
+    };
 
     setBusy(true);
-    setFeedback({ type: '', message: '' });
     try {
-      const payload = {
-        title,
-        content,
-        is_active: Boolean(form.is_active),
-        ...(isAdmin && selectedCompanyId ? { company_id: Number(selectedCompanyId) } : {}),
-      };
-
       if (editingId) {
         const response = await api.put(`/minha-conta/base-conhecimento/${editingId}`, payload);
         const updated = response.data?.knowledge_item;
         if (updated) {
           setItems((prev) => prev.map((item) => (item.id === editingId ? updated : item)));
         }
-        setFeedback({ type: 'success', message: 'Conteúdo atualizado com sucesso.' });
+        showSuccess('Conteudo atualizado com sucesso.');
       } else {
         if (reachedLimit) {
-          setFeedback({
-            type: 'danger',
-            message: `Limite atingido: máximo de ${maxItems} conteúdos.`,
-          });
+          showError(`Limite atingido: maximo de ${maxItems} conteudos.`);
           return;
         }
+
         const response = await api.post('/minha-conta/base-conhecimento', payload);
         const created = response.data?.knowledge_item;
         if (created) {
           setItems((prev) => [created, ...prev]);
         }
-        setFeedback({ type: 'success', message: 'Conteúdo criado com sucesso.' });
+        showSuccess('Conteudo criado com sucesso.');
       }
 
       setModalOpen(false);
       setEditingId(null);
-      setForm(emptyForm);
+      reset(EMPTY_FORM);
     } catch (err) {
-      setFeedback({
-        type: 'danger',
-        message: err.response?.data?.message ?? 'Não foi possível salvar o conteúdo.',
-      });
+      showError(err.response?.data?.message ?? 'Nao foi possivel salvar o conteudo.');
     } finally {
       setBusy(false);
     }
   };
 
-  const handleDelete = async (item) => {
-    if (!canManageKnowledge || busy) return;
-    const confirmed = window.confirm(
-      `Excluir "${item.title}"? Esta ação não pode ser desfeita.`
-    );
-    if (!confirmed) return;
+  const handleDelete = async () => {
+    if (!canManageKnowledge || busy || !deleteTarget?.id) return;
 
     setBusy(true);
-    setFeedback({ type: '', message: '' });
     try {
-      await api.delete(`/minha-conta/base-conhecimento/${item.id}`);
-      setItems((prev) => prev.filter((current) => current.id !== item.id));
-      setFeedback({ type: 'success', message: 'Conteúdo excluído.' });
+      await api.delete(`/minha-conta/base-conhecimento/${deleteTarget.id}`);
+      setItems((prev) => prev.filter((current) => current.id !== deleteTarget.id));
+      setDeleteTarget(null);
+      showSuccess('Conteudo excluido com sucesso.');
     } catch (err) {
-      setFeedback({
-        type: 'danger',
-        message: err.response?.data?.message ?? 'Não foi possível excluir o conteúdo.',
-      });
+      showError(err.response?.data?.message ?? 'Nao foi possivel excluir o conteudo.');
     } finally {
       setBusy(false);
     }
@@ -175,7 +165,13 @@ function CompanyKnowledgeBasePage() {
   if (loading) {
     return (
       <Layout role={layoutRole} onLogout={logout}>
-        <p className="text-sm text-[#64748b]">Carregando base de conhecimento...</p>
+        <div className="space-y-3">
+          <LoadingSkeleton className="h-6 w-56" />
+          <LoadingSkeleton className="h-4 w-96 max-w-full" />
+          <LoadingSkeleton className="h-14 w-full" />
+          <LoadingSkeleton className="h-14 w-full" />
+          <LoadingSkeleton className="h-14 w-full" />
+        </div>
       </Layout>
     );
   }
@@ -183,7 +179,7 @@ function CompanyKnowledgeBasePage() {
   if (error || !data?.authenticated) {
     return (
       <Layout role={layoutRole} onLogout={logout}>
-        <p className="text-sm text-red-600">Não foi possível carregar a base de conhecimento.</p>
+        <p className="text-sm text-red-600">Nao foi possivel carregar a base de conhecimento.</p>
       </Layout>
     );
   }
@@ -192,20 +188,20 @@ function CompanyKnowledgeBasePage() {
     <Layout role={layoutRole} onLogout={logout}>
       <PageHeader
         title="Base de conhecimento"
-        subtitle="Gerencie conteúdos usados pela IA para melhorar a qualidade das respostas."
+        subtitle="Gerencie conteudos usados pela IA para melhorar a qualidade das respostas."
         action={(
           <div className="flex items-center gap-2 flex-wrap">
-            {isAdmin && companies.length > 0 && (
+            {isAdmin && companies.length > 0 ? (
               <select
                 value={selectedCompanyId}
-                onChange={(e) => setSelectedCompanyId(e.target.value)}
+                onChange={(event) => setSelectedCompanyId(event.target.value)}
                 className="rounded-lg border border-[#d4d4d4] bg-white px-3 py-2 text-sm text-[#1f2937] outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
               >
-                {companies.map((c) => (
-                  <option key={c.id} value={String(c.id)}>{c.name}</option>
+                {companies.map((company) => (
+                  <option key={company.id} value={String(company.id)}>{company.name}</option>
                 ))}
               </select>
-            )}
+            ) : null}
             <Button
               variant="primary"
               onClick={openCreateModal}
@@ -219,37 +215,38 @@ function CompanyKnowledgeBasePage() {
 
       <div className="mb-4 flex flex-wrap items-center gap-3 text-sm">
         <span className="rounded-full bg-[#f8fafc] px-3 py-1 text-[#475569] border border-[#e2e8f0]">
-          {itemCount}/{maxItems} conteúdos
+          {itemCount}/{maxItems} conteudos
         </span>
         {!canManageKnowledge ? (
           <span className="text-[#64748b]">Somente admin da empresa pode criar, editar e excluir.</span>
         ) : null}
       </div>
 
-      {feedback.message ? (
-        <div className="mb-4">
-          <Notice tone={feedback.type === 'danger' ? 'danger' : 'success'}>{feedback.message}</Notice>
-        </div>
-      ) : null}
-
       <Card className="p-0 overflow-hidden">
         {!sortedItems.length ? (
-          <div className="p-6 text-sm text-[#64748b]">Nenhum conteúdo cadastrado ainda.</div>
+          <div className="p-4">
+            <EmptyState
+              title="Nenhum conteudo cadastrado"
+              subtitle="Cadastre o primeiro conteudo para orientar as respostas da IA."
+              actionLabel={canManageKnowledge ? 'Criar conteudo' : ''}
+              onAction={canManageKnowledge ? openCreateModal : undefined}
+            />
+          </div>
         ) : (
           <div className="overflow-x-auto app-responsive-table-wrap">
             <table className="min-w-full text-sm app-responsive-table">
               <thead className="bg-[#f8fafc]">
                 <tr className="text-left text-[#64748b] border-b border-[#e2e8f0]">
-                  <th className="px-4 py-3 font-medium">Título</th>
+                  <th className="px-4 py-3 font-medium">Titulo</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium">Atualizado em</th>
-                  <th className="px-4 py-3 font-medium w-[1%] whitespace-nowrap">Ações</th>
+                  <th className="px-4 py-3 font-medium w-[1%] whitespace-nowrap">Acoes</th>
                 </tr>
               </thead>
               <tbody>
                 {sortedItems.map((item) => (
                   <tr key={item.id} className="border-b border-[#f1f5f9]">
-                    <td data-label="Título" className="px-4 py-3 text-[#0f172a]">
+                    <td data-label="Titulo" className="px-4 py-3 text-[#0f172a]">
                       <p className="font-medium">{item.title || '-'}</p>
                     </td>
                     <td data-label="Status" className="px-4 py-3">
@@ -263,8 +260,10 @@ function CompanyKnowledgeBasePage() {
                         {item.is_active ? 'Ativo' : 'Inativo'}
                       </span>
                     </td>
-                    <td data-label="Atualizado em" className="px-4 py-3 text-[#475569]">{formatDate(item.updated_at)}</td>
-                    <td data-label="Ações" className="px-4 py-3">
+                    <td data-label="Atualizado em" className="px-4 py-3 text-[#475569]">
+                      {formatDate(item.updated_at)}
+                    </td>
+                    <td data-label="Acoes" className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <Button
                           variant="secondary"
@@ -277,7 +276,7 @@ function CompanyKnowledgeBasePage() {
                         <Button
                           variant="danger"
                           className="px-3 py-1.5 text-xs"
-                          onClick={() => void handleDelete(item)}
+                          onClick={() => setDeleteTarget(item)}
                           disabled={!canManageKnowledge || busy}
                         >
                           Excluir
@@ -291,6 +290,23 @@ function CompanyKnowledgeBasePage() {
           </div>
         )}
       </Card>
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Excluir conteudo"
+        description={
+          deleteTarget
+            ? `Tem certeza que deseja excluir "${deleteTarget.title}"? Esta acao nao pode ser desfeita.`
+            : ''
+        }
+        confirmLabel="Excluir"
+        confirmTone="danger"
+        busy={busy}
+        onClose={() => {
+          if (!busy) setDeleteTarget(null);
+        }}
+        onConfirm={() => void handleDelete()}
+      />
 
       {modalOpen ? (
         <div
@@ -306,62 +322,80 @@ function CompanyKnowledgeBasePage() {
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold text-[#0f172a]">
-                  {editingId ? 'Editar conteúdo' : 'Novo conteúdo'}
+                  {editingId ? 'Editar conteudo' : 'Novo conteudo'}
                 </h2>
                 <p className="text-sm text-[#64748b]">
-                  Esse conteúdo será usado pela IA nas respostas da empresa.
+                  Esse conteudo sera usado pela IA nas respostas da empresa.
                 </p>
               </div>
               <button
                 type="button"
                 className="rounded-md p-1.5 text-[#64748b] hover:bg-[#f1f5f9]"
                 onClick={closeModal}
-                aria-label="Fechar"
+                aria-label="Fechar modal"
               >
-                ×
+                x
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="space-y-4">
+            <form onSubmit={handleSubmit(handleSave)} noValidate className="space-y-4">
               <label className="block text-sm">
-                <span className="mb-1 block text-[#334155]">Título</span>
+                <span className="mb-1 block text-[#334155]">Titulo</span>
                 <input
                   type="text"
-                  value={form.title}
-                  onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
                   maxLength={190}
-                  required
                   className="w-full rounded-lg border border-[#d4d4d4] px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
-                  placeholder="Ex.: Política de trocas"
+                  placeholder="Ex.: Politica de trocas"
+                  aria-invalid={errors.title ? 'true' : 'false'}
+                  aria-describedby={errors.title ? 'knowledge-title-error' : undefined}
+                  {...register('title', {
+                    required: 'Informe o titulo.',
+                    minLength: { value: 3, message: 'Use ao menos 3 caracteres.' },
+                    maxLength: { value: 190, message: 'Use no maximo 190 caracteres.' },
+                    validate: (value) =>
+                      String(value ?? '').trim().length >= 3 || 'Use ao menos 3 caracteres validos.',
+                  })}
                 />
               </label>
+              {errors.title ? (
+                <p id="knowledge-title-error" className="text-xs text-red-600" role="alert">
+                  {errors.title.message}
+                </p>
+              ) : null}
 
               <label className="block text-sm">
-                <span className="mb-1 block text-[#334155]">Conteúdo</span>
+                <span className="mb-1 block text-[#334155]">Conteudo</span>
                 <textarea
-                  value={form.content}
-                  onChange={(event) => setForm((prev) => ({ ...prev, content: event.target.value }))}
                   rows={12}
-                  required
                   className="w-full rounded-lg border border-[#d4d4d4] px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
-                  placeholder="Escreva aqui as informações importantes para a IA..."
+                  placeholder="Escreva aqui as informacoes importantes para a IA..."
+                  aria-invalid={errors.content ? 'true' : 'false'}
+                  aria-describedby={errors.content ? 'knowledge-content-error' : undefined}
+                  {...register('content', {
+                    required: 'Informe o conteudo.',
+                    minLength: { value: 20, message: 'Use ao menos 20 caracteres.' },
+                    validate: (value) =>
+                      String(value ?? '').trim().length >= 20 || 'Use ao menos 20 caracteres validos.',
+                  })}
                 />
               </label>
+              {errors.content ? (
+                <p id="knowledge-content-error" className="text-xs text-red-600" role="alert">
+                  {errors.content.message}
+                </p>
+              ) : null}
 
               <label className="inline-flex items-center gap-2 text-sm text-[#1f2937]">
                 <input
                   type="checkbox"
                   className="h-4 w-4 rounded border-[#d4d4d4] text-[#2563eb] focus:ring-[#2563eb]/20"
-                  checked={Boolean(form.is_active)}
-                  onChange={(event) =>
-                    setForm((prev) => ({ ...prev, is_active: event.target.checked }))
-                  }
+                  {...register('is_active')}
                 />
                 Ativo
               </label>
 
               <div className="flex items-center gap-2 pt-2">
-                <Button type="submit" variant="primary" disabled={busy || !canManageKnowledge}>
+                <Button type="submit" variant="primary" disabled={busy || !canManageKnowledge || !isValid}>
                   {busy ? 'Salvando...' : 'Salvar'}
                 </Button>
                 <Button type="button" variant="secondary" onClick={closeModal} disabled={busy}>

@@ -3,6 +3,8 @@ import {
   CONVERSATION_STATUS,
 } from '@/constants/conversation';
 import ServiceAreaBadge from '@/components/company/ServiceAreaBadge/ServiceAreaBadge.jsx';
+import LoadingSkeleton from '@/components/ui/LoadingSkeleton/LoadingSkeleton.jsx';
+import EmptyState from '@/components/ui/EmptyState/EmptyState.jsx';
 import ConversationsFilter from './ConversationsFilter.jsx';
 
 function ConversationsSidebar({
@@ -17,6 +19,7 @@ function ConversationsSidebar({
   onFiltersChange,
   conversationListRef,
   onConversationsScroll,
+  conversationsLoading,
   conversations,
   unreadConversationSet,
   onOpenConversation,
@@ -67,7 +70,24 @@ function ConversationsSidebar({
         onScroll={onConversationsScroll}
         className="inbox-conversations-list space-y-2 text-sm"
       >
-        {!conversations.length && <li className="text-[#706f6c] py-4">Nenhuma conversa.</li>}
+        {conversationsLoading && !conversations.length ? (
+          <li className="space-y-2 py-1">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={`conv-skeleton-${index}`} className="rounded-lg border border-[#e2e8f0] bg-white p-3">
+                <LoadingSkeleton className="h-4 w-10/12" />
+                <LoadingSkeleton className="h-3 w-8/12 mt-2" />
+              </div>
+            ))}
+          </li>
+        ) : null}
+        {!conversationsLoading && !conversations.length ? (
+          <li className="py-3">
+            <EmptyState
+              title="Nenhuma conversa encontrada"
+              subtitle="Tente ajustar os filtros ou iniciar um novo atendimento."
+            />
+          </li>
+        ) : null}
         {conversations.map((conv) => {
           const hasUnread = unreadConversationSet.has(Number(conv.id));
 
@@ -104,7 +124,7 @@ function ConversationsSidebar({
                   ) : null}
                   {conv.current_area?.name ? (
                     <span className="ml-2 inline-flex flex-wrap items-center gap-1">
-                      <span className="text-[#94a3b8]">área</span>
+                      <span className="text-[#94a3b8]">Ã¡rea</span>
                       <ServiceAreaBadge areaName={conv.current_area.name} serviceAreaNames={serviceAreaNames} />
                     </span>
                   ) : null}
@@ -120,7 +140,7 @@ function ConversationsSidebar({
       {conversationsPagination && conversationsPagination.last_page > 1 && (
         <div className="inbox-conversations-pagination">
           <span className="text-xs text-[#737373]">
-            Pág. {conversationsPagination.current_page} / {conversationsPagination.last_page}
+            PÃ¡g. {conversationsPagination.current_page} / {conversationsPagination.last_page}
           </span>
           <button
             type="button"
@@ -128,12 +148,14 @@ function ConversationsSidebar({
             disabled={conversationsPagination.current_page >= conversationsPagination.last_page}
             className="app-btn-secondary text-xs"
           >
-            Próxima
+            PrÃ³xima
           </button>
         </div>
       )}
       <div className="inbox-conversations-status">
-        {conversationsLoadingMore ? (
+        {conversationsLoading ? (
+          <span className="text-xs text-[#737373]">Atualizando conversas...</span>
+        ) : conversationsLoadingMore ? (
           <span className="text-xs text-[#737373]">Carregando mais conversas...</span>
         ) : conversationsPagination && loadedConversationPage < Number(conversationsPagination.last_page ?? 1) ? (
           <span className="text-xs text-[#737373]">Role para carregar mais conversas.</span>

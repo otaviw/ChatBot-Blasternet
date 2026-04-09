@@ -1,9 +1,15 @@
 import './UsersListPanel.css';
 import Button from '@/components/ui/Button/Button.jsx';
+import EmptyState from '@/components/ui/EmptyState/EmptyState.jsx';
 
 function UsersListPanel({ users, roleLabel, onEdit, onDelete, showCompany = false }) {
   if (!users.length) {
-    return <p className="text-sm text-[#64748b]">Nenhum usuário cadastrado.</p>;
+    return (
+      <EmptyState
+        title="Nenhum usuario cadastrado"
+        subtitle="Crie o primeiro usuario para comecar a gerenciar acessos."
+      />
+    );
   }
 
   return (
@@ -34,7 +40,7 @@ function UsersListPanel({ users, roleLabel, onEdit, onDelete, showCompany = fals
                   type="button"
                   variant="danger"
                   className="px-3 py-1 text-xs"
-                  onClick={() => onDelete(user.id)}
+                  onClick={() => onDelete(user)}
                 >
                   Excluir
                 </Button>
@@ -48,4 +54,3 @@ function UsersListPanel({ users, roleLabel, onEdit, onDelete, showCompany = fals
 }
 
 export default UsersListPanel;
-

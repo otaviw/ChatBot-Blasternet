@@ -2,6 +2,8 @@ import './CompanyInboxPage.css';
 import { useCallback, useEffect, useMemo } from 'react';
 import Layout from '@/components/layout/Layout/Layout.jsx';
 import InboxBackButton from '@/components/ui/InboxBackButton/InboxBackButton.jsx';
+import LoadingSkeleton from '@/components/ui/LoadingSkeleton/LoadingSkeleton.jsx';
+import EmptyState from '@/components/ui/EmptyState/EmptyState.jsx';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
 import { useNotificationsContext } from '@/hooks/useNotificationsContext';
@@ -36,6 +38,7 @@ function CompanyInboxPage() {
   const {
     conversationListRef,
     conversations,
+    conversationsLoading,
     conversationsLoadingMore,
     conversationsPagination,
     convSearchInput,
@@ -185,7 +188,13 @@ function CompanyInboxPage() {
   if (loading) {
     return (
       <Layout role="company" onLogout={logout}>
-        <p className="text-sm text-[#706f6c]">Carregando inbox...</p>
+        <div className="space-y-3">
+          <LoadingSkeleton className="h-6 w-56" />
+          <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-3">
+            <LoadingSkeleton className="h-[420px] w-full" />
+            <LoadingSkeleton className="h-[420px] w-full" />
+          </div>
+        </div>
       </Layout>
     );
   }
@@ -194,7 +203,7 @@ function CompanyInboxPage() {
     return (
       <Layout>
         <p className="text-sm text-red-600 dark:text-red-400">
-          Não foi possível carregar as conversas.
+          NÃ£o foi possÃ­vel carregar as conversas.
         </p>
       </Layout>
     );
@@ -204,7 +213,7 @@ function CompanyInboxPage() {
     <Layout role="company" onLogout={logout} fullWidth>
       <div className="inbox-page">
         <div className={`inbox-header${selectedId ? ' inbox-header--hidden-mobile' : ''}`}>
-          <h1 className="inbox-title">Conversas da empresa — atendimento em tempo real</h1>
+          <h1 className="inbox-title">Conversas da empresa â€” atendimento em tempo real</h1>
         </div>
         <div className="inbox-layout">
           <ConversationsSidebar
@@ -219,6 +228,7 @@ function CompanyInboxPage() {
             onFiltersChange={setFilters}
             conversationListRef={conversationListRef}
             onConversationsScroll={handleConversationsScroll}
+            conversationsLoading={conversationsLoading}
             conversations={conversations}
             unreadConversationSet={unreadConversationSet}
             onOpenConversation={openConversation}
@@ -236,7 +246,12 @@ function CompanyInboxPage() {
             )}
             {detailError && <p className="inbox-empty-state text-sm text-red-600">{detailError}</p>}
             {!detailLoading && !detail && !detailError && (
-              <p className="inbox-empty-state text-sm text-[#706f6c]">Selecione uma conversa.</p>
+              <div className="inbox-empty-state">
+                <EmptyState
+                  title="Selecione uma conversa"
+                  subtitle="Escolha um contato na lista para visualizar mensagens e responder."
+                />
+              </div>
             )}
             {!!detail && (
               <div className="inbox-detail-layout">

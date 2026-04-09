@@ -6,8 +6,8 @@ import useLogout from '@/hooks/useLogout';
 import api from '@/services/api';
 import MessageSimulatorCard from '@/components/sections/simulator/MessageSimulatorCard/MessageSimulatorCard.jsx';
 import SimulationResultCard from '@/components/sections/simulator/SimulationResultCard/SimulationResultCard.jsx';
-import Notice from '@/components/ui/Notice/Notice.jsx';
 import PageHeader from '@/components/ui/PageHeader/PageHeader.jsx';
+import { showError } from '@/services/toastService';
 
 function CompanySimulatorPage() {
   const { data, loading, error } = usePageData('/minha-conta/bot');
@@ -17,7 +17,6 @@ function CompanySimulatorPage() {
   const [imageFile, setImageFile] = useState(null);
   const [sendOutbound, setSendOutbound] = useState(true);
   const [result, setResult] = useState(null);
-  const [actionError, setActionError] = useState('');
   const [busy, setBusy] = useState(false);
 
   const runSimulation = async (event) => {
@@ -25,7 +24,6 @@ function CompanySimulatorPage() {
     if (!data?.company?.id) return;
 
     setBusy(true);
-    setActionError('');
     setResult(null);
 
     try {
@@ -48,7 +46,7 @@ function CompanySimulatorPage() {
       }
       setResult(response.data);
     } catch (err) {
-      setActionError(err.response?.data?.message || 'Falha ao simular mensagem.');
+      showError(err.response?.data?.message || 'Falha ao simular mensagem.');
     } finally {
       setBusy(false);
     }
@@ -94,8 +92,6 @@ function CompanySimulatorPage() {
         busyLabel="Simulando..."
         submitLabel="Simular mensagem"
       />
-
-      {actionError && <Notice tone="danger" className="mt-4 max-w-2xl">{actionError}</Notice>}
 
       {result && (
         <SimulationResultCard

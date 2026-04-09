@@ -3,6 +3,7 @@ import UsersPage from "@/pages/Users/UsersPage.jsx";
 import Layout from "@/components/layout/Layout/Layout.jsx";
 import usePageData from "@/hooks/usePageData";
 import useLogout from "@/hooks/useLogout";
+import LoadingSkeleton from "@/components/ui/LoadingSkeleton/LoadingSkeleton.jsx";
 
 export default function CompanyUsersPage() {
   const { data, loading, error } = usePageData('/me');
@@ -14,7 +15,11 @@ export default function CompanyUsersPage() {
   if (loading) {
     return (
       <Layout role="company" onLogout={logout}>
-        <p className="text-sm text-[#64748b]">Carregando usuários...</p>
+        <div className="space-y-3">
+          <LoadingSkeleton className="h-6 w-44" />
+          <LoadingSkeleton className="h-4 w-80 max-w-full" />
+          <LoadingSkeleton className="h-64 w-full" />
+        </div>
       </Layout>
     );
   }
@@ -22,7 +27,7 @@ export default function CompanyUsersPage() {
   if (error || !data?.authenticated) {
     return (
       <Layout role="company" onLogout={logout}>
-        <p className="text-sm text-red-600">Não foi possível carregar usuários.</p>
+        <p className="text-sm text-red-600">Nao foi possivel carregar usuarios.</p>
       </Layout>
     );
   }
@@ -37,5 +42,3 @@ export default function CompanyUsersPage() {
 
   return <UsersPage scope="company" />;
 }
-
-

@@ -269,9 +269,7 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
+  display: block;
 }
 
 .internal-chat-message {
@@ -282,6 +280,7 @@
   border-radius: 0.85rem;
   padding: 0.55rem 0.7rem;
   border: 1px solid #ececec;
+  margin-bottom: 0.6rem;
 }
 
 .internal-chat-message--mine {

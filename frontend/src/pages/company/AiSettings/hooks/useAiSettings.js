@@ -5,8 +5,7 @@ import {
   updateSettings,
   updateUserPermission,
 } from '@/services/aiSettingsService';
-
-const emptyToast = { type: '', message: '' };
+import { showError, showSuccess } from '@/services/toastService';
 
 const parseRequestError = (error, fallback) =>
   error?.response?.data?.message ??
@@ -24,25 +23,6 @@ export default function useAiSettings({ enabled, companyId }) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [permissionBusyById, setPermissionBusyById] = useState({});
-  const [toast, setToast] = useState(emptyToast);
-
-  const hideToast = useCallback(() => {
-    setToast(emptyToast);
-  }, []);
-
-  useEffect(() => {
-    if (!toast.message) {
-      return undefined;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setToast(emptyToast);
-    }, 3000);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [toast]);
 
   const loadData = useCallback(async () => {
     if (!enabled) {
@@ -62,7 +42,7 @@ export default function useAiSettings({ enabled, companyId }) {
       setSettings(settingsResponse.settings ?? null);
       setUsers(usersResponse.users ?? []);
     } catch (requestError) {
-      setError(parseRequestError(requestError, 'Não foi possível carregar as configurações de IA.'));
+      setError(parseRequestError(requestError, 'Nao foi possivel carregar as configuracoes de IA.'));
     } finally {
       setLoading(false);
     }
@@ -96,18 +76,12 @@ export default function useAiSettings({ enabled, companyId }) {
     try {
       const response = await updateSettings(settings, companyId);
       setSettings(response.settings ?? settings);
-      setToast({
-        type: 'success',
-        message: 'Configurações de IA guardadas com sucesso.',
-      });
+      showSuccess('Configuracoes de IA salvas com sucesso.');
       return true;
     } catch (requestError) {
       const message = parseRequestError(requestError, 'Nao foi possivel salvar as configuracoes.');
       setSaveError(message);
-      setToast({
-        type: 'danger',
-        message,
-      });
+      showError(message);
       return false;
     } finally {
       setSaving(false);
@@ -141,16 +115,10 @@ export default function useAiSettings({ enabled, companyId }) {
           })
         );
 
-        setToast({
-          type: 'success',
-          message: 'Permissão de IA atualizada.',
-        });
+        showSuccess('Permissao de IA atualizada.');
       } catch (requestError) {
-        const message = parseRequestError(requestError, 'Não foi possível atualizar a permissão do utilizador.');
-        setToast({
-          type: 'danger',
-          message,
-        });
+        const message = parseRequestError(requestError, 'Nao foi possivel atualizar a permissao do usuario.');
+        showError(message);
       } finally {
         setPermissionBusyById((previous) => ({ ...previous, [normalizedUserId]: false }));
       }
@@ -169,13 +137,11 @@ export default function useAiSettings({ enabled, companyId }) {
     error,
     saving,
     saveError,
-    toast,
     canSave,
     permissionBusyById,
     updateField,
     saveSettingsChanges,
     toggleUserPermission,
     reload: loadData,
-    hideToast,
   };
 }

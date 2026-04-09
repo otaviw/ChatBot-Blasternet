@@ -6,6 +6,8 @@ import useLogout from '@/hooks/useLogout';
 import api from '@/services/api';
 import PageHeader from '@/components/ui/PageHeader/PageHeader.jsx';
 import InboxBackButton from '@/components/ui/InboxBackButton/InboxBackButton.jsx';
+import LoadingSkeleton from '@/components/ui/LoadingSkeleton/LoadingSkeleton.jsx';
+import EmptyState from '@/components/ui/EmptyState/EmptyState.jsx';
 
 function AdminInboxPage() {
   const { data, loading, error } = usePageData('/admin/empresas');
@@ -40,7 +42,7 @@ function AdminInboxPage() {
         setConversations(response.data?.conversations ?? []);
         if (response.data?.privacy_mode) {
           setPrivacyMessage(
-            'Modo privacidade ativo: mensagens e dados pessoais do cliente não são exibidos para superadmin.'
+            'Modo privacidade ativo: mensagens e dados pessoais do cliente nÃ£o sÃ£o exibidos para superadmin.'
           );
         }
       })
@@ -69,7 +71,7 @@ function AdminInboxPage() {
       setDetail(conversation);
       if (response.data?.privacy_mode) {
         setPrivacyMessage(
-          'Modo privacidade ativo: detalhes sensíveis e histórico de mensagens permanecem ocultos.'
+          'Modo privacidade ativo: detalhes sensÃ­veis e histÃ³rico de mensagens permanecem ocultos.'
         );
       }
     } catch (err) {
@@ -82,7 +84,13 @@ function AdminInboxPage() {
   if (loading) {
     return (
       <Layout role="admin" onLogout={logout}>
-        <p className="text-sm text-[#706f6c]">Carregando inbox...</p>
+        <div className="space-y-3">
+          <LoadingSkeleton className="h-6 w-56" />
+          <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-3">
+            <LoadingSkeleton className="h-[420px] w-full" />
+            <LoadingSkeleton className="h-[420px] w-full" />
+          </div>
+        </div>
       </Layout>
     );
   }
@@ -90,7 +98,7 @@ function AdminInboxPage() {
   if (error || !data?.authenticated) {
     return (
       <Layout>
-        <p className="text-sm text-red-600 dark:text-red-400">Não foi possível carregar a inbox.</p>
+        <p className="text-sm text-red-600 dark:text-red-400">NÃ£o foi possÃ­vel carregar a inbox.</p>
       </Layout>
     );
   }
@@ -100,8 +108,8 @@ function AdminInboxPage() {
       <div className="inbox-page">
       <div className="inbox-header px-4 py-4 lg:px-6 shrink-0">
         <PageHeader
-          title="Conversas (administração)"
-          subtitle="Acompanhe conversas por empresa, assuma atendimentos críticos e responda com agilidade."
+          title="Conversas (administraÃ§Ã£o)"
+          subtitle="Acompanhe conversas por empresa, assuma atendimentos crÃ­ticos e responda com agilidade."
         />
       <div className="mb-4 max-w-sm mt-2">
         <label className="block text-sm">
@@ -134,8 +142,22 @@ function AdminInboxPage() {
           }`}
         >
           <h2 className="text-base font-semibold mb-3">Conversas</h2>
-          {listLoading && <p className="text-sm text-[#737373]">Carregando conversas...</p>}
-          {!listLoading && !conversations.length && <p className="text-sm text-[#737373]">Nenhuma conversa.</p>}
+          {listLoading && (
+            <div className="space-y-2">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div key={`admin-conv-skeleton-${index}`} className="rounded-lg border border-[#e2e8f0] bg-white p-3">
+                  <LoadingSkeleton className="h-4 w-10/12" />
+                  <LoadingSkeleton className="h-3 w-8/12 mt-2" />
+                </div>
+              ))}
+            </div>
+          )}
+          {!listLoading && !conversations.length && (
+            <EmptyState
+              title="Nenhuma conversa para esta empresa"
+              subtitle="Escolha outra empresa ou aguarde novos atendimentos."
+            />
+          )}
           <ul className="space-y-2 text-sm">
             {conversations.map((conv) => (
               <li key={conv.id}>
@@ -170,14 +192,24 @@ function AdminInboxPage() {
             <InboxBackButton
               onClick={() => setSelectedId(null)}
               className="lg:hidden flex items-center gap-2 text-sm text-[#525252] hover:text-[#171717] mb-4"
-              label="Voltar às conversas"
+              label="Voltar Ã s conversas"
             />
           )}
           <h2 className="text-base font-semibold mb-3">Mensagens</h2>
-          {detailLoading && <p className="text-sm text-[#737373]">Carregando conversa...</p>}
+          {detailLoading && (
+            <div className="space-y-2 max-w-lg">
+              <LoadingSkeleton className="h-4 w-8/12" />
+              <LoadingSkeleton className="h-4 w-11/12" />
+              <LoadingSkeleton className="h-4 w-9/12" />
+              <LoadingSkeleton className="h-4 w-10/12" />
+            </div>
+          )}
           {detailError && <p className="text-sm text-red-600">{detailError}</p>}
           {!detailLoading && !detail && !detailError && (
-            <p className="text-sm text-[#737373]">Selecione uma conversa.</p>
+            <EmptyState
+              title="Selecione uma conversa"
+              subtitle="Escolha um item na coluna lateral para ver os metadados."
+            />
           )}
           {!!detail && (
             <>
@@ -191,8 +223,8 @@ function AdminInboxPage() {
                 <li>Tags: {detail.tags_count ?? 0}</li>
               </ul>
 
-              {/* Superadmin não deve gerenciar contato do cliente a partir deste painel.
-                  Mantemos apenas metadados da conversa visíveis. */}
+              {/* Superadmin nÃ£o deve gerenciar contato do cliente a partir deste painel.
+                  Mantemos apenas metadados da conversa visÃ­veis. */}
             </>
           )}
         </section>

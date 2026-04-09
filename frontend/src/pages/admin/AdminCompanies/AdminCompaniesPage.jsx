@@ -4,6 +4,9 @@ import Layout from '@/components/layout/Layout/Layout.jsx';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
 import api from '@/services/api';
+import LoadingSkeleton from '@/components/ui/LoadingSkeleton/LoadingSkeleton.jsx';
+import EmptyState from '@/components/ui/EmptyState/EmptyState.jsx';
+import ConfirmDialog from '@/components/ui/ConfirmDialog/ConfirmDialog.jsx';
 
 function AdminCompaniesPage() {
   const { data, loading, error } = usePageData('/admin/empresas');
@@ -17,6 +20,9 @@ function AdminCompaniesPage() {
   const [createBusy, setCreateBusy] = useState(false);
   const [createError, setCreateError] = useState('');
   const [createSuccess, setCreateSuccess] = useState('');
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const [companies, setCompanies] = useState([]);
 
   useEffect(() => {
@@ -59,10 +65,32 @@ function AdminCompaniesPage() {
     }
   };
 
+  const confirmDeleteCompany = async () => {
+    if (!deleteTarget?.id) return;
+
+    setDeleteBusy(true);
+    setDeleteError('');
+    try {
+      await api.delete(`/admin/empresas/${deleteTarget.id}`);
+      setCompanies((prev) => prev.filter((c) => c.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } catch (err) {
+      setDeleteError(err.response?.data?.message || 'Falha ao excluir empresa.');
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
+
   if (loading) {
     return (
       <Layout role="admin" onLogout={logout}>
-        <p className="text-sm text-[#706f6c]">Carregando empresas...</p>
+        <div className="space-y-3">
+          <LoadingSkeleton className="h-6 w-40" />
+          <LoadingSkeleton className="h-4 w-96 max-w-full" />
+          <LoadingSkeleton className="h-28 w-full" />
+          <LoadingSkeleton className="h-16 w-full" />
+          <LoadingSkeleton className="h-16 w-full" />
+        </div>
       </Layout>
     );
   }
@@ -70,7 +98,7 @@ function AdminCompaniesPage() {
   if (error || !data?.authenticated) {
     return (
       <Layout>
-        <p className="text-sm text-red-600 dark:text-red-400">Não foi possível carregar as empresas.</p>
+        <p className="text-sm text-red-600 dark:text-red-400">NÃ£o foi possÃ­vel carregar as empresas.</p>
       </Layout>
     );
   }
@@ -79,7 +107,7 @@ function AdminCompaniesPage() {
     <Layout role="admin" onLogout={logout}>
       <h1 className="app-page-title">Empresas</h1>
       <p className="app-page-subtitle mb-6">
-        Lista de empresas com acesso. Clique para ver informações e uso.
+        Lista de empresas com acesso. Clique para ver informaÃ§Ãµes e uso.
       </p>
 
       <section className="app-panel mb-8">
@@ -97,7 +125,7 @@ function AdminCompaniesPage() {
           </label>
 
           <label className="block text-sm">
-            ID do número (Meta / WhatsApp)
+            ID do nÃºmero (Meta / WhatsApp)
             <input
               type="text"
               value={newCompany.meta_phone_number_id}
@@ -138,10 +166,14 @@ function AdminCompaniesPage() {
         </form>
         {createError && <p className="text-sm text-red-600 mt-2">{createError}</p>}
         {createSuccess && <p className="text-sm text-green-700 mt-2">{createSuccess}</p>}
+        {deleteError && <p className="text-sm text-red-600 mt-2">{deleteError}</p>}
       </section>
 
       {!companies.length ? (
-        <p className="text-sm text-[#737373]">Nenhuma empresa cadastrada.</p>
+        <EmptyState
+          title="Nenhuma empresa cadastrada"
+          subtitle="Crie uma empresa para iniciar o acompanhamento e configuracao do bot."
+        />
       ) : (
         <ul className="rounded-xl border border-[#eeeeee] overflow-hidden bg-white divide-y divide-[#eeeeee]">
           {companies.map((company) => (
@@ -152,25 +184,18 @@ function AdminCompaniesPage() {
               >
                 <span className="font-medium text-[#171717]">{company.name}</span>
                 <span className="text-sm text-[#737373] ml-2">
-                  · {company.conversations_count ?? 0} conversa(s)
+                  Â· {company.conversations_count ?? 0} conversa(s)
                 </span>
                 <span className="text-xs text-[#a3a3a3] ml-2">
-                  · bot {company.bot_setting ? 'configurado' : 'padrão'}
+                  Â· bot {company.bot_setting ? 'configurado' : 'padrÃ£o'}
                 </span>
               </a>
               <button
                 type="button"
                 className="app-btn-danger text-xs px-3 py-1.5"
-                onClick={async () => {
-                  if (!window.confirm(`Tem certeza que deseja excluir a empresa "${company.name}"?`)) {
-                    return;
-                  }
-                  try {
-                    await api.delete(`/admin/empresas/${company.id}`);
-                    setCompanies((prev) => prev.filter((c) => c.id !== company.id));
-                  } catch (err) {
-                    alert(err.response?.data?.message || 'Falha ao excluir empresa.');
-                  }
+                onClick={() => {
+                  setDeleteError('');
+                  setDeleteTarget(company);
                 }}
               >
                 Excluir
@@ -179,6 +204,23 @@ function AdminCompaniesPage() {
           ))}
         </ul>
       )}
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Excluir empresa"
+        description={
+          deleteTarget
+            ? `Tem certeza que deseja excluir a empresa "${deleteTarget.name}"? Esta acao nao pode ser desfeita.`
+            : ''
+        }
+        confirmLabel="Excluir"
+        confirmTone="danger"
+        busy={deleteBusy}
+        onClose={() => {
+          if (!deleteBusy) setDeleteTarget(null);
+        }}
+        onConfirm={() => void confirmDeleteCompany()}
+      />
     </Layout>
   );
 }

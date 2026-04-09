@@ -6,10 +6,12 @@ import useLogout from "@/hooks/useLogout";
 import api from "@/services/api";
 import Button from "@/components/ui/Button/Button.jsx";
 import Card from "@/components/ui/Card/Card.jsx";
-import Notice from "@/components/ui/Notice/Notice.jsx";
 import PageHeader from "@/components/ui/PageHeader/PageHeader.jsx";
 import UserFormFields from "@/components/sections/users/UserFormFields/UserFormFields.jsx";
 import UsersListPanel from "@/components/sections/users/UsersListPanel/UsersListPanel.jsx";
+import LoadingSkeleton from "@/components/ui/LoadingSkeleton/LoadingSkeleton.jsx";
+import ConfirmDialog from "@/components/ui/ConfirmDialog/ConfirmDialog.jsx";
+import { showError, showSuccess } from "@/services/toastService";
 
 function initialForm(isAdminScope) {
   if (isAdminScope) {
@@ -61,9 +63,9 @@ export default function UsersPage({ scope = "company" }) {
   const [extraError, setExtraError] = useState(null);
 
   const [createBusy, setCreateBusy] = useState(false);
-  const [createError, setCreateError] = useState("");
   const [editBusy, setEditBusy] = useState(false);
-  const [editError, setEditError] = useState("");
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [createForm, setCreateForm] = useState(initialForm(isAdminScope));
   const [editForm, setEditForm] = useState(null);
@@ -216,14 +218,14 @@ export default function UsersPage({ scope = "company" }) {
   async function handleCreate(event) {
     event.preventDefault();
     setCreateBusy(true);
-    setCreateError("");
 
     try {
       await api.post(usersEndpoint, buildPayload(createForm));
       await refreshUsers();
       setCreateForm(initialForm(isAdminScope));
+      showSuccess("Usuario criado com sucesso.");
     } catch (err) {
-      setCreateError(err.response?.data?.message || "Falha ao criar usuário.");
+      showError(err.response?.data?.message || "Falha ao criar usuario.");
     } finally {
       setCreateBusy(false);
     }
@@ -268,7 +270,6 @@ export default function UsersPage({ scope = "company" }) {
     if (!editForm?.id) return;
 
     setEditBusy(true);
-    setEditError("");
 
     try {
       const payload = buildPayload(editForm);
@@ -280,28 +281,38 @@ export default function UsersPage({ scope = "company" }) {
       await refreshUsers();
       setSelectedUserId(null);
       setEditForm(null);
+      showSuccess("Usuario atualizado com sucesso.");
     } catch (err) {
-      setEditError(err.response?.data?.message || "Falha ao atualizar usuário.");
+      showError(err.response?.data?.message || "Falha ao atualizar usuario.");
     } finally {
       setEditBusy(false);
     }
   }
 
-  async function handleDelete(userId) {
-    if (!userId) return;
-    if (!window.confirm("Tem certeza que deseja excluir este usuário?")) return;
+  function requestDelete(user) {
+    if (!user?.id) return;
+    setDeleteTarget(user);
+  }
 
+  async function confirmDelete() {
+    if (!deleteTarget?.id) return;
+
+    setDeleteBusy(true);
     try {
-      await api.delete(`${usersEndpoint}/${userId}`);
+      await api.delete(`${usersEndpoint}/${deleteTarget.id}`);
       await refreshUsers();
+      setDeleteTarget(null);
+      showSuccess("Usuario excluido com sucesso.");
     } catch (err) {
-      alert(err.response?.data?.message || "Falha ao excluir usuário.");
+      showError(err.response?.data?.message || "Falha ao excluir usuario.");
+    } finally {
+      setDeleteBusy(false);
     }
   }
 
   const loadingAny = loading || extraLoading;
   const pageError = error || extraError;
-  const pageErrorMessage = pageError?.response?.data?.message || "Não foi possível carregar usuários.";
+  const pageErrorMessage = pageError?.response?.data?.message || "NÃ£o foi possÃ­vel carregar usuÃ¡rios.";
 
   if (loadingAny) {
     return (
@@ -310,7 +321,17 @@ export default function UsersPage({ scope = "company" }) {
         companyName={isAdminScope ? null : companyName}
         onLogout={logout}
       >
-        <p className="text-sm text-[#64748b]">Carregando usuários...</p>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {Array.from({ length: 2 }).map((_, index) => (
+            <Card key={`users-page-skeleton-${index}`}>
+              <LoadingSkeleton className="h-5 w-40" />
+              <LoadingSkeleton className="mt-4 h-10 w-full" />
+              <LoadingSkeleton className="mt-3 h-10 w-full" />
+              <LoadingSkeleton className="mt-3 h-10 w-10/12" />
+              <LoadingSkeleton className="mt-5 h-9 w-36" />
+            </Card>
+          ))}
+        </div>
       </Layout>
     );
   }
@@ -330,7 +351,7 @@ export default function UsersPage({ scope = "company" }) {
   const pageTitle = isAdminScope ? "Usuarios" : "Usuarios da empresa";
   const pageSubtitle = isAdminScope
     ? "Gerencie acessos globais com perfis e areas alinhadas por empresa."
-    : "Crie, edite e organize o time por perfil e áreas de atuação.";
+    : "Crie, edite e organize o time por perfil e Ã¡reas de atuaÃ§Ã£o.";
 
   const createAreaMessage = isAdminScope
     ? createForm.company_id
@@ -354,7 +375,7 @@ export default function UsersPage({ scope = "company" }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
-          <h2 className="text-base font-semibold text-[#0f172a] mb-3">Criar usuário</h2>
+          <h2 className="text-base font-semibold text-[#0f172a] mb-3">Criar usuÃ¡rio</h2>
           <form onSubmit={handleCreate} className="space-y-3">
             <UserFormFields
               form={createForm}
@@ -386,10 +407,9 @@ export default function UsersPage({ scope = "company" }) {
             />
 
             <Button type="submit" variant="primary" disabled={createBusy}>
-              {createBusy ? "Criando..." : "Criar usuário"}
+              {createBusy ? "Criando..." : "Criar usuÃ¡rio"}
             </Button>
 
-            {createError && <Notice tone="danger">{createError}</Notice>}
           </form>
         </Card>
 
@@ -399,13 +419,13 @@ export default function UsersPage({ scope = "company" }) {
             users={users}
             roleLabel={roleLabel}
             onEdit={beginEdit}
-            onDelete={handleDelete}
+            onDelete={requestDelete}
             showCompany={isAdminScope}
           />
 
           {editForm && (
             <form onSubmit={handleEdit} className="space-y-3 border-t border-[#e2e8f0] pt-4">
-              <h3 className="text-sm font-semibold text-[#0f172a]">Editar usuário #{selectedUserId}</h3>
+              <h3 className="text-sm font-semibold text-[#0f172a]">Editar usuÃ¡rio #{selectedUserId}</h3>
 
               <UserFormFields
                 form={editForm}
@@ -438,14 +458,30 @@ export default function UsersPage({ scope = "company" }) {
               />
 
               <Button type="submit" variant="primary" disabled={editBusy}>
-                {editBusy ? "Salvando..." : "Salvar usuário"}
+                {editBusy ? "Salvando..." : "Salvar usuÃ¡rio"}
               </Button>
 
-              {editError && <Notice tone="danger">{editError}</Notice>}
             </form>
           )}
         </Card>
       </div>
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Excluir usuario"
+        description={
+          deleteTarget
+            ? `Tem certeza que deseja excluir "${deleteTarget.name ?? "este usuario"}"?`
+            : ""
+        }
+        confirmLabel="Excluir"
+        confirmTone="danger"
+        busy={deleteBusy}
+        onClose={() => {
+          if (!deleteBusy) setDeleteTarget(null);
+        }}
+        onConfirm={() => void confirmDelete()}
+      />
     </Layout>
   );
 }

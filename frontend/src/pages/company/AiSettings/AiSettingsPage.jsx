@@ -40,14 +40,11 @@ function AiSettingsPage() {
     loading,
     error,
     saving,
-    saveError,
-    toast,
     canSave,
     permissionBusyById,
     updateField,
     saveSettingsChanges,
     toggleUserPermission,
-    hideToast,
   } = useAiSettings({ enabled: canManageUsers, companyId: resolvedCompanyId });
 
   const companyName = data?.user?.company_name ?? company?.name ?? 'Empresa';
@@ -117,12 +114,6 @@ function AiSettingsPage() {
           </select>
         ) : undefined}
       />
-
-      {toast.message ? (
-        <div className="fixed right-4 top-20 z-50 w-[min(92vw,360px)]" onClick={hideToast}>
-          <Notice tone={toast.type === 'danger' ? 'danger' : 'success'}>{toast.message}</Notice>
-        </div>
-      ) : null}
 
       <form onSubmit={handleSave} className="space-y-4">
         <Card>
@@ -284,7 +275,6 @@ function AiSettingsPage() {
           <Button type="submit" variant="primary" disabled={!canSave}>
             {saving ? 'Salvando...' : 'Salvar alterações'}
           </Button>
-          {saveError ? <Notice tone="danger">{saveError}</Notice> : null}
         </div>
       </form>
     </Layout>

@@ -1,5 +1,5 @@
 import './EntrarPage.css';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '@/components/layout/Layout/Layout.jsx';
 import usePageData from '@/hooks/usePageData';
@@ -9,12 +9,12 @@ import Card from '@/components/ui/Card/Card.jsx';
 import Notice from '@/components/ui/Notice/Notice.jsx';
 import PageHeader from '@/components/ui/PageHeader/PageHeader.jsx';
 import { Field, TextInput } from '@/components/ui/FormControls/FormControls.jsx';
+import { showError } from '@/services/toastService';
 
 function EntrarPage() {
   const { data, loading, error } = usePageData('/entrar');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [actionError, setActionError] = useState('');
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -26,15 +26,13 @@ function EntrarPage() {
   const handleLogin = async (event) => {
     event.preventDefault();
     setBusy(true);
-    setActionError('');
 
     try {
       await api.get('/sanctum/csrf-cookie');
-
       await api.post('/login', { email, password });
       window.location.href = '/dashboard';
     } catch (err) {
-      setActionError(err.response?.data?.message || 'Falha no login.');
+      showError(err.response?.data?.message || 'Falha no login.');
     } finally {
       setBusy(false);
     }
@@ -46,14 +44,13 @@ function EntrarPage() {
         <Card>
           <PageHeader
             title="Acessar painel"
-            subtitle="Entre com seu usuário para monitorar conversas, bot e atendimento manual em um único fluxo."
+            subtitle="Entre com seu usuario para monitorar conversas, bot e atendimento manual."
           />
 
-          {loading && <Notice tone="info">Carregando dados de autenticação...</Notice>}
-          {error && <Notice tone="danger">Erro ao carregar dados de entrada. Tente novamente.</Notice>}
-          {actionError && <Notice tone="danger" className="mt-3">{actionError}</Notice>}
+          {loading ? <Notice tone="info">Carregando dados de autenticacao...</Notice> : null}
+          {error ? <Notice tone="danger">Erro ao carregar dados de entrada. Tente novamente.</Notice> : null}
 
-          {!loading && !error && (
+          {!loading && !error ? (
             <form onSubmit={handleLogin} className="space-y-4">
               <Field label="E-mail">
                 <TextInput
@@ -83,16 +80,16 @@ function EntrarPage() {
                 </Link>
               </p>
             </form>
-          )}
+          ) : null}
         </Card>
 
         <div className="space-y-4">
           <Card>
-            <h2 className="text-base font-semibold text-[#171717] mb-2">Fluxo otimizado para operação</h2>
+            <h2 className="text-base font-semibold text-[#171717] mb-2">Fluxo otimizado para operacao</h2>
             <ul className="space-y-2 text-sm text-[#737373] leading-relaxed">
-              <li>Painel único para conversas, usuários e configurações do bot.</li>
-              <li>Atualização em tempo real de mensagens e transferencias.</li>
-              <li>Ações manuais com histórico completo para auditoria.</li>
+              <li>Painel unico para conversas, usuarios e configuracoes do bot.</li>
+              <li>Atualizacao em tempo real de mensagens e transferencias.</li>
+              <li>Acoes manuais com historico completo para auditoria.</li>
             </ul>
           </Card>
         </div>
@@ -102,7 +99,3 @@ function EntrarPage() {
 }
 
 export default EntrarPage;
-
-
-
-

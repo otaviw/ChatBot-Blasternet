@@ -1,0 +1,52 @@
+/* Styles for ErrorBoundary */
+
+.error-boundary {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: var(--ui-bg, #fafafa);
+}
+
+.error-boundary__panel {
+  width: min(100%, 34rem);
+  border: 1px solid #e5e7eb;
+  border-radius: 0.9rem;
+  background: #ffffff;
+  padding: 1rem;
+}
+
+.error-boundary__title {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.error-boundary__subtitle {
+  margin: 0.5rem 0 0;
+  color: #64748b;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.error-boundary__actions {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+body.theme-dark .error-boundary__panel {
+  border-color: #343848;
+  background: #1a1d27;
+}
+
+body.theme-dark .error-boundary__title {
+  color: #e8eaf2;
+}
+
+body.theme-dark .error-boundary__subtitle {
+  color: #8b8fa8;
+}

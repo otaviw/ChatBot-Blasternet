@@ -19,6 +19,7 @@ export default function useCompanyInboxConversations({ data, loading }) {
   const [conversations, setConversations] = useState([]);
   const [conversationsPagination, setConversationsPagination] = useState(null);
   const [conversationsLoadingMore, setConversationsLoadingMore] = useState(false);
+  const [conversationsLoading, setConversationsLoading] = useState(Boolean(loading));
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const conversationListRef = useRef(null);
   const loadedConversationPageRef = useRef(1);
@@ -45,6 +46,7 @@ export default function useCompanyInboxConversations({ data, loading }) {
       const search = convSearchInput.trim();
       setConvSearch(search);
       loadedConversationPageRef.current = 1;
+      setConversationsLoading(true);
 
       try {
         const response = await api.get(buildConversationsUrl(1, search, filters));
@@ -58,6 +60,8 @@ export default function useCompanyInboxConversations({ data, loading }) {
         }
       } catch (_error) {
         if (canceled) return;
+      } finally {
+        if (!canceled) setConversationsLoading(false);
       }
     }, 350);
 
@@ -71,12 +75,19 @@ export default function useCompanyInboxConversations({ data, loading }) {
     setConversations(sortConversationsByActivity(data?.conversations ?? []));
     setConversationsPagination(data?.conversations_pagination ?? null);
     setConversationsLoadingMore(false);
+    setConversationsLoading(false);
     loadedConversationPageRef.current = 1;
 
     if (conversationListRef.current) {
       conversationListRef.current.scrollTop = 0;
     }
   }, [data]);
+
+  useEffect(() => {
+    if (loading) {
+      setConversationsLoading(true);
+    }
+  }, [loading]);
 
   const upsertConversationInList = useCallback((conversation) => {
     if (!conversation?.id) {
@@ -102,39 +113,44 @@ export default function useCompanyInboxConversations({ data, loading }) {
   }, []);
 
   const refreshConversations = useCallback(async () => {
-    const response = await api.get(buildConversationsUrl(1, convSearch, filters));
-    const incomingConversations = sortConversationsByActivity(response.data?.conversations ?? []);
-    const incomingPagination = response.data?.conversations_pagination ?? null;
+    setConversationsLoading(true);
+    try {
+      const response = await api.get(buildConversationsUrl(1, convSearch, filters));
+      const incomingConversations = sortConversationsByActivity(response.data?.conversations ?? []);
+      const incomingPagination = response.data?.conversations_pagination ?? null;
 
-    setConversations((prev) => {
-      if (loadedConversationPageRef.current <= 1 || convSearch) {
-        return incomingConversations;
-      }
+      setConversations((prev) => {
+        if (loadedConversationPageRef.current <= 1 || convSearch) {
+          return incomingConversations;
+        }
 
-      const merged = new Map(prev.map((item) => [Number(item.id), item]));
-      incomingConversations.forEach((conversation) => {
-        const existing = merged.get(Number(conversation.id));
-        merged.set(Number(conversation.id), {
-          ...(existing ?? {}),
-          ...conversation,
+        const merged = new Map(prev.map((item) => [Number(item.id), item]));
+        incomingConversations.forEach((conversation) => {
+          const existing = merged.get(Number(conversation.id));
+          merged.set(Number(conversation.id), {
+            ...(existing ?? {}),
+            ...conversation,
+          });
         });
+
+        return sortConversationsByActivity(Array.from(merged.values()));
       });
+      setConversationsPagination((prev) => {
+        if (!incomingPagination) {
+          return prev;
+        }
 
-      return sortConversationsByActivity(Array.from(merged.values()));
-    });
-    setConversationsPagination((prev) => {
-      if (!incomingPagination) {
-        return prev;
-      }
-
-      return {
-        ...incomingPagination,
-        current_page: Math.max(
-          loadedConversationPageRef.current,
-          Number(incomingPagination.current_page ?? 1)
-        ),
-      };
-    });
+        return {
+          ...incomingPagination,
+          current_page: Math.max(
+            loadedConversationPageRef.current,
+            Number(incomingPagination.current_page ?? 1)
+          ),
+        };
+      });
+    } finally {
+      setConversationsLoading(false);
+    }
   }, [buildConversationsUrl, convSearch, filters]);
 
   const loadMoreConversations = useCallback(async () => {
@@ -208,6 +224,7 @@ export default function useCompanyInboxConversations({ data, loading }) {
   return {
     conversationListRef,
     conversations,
+    conversationsLoading,
     conversationsLoadingMore,
     conversationsPagination,
     convSearchInput,
