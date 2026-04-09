@@ -56,7 +56,6 @@ export default function CompanyAppointmentsPage() {
   const [serviceForm, setServiceForm] = useState({ name: 'Atendimento', description: '', duration_minutes: 30, is_active: true });
   const [staff, setStaff] = useState([]);
   const [selectedStaffId, setSelectedStaffId] = useState('');
-  const [hoursStaffId, setHoursStaffId] = useState('');
   const [hours, setHours] = useState(initHours);
   const [availDate, setAvailDate] = useState(today);
   const [availability, setAvailability] = useState([]);
@@ -101,8 +100,8 @@ export default function CompanyAppointmentsPage() {
     const nextStaff = s3?.staff || [];
     setSettings(nextSettings); setService(nextService); setStaff(nextStaff);
     if (nextService) setServiceForm({ name: nextService.name || 'Atendimento', description: nextService.description || '', duration_minutes: Number(nextService.duration_minutes || 30), is_active: !!nextService.is_active });
-    if (!selectedStaffId && nextStaff[0]) setSelectedStaffId(String(nextStaff[0].id));
-    if (!hoursStaffId && nextStaff[0]) { setHoursStaffId(String(nextStaff[0].id)); setHours(mapHours(nextStaff[0])); }
+    const firstBookable = nextStaff.find((s) => s.is_bookable);
+    if (!selectedStaffId && firstBookable) setSelectedStaffId(String(firstBookable.id));
   }, 'Nao foi possivel carregar dados de agendamento.');
 
   const reloadCalendar = async () => run(async () => {
@@ -124,6 +123,10 @@ export default function CompanyAppointmentsPage() {
   useEffect(() => { if (data?.authenticated) void reloadBase(); }, [data?.authenticated]);
   useEffect(() => { if (data?.authenticated) void reloadCalendar(); }, [data?.authenticated, calRange.start, calRange.end, selectedStaffId]);
   useEffect(() => { if (data?.authenticated) void reloadAvailability(); }, [data?.authenticated, serviceId, availDate, selectedStaffId]);
+  useEffect(() => {
+    const t = staff.find((x) => String(x.id) === selectedStaffId);
+    setHours(t ? mapHours(t) : initHours());
+  }, [selectedStaffId, staff]);
 
   const saveSettings = () => run(async () => {
     const payload = { timezone: settings.timezone, slot_interval_minutes: Number(settings.slot_interval_minutes), booking_min_notice_minutes: Number(settings.booking_min_notice_minutes), booking_max_advance_days: Number(settings.booking_max_advance_days), cancellation_min_notice_minutes: Number(settings.cancellation_min_notice_minutes), reschedule_min_notice_minutes: Number(settings.reschedule_min_notice_minutes), allow_customer_choose_staff: !!settings.allow_customer_choose_staff };
@@ -137,7 +140,7 @@ export default function CompanyAppointmentsPage() {
   }, 'Falha ao salvar servico.');
 
   const saveHours = (e) => run(async () => {
-    e.preventDefault(); if (!hoursStaffId) throw new Error('Selecione um atendente.');
+    e.preventDefault(); if (!selectedStaffId) throw new Error('Selecione um atendente.');
     const payload = {
       hours: hours.filter((h) => h.is_active).map((h) => ({
         day_of_week: h.day_of_week,
@@ -148,7 +151,7 @@ export default function CompanyAppointmentsPage() {
         is_active: true,
       })),
     };
-    const r = await replaceStaffWorkingHours(Number(hoursStaffId), payload); const updated = r?.staff;
+    const r = await replaceStaffWorkingHours(Number(selectedStaffId), payload); const updated = r?.staff;
     if (updated) { setStaff((prev) => prev.map((x) => (String(x.id) === String(updated.id) ? updated : x))); setHours(mapHours(updated)); }
     setMsg('Jornada atualizada.'); await reloadAvailability();
   }, 'Falha ao salvar jornada.');
@@ -179,7 +182,7 @@ export default function CompanyAppointmentsPage() {
         <header className="appointments-header">
           <h1 className="appointments-title">Agendamentos</h1>
           <p className="appointments-subtitle">Servico unico, atendentes, horarios livres por dia e calendario semanal/mensal.</p>
-          <div className="appointments-filters"><label>Atendente (filtro geral)<select value={selectedStaffId} onChange={(e) => setSelectedStaffId(e.target.value)}><option value="">Todos</option>{staff.map((s) => <option key={s.id} value={String(s.id)}>{s.display_name || s.user_name}</option>)}</select></label></div>
+          <div className="appointments-filters"><label>Atendente<select value={selectedStaffId} onChange={(e) => setSelectedStaffId(e.target.value)}><option value="">Todos</option>{staff.filter((s) => s.is_bookable).map((s) => <option key={s.id} value={String(s.id)}>{s.display_name || s.user_name}</option>)}</select></label></div>
           {busy && <p className="appointments-note">Atualizando...</p>}
           {msg && <p className="appointments-note appointments-note--ok">{msg}</p>}
           {errMsg && <p className="appointments-note appointments-note--error">{errMsg}</p>}
@@ -204,7 +207,8 @@ export default function CompanyAppointmentsPage() {
           </article>
 
           <article className="appointments-card appointments-card--full"><h2>Jornada por atendente</h2>
-            <div className="appointments-inline"><label>Atendente<select value={hoursStaffId} onChange={(e) => { setHoursStaffId(e.target.value); const t = staff.find((x) => String(x.id) === e.target.value); setHours(mapHours(t)); }}><option value="">Selecione</option>{staff.map((s) => <option key={s.id} value={String(s.id)}>{s.display_name || s.user_name}</option>)}</select></label></div>
+            {selectedStaffId && <p className="appointments-help"><strong>{staff.find((s) => String(s.id) === selectedStaffId)?.display_name || staff.find((s) => String(s.id) === selectedStaffId)?.user_name || 'Atendente selecionado'}</strong> — use o filtro acima para trocar.</p>}
+            {!selectedStaffId && <p className="appointments-help">Selecione um atendente no filtro acima para editar a jornada.</p>}
             <form onSubmit={saveHours}>
               <div className="appointments-hours-grid">
                 {hours.map((h, i) => (
@@ -280,7 +284,7 @@ export default function CompanyAppointmentsPage() {
                   </div>
                 ))}
               </div>
-              <button className="appointments-btn" disabled={!hoursStaffId}>Salvar jornada</button>
+              <button className="appointments-btn" disabled={!selectedStaffId}>Salvar jornada</button>
             </form>
           </article>
 
