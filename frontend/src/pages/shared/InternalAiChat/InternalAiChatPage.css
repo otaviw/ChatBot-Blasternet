@@ -16,9 +16,10 @@
 }
 
 .internal-ai-chat {
-  border: 1px solid #e5e5e5;
+  border: 1px solid #e5e7eb;
   border-radius: 12px;
   background: #ffffff;
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.05);
   overflow: hidden;
   display: grid;
   grid-template-columns: minmax(240px, 320px) 1fr;
@@ -490,7 +491,8 @@
 /* ── Dark Theme ─────────────────────────────────────────── */
 body.theme-dark .internal-ai-chat {
   background: #0f1117;
-  border-color: #343848;
+  border-color: #252836;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.38);
 }
 body.theme-dark .internal-ai-chat__sidebar {
   background: #13151f;

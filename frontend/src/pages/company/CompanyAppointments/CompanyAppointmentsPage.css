@@ -76,3 +76,106 @@
 @media (max-width: 640px) {
   .appointments-calendar-grid { grid-template-columns: 1fr; }
 }
+
+/* Dark theme */
+body.theme-dark .appointments-header,
+body.theme-dark .appointments-card,
+body.theme-dark .appointments-staff-item,
+body.theme-dark .appointments-hour-row,
+body.theme-dark .appointments-availability-group,
+body.theme-dark .appointments-calendar-cell,
+body.theme-dark .appointments-block-list li {
+  background: #1a1d27;
+  border-color: #252836;
+}
+
+body.theme-dark .appointments-title,
+body.theme-dark .appointments-card h2,
+body.theme-dark .appointments-staff-item h3,
+body.theme-dark .appointments-availability-group h3,
+body.theme-dark .appointments-hour-day {
+  color: #e8eaf2;
+}
+
+body.theme-dark .appointments-subtitle,
+body.theme-dark .appointments-help,
+body.theme-dark .appointments-note,
+body.theme-dark .appointments-empty,
+body.theme-dark .appointments-hour-field,
+body.theme-dark .appointments-calendar-date,
+body.theme-dark .appointments-block-list p,
+body.theme-dark .appointments-form-grid label,
+body.theme-dark .appointments-inline label,
+body.theme-dark .appointments-filters label {
+  color: #8b8fa8;
+}
+
+body.theme-dark .appointments-note--ok { color: #4ade80; }
+body.theme-dark .appointments-note--error { color: #f87171; }
+
+body.theme-dark .appointments-form-grid input,
+body.theme-dark .appointments-form-grid select,
+body.theme-dark .appointments-inline input,
+body.theme-dark .appointments-inline select,
+body.theme-dark .appointments-filters input,
+body.theme-dark .appointments-filters select {
+  background: #1e2130;
+  border-color: #343848;
+  color: #e8eaf2;
+}
+
+body.theme-dark .appointments-form-grid input::placeholder,
+body.theme-dark .appointments-inline input::placeholder,
+body.theme-dark .appointments-filters input::placeholder {
+  color: #5c6078;
+}
+
+body.theme-dark .appointments-btn {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+body.theme-dark .appointments-btn:hover { background: #1d4ed8; }
+
+body.theme-dark .appointments-btn--light {
+  background: rgba(79, 142, 247, 0.12);
+  border-color: rgba(79, 142, 247, 0.32);
+  color: #7ab3ff;
+}
+
+body.theme-dark .appointments-btn--light:hover {
+  background: rgba(79, 142, 247, 0.2);
+}
+
+body.theme-dark .appointments-btn--danger {
+  background: #dc2626;
+  border-color: #dc2626;
+}
+
+body.theme-dark .appointments-btn--danger:hover { background: #b91c1c; }
+
+body.theme-dark .appointments-btn.is-active {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  color: #ffffff;
+}
+
+body.theme-dark .appointments-slot-btn,
+body.theme-dark .appointments-calendar-event {
+  background: rgba(79, 142, 247, 0.12);
+  border-color: rgba(79, 142, 247, 0.35);
+  color: #9cc2ff;
+}
+
+body.theme-dark .appointments-slot-btn:hover,
+body.theme-dark .appointments-calendar-event:hover {
+  background: rgba(79, 142, 247, 0.2);
+}
+
+body.theme-dark .appointments-calendar-block {
+  background: rgba(220, 38, 38, 0.12);
+  border-color: rgba(248, 113, 113, 0.35);
+  color: #fca5a5;
+}
+
+body.theme-dark .appointments-calendar-cell.is-muted { opacity: 0.55; }
