@@ -1,12 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import './CompanyAppointmentsPage.css';
 import Layout from '@/components/layout/Layout/Layout.jsx';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
+import realtimeClient from '@/services/realtimeClient';
+import { REALTIME_EVENTS } from '@/constants/realtimeEvents';
 import {
   createAppointment,
   createAppointmentService,
   createTimeOff,
+  deleteAppointment,
   deleteTimeOff,
   fetchAppointmentAvailability,
   fetchAppointments,
@@ -17,6 +20,7 @@ import {
   replaceStaffWorkingHours,
   updateAppointmentService,
   updateAppointmentSettings,
+  updateAppointmentStatus,
   unwrapError,
 } from '@/services/appointmentService';
 
@@ -28,6 +32,8 @@ const weekStart = (v) => plusDays(v, -parseYmd(v).getDay());
 const weekEnd = (v) => plusDays(weekStart(v), 6);
 const monthStart = (v) => { const d = parseYmd(v); d.setDate(1); return ymd(d); };
 const monthEnd = (v) => { const d = parseYmd(v); d.setMonth(d.getMonth() + 1, 0); return ymd(d); };
+const STATUS_LABEL = { pending: 'Pendente', confirmed: 'Confirmado', completed: 'Concluído', cancelled: 'Cancelado', no_show: 'Não compareceu', rescheduled: 'Reagendado' };
+const isPast = (v) => v && new Date(v) < new Date();
 const fmtDt = (v) => (!v ? '-' : new Date(v).toLocaleString('pt-BR'));
 const fmtHm = (v) => (!v ? '--:--' : new Date(v).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
 const fmtYmd = (v) => parseYmd(v).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
@@ -36,6 +42,52 @@ const toLocalInput = (v) => {
   const d = new Date(v); if (Number.isNaN(d.getTime())) return '';
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 };
+const DURATION_UNITS = [
+  { value: 'minutes', label: 'minutos', factor: 1 },
+  { value: 'hours',   label: 'horas',   factor: 60 },
+  { value: 'days',    label: 'dias',    factor: 1440 },
+];
+
+function minutesToUnit(minutes) {
+  const m = Number(minutes) || 0;
+  if (m === 0) return { amount: 0, unit: 'minutes' };
+  if (m % 1440 === 0) return { amount: m / 1440, unit: 'days' };
+  if (m % 60 === 0)   return { amount: m / 60,   unit: 'hours' };
+  return { amount: m, unit: 'minutes' };
+}
+
+function DurationInput({ valueMinutes, onChange, id }) {
+  const { amount, unit } = minutesToUnit(valueMinutes);
+  const factor = DURATION_UNITS.find((u) => u.value === unit)?.factor ?? 1;
+
+  const handleAmount = (e) => {
+    const n = Math.max(0, Number(e.target.value) || 0);
+    onChange(n * factor);
+  };
+  const handleUnit = (e) => {
+    const newFactor = DURATION_UNITS.find((u) => u.value === e.target.value)?.factor ?? 1;
+    onChange(amount * newFactor);
+  };
+
+  return (
+    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+      <input
+        id={id}
+        type="number"
+        min="0"
+        value={amount}
+        onChange={handleAmount}
+        style={{ flex: '1 1 70px', minWidth: 0 }}
+      />
+      <select value={unit} onChange={handleUnit} style={{ flex: '0 0 auto' }}>
+        {DURATION_UNITS.map((u) => (
+          <option key={u.value} value={u.value}>{u.label}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 const initHours = () => Array.from({ length: 7 }, (_, i) => ({ day_of_week: i, is_active: false, start_time: '09:00', break_start_time: '', break_end_time: '', end_time: '18:00' }));
 const mapHours = (s) => {
   const base = initHours();
@@ -84,6 +136,55 @@ export default function CompanyAppointmentsPage() {
     return out;
   }, [calRange]);
 
+  const apptFormWarning = useMemo(() => {
+    if (!newAppt.starts_at) return null;
+    const dt = new Date(newAppt.starts_at);
+    if (Number.isNaN(dt.getTime())) return null;
+
+    const dow = dt.getDay();
+    const hourEntry = (hours ?? []).find((h) => h.day_of_week === dow);
+
+    if (!hourEntry?.is_active) return 'Atendente não trabalha neste dia.';
+
+    const hh = String(dt.getHours()).padStart(2, '0');
+    const mm = String(dt.getMinutes()).padStart(2, '0');
+    const timeStr = `${hh}:${mm}`;
+
+    if (hourEntry.start_time && timeStr < hourEntry.start_time) {
+      return `Fora do horário de trabalho. Início: ${hourEntry.start_time}.`;
+    }
+
+    const durationMin = service?.duration_minutes ?? 0;
+    const endDt = new Date(dt.getTime() + durationMin * 60000);
+    const endStr = `${String(endDt.getHours()).padStart(2, '0')}:${String(endDt.getMinutes()).padStart(2, '0')}`;
+    if (hourEntry.end_time && endStr > hourEntry.end_time) {
+      return `Atendimento ultrapassaria o fim do expediente (${hourEntry.end_time}).`;
+    }
+
+    if (hourEntry.break_start_time && hourEntry.break_end_time
+        && timeStr >= hourEntry.break_start_time && timeStr < hourEntry.break_end_time) {
+      return `Horário de intervalo (${hourEntry.break_start_time}–${hourEntry.break_end_time}).`;
+    }
+
+    if (settings?.booking_min_notice_minutes) {
+      const earliest = new Date(Date.now() + settings.booking_min_notice_minutes * 60000);
+      if (dt < earliest) {
+        const { amount, unit } = minutesToUnit(settings.booking_min_notice_minutes);
+        const unitLabel = DURATION_UNITS.find((u) => u.value === unit)?.label ?? 'minutos';
+        return `Antecedência mínima: ${amount} ${unitLabel}.`;
+      }
+    }
+
+    if (settings?.booking_max_advance_days) {
+      const latest = new Date(Date.now() + settings.booking_max_advance_days * 24 * 60 * 60 * 1000);
+      if (dt > latest) {
+        return `Máximo ${settings.booking_max_advance_days} dias de antecedência.`;
+      }
+    }
+
+    return null;
+  }, [newAppt.starts_at, hours, settings, service]);
+
   const apptByDay = useMemo(() => {
     const map = {};
     appointments.forEach((a) => { const d = a?.starts_at ? ymd(new Date(a.starts_at)) : null; if (!d) return; if (!map[d]) map[d] = []; map[d].push(a); });
@@ -127,6 +228,16 @@ export default function CompanyAppointmentsPage() {
     const t = staff.find((x) => String(x.id) === selectedStaffId);
     setHours(t ? mapHours(t) : initHours());
   }, [selectedStaffId, staff]);
+
+  const reloadCalendarRef = useRef(reloadCalendar);
+  useEffect(() => { reloadCalendarRef.current = reloadCalendar; });
+  useEffect(() => {
+    if (!data?.authenticated) return;
+    const handle = () => void reloadCalendarRef.current();
+    const unsubCreate = realtimeClient.on(REALTIME_EVENTS.APPOINTMENT_CREATED, handle);
+    const unsubUpdate = realtimeClient.on(REALTIME_EVENTS.APPOINTMENT_UPDATED, handle);
+    return () => { unsubCreate(); unsubUpdate(); };
+  }, [data?.authenticated]);
 
   const saveSettings = () => run(async () => {
     const payload = { timezone: settings.timezone, slot_interval_minutes: Number(settings.slot_interval_minutes), booking_min_notice_minutes: Number(settings.booking_min_notice_minutes), booking_max_advance_days: Number(settings.booking_max_advance_days), cancellation_min_notice_minutes: Number(settings.cancellation_min_notice_minutes), reschedule_min_notice_minutes: Number(settings.reschedule_min_notice_minutes), allow_customer_choose_staff: !!settings.allow_customer_choose_staff };
@@ -172,6 +283,21 @@ export default function CompanyAppointmentsPage() {
     setNewAppt({ starts_at: '', customer_name: '', customer_phone: '' }); setMsg('Agendamento criado.'); await Promise.all([reloadCalendar(), reloadAvailability()]);
   }, 'Falha ao criar agendamento.');
 
+  const changeApptStatus = (id, status, opts = {}) => run(async () => {
+    await updateAppointmentStatus(Number(id), status, opts);
+    setMsg('Status atualizado.'); await reloadCalendar();
+  }, 'Falha ao atualizar status.');
+
+  const cancelAppt = (id, customerName) => {
+    if (!window.confirm(`Cancelar o agendamento de ${customerName || 'este cliente'}?\nO cliente será notificado por WhatsApp.`)) return;
+    void changeApptStatus(id, 'cancelled', { notify_customer: true });
+  };
+
+  const removeAppointment = (id) => run(async () => {
+    await deleteAppointment(Number(id));
+    setMsg('Agendamento removido.'); await reloadCalendar();
+  }, 'Falha ao remover agendamento.');
+
   if (loading) return <Layout role="company" onLogout={logout}><p className="text-sm text-[#64748b]">Carregando agenda...</p></Layout>;
   if (error || !data?.authenticated) return <Layout><p className="text-sm text-red-600">Nao foi possivel carregar a agenda.</p></Layout>;
   if (!canManage) return <Layout role="company" companyName={data?.user?.company_name} onLogout={logout}><p className="text-sm text-[#64748b]">Acesso restrito ao time da empresa.</p></Layout>;
@@ -192,8 +318,9 @@ export default function CompanyAppointmentsPage() {
           <article className="appointments-card"><h2>Configuracoes</h2>{settings && <div className="appointments-form-grid">
             <label>Fuso<input value={settings.timezone || ''} onChange={(e) => setSettings((p) => ({ ...p, timezone: e.target.value }))} /></label>
             <label>Intervalo entre atendimentos (min)<input type="number" min="5" value={settings.slot_interval_minutes || 15} onChange={(e) => setSettings((p) => ({ ...p, slot_interval_minutes: Number(e.target.value) }))} /></label>
-            <label>Antecedencia minima (tempo minimo antes do horario, em minutos)<input type="number" min="0" value={settings.booking_min_notice_minutes || 0} onChange={(e) => setSettings((p) => ({ ...p, booking_min_notice_minutes: Number(e.target.value) }))} /></label>
+            <label>Antecedencia minima para agendar (tempo minimo antes do horario)<DurationInput valueMinutes={settings.booking_min_notice_minutes || 0} onChange={(v) => setSettings((p) => ({ ...p, booking_min_notice_minutes: v }))} /></label>
             <label>Maximo em dias (quantos dias no futuro pode marcar)<input type="number" min="0" value={settings.booking_max_advance_days || 0} onChange={(e) => setSettings((p) => ({ ...p, booking_max_advance_days: Number(e.target.value) }))} /></label>
+            <label>Antecedencia minima para cancelamento (0 = sem restricao)<DurationInput valueMinutes={settings.cancellation_min_notice_minutes || 0} onChange={(v) => setSettings((p) => ({ ...p, cancellation_min_notice_minutes: v }))} /></label>
           </div>}<button type="button" className="appointments-btn" onClick={saveSettings}>Salvar configuracoes</button></article>
 
           <article className="appointments-card"><h2>Servico (unico)</h2><p className="appointments-help">Duracao = tempo de atendimento. O intervalo entre horarios e configurado na jornada de cada dia.</p>
@@ -297,11 +424,18 @@ export default function CompanyAppointmentsPage() {
             </div>)}</div>
           </article>
 
-          <article className="appointments-card"><h2>Novo agendamento</h2><form onSubmit={addAppointment} className="appointments-form-grid">
-            <label>Data e hora<input required type="datetime-local" value={newAppt.starts_at} onChange={(e) => setNewAppt((p) => ({ ...p, starts_at: e.target.value }))} /></label>
-            <label>Cliente<input value={newAppt.customer_name} onChange={(e) => setNewAppt((p) => ({ ...p, customer_name: e.target.value }))} /></label>
-            <label>Telefone<input required value={newAppt.customer_phone} onChange={(e) => setNewAppt((p) => ({ ...p, customer_phone: e.target.value }))} /></label>
-            <button className="appointments-btn" type="submit">Criar agendamento</button></form>
+          <article className="appointments-card">
+            <h2>Novo agendamento</h2>
+            <form onSubmit={addAppointment} className="appointments-form-grid">
+              <label>
+                Data e hora
+                <input required type="datetime-local" value={newAppt.starts_at} onChange={(e) => setNewAppt((p) => ({ ...p, starts_at: e.target.value }))} />
+                {apptFormWarning && <span className="appointments-field-warning">{apptFormWarning}</span>}
+              </label>
+              <label>Cliente<input value={newAppt.customer_name} onChange={(e) => setNewAppt((p) => ({ ...p, customer_name: e.target.value }))} /></label>
+              <label>Telefone<input required value={newAppt.customer_phone} onChange={(e) => setNewAppt((p) => ({ ...p, customer_phone: e.target.value }))} /></label>
+              <button className="appointments-btn" type="submit">Criar agendamento</button>
+            </form>
           </article>
 
           <article className="appointments-card appointments-card--full"><h2>Bloqueio / folga</h2><form onSubmit={addTimeOff} className="appointments-form-grid">
@@ -326,9 +460,61 @@ export default function CompanyAppointmentsPage() {
                     {(timeOffs || [])
                       .filter((t) => (t.starts_at || '').slice(0, 10) <= d && (t.ends_at || '').slice(0, 10) >= d)
                       .map((t) => <div key={`block-${t.id}-${d}`} className="appointments-calendar-block">Bloqueio: {t.staff_name || 'Todos'}{t.reason ? ` - ${t.reason}` : ''}</div>)}
-                    {(apptByDay[d] || []).map((a) => <button key={a.id} className="appointments-calendar-event" type="button" onClick={() => { setSelectedStaffId(String(a.staff_profile_id)); setNewAppt((p) => ({ ...p, starts_at: toLocalInput(a.starts_at) })); }}><strong>{fmtHm(a.starts_at)}</strong> {a.customer_name || 'Cliente'} ({a.staff_name || 'Atendente'})</button>)}
+                    {(apptByDay[d] || []).map((a) => (
+                      <div key={a.id} className="appointments-calendar-event">
+                        <div className="appointments-event-info">
+                          <strong>{fmtHm(a.starts_at)}</strong> {a.customer_name || 'Cliente'} ({a.staff_name || 'Atendente'})
+                          <span className={`appointments-status appointments-status--${a.status}`}>{STATUS_LABEL[a.status] || a.status}</span>
+                        </div>
+                        {!['cancelled', 'no_show'].includes(a.status) && (
+                          <div className="appointments-event-actions">
+                            {isPast(a.starts_at) ? (
+                              <>
+                                {a.status !== 'completed' && <button type="button" className="appointments-btn appointments-btn--xs" onClick={() => changeApptStatus(a.id, 'completed')}>Compareceu</button>}
+                                {a.status !== 'no_show' && <button type="button" className="appointments-btn appointments-btn--xs appointments-btn--danger" onClick={() => changeApptStatus(a.id, 'no_show')}>Não compareceu</button>}
+                              </>
+                            ) : (
+                              <>
+                                {a.status !== 'confirmed' && <button type="button" className="appointments-btn appointments-btn--xs" onClick={() => changeApptStatus(a.id, 'confirmed')}>Confirmar</button>}
+                                <button type="button" className="appointments-btn appointments-btn--xs appointments-btn--danger" onClick={() => cancelAppt(a.id, a.customer_name)}>Cancelar</button>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>}
             </div>)}</div>
+          </article>
+
+          <article className="appointments-card appointments-card--full"><h2>Agendamentos do periodo</h2>
+            {!appointments.length ? <p className="appointments-empty">Nenhum agendamento.</p> : (
+              <ul className="appointments-block-list">
+                {appointments.map((a) => (
+                  <li key={a.id}>
+                    <div>
+                      <strong>{a.customer_name || 'Cliente'}</strong>
+                      <span className={`appointments-status appointments-status--${a.status}`}>{STATUS_LABEL[a.status] || a.status}</span>
+                      <p>{fmtDt(a.starts_at)} · {a.staff_name || 'Atendente'}</p>
+                      {a.customer_phone && <p>{a.customer_phone}</p>}
+                    </div>
+                    <div className="appointments-event-actions">
+                      {!['cancelled', 'no_show'].includes(a.status) && isPast(a.starts_at) ? (
+                        <>
+                          {a.status !== 'completed' && <button type="button" className="appointments-btn appointments-btn--xs" onClick={() => changeApptStatus(a.id, 'completed')}>Compareceu</button>}
+                          <button type="button" className="appointments-btn appointments-btn--xs appointments-btn--danger" onClick={() => changeApptStatus(a.id, 'no_show')}>Não compareceu</button>
+                        </>
+                      ) : !['cancelled', 'completed', 'no_show'].includes(a.status) ? (
+                        <>
+                          {a.status === 'pending' && <button type="button" className="appointments-btn appointments-btn--xs" onClick={() => changeApptStatus(a.id, 'confirmed')}>Confirmar</button>}
+                          <button type="button" className="appointments-btn appointments-btn--xs appointments-btn--danger" onClick={() => cancelAppt(a.id, a.customer_name)}>Cancelar</button>
+                        </>
+                      ) : null}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </article>
 
           <article className="appointments-card appointments-card--full"><h2>Bloqueios do periodo</h2>

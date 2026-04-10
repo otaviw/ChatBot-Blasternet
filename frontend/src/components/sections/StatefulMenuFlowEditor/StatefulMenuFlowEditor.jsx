@@ -35,6 +35,10 @@ function getActionSummary(action, stepOptions = []) {
     return 'Iniciar agendamento automático';
   }
 
+  if (action.kind === 'appointments_cancel') {
+    return 'Iniciar cancelamento de agendamento';
+  }
+
   if (action.kind === 'handoff') {
     return `Transferir para: ${action.target_area_name || 'área não definida'}`;
   }
@@ -90,6 +94,14 @@ function ActionEditor({
       return;
     }
 
+    if (value === 'appointments_cancel') {
+      onChange({
+        ...safeAction,
+        kind: 'appointments_cancel',
+      });
+      return;
+    }
+
     onChange({
       ...safeAction,
       kind: 'go_to',
@@ -129,6 +141,7 @@ function ActionEditor({
             <option value="go_to">Abrir outro bloco</option>
             <option value="handoff">Transferir para uma área</option>
             <option value="appointments_start">Iniciar agendamento automático</option>
+            <option value="appointments_cancel">Cancelar agendamento</option>
           </select>
         </label>
 
@@ -144,7 +157,13 @@ function ActionEditor({
         </label>
       </div>
 
-      {safeAction.kind === 'appointments_start' ? (
+      {safeAction.kind === 'appointments_cancel' ? (
+        <div className="space-y-3">
+          <p className="stateful-editor-card-subtitle">
+            O cliente será encaminhado para o fluxo de cancelamento de agendamento. O tempo mínimo de antecedência é configurado em <strong>Agendamentos</strong>.
+          </p>
+        </div>
+      ) : safeAction.kind === 'appointments_start' ? (
         <div className="space-y-3">
           <p className="stateful-editor-card-subtitle">
             O cliente será encaminhado para o fluxo de agendamento automático. Configure o serviço e os horários em <strong>Agendamentos</strong>.

@@ -2,6 +2,8 @@
 
 namespace App\Services\Bot;
 
+use App\Models\Appointment;
+use App\Models\AppointmentEvent;
 use App\Models\AppointmentService;
 use App\Models\AppointmentSetting;
 use App\Models\AppointmentStaffProfile;
@@ -10,6 +12,7 @@ use App\Models\Company;
 use App\Models\Conversation;
 use App\Services\Appointments\AppointmentAvailabilityService;
 use App\Services\Appointments\AppointmentBookingService;
+use App\Support\AppointmentStatus;
 use Carbon\CarbonImmutable;
 use Illuminate\Validation\ValidationException;
 
@@ -48,6 +51,15 @@ class StatefulBotService
 
         if ($flow === 'appointments') {
             return $this->handleAppointmentsFlow($company, $conversation, $step, $normalizedText);
+        }
+
+        if ($flow === 'cancel_appointment') {
+            return $this->handleAppointmentCancellationFlow($company, $conversation, $step, $normalizedText);
+        }
+
+        // Gatilho global: cliente digita "cancelar" em qualquer estado
+        if ($this->isCancelCommand($normalizedText)) {
+            return $this->startAppointmentCancellationFlow($company, $conversation);
         }
 
         $stateKey = $this->stateKey($flow, $step);
@@ -288,6 +300,10 @@ class StatefulBotService
 
         if ($kind === 'appointments_start') {
             return $this->startAppointmentsFlow($company, $conversation, $action);
+        }
+
+        if ($kind === 'appointments_cancel') {
+            return $this->startAppointmentCancellationFlow($company, $conversation);
         }
 
         if ($kind !== 'handoff') {
@@ -614,7 +630,7 @@ class StatefulBotService
 
         $parsed = $this->parseDayInput($normalizedText, $timezone);
         if ($parsed === null) {
-            return $this->replyWithAppointmentDayMenu($company, $context, true);
+            return $this->replyWithAppointmentDayMenu($company, $context, true, '');
         }
 
         // logica de dia diferente, próxima ocorrência a partir de hoje
@@ -762,6 +778,25 @@ class StatefulBotService
             return $this->replyWithAppointmentDayMenu($company, $context);
         }
 
+        // Opção 7: próxima semana (mesmo dia da semana, semana seguinte)
+        if ($normalizedText === '7') {
+            $selectedDate = trim((string) ($context['selected_date'] ?? ''));
+            $settings = $this->appointmentSettings($company);
+            $timezone = (string) ($settings?->timezone ?: 'America/Sao_Paulo');
+            $maxDays = (int) ($settings?->booking_max_advance_days ?? 30);
+            if ($selectedDate !== '') {
+                $nextWeek = CarbonImmutable::parse($selectedDate, $timezone)->addWeek()->toDateString();
+                $maxDate = CarbonImmutable::now($timezone)->addDays($maxDays)->toDateString();
+                if ($nextWeek <= $maxDate) {
+                    $context['selected_date'] = $nextWeek;
+                    $context['last_day_date'] = $nextWeek;
+                    $context['slot_page'] = 0;
+                    return $this->replyWithAppointmentSlotMenu($company, $context);
+                }
+            }
+            return $this->replyWithAppointmentSlotMenu($company, $context, true);
+        }
+
         if ($normalizedText === '8') {
             $context['slot_page'] = (int) ($context['slot_page'] ?? 0) + 1;
 
@@ -826,7 +861,7 @@ class StatefulBotService
 
         if ($normalizedText !== '1') {
             return $this->botStateResult(
-                "Opção inválida. Responda com 1, 2 ou 9.\n\n" . $this->appointmentConfirmText($context, $timezone),
+                "Opção inválida. Responda com 1, 2 ou 9... ou \"menu\" para voltar ao menu principal.\n\n" . $this->appointmentConfirmText($context, $timezone),
                 [
                     'flow' => 'appointments',
                     'step' => 'confirm',
@@ -906,7 +941,7 @@ class StatefulBotService
     ): array {
         $parts = [];
         if ($invalidOption) {
-            $parts[] = "Não entendi. Diga um dia como: segunda, terça, hoje, amanhã ou 15/04";
+            $parts[] = "Não entendi. Diga um dia como: segunda, terça, hoje, amanhã ou 15/04... ou \"menu\" para voltar ao menu principal.";
         }
         if ($extraMessage !== '') {
             $parts[] = $extraMessage;
@@ -951,7 +986,7 @@ class StatefulBotService
 
         $context['slot_page'] = $page;
         $pageSlots = array_slice($slots, $offset, 7);
-        $prefix = $invalidOption ? "Opção inválida. Escolha 1 a 8, 0 ou 9.\n\n" : '';
+        $prefix = $invalidOption ? "Opção inválida. Escolha um número da lista... ou \"menu\" para voltar ao menu principal.\n\n" : '';
         $timezone = $this->appointmentSettings($company)?->timezone ?: 'America/Sao_Paulo';
         $hasStaffChoice = (bool) ($context['has_staff_choice'] ?? false);
 
@@ -973,26 +1008,34 @@ class StatefulBotService
      */
     private function appointmentNearestSlots(?Company $company, array $context, int $limit = 7): array
     {
+        if (! $company?->id) {
+            return [];
+        }
+
+        $serviceId = (int) ($context['service_id'] ?? 0);
+        if ($serviceId <= 0) {
+            return [];
+        }
+
+        $staffId = isset($context['staff_profile_id']) && (int) $context['staff_profile_id'] > 0
+            ? (int) $context['staff_profile_id']
+            : null;
+
         $settings = $this->appointmentSettings($company);
         $timezone = (string) ($settings?->timezone ?: 'America/Sao_Paulo');
         $maxDays = (int) ($settings?->booking_max_advance_days ?? 30);
 
-        $result = [];
-        $date = CarbonImmutable::now($timezone)->startOfDay();
-        $maxDate = $date->addDays($maxDays);
+        $from = CarbonImmutable::now($timezone)->startOfDay();
+        $to = $from->addDays($maxDays);
 
-        while ($date->lte($maxDate) && count($result) < $limit) {
-            $slots = $this->appointmentSlotsForDate($company, $context, $date->toDateString());
-            foreach ($slots as $slot) {
-                $result[] = array_merge($slot, ['date' => $date->toDateString()]);
-                if (count($result) >= $limit) {
-                    break;
-                }
-            }
-            $date = $date->addDay();
-        }
-
-        return $result;
+        return $this->appointmentAvailability->listAvailableSlotsMultiDay(
+            $company,
+            $serviceId,
+            $from,
+            $to,
+            $staffId,
+            $limit
+        );
     }
 
     /**
@@ -1051,7 +1094,7 @@ class StatefulBotService
             $hasStaffChoice = (bool) ($context['has_staff_choice'] ?? false);
 
             return $this->botStateResult(
-                "Opção inválida.\n\n" . $this->appointmentNearestSlotsText($slots, $timezone, $hasStaffChoice),
+                "Opção inválida. Escolha um número da lista... ou \"menu\" para voltar ao menu principal.\n\n" . $this->appointmentNearestSlotsText($slots, $timezone, $hasStaffChoice),
                 [
                     'flow' => 'appointments',
                     'step' => 'nearest_select',
@@ -1153,7 +1196,7 @@ class StatefulBotService
     {
         $lines = [];
         if ($invalid) {
-            $lines[] = 'Opção inválida.';
+            $lines[] = 'Opção inválida. Escolha um número da lista... ou "menu" para voltar ao menu principal.';
         }
         $lines[] = 'Escolha o atendente:';
         foreach ($staffOptions as $key => $staff) {
@@ -1210,6 +1253,7 @@ class StatefulBotService
             $suffix = $staffName !== '' ? " ({$staffName})" : '';
             $lines[] = ($index + 1) . " - {$timeLabel}{$suffix}";
         }
+        $lines[] = '7 - Próxima semana';
         if ($hasMore) {
             $lines[] = '8 - Ver mais horários';
         }
@@ -1449,6 +1493,166 @@ class StatefulBotService
             'set_assigned_id' => null,
             'set_current_area_id' => null,
         ];
+    }
+
+    /**
+     * @param  array<int, string>  $commands
+     */
+    private function isCancelCommand(string $text): bool
+    {
+        $accents = [
+            'á' => 'a', 'à' => 'a', 'â' => 'a', 'ã' => 'a',
+            'é' => 'e', 'ê' => 'e',
+            'í' => 'i', 'ó' => 'o', 'ô' => 'o', 'ú' => 'u',
+            'ç' => 'c',
+        ];
+        $n = mb_strtolower(trim(strtr($text, $accents)));
+
+        return in_array($n, ['cancelar', 'cancelar agendamento', 'cancela', 'cancela agendamento'], true);
+    }
+
+    /**
+     * Inicia o fluxo de cancelamento: busca o próximo agendamento ativo do cliente.
+     *
+     * @return array<string, mixed>
+     */
+    private function startAppointmentCancellationFlow(?Company $company, Conversation $conversation): array
+    {
+        $companyEntity = $this->resolveCompany($company, $conversation);
+        $settings = $this->appointmentSettings($companyEntity);
+        $timezone = (string) ($settings?->timezone ?: 'America/Sao_Paulo');
+        $minNoticeMinutes = (int) ($settings?->cancellation_min_notice_minutes ?? 120);
+
+        $phone = (string) $conversation->customer_phone;
+        $phoneVariants = [$phone];
+        if (strlen($phone) === 13 && str_starts_with($phone, '55')) {
+            // tenta sem o nono dígito
+            $phoneVariants[] = substr($phone, 0, 4) . substr($phone, 5);
+        } elseif (strlen($phone) === 12 && str_starts_with($phone, '55')) {
+            // tenta com o nono dígito
+            $phoneVariants[] = substr($phone, 0, 4) . '9' . substr($phone, 4);
+        }
+
+        $appointment = Appointment::query()
+            ->where('company_id', (int) ($companyEntity?->id ?? 0))
+            ->whereIn('customer_phone', $phoneVariants)
+            ->whereIn('status', [AppointmentStatus::PENDING, AppointmentStatus::CONFIRMED])
+            ->where('starts_at', '>', now())
+            ->orderBy('starts_at')
+            ->first();
+
+        $menuState = $this->buildInitialMenuResponse($this->registry->definitionForCompany($companyEntity));
+        $mainMenuState = $menuState['new_state'] ?? ['flow' => 'main', 'step' => 'menu', 'context' => []];
+
+        if (! $appointment) {
+            return $this->botStateResult(
+                'Não encontrei nenhum agendamento ativo para o seu número.',
+                $mainMenuState
+            );
+        }
+
+        $startsAt = $appointment->starts_at->setTimezone($timezone);
+        $cutoff = CarbonImmutable::now($timezone)->addMinutes($minNoticeMinutes);
+
+        if ($startsAt->lte($cutoff)) {
+            $limitHours = (int) round($minNoticeMinutes / 60);
+            return $this->botStateResult(
+                "Seu agendamento é dia {$startsAt->format('d/m/Y')} às {$startsAt->format('H:i')}.\n" .
+                "Cancelamentos só são permitidos com pelo menos {$limitHours}h de antecedência.\n" .
+                "Para cancelar entre em contato com um atendente.\n\n9 - Falar com atendente",
+                $mainMenuState
+            );
+        }
+
+        $staffName = $appointment->staffProfile?->display_name
+            ?: $appointment->staffProfile?->user?->name
+            ?: '';
+        $staffLine = $staffName !== '' ? "\nAtendente: {$staffName}" : '';
+
+        return $this->botStateResult(
+            "Seu agendamento:\nData: {$startsAt->translatedFormat('l')}, {$startsAt->format('d/m/Y')}\nHorário: {$startsAt->format('H:i')}{$staffLine}\n\nDeseja cancelar?\n1 - Sim, cancelar\n2 - Não, manter",
+            [
+                'flow' => 'cancel_appointment',
+                'step' => 'confirm',
+                'context' => ['cancel_appointment' => ['appointment_id' => (int) $appointment->id]],
+            ]
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function handleAppointmentCancellationFlow(
+        ?Company $company,
+        Conversation $conversation,
+        string $step,
+        string $normalizedText
+    ): array {
+        unset($step);
+        $companyEntity = $this->resolveCompany($company, $conversation);
+        $menuState = $this->buildInitialMenuResponse($this->registry->definitionForCompany($companyEntity));
+        $mainMenuState = $menuState['new_state'] ?? ['flow' => 'main', 'step' => 'menu', 'context' => []];
+
+        $rawContext = is_array($conversation->bot_context ?? null) ? $conversation->bot_context : [];
+        $cancelContext = is_array($rawContext['cancel_appointment'] ?? null) ? $rawContext['cancel_appointment'] : [];
+        $appointmentId = (int) ($cancelContext['appointment_id'] ?? 0);
+
+        if ($normalizedText === '2' || $appointmentId === 0) {
+            return $this->botStateResult('Ok, seu agendamento foi mantido. Até logo!', $mainMenuState);
+        }
+
+        if ($normalizedText !== '1') {
+            $appointment = $appointmentId > 0 ? Appointment::query()->find($appointmentId) : null;
+            if ($appointment) {
+                $settings = $this->appointmentSettings($companyEntity);
+                $timezone = (string) ($settings?->timezone ?: 'America/Sao_Paulo');
+                $startsAt = $appointment->starts_at->setTimezone($timezone);
+                $staffName = $appointment->staffProfile?->display_name ?: $appointment->staffProfile?->user?->name ?: '';
+                $staffLine = $staffName !== '' ? "\nAtendente: {$staffName}" : '';
+                return $this->botStateResult(
+                    "Opção inválida. Responda com 1 ou 2.\n\nSeu agendamento:\nData: {$startsAt->format('d/m/Y')}\nHorário: {$startsAt->format('H:i')}{$staffLine}\n\n1 - Sim, cancelar\n2 - Não, manter",
+                    [
+                        'flow' => 'cancel_appointment',
+                        'step' => 'confirm',
+                        'context' => ['cancel_appointment' => $cancelContext],
+                    ]
+                );
+            }
+            return $this->botStateResult('Ok, até logo!', $mainMenuState);
+        }
+
+        // Confirmou o cancelamento
+        $appointment = Appointment::query()
+            ->where('company_id', (int) ($companyEntity?->id ?? 0))
+            ->find($appointmentId);
+
+        if (! $appointment || ! in_array((string) $appointment->status, [AppointmentStatus::PENDING, AppointmentStatus::CONFIRMED], true)) {
+            return $this->botStateResult(
+                'Não foi possível cancelar: agendamento não encontrado ou já cancelado.',
+                $mainMenuState
+            );
+        }
+
+        $oldStatus = (string) $appointment->status;
+        $appointment->status = AppointmentStatus::CANCELLED;
+        $appointment->cancelled_at = now();
+        $appointment->cancelled_reason = 'Cancelado pelo cliente via WhatsApp';
+        $appointment->save();
+
+        AppointmentEvent::create([
+            'company_id' => (int) $appointment->company_id,
+            'appointment_id' => (int) $appointment->id,
+            'event_type' => 'status_changed',
+            'performed_by_user_id' => null,
+            'payload' => [
+                'from' => $oldStatus,
+                'to' => AppointmentStatus::CANCELLED,
+                'reason' => 'Cancelado pelo cliente via WhatsApp',
+                'channel' => 'whatsapp_bot',
+            ],
+        ]);
+
+        return $this->botStateResult('✅ Agendamento cancelado com sucesso!', $mainMenuState);
     }
 
     /**

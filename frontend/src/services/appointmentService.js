@@ -69,6 +69,16 @@ export async function createAppointment(payload) {
   return unwrap(response);
 }
 
+export async function updateAppointmentStatus(appointmentId, status, options = {}) {
+  const response = await api.patch(`${basePath}/${appointmentId}/status`, { status, ...options });
+  return unwrap(response);
+}
+
+export async function deleteAppointment(appointmentId) {
+  const response = await api.delete(`${basePath}/${appointmentId}`);
+  return unwrap(response);
+}
+
 export async function fetchTimeOffs(params) {
   const response = await api.get(`${basePath}/bloqueios`, { params });
   return unwrap(response);

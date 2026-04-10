@@ -71,7 +71,7 @@ class StatefulBotMenuFlowTest extends TestCase
         $response = $this->simulateInbound($user, $company, '5511911110003', '9');
 
         $response->assertOk();
-        $response->assertJsonPath('reply', 'Opção inválida. Responda com 1, 2, 3.');
+        $response->assertJsonPath('reply', 'Opção inválida. Responda com 1, 2, 3... ou "menu" para voltar ao menu principal.');
 
         $conversation = Conversation::findOrFail((int) $response->json('conversation.id'));
         $this->assertSame('main', $conversation->bot_flow);
@@ -166,7 +166,7 @@ class StatefulBotMenuFlowTest extends TestCase
 
         $second = $this->simulateInbound($user, $company, '5511911110006', 'segunda mensagem');
         $second->assertOk();
-        $second->assertJsonPath('reply', 'Opção inválida. Responda com 1, 2, 3.');
+        $second->assertJsonPath('reply', 'Opção inválida. Responda com 1, 2, 3... ou "menu" para voltar ao menu principal.');
     }
 
     public function test_company_can_configure_multiple_stateful_menus_from_settings(): void

@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -Command \"Get-AuthenticodeSignature 'C:\\\\php83\\\\php-8.3.30-nts-Win32-vs16-x64\\\\ext\\\\php_pdo_pgsql.dll' | Select-Object Status, StatusMessage, SignerCertificate\")",
+      "Bash(powershell -Command \"Get-AuthenticodeSignature 'C:\\\\php83\\\\php-8.3.30-nts-Win32-vs16-x64\\\\ext\\\\php_mbstring.dll' | Select-Object Status, StatusMessage\")"
+    ]
+  }
+}

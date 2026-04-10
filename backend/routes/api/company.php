@@ -87,6 +87,10 @@ Route::middleware(['web', 'auth'])->group(function () {
             ->middleware('throttle:inbox-read');
         Route::post('/agendamentos', [AppointmentController::class, 'createAppointment'])
             ->middleware('throttle:bot-write');
+        Route::patch('/agendamentos/{appointment}/status', [AppointmentController::class, 'updateStatus'])
+            ->middleware('throttle:bot-write');
+        Route::delete('/agendamentos/{appointment}', [AppointmentController::class, 'deleteAppointment'])
+            ->middleware('throttle:bot-write');
 
         // Rotas de IA — restritas a superadmin enquanto o módulo não está em produção
         Route::middleware('admin')->group(function () {

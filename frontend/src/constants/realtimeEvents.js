@@ -6,4 +6,6 @@ export const REALTIME_EVENTS = Object.freeze({
   BOT_UPDATED: 'bot.updated',
   CONVERSATION_TRANSFERRED: 'conversation.transferred',
   NOTIFICATION_CREATED: 'notification.created',
+  APPOINTMENT_CREATED: 'appointment.created',
+  APPOINTMENT_UPDATED: 'appointment.updated',
 });

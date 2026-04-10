@@ -21,6 +21,7 @@
 .appointments-note--ok { color: #166534; }
 .appointments-note--error { color: #b91c1c; }
 .appointments-empty { margin: 0; color: #64748b; font-size: 0.84rem; }
+.appointments-field-warning { font-size: 0.78rem; color: #92400e; background: #fef3c7; border: 1px solid #fcd34d; border-radius: 6px; padding: 4px 8px; }
 
 .appointments-btn {
   border: 1px solid #1d4ed8; background: #1d4ed8; color: #fff; border-radius: 8px;
@@ -56,8 +57,19 @@
 .appointments-calendar-cell.is-muted { opacity: 0.6; }
 .appointments-calendar-date { font-size: 0.78rem; color: #334155; font-weight: 600; }
 .appointments-calendar-events { display: flex; flex-direction: column; gap: 6px; }
-.appointments-calendar-event { border: 1px solid #bfdbfe; background: #eff6ff; color: #1e3a8a; border-radius: 8px; padding: 6px; text-align: left; font-size: 0.75rem; cursor: pointer; }
-.appointments-calendar-event:hover { background: #dbeafe; }
+.appointments-calendar-event { border: 1px solid #bfdbfe; background: #eff6ff; color: #1e3a8a; border-radius: 8px; padding: 6px; font-size: 0.75rem; display: flex; flex-direction: column; gap: 4px; }
+.appointments-event-info { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.appointments-event-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+
+.appointments-btn--xs { padding: 3px 7px; font-size: 0.72rem; border-radius: 6px; }
+
+.appointments-status { display: inline-block; padding: 2px 7px; border-radius: 999px; font-size: 0.7rem; font-weight: 600; }
+.appointments-status--pending    { background: #fef9c3; color: #854d0e; }
+.appointments-status--confirmed  { background: #dcfce7; color: #166534; }
+.appointments-status--completed  { background: #e0f2fe; color: #075985; }
+.appointments-status--cancelled  { background: #fee2e2; color: #991b1b; }
+.appointments-status--no_show   { background: #f3e8ff; color: #6b21a8; }
+.appointments-status--rescheduled{ background: #fff7ed; color: #9a3412; }
 .appointments-calendar-block { border: 1px solid #fecaca; background: #fef2f2; color: #991b1b; border-radius: 8px; padding: 6px; font-size: 0.75rem; }
 
 .appointments-block-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
@@ -112,6 +124,7 @@ body.theme-dark .appointments-filters label {
 
 body.theme-dark .appointments-note--ok { color: #4ade80; }
 body.theme-dark .appointments-note--error { color: #f87171; }
+body.theme-dark .appointments-field-warning { color: #fbbf24; background: #292310; border-color: #78350f; }
 
 body.theme-dark .appointments-form-grid input,
 body.theme-dark .appointments-form-grid select,
@@ -167,10 +180,14 @@ body.theme-dark .appointments-calendar-event {
   color: #9cc2ff;
 }
 
-body.theme-dark .appointments-slot-btn:hover,
-body.theme-dark .appointments-calendar-event:hover {
-  background: rgba(79, 142, 247, 0.2);
-}
+body.theme-dark .appointments-slot-btn:hover { background: rgba(79, 142, 247, 0.2); }
+
+body.theme-dark .appointments-status--pending    { background: rgba(234,179,8,0.15);  color: #fbbf24; }
+body.theme-dark .appointments-status--confirmed  { background: rgba(34,197,94,0.15);  color: #4ade80; }
+body.theme-dark .appointments-status--completed  { background: rgba(14,165,233,0.15); color: #38bdf8; }
+body.theme-dark .appointments-status--cancelled  { background: rgba(239,68,68,0.15);  color: #f87171; }
+body.theme-dark .appointments-status--no_show    { background: rgba(168,85,247,0.15); color: #c084fc; }
+body.theme-dark .appointments-status--rescheduled{ background: rgba(249,115,22,0.15); color: #fb923c; }
 
 body.theme-dark .appointments-calendar-block {
   background: rgba(220, 38, 38, 0.12);

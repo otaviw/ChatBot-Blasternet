@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\AiCompanyKnowledge;
+use App\Models\Appointment;
 use App\Models\CompanyBotSetting;
 use App\Models\Area;
 use App\Models\ChatConversation;
@@ -14,6 +15,7 @@ use App\Models\Notification;
 use App\Models\SupportTicket;
 use App\Models\SupportTicketMessage;
 use App\Observers\AiCompanyKnowledgeObserver;
+use App\Observers\AppointmentObserver;
 use App\Observers\ChatMessageObserver;
 use App\Observers\CompanyBotSettingObserver;
 use App\Observers\ConversationTransferObserver;
@@ -58,6 +60,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Area::class, AreaPolicy::class);
         Gate::policy(Conversation::class, ConversationPolicy::class);
         AiCompanyKnowledge::observe(AiCompanyKnowledgeObserver::class);
+        Appointment::observe(AppointmentObserver::class);
         Message::observe(MessageObserver::class);
         CompanyBotSetting::observe(CompanyBotSettingObserver::class);
         ConversationTransfer::observe(ConversationTransferObserver::class);

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Company;
 
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
+use App\Models\AppointmentEvent;
 use App\Models\AppointmentService;
 use App\Models\AppointmentSetting;
 use App\Models\AppointmentStaffProfile;
@@ -13,6 +14,7 @@ use App\Models\Company;
 use App\Models\User;
 use App\Services\Appointments\AppointmentAvailabilityService;
 use App\Services\Appointments\AppointmentBookingService;
+use App\Services\WhatsAppSendService;
 use App\Support\AppointmentSource;
 use App\Support\AppointmentStatus;
 use App\Support\PhoneNumberNormalizer;
@@ -26,7 +28,8 @@ class AppointmentController extends Controller
 {
     public function __construct(
         private AppointmentAvailabilityService $availabilityService,
-        private AppointmentBookingService $bookingService
+        private AppointmentBookingService $bookingService,
+        private WhatsAppSendService $whatsAppSend
     ) {}
 
     public function settings(Request $request): JsonResponse
@@ -556,6 +559,93 @@ class AppointmentController extends Controller
             'ok' => true,
             'appointment' => $this->serializeAppointment($appointment),
         ], 201);
+    }
+
+    public function updateStatus(Request $request, Appointment $appointment): JsonResponse
+    {
+        [$actor, $company, $errorResponse] = $this->resolveActorAndCompany($request, true);
+        if ($errorResponse) {
+            return $errorResponse;
+        }
+
+        if ((int) $appointment->company_id !== (int) $company->id) {
+            return response()->json(['message' => 'Agendamento nao pertence a empresa.'], 404);
+        }
+
+        $allowed = [
+            AppointmentStatus::CONFIRMED,
+            AppointmentStatus::CANCELLED,
+            AppointmentStatus::COMPLETED,
+            AppointmentStatus::NO_SHOW,
+        ];
+
+        $validated = $request->validate([
+            'status' => ['required', Rule::in($allowed)],
+            'reason' => ['nullable', 'string', 'max:500'],
+            'notify_customer' => ['sometimes', 'boolean'],
+        ]);
+
+        $newStatus = (string) $validated['status'];
+        $oldStatus = (string) $appointment->status;
+
+        if ($oldStatus === $newStatus) {
+            return response()->json(['ok' => true, 'appointment' => $this->serializeAppointment($appointment)]);
+        }
+
+        $appointment->status = $newStatus;
+
+        if ($newStatus === AppointmentStatus::CANCELLED) {
+            $appointment->cancelled_at = now();
+            $appointment->cancelled_reason = $this->nullableTrim($validated['reason'] ?? null);
+        }
+
+        $appointment->save();
+
+        AppointmentEvent::create([
+            'company_id' => (int) $company->id,
+            'appointment_id' => (int) $appointment->id,
+            'event_type' => 'status_changed',
+            'performed_by_user_id' => $actor->id ? (int) $actor->id : null,
+            'payload' => [
+                'from' => $oldStatus,
+                'to' => $newStatus,
+                'reason' => $this->nullableTrim($validated['reason'] ?? null),
+                'channel' => 'dashboard',
+            ],
+        ]);
+
+        // Notifica cliente via WhatsApp quando a empresa cancela
+        if ($newStatus === AppointmentStatus::CANCELLED && (bool) ($validated['notify_customer'] ?? true)) {
+            $settings = AppointmentSetting::query()->where('company_id', (int) $company->id)->first();
+            $timezone = (string) ($settings?->timezone ?: 'America/Sao_Paulo');
+            $startsAt = $appointment->starts_at?->setTimezone($timezone);
+            $dateStr = $startsAt?->format('d/m/Y') ?? '';
+            $timeStr = $startsAt?->format('H:i') ?? '';
+            $reason = $this->nullableTrim($validated['reason'] ?? null);
+            $reasonLine = $reason ? "\nMotivo: {$reason}" : '';
+            $text = "Olá! Informamos que seu agendamento do dia {$dateStr} às {$timeStr} foi cancelado pela nossa equipe.{$reasonLine}\nPor favor, entre em contato para reagendar se desejar.";
+            $this->whatsAppSend->sendText($company, (string) $appointment->customer_phone, $text);
+        }
+
+        $appointment->load(['service:id,name', 'staffProfile.user:id,name,email']);
+
+        return response()->json(['ok' => true, 'appointment' => $this->serializeAppointment($appointment)]);
+    }
+
+    public function deleteAppointment(Request $request, Appointment $appointment): JsonResponse
+    {
+        [, $company, $errorResponse] = $this->resolveActorAndCompany($request, true);
+        if ($errorResponse) {
+            return $errorResponse;
+        }
+
+        if ((int) $appointment->company_id !== (int) $company->id) {
+            return response()->json(['message' => 'Agendamento nao pertence a empresa.'], 404);
+        }
+
+        $appointment->delete();
+
+        return response()->json(['ok' => true]);
     }
 
     /**

@@ -11,6 +11,8 @@ final class RealtimeEvents
     public const BOT_UPDATED = 'bot.updated';
     public const CONVERSATION_TRANSFERRED = 'conversation.transferred';
     public const NOTIFICATION_CREATED = 'notification.created';
+    public const APPOINTMENT_CREATED = 'appointment.created';
+    public const APPOINTMENT_UPDATED = 'appointment.updated';
 
     /**
      * @return array<int, string>
@@ -25,6 +27,8 @@ final class RealtimeEvents
             self::BOT_UPDATED,
             self::CONVERSATION_TRANSFERRED,
             self::NOTIFICATION_CREATED,
+            self::APPOINTMENT_CREATED,
+            self::APPOINTMENT_UPDATED,
         ];
     }
 }

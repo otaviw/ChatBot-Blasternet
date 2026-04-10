@@ -188,6 +188,181 @@ class AppointmentAvailabilityService
         ];
     }
 
+    /**
+     * Returns a flat list of available slots across multiple days using exactly 6 DB queries,
+     * regardless of the number of days or slots (bulk-loads conflicts then filters in-memory).
+     *
+     * @return array<int, array{starts_at:string,ends_at:string,starts_at_local:string,ends_at_local:string,staff_profile_id:int,staff_name:string,date:string}>
+     */
+    public function listAvailableSlotsMultiDay(
+        Company $company,
+        int $serviceId,
+        CarbonInterface|string $fromDate,
+        CarbonInterface|string $toDate,
+        ?int $staffProfileId = null,
+        int $limit = PHP_INT_MAX
+    ): array {
+        $settings = $this->resolveSettings((int) $company->id);
+        $timezone = $this->resolveTimezone($settings);
+        $from = $this->parseDate($fromDate, $timezone)->startOfDay();
+        $to = $this->parseDate($toDate, $timezone)->endOfDay();
+        $service = $this->loadService((int) $company->id, $serviceId);
+
+        $staffProfiles = AppointmentStaffProfile::query()
+            ->where('company_id', (int) $company->id)
+            ->where('is_bookable', true)
+            ->when($staffProfileId, fn($q) => $q->where('id', $staffProfileId))
+            ->with('user:id,name')
+            ->orderBy('id')
+            ->get();
+
+        if ($staffProfiles->isEmpty()) {
+            return [];
+        }
+
+        $staffIds = $staffProfiles->pluck('id')->all();
+
+        // 1 query — all working hours for all staff, all days of week
+        $allWorkingHours = AppointmentWorkingHour::query()
+            ->where('company_id', (int) $company->id)
+            ->whereIn('staff_profile_id', $staffIds)
+            ->where('is_active', true)
+            ->orderBy('start_time')
+            ->get()
+            ->groupBy('staff_profile_id');
+
+        $rangeStartUtc = $from->setTimezone('UTC');
+        $rangeEndUtc = $to->setTimezone('UTC');
+
+        // 1 query — time-offs overlapping the range
+        $timeOffs = AppointmentTimeOff::query()
+            ->where('company_id', (int) $company->id)
+            ->where(function ($q) use ($staffIds) {
+                $q->whereNull('staff_profile_id')
+                    ->orWhereIn('staff_profile_id', $staffIds);
+            })
+            ->where('starts_at', '<', $rangeEndUtc)
+            ->where('ends_at', '>', $rangeStartUtc)
+            ->get(['staff_profile_id', 'starts_at', 'ends_at'])
+            ->map(fn($tf) => [
+                'staff_profile_id' => $tf->staff_profile_id !== null ? (int) $tf->staff_profile_id : null,
+                'starts_ts' => CarbonImmutable::parse($tf->starts_at)->timestamp,
+                'ends_ts' => CarbonImmutable::parse($tf->ends_at)->timestamp,
+            ]);
+
+        // 1 query — blocking appointments overlapping the range
+        $existingAppointments = Appointment::query()
+            ->where('company_id', (int) $company->id)
+            ->whereIn('staff_profile_id', $staffIds)
+            ->whereIn('status', AppointmentStatus::blocking())
+            ->where('effective_start_at', '<', $rangeEndUtc)
+            ->where('effective_end_at', '>', $rangeStartUtc)
+            ->get(['staff_profile_id', 'effective_start_at', 'effective_end_at'])
+            ->map(fn($appt) => [
+                'staff_profile_id' => (int) $appt->staff_profile_id,
+                'effective_start_ts' => CarbonImmutable::parse($appt->effective_start_at)->timestamp,
+                'effective_end_ts' => CarbonImmutable::parse($appt->effective_end_at)->timestamp,
+            ]);
+
+        $maxBookingsPerSlot = max(1, (int) $service->max_bookings_per_slot);
+        $durationMinutes = (int) $service->duration_minutes;
+        $bufferBefore = (int) $service->buffer_before_minutes;
+        $bufferAfter = (int) $service->buffer_after_minutes;
+        $now = CarbonImmutable::now($timezone);
+
+        $result = [];
+        $date = $from->startOfDay();
+
+        while ($date->lte($to) && count($result) < $limit) {
+            $dayOfWeek = $date->dayOfWeek;
+
+            foreach ($staffProfiles as $staffProfile) {
+                if (count($result) >= $limit) {
+                    break;
+                }
+
+                $staffId = (int) $staffProfile->id;
+                $minNotice = $this->resolveMinNoticeMinutes($settings, $staffProfile);
+                $maxAdvance = $this->resolveMaxAdvanceDays($settings, $staffProfile);
+
+                if (! $this->isDateWithinAdvanceWindow($date, $timezone, $maxAdvance)) {
+                    continue;
+                }
+
+                $staffWorkingHours = ($allWorkingHours->get($staffId) ?? collect())
+                    ->filter(fn($wh) => (int) $wh->day_of_week === $dayOfWeek);
+
+                foreach ($staffWorkingHours as $wh) {
+                    if (count($result) >= $limit) {
+                        break;
+                    }
+
+                    $slotInterval = $this->resolveSlotInterval($settings, $staffProfile, $wh);
+                    $segments = $this->resolveWorkingSegments($date, $timezone, $wh);
+
+                    foreach ($segments as [$segStart, $segEnd]) {
+                        if ($segEnd->lte($segStart)) {
+                            continue;
+                        }
+
+                        $cursor = $this->roundUpToSlot(
+                            max($segStart->timestamp, $now->addMinutes($minNotice)->timestamp),
+                            $timezone,
+                            $slotInterval
+                        );
+
+                        while ($cursor->lt($segEnd) && count($result) < $limit) {
+                            $slotEnd = $cursor->addMinutes($durationMinutes);
+                            if ($slotEnd->gt($segEnd)) {
+                                break;
+                            }
+
+                            $slotStartTs = $cursor->setTimezone('UTC')->timestamp;
+                            $slotEndTs = $slotEnd->setTimezone('UTC')->timestamp;
+                            $effectiveStartTs = $cursor->subMinutes($bufferBefore)->setTimezone('UTC')->timestamp;
+                            $effectiveEndTs = $slotEnd->addMinutes($bufferAfter)->setTimezone('UTC')->timestamp;
+
+                            $blockedByTimeOff = $timeOffs->contains(function ($tf) use ($slotStartTs, $slotEndTs, $staffId) {
+                                if ($tf['staff_profile_id'] !== null && $tf['staff_profile_id'] !== $staffId) {
+                                    return false;
+                                }
+                                return $tf['starts_ts'] < $slotEndTs && $tf['ends_ts'] > $slotStartTs;
+                            });
+
+                            if (! $blockedByTimeOff) {
+                                $conflicts = $existingAppointments->filter(function ($appt) use ($effectiveStartTs, $effectiveEndTs, $staffId) {
+                                    return $appt['staff_profile_id'] === $staffId
+                                        && $appt['effective_start_ts'] < $effectiveEndTs
+                                        && $appt['effective_end_ts'] > $effectiveStartTs;
+                                })->count();
+
+                                if ($conflicts < $maxBookingsPerSlot) {
+                                    $result[] = [
+                                        'starts_at' => $cursor->setTimezone('UTC')->toIso8601String(),
+                                        'ends_at' => $slotEnd->setTimezone('UTC')->toIso8601String(),
+                                        'starts_at_local' => $cursor->toIso8601String(),
+                                        'ends_at_local' => $slotEnd->toIso8601String(),
+                                        'staff_profile_id' => $staffId,
+                                        'staff_name' => trim((string) ($staffProfile->display_name ?: $staffProfile->user?->name ?: 'Atendente')),
+                                        'date' => $date->toDateString(),
+                                    ];
+                                    $cursor = $cursor->addMinutes($durationMinutes + $slotInterval);
+                                    continue;
+                                }
+                            }
+
+                            $cursor = $cursor->addMinutes($slotInterval);
+                        }
+                    }
+                }
+            }
+
+            $date = $date->addDay();
+        }
+
+        return $result;
+    }
+
     private function buildStaffAvailability(
         Company $company,
         CarbonImmutable $targetDate,

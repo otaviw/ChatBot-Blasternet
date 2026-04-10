@@ -116,7 +116,7 @@ class AppointmentBookingService
                 'service_duration_minutes' => (int) $service->duration_minutes,
                 'buffer_before_minutes' => (int) $service->buffer_before_minutes,
                 'buffer_after_minutes' => (int) $service->buffer_after_minutes,
-                'status' => AppointmentStatus::PENDING,
+                'status' => $source === AppointmentSource::WHATSAPP ? AppointmentStatus::CONFIRMED : AppointmentStatus::PENDING,
                 'source' => $source,
                 'notes' => $this->nullableTrim($payload['notes'] ?? null),
                 'created_by_user_id' => $actor?->id ? (int) $actor->id : null,

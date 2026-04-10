@@ -61,7 +61,7 @@ class BotFlowRegistry
     {
         $labels = implode(', ', $options);
 
-        return "Opção inválida. Responda com {$labels}.";
+        return "Opção inválida. Responda com {$labels}... ou \"menu\" para voltar ao menu principal.";
     }
 
     /**
@@ -230,6 +230,15 @@ class BotFlowRegistry
             return [
                 'kind' => 'appointments_start',
                 'target_area_name' => $targetAreaName !== '' ? $targetAreaName : self::AREA_ATTENDANCE,
+                'reply_text' => $replyText === '' ? null : $replyText,
+            ];
+        }
+
+        if ($kind === 'appointments_cancel') {
+            $replyText = trim((string) ($raw['reply_text'] ?? ''));
+
+            return [
+                'kind' => 'appointments_cancel',
                 'reply_text' => $replyText === '' ? null : $replyText,
             ];
         }
@@ -454,6 +463,13 @@ class BotFlowRegistry
                     'reply_text' => null,
                 ],
             ];
+            $steps[$this->stateKey(self::FLOW_MAIN, self::STEP_MENU)]['options']['5'] = [
+                'label' => 'Cancelar agendamento',
+                'action' => [
+                    'kind' => 'appointments_cancel',
+                    'reply_text' => null,
+                ],
+            ];
         }
 
         return [
@@ -470,7 +486,7 @@ class BotFlowRegistry
     {
         $welcome = trim((string) ($company?->botSetting?->welcome_message ?? ''));
         $appointmentsEnabled = $this->hasActiveAppointments($company);
-        $appointmentsLine = $appointmentsEnabled ? "\n4 - Marcar agendamento" : '';
+        $appointmentsLine = $appointmentsEnabled ? "\n4 - Marcar agendamento\n5 - Cancelar agendamento" : '';
         if ($welcome === '') {
             return "Olá! O que você precisa?\n1 - Suporte técnico\n2 - Vendas\n3 - Falar com atendente{$appointmentsLine}";
         }
