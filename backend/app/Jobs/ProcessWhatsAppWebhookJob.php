@@ -24,12 +24,12 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
 
     public int $timeout = 60;
 
-    public string $queue = 'webhooks';
-
     public function __construct(
         private readonly array $changeValue,
         private readonly ?int $companyId,
-    ) {}
+    ) {
+        $this->onQueue('webhooks');
+    }
 
     public function handle(InboundMessageService $inboundMessage, RealtimePublisher $realtimePublisher): void
     {
