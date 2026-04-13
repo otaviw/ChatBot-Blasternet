@@ -61,14 +61,16 @@ class PasswordResetController extends Controller
             ]);
         }
 
-        $errors = [
-            Password::INVALID_TOKEN  => 'Link inválido ou expirado. Solicite um novo.',
-            Password::INVALID_USER   => 'Não foi possível redefinir a senha.',
-            Password::RESET_THROTTLED => 'Aguarde antes de tentar novamente.',
-        ];
+        // Mensagem genérica para INVALID_TOKEN e INVALID_USER — não revelar
+        // se o e-mail existe ou se o token é o problema específico.
+        if ($status === Password::RESET_THROTTLED) {
+            return response()->json([
+                'message' => 'Aguarde antes de tentar novamente.',
+            ], 429);
+        }
 
         return response()->json([
-            'message' => $errors[$status] ?? 'Não foi possível redefinir a senha.',
+            'message' => 'Link inválido ou expirado. Solicite um novo.',
         ], 422);
     }
 }
