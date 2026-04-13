@@ -65,3 +65,44 @@ Build do frontend:
 cd frontend
 npm run build
 ```
+
+## Backup do banco de dados
+
+O scheduler do Laravel executa o backup automaticamente todo dia às **03:00** via `php artisan backup:database`.
+
+Para o agendamento funcionar, o cron do servidor precisa ter esta entrada:
+
+```
+* * * * * cd /var/www/html/ChatBot-Blasternet/backend && php artisan schedule:run >> /dev/null 2>&1
+```
+
+**Executar backup manualmente:**
+
+```bash
+# Via Artisan (recomendado — usa o mesmo fluxo do scheduler)
+cd backend
+php artisan backup:database
+
+# Diretamente pelo script bash
+bash scripts/backup-db.sh
+```
+
+Os arquivos ficam em `backups/` na raiz do projeto, no formato `backup_YYYY-MM-DD_HH-MM.sql.gz`. São mantidos os **7 backups mais recentes**.
+
+**Restaurar um backup:**
+
+```bash
+# 1. Escolha o arquivo desejado
+ls backups/
+
+# 2. Descomprima e restaure (substitua os valores entre < >)
+gunzip -c backups/backup_YYYY-MM-DD_HH-MM.sql.gz \
+  | mysql -h <DB_HOST> -u <DB_USERNAME> -p <DB_DATABASE>
+
+# Exemplo completo lendo as variáveis do .env
+source <(grep -E '^DB_(HOST|PORT|DATABASE|USERNAME|PASSWORD)' backend/.env)
+gunzip -c backups/backup_YYYY-MM-DD_HH-MM.sql.gz \
+  | mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USERNAME" -p"$DB_PASSWORD" "$DB_DATABASE"
+```
+
+> **Atenção:** restaurar sobrescreve todos os dados existentes no banco. Faça um backup do estado atual antes de restaurar.

@@ -74,6 +74,11 @@ backend/storage/framework/sessions/*
 backend/storage/framework/views/*
 
 # ------------------------------
+# Backups de banco de dados
+# ------------------------------
+backups/
+
+# ------------------------------
 # Tooling
 # ------------------------------
 .phpactor.json
