@@ -20,6 +20,8 @@ class WhatsAppImageFlowTest extends TestCase
     {
         parent::setUp();
 
+        config()->set('whatsapp.app_secret', 'test-secret');
+
         if (! function_exists('imagecreatetruecolor')) {
             $this->markTestSkipped('GD extension is not installed.');
         }
@@ -85,7 +87,7 @@ class WhatsAppImageFlowTest extends TestCase
             ],
         ];
 
-        $response = $this->postJson('/api/webhooks/whatsapp', $payload);
+        $response = $this->webhookPost($payload);
         $response->assertOk();
 
         $conversation = Conversation::query()

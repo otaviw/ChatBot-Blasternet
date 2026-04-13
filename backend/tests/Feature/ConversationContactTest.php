@@ -12,6 +12,12 @@ class ConversationContactTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config()->set('whatsapp.app_secret', 'test-secret');
+    }
+
     public function test_company_user_can_update_contact_name_for_own_conversation(): void
     {
         $company = Company::create(['name' => 'Empresa Contato']);
@@ -118,7 +124,7 @@ class ConversationContactTest extends TestCase
             ],
         ];
 
-        $response = $this->postJson('/api/webhooks/whatsapp', $payload);
+        $response = $this->webhookPost($payload);
         $response->assertOk();
 
         $this->assertDatabaseHas('conversations', [

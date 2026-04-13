@@ -13,14 +13,16 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Assinatura do Webhook
+    | App Secret (obrigatório em produção)
     |--------------------------------------------------------------------------
-    | Opcionalmente valide a assinatura enviada pelo provedor (ex.: Meta
-    | X-Hub-Signature-256) usando um segredo compartilhado. Se
-    | whatsapp.webhook_signature_secret estiver vazio, a validação é
-    | ignorada.
+    | Chave secreta do App no painel Meta for Developers (Configurações do app
+    | → Básico → Chave secreta do app). Usada para validar a assinatura
+    | X-Hub-Signature-256 de cada webhook recebido.
+    |
+    | OBRIGATÓRIO: sem este valor o servidor rejeita todos os webhooks e
+    | lança uma ConfigurationException no boot da aplicação HTTP.
     */
-    'webhook_signature_secret' => env('WHATSAPP_WEBHOOK_SIGNATURE_SECRET'),
+    'app_secret' => env('WHATSAPP_APP_SECRET'),
 
     /*
     |--------------------------------------------------------------------------

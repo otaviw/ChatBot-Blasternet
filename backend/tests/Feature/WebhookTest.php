@@ -86,20 +86,91 @@ describe('Webhook verify (GET)', function () {
 });
 
 // ---------------------------------------------------------------------------
-// POST /api/webhooks/whatsapp  — recebimento de eventos do Meta
+// POST /api/webhooks/whatsapp  — validação de assinatura
+// ---------------------------------------------------------------------------
+
+describe('Webhook handle (POST) — validação de assinatura', function () {
+    beforeEach(function () {
+        config()->set('whatsapp.app_secret', 'test-secret');
+    });
+
+    it('retorna 403 quando o header X-Hub-Signature-256 está ausente', function () {
+        $payload = makeWebhookPayload('111111111111111');
+
+        $this->postJson('/api/webhooks/whatsapp', $payload)
+            ->assertStatus(403);
+    });
+
+    it('retorna 403 quando a assinatura está incorreta', function () {
+        $body    = json_encode(makeWebhookPayload('111111111111111'), JSON_UNESCAPED_UNICODE);
+        $wrongSig = 'sha256=' . hash_hmac('sha256', $body, 'chave-errada');
+
+        $this->call(
+            'POST',
+            '/api/webhooks/whatsapp',
+            [], [], [],
+            ['CONTENT_TYPE' => 'application/json', 'HTTP_X-Hub-Signature-256' => $wrongSig],
+            $body
+        )->assertStatus(403);
+    });
+
+    it('retorna 403 quando o header tem formato inválido (sem prefixo sha256=)', function () {
+        $body = json_encode(makeWebhookPayload('111111111111111'), JSON_UNESCAPED_UNICODE);
+
+        $this->call(
+            'POST',
+            '/api/webhooks/whatsapp',
+            [], [], [],
+            ['CONTENT_TYPE' => 'application/json', 'HTTP_X-Hub-Signature-256' => 'assinatura-sem-prefixo'],
+            $body
+        )->assertStatus(403);
+    });
+
+    it('retorna 403 quando WHATSAPP_APP_SECRET não está configurado', function () {
+        config()->set('whatsapp.app_secret', '');
+
+        $body = json_encode(makeWebhookPayload('111111111111111'), JSON_UNESCAPED_UNICODE);
+        $sig  = 'sha256=' . hash_hmac('sha256', $body, 'qualquer-coisa');
+
+        $this->call(
+            'POST',
+            '/api/webhooks/whatsapp',
+            [], [], [],
+            ['CONTENT_TYPE' => 'application/json', 'HTTP_X-Hub-Signature-256' => $sig],
+            $body
+        )->assertStatus(403);
+    });
+
+    it('aceita payload com assinatura válida e retorna 200', function () {
+        $payload = makeWebhookPayload('999999999999999');
+
+        webhookPost($this, $payload)->assertOk();
+    });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/webhooks/whatsapp  — object inválido
 // ---------------------------------------------------------------------------
 
 describe('Webhook handle (POST) — object inválido', function () {
+    beforeEach(function () {
+        config()->set('whatsapp.app_secret', 'test-secret');
+    });
+
     it('retorna 200 sem processar quando object não é whatsapp_business_account', function () {
         $payload = ['object' => 'page', 'entry' => []];
 
-        $this->postJson('/api/webhooks/whatsapp', $payload)->assertOk();
+        webhookPost($this, $payload)->assertOk();
 
         expect(Conversation::count())->toBe(0);
     });
 });
 
 describe('Webhook handle (POST) — phone_number_id desconhecido', function () {
+    beforeEach(function () {
+        config()->set('whatsapp.app_secret', 'test-secret');
+    });
+
     it('ignora silenciosamente e retorna 200 quando nenhuma empresa corresponde ao phone_number_id', function () {
         Http::fake();
 
@@ -107,7 +178,7 @@ describe('Webhook handle (POST) — phone_number_id desconhecido', function () {
             ['id' => 'wamid.1', 'from' => '5511999999999', 'type' => 'text', 'text' => ['body' => 'oi']],
         ]);
 
-        $this->postJson('/api/webhooks/whatsapp', $payload)->assertOk();
+        webhookPost($this, $payload)->assertOk();
 
         expect(Conversation::count())->toBe(0);
         Http::assertNothingSent();
@@ -115,6 +186,10 @@ describe('Webhook handle (POST) — phone_number_id desconhecido', function () {
 });
 
 describe('Webhook handle (POST) — mensagens de texto', function () {
+    beforeEach(function () {
+        config()->set('whatsapp.app_secret', 'test-secret');
+    });
+
     it('cria conversa e mensagem quando recebe texto de número conhecido', function () {
         Http::fake(['*' => Http::response(['messages' => [['id' => 'wamid.OUT']]], 200)]);
 
@@ -129,7 +204,7 @@ describe('Webhook handle (POST) — mensagens de texto', function () {
             ],
         ]);
 
-        $this->postJson('/api/webhooks/whatsapp', $payload)->assertOk();
+        webhookPost($this, $payload)->assertOk();
 
         $this->assertDatabaseHas('conversations', [
             'company_id'     => $company->id,
@@ -158,7 +233,7 @@ describe('Webhook handle (POST) — mensagens de texto', function () {
             ],
         ]);
 
-        $this->postJson('/api/webhooks/whatsapp', $payload)->assertOk();
+        webhookPost($this, $payload)->assertOk();
 
         $this->assertDatabaseHas('conversations', [
             'company_id'     => $company->id,
@@ -182,7 +257,7 @@ describe('Webhook handle (POST) — mensagens de texto', function () {
             ]
         );
 
-        $this->postJson('/api/webhooks/whatsapp', $payload)->assertOk();
+        webhookPost($this, $payload)->assertOk();
 
         $this->assertDatabaseHas('conversations', [
             'company_id'     => $company->id,
@@ -199,7 +274,7 @@ describe('Webhook handle (POST) — mensagens de texto', function () {
             ['id' => 'wamid.IN.4', 'from' => '5511111111111', 'type' => 'text', 'text' => ['body' => '   ']],
         ]);
 
-        $this->postJson('/api/webhooks/whatsapp', $payload)->assertOk();
+        webhookPost($this, $payload)->assertOk();
 
         expect(Conversation::where('company_id', $company->id)->count())->toBe(0);
     });
@@ -212,13 +287,17 @@ describe('Webhook handle (POST) — mensagens de texto', function () {
             ['id' => 'wamid.IN.5', 'from' => '', 'type' => 'text', 'text' => ['body' => 'teste']],
         ]);
 
-        $this->postJson('/api/webhooks/whatsapp', $payload)->assertOk();
+        webhookPost($this, $payload)->assertOk();
 
         expect(Conversation::where('company_id', $company->id)->count())->toBe(0);
     });
 });
 
 describe('Webhook handle (POST) — status de entrega', function () {
+    beforeEach(function () {
+        config()->set('whatsapp.app_secret', 'test-secret');
+    });
+
     it('atualiza delivery_status para sent quando recebe status=sent', function () {
         $company = makeCompany('777000777000777');
 
@@ -242,7 +321,7 @@ describe('Webhook handle (POST) — status de entrega', function () {
             ['id' => 'wamid.STATUS.1', 'status' => 'sent', 'timestamp' => time()],
         ]);
 
-        $this->postJson('/api/webhooks/whatsapp', $payload)->assertOk();
+        webhookPost($this, $payload)->assertOk();
 
         expect($message->fresh()->delivery_status)->toBe(MessageDeliveryStatus::SENT);
     });
@@ -268,7 +347,7 @@ describe('Webhook handle (POST) — status de entrega', function () {
             ['id' => 'wamid.STATUS.2', 'status' => 'delivered', 'timestamp' => time()],
         ]);
 
-        $this->postJson('/api/webhooks/whatsapp', $payload)->assertOk();
+        webhookPost($this, $payload)->assertOk();
 
         expect($message->fresh()->delivery_status)->toBe(MessageDeliveryStatus::DELIVERED);
     });
@@ -294,7 +373,7 @@ describe('Webhook handle (POST) — status de entrega', function () {
             ['id' => 'wamid.STATUS.3', 'status' => 'read', 'timestamp' => time()],
         ]);
 
-        $this->postJson('/api/webhooks/whatsapp', $payload)->assertOk();
+        webhookPost($this, $payload)->assertOk();
 
         expect($message->fresh()->delivery_status)->toBe(MessageDeliveryStatus::READ);
     });
@@ -325,7 +404,7 @@ describe('Webhook handle (POST) — status de entrega', function () {
             ],
         ]);
 
-        $this->postJson('/api/webhooks/whatsapp', $payload)->assertOk();
+        webhookPost($this, $payload)->assertOk();
 
         $updated = $message->fresh();
         expect($updated->delivery_status)->toBe(MessageDeliveryStatus::FAILED);
@@ -339,11 +418,15 @@ describe('Webhook handle (POST) — status de entrega', function () {
             ['id' => 'wamid.INEXISTENTE', 'status' => 'delivered', 'timestamp' => time()],
         ]);
 
-        $this->postJson('/api/webhooks/whatsapp', $payload)->assertOk();
+        webhookPost($this, $payload)->assertOk();
     });
 });
 
 describe('Webhook handle (POST) — reações', function () {
+    beforeEach(function () {
+        config()->set('whatsapp.app_secret', 'test-secret');
+    });
+
     it('cria reação quando recebe evento de reaction com emoji', function () {
         Http::fake(['*' => Http::response(['messages' => [['id' => 'wamid.OUT']]], 200)]);
 
@@ -372,7 +455,7 @@ describe('Webhook handle (POST) — reações', function () {
             ],
         ]);
 
-        $this->postJson('/api/webhooks/whatsapp', $payload)->assertOk();
+        webhookPost($this, $payload)->assertOk();
 
         $this->assertDatabaseHas('message_reactions', [
             'message_id'    => $message->id,
@@ -416,7 +499,7 @@ describe('Webhook handle (POST) — reações', function () {
             ],
         ]);
 
-        $this->postJson('/api/webhooks/whatsapp', $payload)->assertOk();
+        webhookPost($this, $payload)->assertOk();
 
         expect(MessageReaction::where('message_id', $message->id)->count())->toBe(0);
     });

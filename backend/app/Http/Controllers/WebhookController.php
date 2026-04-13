@@ -70,13 +70,9 @@ class WebhookController extends Controller
 
     private function isValidSignature(Request $request): bool
     {
-        if (app()->environment('testing')) {
-            return true;
-        }
-
-        $secret = (string) config('whatsapp.webhook_signature_secret');
+        $secret = (string) config('whatsapp.app_secret', '');
         if ($secret === '') {
-            Log::error('Webhook WhatsApp rejeitado: webhook_signature_secret nao configurado.');
+            Log::error('Webhook WhatsApp rejeitado: WHATSAPP_APP_SECRET nao configurado.');
 
             return false;
         }

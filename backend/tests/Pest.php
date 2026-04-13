@@ -41,7 +41,15 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+/**
+ * Envia um POST para o webhook com assinatura HMAC válida (helper para testes Pest).
+ * Delega para TestCase::webhookPost(), portanto requer que
+ * config('whatsapp.app_secret') esteja configurado no teste.
+ *
+ * @param  \Tests\TestCase  $test   A instância do teste ($this dentro de um it())
+ * @param  array<string, mixed>  $payload
+ */
+function webhookPost($test, array $payload, string $secret = 'test-secret'): \Illuminate\Testing\TestResponse
 {
-    // ..
+    return $test->webhookPost($payload, $secret);
 }

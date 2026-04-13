@@ -17,6 +17,7 @@ class WhatsAppMessageReactionWebhookTest extends TestCase
     {
         parent::setUp();
 
+        config()->set('whatsapp.app_secret', 'test-secret');
         config()->set('realtime.enabled', false);
     }
 
@@ -31,7 +32,7 @@ class WhatsAppMessageReactionWebhookTest extends TestCase
             ':)'
         );
 
-        $this->postJson('/api/webhooks/whatsapp', $payload)->assertOk();
+        $this->webhookPost($payload)->assertOk();
 
         $this->assertDatabaseHas('message_reactions', [
             'message_id' => $message->id,
@@ -61,7 +62,7 @@ class WhatsAppMessageReactionWebhookTest extends TestCase
             ':D'
         );
 
-        $this->postJson('/api/webhooks/whatsapp', $payload)->assertOk();
+        $this->webhookPost($payload)->assertOk();
 
         $this->assertSame(1, MessageReaction::query()->count());
         $this->assertDatabaseHas('message_reactions', [
@@ -92,7 +93,7 @@ class WhatsAppMessageReactionWebhookTest extends TestCase
             ''
         );
 
-        $this->postJson('/api/webhooks/whatsapp', $payload)->assertOk();
+        $this->webhookPost($payload)->assertOk();
 
         $this->assertDatabaseMissing('message_reactions', [
             'message_id' => $message->id,

@@ -14,6 +14,12 @@ class WhatsAppMessageStatusTrackingTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config()->set('whatsapp.app_secret', 'test-secret');
+    }
+
     public function test_manual_reply_persists_sent_status_and_whatsapp_message_id(): void
     {
         config()->set('whatsapp.api_url', 'https://graph.facebook.com/v22.0');
@@ -139,7 +145,7 @@ class WhatsAppMessageStatusTrackingTest extends TestCase
             ],
         ];
 
-        $response = $this->postJson('/api/webhooks/whatsapp', $payload);
+        $response = $this->webhookPost($payload);
         $response->assertOk();
 
         $message->refresh();

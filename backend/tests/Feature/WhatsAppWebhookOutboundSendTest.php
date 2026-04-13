@@ -12,6 +12,12 @@ class WhatsAppWebhookOutboundSendTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config()->set('whatsapp.app_secret', 'test-secret');
+    }
+
     public function test_webhook_outbound_send_uses_company_phone_number_id_and_normalizes_to(): void
     {
         config()->set('whatsapp.api_url', 'https://graph.facebook.com/v22.0');
@@ -59,7 +65,7 @@ class WhatsAppWebhookOutboundSendTest extends TestCase
             ],
         ];
 
-        $response = $this->postJson('/api/webhooks/whatsapp', $payload);
+        $response = $this->webhookPost($payload);
         $response->assertOk();
 
         $this->assertDatabaseHas('conversations', [
@@ -169,8 +175,8 @@ class WhatsAppWebhookOutboundSendTest extends TestCase
             ],
         ];
 
-        $this->postJson('/api/webhooks/whatsapp', $payloadA)->assertOk();
-        $this->postJson('/api/webhooks/whatsapp', $payloadB)->assertOk();
+        $this->webhookPost($payloadA)->assertOk();
+        $this->webhookPost($payloadB)->assertOk();
 
         $this->assertDatabaseHas('conversations', [
             'company_id' => $companyA->id,

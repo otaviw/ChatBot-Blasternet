@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Exceptions\ConfigurationException;
 use App\Models\AiCompanyKnowledge;
 use App\Models\Appointment;
 use App\Models\CompanyBotSetting;
@@ -55,6 +56,19 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Valida configuração obrigatória em contexto HTTP (não em console/artisan).
+        // Em console (migrations, queue workers, etc.) a variável pode não estar disponível
+        // sem prejuízo, já que a validação de assinatura só acontece no controller.
+        if (! $this->app->runningInConsole() && ! $this->app->environment('testing')) {
+            $appSecret = (string) config('whatsapp.app_secret', '');
+            if ($appSecret === '') {
+                throw new ConfigurationException(
+                    'WHATSAPP_APP_SECRET não está configurado. ' .
+                    'Defina esta variável de ambiente com a chave secreta do App no painel Meta for Developers.'
+                );
+            }
+        }
+
         Carbon::setLocale('pt_BR');
 
         Gate::policy(Area::class, AreaPolicy::class);
