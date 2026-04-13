@@ -10,6 +10,7 @@ use App\Services\Company\CompanyConversationSupportService;
 use App\Services\ConversationInactivityService;
 use App\Support\ConversationStatus;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class ListCompanyConversationsAction
 {
@@ -25,7 +26,11 @@ class ListCompanyConversationsAction
     public function handle(User $user, Request $request): array
     {
         $companyId = (int) $user->company_id;
-        $this->conversationInactivityService->closeInactiveConversations($companyId);
+        Cache::remember("company_{$companyId}_inactivity_checked", now()->addMinutes(5), function () use ($companyId) {
+            $this->conversationInactivityService->closeInactiveConversations($companyId);
+
+            return true;
+        });
         $settings = $this->aiAccessService->resolveCompanySettings($user);
         $canUseInternalAi = $this->aiAccessService->canUseInternalAi($user, $settings);
 
@@ -100,12 +105,13 @@ class ListCompanyConversationsAction
             fn (Conversation $conversation) => $this->conversationSupport->normalizeConversationAssignmentRelations($conversation)
         );
 
-        $attendants = User::query()
+        $attendants = Cache::remember("company_{$companyId}_attendants", now()->addMinutes(5), fn () => User::query()
             ->where('company_id', $companyId)
             ->whereIn('role', [User::ROLE_COMPANY_ADMIN, User::ROLE_AGENT])
             ->orderBy('name')
             ->get(['id', 'name'])
-            ->toArray();
+            ->toArray()
+        );
 
         return [
             'authenticated' => true,

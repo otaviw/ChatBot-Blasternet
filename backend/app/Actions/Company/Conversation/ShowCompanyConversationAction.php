@@ -49,12 +49,23 @@ class ShowCompanyConversationAction
                     ->select(['id', 'message_id', 'reactor_phone', 'emoji', 'reacted_at']);
             }])
             ->orderBy('id', 'asc');
-        $totalMessages = $conversation->messages()->count();
-        $lastMessagesPage = $totalMessages > 0 ? (int) ceil($totalMessages / $messagesPerPage) : 1;
+
+        // Pagina primeiro para obter o total via paginator (evita COUNT separado).
+        // Se não foi solicitada uma página específica, usamos 1 como inicial e depois
+        // re-paginamos para a última página — paginate() já faz COUNT internamente.
+        $initialPage = $messagesPageParam !== null && $messagesPageParam !== ''
+            ? max(1, (int) $messagesPageParam)
+            : 1;
+        $messagesPaginator = $messagesQuery->paginate($messagesPerPage, ['*'], 'messages_page', $initialPage);
+
+        $lastMessagesPage = $messagesPaginator->lastPage();
         $messagesPage = $messagesPageParam !== null && $messagesPageParam !== ''
             ? max(1, min((int) $messagesPageParam, $lastMessagesPage))
             : $lastMessagesPage;
-        $messagesPaginator = $messagesQuery->paginate($messagesPerPage, ['*'], 'messages_page', $messagesPage);
+
+        if ($messagesPage !== $messagesPaginator->currentPage()) {
+            $messagesPaginator = $messagesQuery->paginate($messagesPerPage, ['*'], 'messages_page', $messagesPage);
+        }
         $conversation->setRelation('messages', $messagesPaginator->getCollection());
 
         $this->conversationSupport->normalizeConversationAssignmentRelations($conversation);
