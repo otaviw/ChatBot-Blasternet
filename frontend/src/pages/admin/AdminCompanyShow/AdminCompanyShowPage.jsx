@@ -29,6 +29,8 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
   const [companyData, setCompanyData] = useState(null);
   const [companySaveState, setCompanySaveState] = useState('idle');
   const [companySaveError, setCompanySaveError] = useState('');
+  const [testState, setTestState] = useState('idle'); // idle | loading | ok | error
+  const [testResult, setTestResult] = useState(null);
   const { data: metricsData, loading: metricsLoading } = usePageData(
     `/admin/empresas/${companyId}/metricas`
   );
@@ -89,6 +91,21 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
       ai_internal_chat_enabled: Boolean(data.company.bot_setting?.ai_internal_chat_enabled),
     });
   }, [data]);
+
+  const testConnection = async () => {
+    setTestState('loading');
+    setTestResult(null);
+    try {
+      const res = await api.post(`/admin/empresas/${companyId}/validar-whatsapp`, {
+        phone_number_id: companyForm.meta_phone_number_id || undefined,
+      });
+      setTestState('ok');
+      setTestResult(res.data);
+    } catch (err) {
+      setTestState('error');
+      setTestResult({ error: err.response?.data?.error || 'Erro ao testar conexão.' });
+    }
+  };
 
   const saveCompanyData = async (event) => {
     event.preventDefault();
@@ -288,15 +305,39 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
             />
           </label>
 
-          <label className="block text-sm">
-            ID do número (Meta / WhatsApp)
-            <input
-              type="text"
-              value={companyForm.meta_phone_number_id}
-              onChange={(e) => setCompanyForm((p) => ({ ...p, meta_phone_number_id: e.target.value }))}
-              className="app-input"
-            />
-          </label>
+          <div className="block text-sm">
+            <label className="block">
+              ID do número (Meta / WhatsApp)
+              <input
+                type="text"
+                value={companyForm.meta_phone_number_id}
+                onChange={(e) => {
+                  setCompanyForm((p) => ({ ...p, meta_phone_number_id: e.target.value }));
+                  setTestState('idle');
+                }}
+                className="app-input"
+              />
+            </label>
+            <div className="flex items-center gap-3 flex-wrap mt-2">
+              <button
+                type="button"
+                onClick={testConnection}
+                disabled={testState === 'loading' || !companyForm.meta_phone_number_id}
+                className="app-btn-secondary text-xs"
+              >
+                {testState === 'loading' ? 'Testando...' : 'Testar conexão'}
+              </button>
+              {testState === 'ok' && testResult?.display_phone_number && (
+                <span className="text-xs text-emerald-700">
+                  ✓ Conexão OK — {testResult.display_phone_number}
+                  {testResult.verified_name ? ` (${testResult.verified_name})` : ''}
+                </span>
+              )}
+              {testState === 'error' && (
+                <span className="text-xs text-red-600">✗ {testResult?.error || 'Credenciais inválidas.'}</span>
+              )}
+            </div>
+          </div>
 
           <label className="block text-sm">
             WABA ID (WhatsApp Business Account)

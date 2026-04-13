@@ -15,6 +15,8 @@ Route::middleware(['web', 'auth', 'admin'])->group(function () {
         Route::put('/empresas/{company}', [CompanyController::class, 'update'])->middleware('throttle:bot-write');
         Route::put('/empresas/{company}/bot', [CompanyController::class, 'updateBotSettings'])
             ->middleware('throttle:bot-write');
+        Route::post('/empresas/{company}/validar-whatsapp', [CompanyController::class, 'validateWhatsApp'])
+            ->middleware('throttle:bot-write');
         Route::delete('/empresas/{company}', [CompanyController::class, 'destroy'])
             ->middleware('throttle:bot-write');
 

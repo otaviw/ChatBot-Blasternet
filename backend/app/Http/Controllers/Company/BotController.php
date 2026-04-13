@@ -8,6 +8,7 @@ use App\Models\Company;
 use App\Models\CompanyBotSetting;
 use App\Services\AuditLogService;
 use App\Services\Ai\AiAccessService;
+use App\Services\WhatsAppCredentialsValidatorService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -16,7 +17,8 @@ class BotController extends Controller
 {
     public function __construct(
         private AuditLogService $auditLog,
-        private AiAccessService $aiAccess
+        private AiAccessService $aiAccess,
+        private WhatsAppCredentialsValidatorService $credentialsValidator,
     ) {}
 
     /** Configuracoes do bot da empresa logada (respostas, horarios etc.). */
@@ -90,6 +92,9 @@ class BotController extends Controller
         }
 
         $validated = $request->validate([
+            // ── Credenciais do WhatsApp (opcionais — só salva se enviado) ──
+            'meta_phone_number_id' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'meta_access_token'    => ['sometimes', 'nullable', 'string', 'max:1000'],
             // ── Campos legados do bot clássico ─────────────────────────────
             'is_active' => ['required', 'boolean'],
             'timezone' => ['required', 'string', Rule::in(timezone_identifiers_list())],
@@ -146,6 +151,43 @@ class BotController extends Controller
             }
         }
 
+        // Salva credenciais do WhatsApp se enviadas no payload
+        $credentialsChanged = false;
+        if (array_key_exists('meta_phone_number_id', $validated) || array_key_exists('meta_access_token', $validated)) {
+            $newPhoneId = array_key_exists('meta_phone_number_id', $validated)
+                ? ($validated['meta_phone_number_id'] !== null ? trim((string) $validated['meta_phone_number_id']) : null)
+                : null;
+            $newToken = array_key_exists('meta_access_token', $validated)
+                ? ($validated['meta_access_token'] !== null ? trim((string) $validated['meta_access_token']) : null)
+                : null;
+
+            $phoneChanged = $newPhoneId !== null && $newPhoneId !== '' && $newPhoneId !== (string) ($company->meta_phone_number_id ?? '');
+            $tokenChanged = $newToken !== null && $newToken !== '' && $newToken !== (string) ($company->meta_access_token ?? '');
+            $credentialsChanged = $phoneChanged || $tokenChanged;
+
+            if ($credentialsChanged) {
+                $phoneToValidate = ($newPhoneId !== null && $newPhoneId !== '') ? $newPhoneId : (string) ($company->meta_phone_number_id ?? '');
+                $tokenToValidate = ($newToken !== null && $newToken !== '') ? $newToken : (string) ($company->meta_access_token ?? '');
+
+                $validation = $this->credentialsValidator->validate($phoneToValidate, $tokenToValidate);
+                if (! $validation['ok']) {
+                    return response()->json([
+                        'message' => 'Credenciais do WhatsApp inválidas: ' . $validation['error'],
+                    ], 422);
+                }
+            }
+
+            if ($newPhoneId !== null && $newPhoneId !== '') {
+                $company->meta_phone_number_id = $newPhoneId;
+            }
+            if ($newToken !== null && $newToken !== '') {
+                $company->meta_access_token = $newToken;
+            }
+            if ($company->isDirty()) {
+                $company->save();
+            }
+        }
+
         $settings = CompanyBotSetting::updateOrCreate(
             ['company_id' => $company->id],
             array_merge(
@@ -182,6 +224,48 @@ class BotController extends Controller
             'ok' => true,
             'settings' => $settings,
         ]);
+    }
+
+    /** Testa as credenciais do WhatsApp contra a API da Meta. */
+    public function validateWhatsApp(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (! $user || ! $this->aiAccess->canAccessBotSettings($user)) {
+            return response()->json(['authenticated' => false, 'redirect' => '/entrar'], 403);
+        }
+
+        $companyId = $user->isSystemAdmin()
+            ? (int) $request->integer('company_id', 0)
+            : (int) $user->company_id;
+
+        if ($companyId <= 0) {
+            return response()->json(['message' => 'Informe company_id.'], 422);
+        }
+
+        $company = Company::find($companyId);
+        if (! $company) {
+            return response()->json(['message' => 'Empresa não encontrada.'], 404);
+        }
+
+        $request->validate([
+            'phone_number_id' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'access_token'    => ['sometimes', 'nullable', 'string', 'max:1000'],
+        ]);
+
+        // Usa os valores enviados no request; se omitidos, usa os salvos na empresa ou env
+        $phoneNumberId = trim((string) ($request->input('phone_number_id') ?? $company->meta_phone_number_id ?? config('whatsapp.phone_number_id', '')));
+        $accessToken   = trim((string) ($request->input('access_token')    ?? $company->meta_access_token    ?? config('whatsapp.access_token', '')));
+
+        if ($phoneNumberId === '') {
+            return response()->json(['ok' => false, 'error' => 'phone_number_id não configurado.'], 422);
+        }
+        if ($accessToken === '') {
+            return response()->json(['ok' => false, 'error' => 'access_token não configurado.'], 422);
+        }
+
+        $result = $this->credentialsValidator->validate($phoneNumberId, $accessToken);
+
+        return response()->json($result, $result['ok'] ? 200 : 422);
     }
 
     private function buildDefaultSettings(int $companyId): CompanyBotSetting

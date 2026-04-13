@@ -9,6 +9,7 @@ use App\Models\CompanyBotSetting;
 use App\Models\Message;
 use App\Models\User;
 use App\Services\AuditLogService;
+use App\Services\WhatsAppCredentialsValidatorService;
 use App\Support\ConversationHandlingMode;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,7 +18,8 @@ use Illuminate\Validation\Rule;
 class CompanyController extends Controller
 {
     public function __construct(
-        private AuditLogService $auditLog
+        private AuditLogService $auditLog,
+        private WhatsAppCredentialsValidatorService $credentialsValidator,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -210,6 +212,7 @@ class CompanyController extends Controller
                 'max:255',
                 Rule::unique('companies', 'meta_phone_number_id')->ignore($company->id),
             ],
+            'meta_access_token' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'meta_waba_id' => ['nullable', 'string', 'max:255'],
             'ai_enabled' => ['sometimes', 'boolean'],
             'ai_internal_chat_enabled' => ['sometimes', 'boolean'],
@@ -226,9 +229,32 @@ class CompanyController extends Controller
             'has_meta_credentials' => $company->hasMetaCredentials(),
         ];
 
+        $newPhoneId = $validated['meta_phone_number_id'] ?? null;
+        $newToken   = array_key_exists('meta_access_token', $validated) ? ($validated['meta_access_token'] ?: null) : null;
+
+        $phoneChanged = $newPhoneId !== null && $newPhoneId !== '' && $newPhoneId !== (string) ($company->meta_phone_number_id ?? '');
+        $tokenChanged = $newToken !== null && $newToken !== (string) ($company->meta_access_token ?? '');
+
+        if ($phoneChanged || $tokenChanged) {
+            $phoneToValidate = $newPhoneId ?: (string) ($company->meta_phone_number_id ?? '');
+            $tokenToValidate = $newToken   ?: (string) ($company->meta_access_token    ?? config('whatsapp.access_token', ''));
+
+            if ($phoneToValidate !== '' && $tokenToValidate !== '') {
+                $validation = $this->credentialsValidator->validate($phoneToValidate, $tokenToValidate);
+                if (! $validation['ok']) {
+                    return response()->json([
+                        'message' => 'Credenciais do WhatsApp inválidas: ' . $validation['error'],
+                    ], 422);
+                }
+            }
+        }
+
         $company->name = $validated['name'];
-        $company->meta_phone_number_id = $validated['meta_phone_number_id'] ?? null;
+        $company->meta_phone_number_id = $newPhoneId;
         $company->meta_waba_id = $validated['meta_waba_id'] ?? null;
+        if ($newToken !== null) {
+            $company->meta_access_token = $newToken;
+        }
         $company->save();
         $company->refresh();
 
@@ -455,6 +481,29 @@ class CompanyController extends Controller
         }
 
         return $flow;
+    }
+
+    /** Testa as credenciais do WhatsApp da empresa contra a API da Meta. */
+    public function validateWhatsApp(Request $request, Company $company): JsonResponse
+    {
+        $request->validate([
+            'phone_number_id' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'access_token'    => ['sometimes', 'nullable', 'string', 'max:1000'],
+        ]);
+
+        $phoneNumberId = trim((string) ($request->input('phone_number_id') ?? $company->meta_phone_number_id ?? config('whatsapp.phone_number_id', '')));
+        $accessToken   = trim((string) ($request->input('access_token')    ?? $company->meta_access_token    ?? config('whatsapp.access_token', '')));
+
+        if ($phoneNumberId === '') {
+            return response()->json(['ok' => false, 'error' => 'phone_number_id não configurado.'], 422);
+        }
+        if ($accessToken === '') {
+            return response()->json(['ok' => false, 'error' => 'access_token não configurado.'], 422);
+        }
+
+        $result = $this->credentialsValidator->validate($phoneNumberId, $accessToken);
+
+        return response()->json($result, $result['ok'] ? 200 : 422);
     }
 
     public function metrics(Request $request, Company $company): JsonResponse

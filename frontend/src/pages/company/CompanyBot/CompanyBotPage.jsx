@@ -1,5 +1,5 @@
 import './CompanyBotPage.css';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import Layout from '@/components/layout/Layout/Layout.jsx';
 import BotConfigStep from '@/components/company/BotConfigStep/BotConfigStep.jsx';
 import StatefulMenuFlowEditor from '@/components/sections/StatefulMenuFlowEditor/StatefulMenuFlowEditor.jsx';
@@ -54,6 +54,22 @@ function CompanyBotPage() {
     persistSettings,
   });
 
+  const [testState, setTestState] = useState('idle'); // idle | loading | ok | error
+  const [testResult, setTestResult] = useState(null);
+
+  const testConnection = useCallback(async () => {
+    setTestState('loading');
+    setTestResult(null);
+    try {
+      const res = await api.post('/minha-conta/bot/validar-whatsapp');
+      setTestState('ok');
+      setTestResult(res.data);
+    } catch (err) {
+      setTestState('error');
+      setTestResult({ error: err.response?.data?.error || 'Erro ao testar conexão.' });
+    }
+  }, []);
+
   if (loading) {
     return (
       <Layout role="company" onLogout={logout}>
@@ -94,6 +110,48 @@ function CompanyBotPage() {
           <li>Palavras-chave</li>
         </ol>
       </nav>
+
+      <section className="app-panel mb-6">
+        <h2 className="text-sm font-semibold text-[#171717] mb-3">Conexão WhatsApp</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+          <div>
+            <p className="text-xs text-[#737373] mb-0.5">ID do número (phone_number_id)</p>
+            <p className="text-sm font-mono text-[#171717]">{company.meta_phone_number_id || '—'}</p>
+          </div>
+          <div>
+            <p className="text-xs text-[#737373] mb-0.5">Token configurado</p>
+            <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${company.has_meta_credentials ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+              {company.has_meta_credentials ? 'Sim' : 'Não'}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            type="button"
+            onClick={testConnection}
+            disabled={testState === 'loading' || !company.has_meta_credentials}
+            className="app-btn-secondary"
+          >
+            {testState === 'loading' ? 'Testando...' : 'Testar conexão'}
+          </button>
+
+          {testState === 'ok' && testResult?.display_phone_number && (
+            <span className="text-sm text-emerald-700 flex items-center gap-1">
+              ✓ Conexão OK — Número: {testResult.display_phone_number}
+              {testResult.verified_name ? ` (${testResult.verified_name})` : ''}
+            </span>
+          )}
+          {testState === 'error' && (
+            <span className="text-sm text-red-600 flex items-center gap-1">
+              ✗ {testResult?.error || 'Credenciais inválidas.'}
+            </span>
+          )}
+          {!company.has_meta_credentials && (
+            <span className="text-xs text-[#a3a3a3]">Configure as credenciais com o administrador para habilitar o teste.</span>
+          )}
+        </div>
+      </section>
 
       <form onSubmit={saveSettings} className="bot-config-form">
         <BotConfigStep

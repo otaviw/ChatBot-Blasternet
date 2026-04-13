@@ -16,6 +16,7 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::prefix('minha-conta')->group(function () {
         Route::get('/bot', [BotController::class, 'index']);
         Route::put('/bot', [BotController::class, 'update'])->middleware('throttle:bot-write');
+        Route::post('/bot/validar-whatsapp', [BotController::class, 'validateWhatsApp'])->middleware('throttle:bot-write');
         Route::get('/templates', [CompanyConversationController::class, 'listTemplates'])
             ->middleware('throttle:inbox-read');
         Route::get('/conversas', [CompanyConversationController::class, 'index'])
