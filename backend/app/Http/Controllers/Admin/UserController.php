@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Mail\WelcomeUserMail;
 use App\Models\Area;
 use App\Models\Company;
 use App\Models\User;
 use App\Services\AuditLogService;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -103,6 +105,10 @@ class UserController extends Controller
 
         $user->areas()->sync($areaIds);
         $user->load(['company:id,name', 'areas:id,name,company_id']);
+
+        if ($isActive) {
+            Mail::to($user->email)->queue(new WelcomeUserMail($user, (string) $validated['password']));
+        }
 
         $this->auditLog->record($request, 'admin.user.created', $companyId, [
             'user_id' => $user->id,

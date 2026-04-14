@@ -2,6 +2,7 @@
 
 namespace App\Services\Appointments;
 
+use App\Jobs\SendAppointmentConfirmedMailJob;
 use App\Models\Appointment;
 use App\Models\AppointmentEvent;
 use App\Models\AppointmentService;
@@ -137,7 +138,13 @@ class AppointmentBookingService
                 ],
             ]);
 
-            return $appointment->fresh(['service', 'staffProfile.user', 'events']);
+            $fresh = $appointment->fresh(['service', 'staffProfile.user', 'events']);
+
+            if ($appointment->customer_email && $appointment->status === AppointmentStatus::CONFIRMED) {
+                SendAppointmentConfirmedMailJob::dispatch((int) $appointment->id);
+            }
+
+            return $fresh;
         });
     }
 

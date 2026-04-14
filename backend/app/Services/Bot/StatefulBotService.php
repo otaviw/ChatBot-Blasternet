@@ -451,6 +451,7 @@ class StatefulBotService
             'day_select' => $this->handleAppointmentDaySelection($companyEntity, $conversation, $normalizedText, $context),
             'slot_select' => $this->handleAppointmentSlotSelection($companyEntity, $conversation, $normalizedText, $context),
             'nearest_select' => $this->handleAppointmentNearestSelection($companyEntity, $conversation, $normalizedText, $context),
+            'collect_email' => $this->handleAppointmentEmailCollection($companyEntity, $conversation, $normalizedText, $context),
             'confirm' => $this->handleAppointmentConfirmation($companyEntity, $conversation, $normalizedText, $context),
             default => $this->buildInitialMenuResponse($this->registry->definitionForCompany($companyEntity)),
         };
@@ -833,6 +834,41 @@ class StatefulBotService
         $timezone = $this->appointmentSettings($company)?->timezone ?: 'America/Sao_Paulo';
 
         return $this->botStateResult(
+            "Para enviarmos a confirmação por e-mail, informe seu endereço de e-mail ou responda *pular* para continuar sem.",
+            [
+                'flow' => 'appointments',
+                'step' => 'collect_email',
+                'context' => ['appointment' => $context],
+            ]
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     * @return array<string, mixed>
+     */
+    private function handleAppointmentEmailCollection(
+        ?Company $company,
+        Conversation $conversation,
+        string $normalizedText,
+        array $context
+    ): array {
+        $timezone = $this->appointmentSettings($company)?->timezone ?: 'America/Sao_Paulo';
+
+        if (mb_strtolower(trim($normalizedText)) !== 'pular' && filter_var($normalizedText, FILTER_VALIDATE_EMAIL)) {
+            $context['customer_email'] = trim($normalizedText);
+        } elseif (mb_strtolower(trim($normalizedText)) !== 'pular') {
+            return $this->botStateResult(
+                "E-mail inválido. Por favor, informe um e-mail válido ou responda *pular* para continuar sem.",
+                [
+                    'flow' => 'appointments',
+                    'step' => 'collect_email',
+                    'context' => ['appointment' => $context],
+                ]
+            );
+        }
+
+        return $this->botStateResult(
             $this->appointmentConfirmText($context, $timezone),
             [
                 'flow' => 'appointments',
@@ -888,6 +924,7 @@ class StatefulBotService
                     'starts_at' => (string) ($context['slot_starts_at'] ?? ''),
                     'customer_name' => $conversation->customer_name,
                     'customer_phone' => $conversation->customer_phone,
+                    'customer_email' => $this->nullableContextEmail($context['customer_email'] ?? null),
                     'source' => 'whatsapp',
                     'meta' => [
                         'bot_flow' => 'stateful_appointments',
@@ -1112,10 +1149,10 @@ class StatefulBotService
         $context['staff_name'] = (string) ($selectedSlot['staff_name'] ?? ($context['staff_name'] ?? ''));
 
         return $this->botStateResult(
-            $this->appointmentConfirmText($context, $timezone),
+            "Para enviarmos a confirmação por e-mail, informe seu endereço de e-mail ou responda *pular* para continuar sem.",
             [
                 'flow' => 'appointments',
-                'step' => 'confirm',
+                'step' => 'collect_email',
                 'context' => ['appointment' => $context],
             ]
         );
@@ -1672,5 +1709,15 @@ class StatefulBotService
     private function stateKey(string $flow, string $step): string
     {
         return "{$flow}.{$step}";
+    }
+
+    /**
+     * @param  mixed  $value
+     */
+    private function nullableContextEmail(mixed $value): ?string
+    {
+        $email = trim((string) ($value ?? ''));
+
+        return ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) ? $email : null;
     }
 }

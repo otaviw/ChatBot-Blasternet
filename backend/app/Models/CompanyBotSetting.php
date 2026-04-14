@@ -38,6 +38,7 @@ class CompanyBotSetting extends Model
         'service_areas',
         'stateful_menu_flow',
         'inactivity_close_hours',
+        'unattended_alert_hours',
     ];
 
     protected $casts = [
@@ -58,6 +59,8 @@ class CompanyBotSetting extends Model
         'keyword_replies' => 'array',
         'service_areas' => 'array',
         'stateful_menu_flow' => 'array',
+        'inactivity_close_hours' => 'integer',
+        'unattended_alert_hours' => 'integer',
     ];
 
     public function company()

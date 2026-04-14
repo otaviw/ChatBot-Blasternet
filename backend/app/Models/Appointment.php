@@ -27,6 +27,7 @@ class Appointment extends Model
         'notes',
         'cancelled_at',
         'cancelled_reason',
+        'reminder_sent_at',
         'rescheduled_from_appointment_id',
         'created_by_user_id',
         'meta',
@@ -41,6 +42,7 @@ class Appointment extends Model
         'buffer_before_minutes' => 'integer',
         'buffer_after_minutes' => 'integer',
         'cancelled_at' => 'datetime',
+        'reminder_sent_at' => 'datetime',
         'meta' => 'array',
     ];
 
