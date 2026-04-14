@@ -27,6 +27,8 @@ const parsePositiveInt = (...values) => {
 
 export default function useInboxRealtimeSync({
   clearConversationPresence,
+  onCountersUpdated,
+  onCustomerTyping,
   refreshConversationDetail,
   refreshConversations,
   selectedId,
@@ -106,6 +108,16 @@ export default function useInboxRealtimeSync({
             ...conversation,
             ...(eventConversation ?? {}),
             last_message_id: messageId,
+            last_message_text:
+              payload.text ??
+              eventConversation?.last_message_text ??
+              conversation.last_message_text ??
+              null,
+            last_message_direction:
+              payload.direction ??
+              eventConversation?.last_message_direction ??
+              conversation.last_message_direction ??
+              null,
             last_message_at:
               payload.createdAt ??
               payload.created_at ??
@@ -148,6 +160,13 @@ export default function useInboxRealtimeSync({
           ...(eventConversation ?? {}),
           messages: nextMessages,
           last_message_id: messageId,
+          last_message_text:
+            payload.text ?? eventConversation?.last_message_text ?? prev.last_message_text ?? null,
+          last_message_direction:
+            payload.direction ??
+            eventConversation?.last_message_direction ??
+            prev.last_message_direction ??
+            null,
           last_message_at:
             payload.createdAt ??
             payload.created_at ??
@@ -309,11 +328,36 @@ export default function useInboxRealtimeSync({
       });
     });
 
+    const unsubscribeCustomerTyping = realtimeClient.on(REALTIME_EVENTS.CUSTOMER_TYPING, (envelope) => {
+      const payload = envelope?.payload ?? {};
+      const conversationId = parsePositiveInt(payload.conversationId, payload.conversation_id);
+      if (conversationId === null) {
+        return;
+      }
+
+      onCustomerTyping?.(conversationId, Number(payload.expires_in_ms ?? payload.expiresInMs ?? 5000));
+    });
+
+    const unsubscribeConversationCountersUpdated = realtimeClient.on(
+      REALTIME_EVENTS.CONVERSATION_COUNTERS_UPDATED,
+      (envelope) => {
+        const payload = envelope?.payload ?? {};
+        if (payload?.counters && typeof payload.counters === 'object') {
+          onCountersUpdated?.(payload.counters);
+          return;
+        }
+
+        onCountersUpdated?.(null);
+      }
+    );
+
     return () => {
       unsubscribeMessageCreated();
       unsubscribeConversationTransferred();
       unsubscribeMessageStatusUpdated();
       unsubscribeMessageReactionsUpdated();
+      unsubscribeCustomerTyping();
+      unsubscribeConversationCountersUpdated();
       if (conversationsRefreshTimerRef.current) {
         clearTimeout(conversationsRefreshTimerRef.current);
         conversationsRefreshTimerRef.current = null;
@@ -330,6 +374,8 @@ export default function useInboxRealtimeSync({
     };
   }, [
     clearConversationPresence,
+    onCountersUpdated,
+    onCustomerTyping,
     refreshConversationDetail,
     refreshConversations,
     selectedId,

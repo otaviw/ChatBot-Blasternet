@@ -141,6 +141,7 @@ function MessagesPanel({
   onChatScroll,
   messagesLoadingOlder,
   getMessageImageUrl,
+  focusedMessageId,
 }) {
   const setChatListElement = React.useCallback(
     (node) => {
@@ -191,6 +192,17 @@ function MessagesPanel({
     rowVirtualizer.measure();
   }, [rowVirtualizer, rows.length, detail?.id]);
 
+  React.useEffect(() => {
+    if (!focusedMessageId) return;
+
+    const rowIndex = rows.findIndex(
+      (row) => row?.type === 'message' && Number(row.message?.id) === Number(focusedMessageId)
+    );
+    if (rowIndex < 0) return;
+
+    rowVirtualizer.scrollToIndex(rowIndex, { align: 'center' });
+  }, [focusedMessageId, rowVirtualizer, rows]);
+
   const handleDownloadDocument = async (message) => {
     const mediaUrl = getMessageImageUrl(message);
 
@@ -215,11 +227,12 @@ function MessagesPanel({
   const renderMessage = (message) => {
     const outboundStatus = message.direction === 'out' ? normalizeOutboundStatus(message) : null;
     const reactionGroups = groupReactionsByEmoji(message.reactions ?? []);
+    const isFocused = Number(focusedMessageId || 0) === Number(message.id || 0);
 
     return (
       <div
         key={message.id}
-        className={`inbox-message-bubble inbox-message-${message.direction === 'in' ? 'in' : 'out'}`}
+        className={`inbox-message-bubble inbox-message-${message.direction === 'in' ? 'in' : 'out'}${isFocused ? ' inbox-message-focus' : ''}`}
       >
         <span className="inbox-message-label">{message.direction === 'in' ? 'Cliente' : 'Atendente/Bot'}</span>
         {message.content_type === 'image' ? (

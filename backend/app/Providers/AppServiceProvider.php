@@ -19,6 +19,7 @@ use App\Observers\AiCompanyKnowledgeObserver;
 use App\Observers\AppointmentObserver;
 use App\Observers\ChatMessageObserver;
 use App\Observers\CompanyBotSettingObserver;
+use App\Observers\ConversationObserver;
 use App\Observers\ConversationTransferObserver;
 use App\Observers\MessageObserver;
 use App\Observers\NotificationObserver;
@@ -76,6 +77,7 @@ class AppServiceProvider extends ServiceProvider
         AiCompanyKnowledge::observe(AiCompanyKnowledgeObserver::class);
         Appointment::observe(AppointmentObserver::class);
         Message::observe(MessageObserver::class);
+        Conversation::observe(ConversationObserver::class);
         CompanyBotSetting::observe(CompanyBotSettingObserver::class);
         ConversationTransfer::observe(ConversationTransferObserver::class);
         Notification::observe(NotificationObserver::class);
@@ -95,6 +97,14 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('inbox-read', function (Request $request) {
             return Limit::perMinute((int) env('RATE_LIMIT_INBOX_READ', 180))
                 ->by($this->limiterKey($request));
+        });
+
+        RateLimiter::for('conversation-search', function (Request $request) {
+            $user = $request->user();
+            $identity = $user ? (string) $user->id : $this->limiterKey($request);
+
+            return Limit::perMinute((int) env('RATE_LIMIT_CONVERSATION_SEARCH', 30))
+                ->by("conversation-search|{$identity}");
         });
 
         RateLimiter::for('realtime-token', function (Request $request) {

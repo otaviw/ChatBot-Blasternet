@@ -3,10 +3,9 @@ import { useEffect } from 'react';
 function TagsModal({
   open,
   detail,
-  tagInput,
-  onTagInputChange,
-  onAddTag,
-  onRemoveTag,
+  companyTags = [],
+  onAttachTag,
+  onDetachTag,
   onClose,
 }) {
   useEffect(() => {
@@ -26,6 +25,8 @@ function TagsModal({
     return null;
   }
 
+  const attachedIds = new Set((detail.tags ?? []).map((t) => t.id));
+
   return (
     <div className="inbox-tags-modal-overlay" onClick={onClose} role="presentation">
       <div
@@ -35,53 +36,81 @@ function TagsModal({
         aria-label="Gerenciar tags da conversa"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-semibold">Tags</h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold">Tags da conversa</h3>
           <button
             type="button"
             onClick={onClose}
-            className="text-[#525252] hover:text-[#171717]"
+            className="text-[#525252] hover:text-[#171717] text-lg leading-none"
             aria-label="Fechar modal de tags"
           >
-            x
+            ×
           </button>
         </div>
-        <div className="flex flex-wrap gap-1 mb-2">
+
+        {/* Tags já vinculadas */}
+        <div className="mb-3">
+          <p className="text-[10px] uppercase font-semibold text-[#a3a3a3] mb-1.5">Vinculadas</p>
           {(detail.tags ?? []).length === 0 ? (
-            <span className="text-xs text-[#737373]">Nenhuma tag.</span>
-          ) : null}
-          {(detail.tags ?? []).map((tag) => (
-            <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#f0f0f0] text-xs">
-              {tag}
-              <button
-                type="button"
-                onClick={() => onRemoveTag(tag)}
-                className="text-[#706f6c] hover:text-red-600"
-                aria-label={`Remover tag ${tag}`}
-              >
-                x
-              </button>
-            </span>
-          ))}
+            <p className="text-xs text-[#737373]">Nenhuma tag nesta conversa.</p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {(detail.tags ?? []).map((tag) => (
+                <span
+                  key={tag.id}
+                  className="inline-flex items-center gap-0.5 px-2.5 py-0.5 rounded-full text-xs font-medium text-white"
+                  style={{ backgroundColor: tag.color }}
+                >
+                  {tag.name}
+                  <button
+                    type="button"
+                    onClick={() => onDetachTag(tag.id)}
+                    className="ml-0.5 opacity-80 hover:opacity-100 leading-none"
+                    aria-label={`Remover tag ${tag.name}`}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={tagInput}
-            onChange={(event) => onTagInputChange(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault();
-                onAddTag();
-              }
-            }}
-            placeholder="Nova tag..."
-            className="flex-1 app-input text-xs py-1.5"
-          />
-          <button type="button" onClick={onAddTag} className="app-btn-primary text-xs py-1.5">
-            Adicionar
-          </button>
-        </div>
+
+        {/* Tags disponíveis para vincular */}
+        {companyTags.length > 0 && (
+          <>
+            <div className="border-t border-[#f0f0f0] my-3" />
+            <p className="text-[10px] uppercase font-semibold text-[#a3a3a3] mb-1.5">Adicionar</p>
+            <div className="flex flex-wrap gap-1.5">
+              {companyTags
+                .filter((t) => !attachedIds.has(t.id))
+                .map((tag) => (
+                  <button
+                    key={tag.id}
+                    type="button"
+                    onClick={() => onAttachTag(tag.id)}
+                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white opacity-70 hover:opacity-100 transition"
+                    style={{ backgroundColor: tag.color }}
+                  >
+                    + {tag.name}
+                  </button>
+                ))}
+              {companyTags.filter((t) => !attachedIds.has(t.id)).length === 0 && (
+                <p className="text-xs text-[#737373]">Todas as tags já estão vinculadas.</p>
+              )}
+            </div>
+          </>
+        )}
+
+        {companyTags.length === 0 && (
+          <p className="text-xs text-[#737373] mt-2">
+            Crie tags em{' '}
+            <a href="/minha-conta/tags" className="text-[#2563eb] underline">
+              Configurações → Tags
+            </a>
+            .
+          </p>
+        )}
       </div>
     </div>
   );

@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Company;
 
+use App\Actions\Conversation\SearchConversationsAction;
 use App\Actions\Company\Conversation\AssumeCompanyConversationAction;
 use App\Actions\Company\Conversation\GenerateAiSuggestionForConversationAction;
 use App\Actions\Company\Conversation\ListCompanyConversationsAction;
+use App\Actions\Company\Conversation\SearchCompanyConversationMessagesAction;
 use App\Actions\Company\Conversation\ServeCompanyConversationMediaAction;
 use App\Actions\Company\Conversation\ShowCompanyConversationAction;
 use App\Actions\Company\Conversation\TransferCompanyConversationAction;
@@ -13,6 +15,7 @@ use App\Models\Conversation;
 use App\Models\Message;
 use App\Services\AuditLogService;
 use App\Services\Company\CompanyConversationSupportService;
+use App\Services\Company\CompanyConversationCountersService;
 use App\Services\MessageDeliveryStatusService;
 use App\Services\MessageMediaStorageService;
 use App\Services\NotificationDispatchService;
@@ -26,6 +29,7 @@ use App\Support\PhoneNumberNormalizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class ConversationController extends Controller
@@ -36,6 +40,7 @@ class ConversationController extends Controller
         private MessageMediaStorageService $mediaStorage,
         private AuditLogService $auditLog,
         private CompanyConversationSupportService $conversationSupport,
+        private CompanyConversationCountersService $countersService,
         private NotificationDispatchService $dispatchService
     ) {}
 
@@ -50,6 +55,68 @@ class ConversationController extends Controller
         }
 
         return response()->json($action->handle($user, $request));
+    }
+
+    public function search(Request $request, SearchConversationsAction $action): JsonResponse
+    {
+        $user = $request->user();
+        if (! $user || ! $user->isCompanyUser()) {
+            return response()->json([
+                'authenticated' => false,
+                'redirect' => '/entrar',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'q' => ['nullable', 'string', 'max:120'],
+            'data_inicio' => ['nullable', 'date'],
+            'data_fim' => ['nullable', 'date', 'after_or_equal:data_inicio'],
+            'status' => ['nullable', 'string', Rule::in(ConversationStatus::all())],
+        ]);
+
+        return response()->json($action->handleForCompanyUser($user, $validated));
+    }
+
+    public function counters(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (! $user || ! $user->isCompanyUser()) {
+            return response()->json([
+                'authenticated' => false,
+                'redirect' => '/entrar',
+            ], 403);
+        }
+
+        return response()->json($this->countersService->buildForCompany((int) $user->company_id));
+    }
+
+    public function searchMessages(
+        Request $request,
+        int $conversationId,
+        SearchCompanyConversationMessagesAction $action
+    ): JsonResponse {
+        $user = $request->user();
+        if (! $user || ! $user->isCompanyUser()) {
+            return response()->json([
+                'authenticated' => false,
+                'redirect' => '/entrar',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'q' => ['required', 'string', 'max:120'],
+            'messages_per_page' => ['nullable', 'integer', 'min:10', 'max:50'],
+        ]);
+
+        $messagesPerPage = (int) ($validated['messages_per_page'] ?? 25);
+        $payload = $action->handle($user, $conversationId, (string) $validated['q'], $messagesPerPage);
+        if (! $payload) {
+            return response()->json([
+                'message' => 'Conversa nao encontrada para esta empresa.',
+            ], 404);
+        }
+
+        return response()->json($payload);
     }
 
     public function show(Request $request, int $conversationId, ShowCompanyConversationAction $action): JsonResponse

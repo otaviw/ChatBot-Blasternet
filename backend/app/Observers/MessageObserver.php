@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Services\Company\CompanyConversationCountersService;
 use App\Services\NotificationDispatchService;
 use App\Services\RealtimePublisher;
 use App\Support\MessageDeliveryStatus;
@@ -14,7 +15,8 @@ class MessageObserver implements ShouldHandleEventsAfterCommit
 {
     public function __construct(
         private RealtimePublisher $publisher,
-        private NotificationDispatchService $dispatchService
+        private NotificationDispatchService $dispatchService,
+        private CompanyConversationCountersService $countersService
     ) {}
 
     public function created(Message $message): void
@@ -23,7 +25,11 @@ class MessageObserver implements ShouldHandleEventsAfterCommit
 
         $conversation = Conversation::query()
             ->whereKey($message->conversation_id)
-            ->with(['assignedUser:id,name,email', 'currentArea:id,name'])
+            ->with([
+                'assignedUser:id,name,email',
+                'currentArea:id,name',
+                'tags' => fn ($q) => $q->select('tags.id', 'tags.name', 'tags.color')->orderBy('tags.name'),
+            ])
             ->withCount('messages')
             ->first([
                 'id',
@@ -35,7 +41,6 @@ class MessageObserver implements ShouldHandleEventsAfterCommit
                 'assigned_type',
                 'assigned_id',
                 'current_area_id',
-                'tags',
                 'created_at',
                 'updated_at',
             ]);
@@ -80,6 +85,16 @@ class MessageObserver implements ShouldHandleEventsAfterCommit
             ],
             [
                 'actorId' => isset($meta['actor_user_id']) ? (int) $meta['actor_user_id'] : null,
+            ]
+        );
+
+        $this->publisher->publish(
+            RealtimeEvents::CONVERSATION_COUNTERS_UPDATED,
+            ["company:{$conversation->company_id}"],
+            [
+                'company_id' => (int) $conversation->company_id,
+                'conversation_id' => (int) $conversation->id,
+                'counters' => $this->countersService->buildForCompany((int) $conversation->company_id),
             ]
         );
     }
@@ -131,7 +146,9 @@ class MessageObserver implements ShouldHandleEventsAfterCommit
      */
     private function serializeConversation(Conversation $conversation, int $lastMessageId, ?string $lastMessageAt): array
     {
-        $tags = is_array($conversation->tags) ? array_values($conversation->tags) : [];
+        $tags = $conversation->relationLoaded('tags')
+            ? $conversation->tags->map(fn ($t) => ['id' => (int) $t->id, 'name' => (string) $t->name, 'color' => (string) $t->color])->values()->toArray()
+            : [];
 
         return [
             'id' => (int) $conversation->id,
@@ -155,6 +172,8 @@ class MessageObserver implements ShouldHandleEventsAfterCommit
             ] : null,
             'last_message_id' => $lastMessageId,
             'last_message_at' => $lastMessageAt,
+            'last_message_text' => $message->text,
+            'last_message_direction' => (string) $message->direction,
             'created_at' => $conversation->created_at?->toISOString(),
             'updated_at' => $conversation->updated_at?->toISOString(),
         ];

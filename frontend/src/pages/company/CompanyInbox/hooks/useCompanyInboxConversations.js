@@ -8,15 +8,18 @@ const EMPTY_FILTERS = {
   status: '',
   area: '',
   attendant_id: '',
+  tag_id: '',
   date_from: '',
   date_to: '',
 };
 
 export default function useCompanyInboxConversations({ data, loading }) {
   const [, setConvPage] = useState(1);
-  const [convSearch, setConvSearch] = useState('');
   const [convSearchInput, setConvSearchInput] = useState('');
   const [conversations, setConversations] = useState([]);
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchLoading, setSearchLoading] = useState(false);
   const [conversationsPagination, setConversationsPagination] = useState(null);
   const [conversationsLoadingMore, setConversationsLoadingMore] = useState(false);
   const [conversationsLoading, setConversationsLoading] = useState(Boolean(loading));
@@ -24,52 +27,80 @@ export default function useCompanyInboxConversations({ data, loading }) {
   const conversationListRef = useRef(null);
   const loadedConversationPageRef = useRef(1);
 
-  const buildConversationsUrl = useCallback(
-    (page = 1, search = '', activeFilters = EMPTY_FILTERS) => {
+  const buildConversationsUrl = useCallback((page = 1, activeFilters = EMPTY_FILTERS) => {
       const params = new URLSearchParams();
       params.set('page', String(page));
       params.set('per_page', String(CONV_PER_PAGE));
-      if (search) params.set('search', search);
       if (activeFilters.status) params.set('status', activeFilters.status);
       if (activeFilters.area) params.set('area', activeFilters.area);
       if (activeFilters.attendant_id) params.set('attendant_id', activeFilters.attendant_id);
+      if (activeFilters.tag_id) params.set('tag_id', activeFilters.tag_id);
       if (activeFilters.date_from) params.set('date_from', activeFilters.date_from);
       if (activeFilters.date_to) params.set('date_to', activeFilters.date_to);
       return `/minha-conta/conversas?${params.toString()}`;
-    },
-    []
-  );
+    }, []);
+
+  const buildSearchUrl = useCallback((term, activeFilters = EMPTY_FILTERS) => {
+    const params = new URLSearchParams();
+    params.set('q', term);
+    if (activeFilters.status) params.set('status', activeFilters.status);
+    if (activeFilters.date_from) params.set('data_inicio', activeFilters.date_from);
+    if (activeFilters.date_to) params.set('data_fim', activeFilters.date_to);
+    return `/minha-conta/conversas/buscar?${params.toString()}`;
+  }, []);
 
   useEffect(() => {
     let canceled = false;
+    const delay = convSearchInput.trim() === '' ? 0 : 400;
     const handle = setTimeout(async () => {
-      const search = convSearchInput.trim();
-      setConvSearch(search);
+      const term = convSearchInput.trim();
+      setSearchTerm(term);
       loadedConversationPageRef.current = 1;
-      setConversationsLoading(true);
+      setConversationsLoadingMore(false);
 
+      if (term === '') {
+        setSearchResults([]);
+        setSearchLoading(false);
+        setConversationsLoading(true);
+
+        try {
+          const response = await api.get(buildConversationsUrl(1, filters));
+          if (canceled) return;
+          const incomingConversations = sortConversationsByActivity(response.data?.conversations ?? []);
+          setConversations(incomingConversations);
+          setConversationsPagination(response.data?.conversations_pagination ?? null);
+          if (conversationListRef.current) {
+            conversationListRef.current.scrollTop = 0;
+          }
+        } catch (_error) {
+          if (canceled) return;
+        } finally {
+          if (!canceled) setConversationsLoading(false);
+        }
+
+        return;
+      }
+
+      setSearchLoading(true);
       try {
-        const response = await api.get(buildConversationsUrl(1, search, filters));
+        const response = await api.get(buildSearchUrl(term, filters));
         if (canceled) return;
-        const incomingConversations = sortConversationsByActivity(response.data?.conversations ?? []);
-        setConversations(incomingConversations);
-        setConversationsPagination(response.data?.conversations_pagination ?? null);
-        setConversationsLoadingMore(false);
+        setSearchResults(response.data?.results ?? []);
         if (conversationListRef.current) {
           conversationListRef.current.scrollTop = 0;
         }
       } catch (_error) {
         if (canceled) return;
       } finally {
-        if (!canceled) setConversationsLoading(false);
+        if (!canceled) setSearchLoading(false);
       }
-    }, 350);
+    }, delay);
 
     return () => {
       canceled = true;
       clearTimeout(handle);
     };
-  }, [buildConversationsUrl, convSearchInput, filters]);
+  }, [buildConversationsUrl, buildSearchUrl, convSearchInput, filters]);
 
   useEffect(() => {
     setConversations(sortConversationsByActivity(data?.conversations ?? []));
@@ -113,48 +144,63 @@ export default function useCompanyInboxConversations({ data, loading }) {
   }, []);
 
   const refreshConversations = useCallback(async () => {
-    setConversationsLoading(true);
-    try {
-      const response = await api.get(buildConversationsUrl(1, convSearch, filters));
-      const incomingConversations = sortConversationsByActivity(response.data?.conversations ?? []);
-      const incomingPagination = response.data?.conversations_pagination ?? null;
-
-      setConversations((prev) => {
-        if (loadedConversationPageRef.current <= 1 || convSearch) {
-          return incomingConversations;
-        }
-
-        const merged = new Map(prev.map((item) => [Number(item.id), item]));
-        incomingConversations.forEach((conversation) => {
-          const existing = merged.get(Number(conversation.id));
-          merged.set(Number(conversation.id), {
-            ...(existing ?? {}),
-            ...conversation,
-          });
-        });
-
-        return sortConversationsByActivity(Array.from(merged.values()));
-      });
-      setConversationsPagination((prev) => {
-        if (!incomingPagination) {
-          return prev;
-        }
-
-        return {
-          ...incomingPagination,
-          current_page: Math.max(
-            loadedConversationPageRef.current,
-            Number(incomingPagination.current_page ?? 1)
-          ),
-        };
-      });
-    } finally {
-      setConversationsLoading(false);
+    const isSearching = searchTerm !== '';
+    if (isSearching) {
+      setSearchLoading(true);
+    } else {
+      setConversationsLoading(true);
     }
-  }, [buildConversationsUrl, convSearch, filters]);
+
+    try {
+      if (isSearching) {
+        const response = await api.get(buildSearchUrl(searchTerm, filters));
+        setSearchResults(response.data?.results ?? []);
+      } else {
+        const response = await api.get(buildConversationsUrl(1, filters));
+        const incomingConversations = sortConversationsByActivity(response.data?.conversations ?? []);
+        const incomingPagination = response.data?.conversations_pagination ?? null;
+
+        setConversations((prev) => {
+          if (loadedConversationPageRef.current <= 1) {
+            return incomingConversations;
+          }
+
+          const merged = new Map(prev.map((item) => [Number(item.id), item]));
+          incomingConversations.forEach((conversation) => {
+            const existing = merged.get(Number(conversation.id));
+            merged.set(Number(conversation.id), {
+              ...(existing ?? {}),
+              ...conversation,
+            });
+          });
+
+          return sortConversationsByActivity(Array.from(merged.values()));
+        });
+        setConversationsPagination((prev) => {
+          if (!incomingPagination) {
+            return prev;
+          }
+
+          return {
+            ...incomingPagination,
+            current_page: Math.max(
+              loadedConversationPageRef.current,
+              Number(incomingPagination.current_page ?? 1)
+            ),
+          };
+        });
+      }
+    } finally {
+      if (isSearching) {
+        setSearchLoading(false);
+      } else {
+        setConversationsLoading(false);
+      }
+    }
+  }, [buildConversationsUrl, buildSearchUrl, searchTerm, filters]);
 
   const loadMoreConversations = useCallback(async () => {
-    if (loading || conversationsLoadingMore || !conversationsPagination) {
+    if (searchTerm !== '' || loading || conversationsLoadingMore || !conversationsPagination) {
       return;
     }
 
@@ -167,7 +213,7 @@ export default function useCompanyInboxConversations({ data, loading }) {
     setConversationsLoadingMore(true);
 
     try {
-      const response = await api.get(buildConversationsUrl(nextPage, convSearch, filters));
+      const response = await api.get(buildConversationsUrl(nextPage, filters));
       const incomingConversations = response.data?.conversations ?? [];
       const incomingPagination = response.data?.conversations_pagination ?? null;
 
@@ -193,7 +239,7 @@ export default function useCompanyInboxConversations({ data, loading }) {
     } finally {
       setConversationsLoadingMore(false);
     }
-  }, [buildConversationsUrl, convSearch, filters, conversationsLoadingMore, conversationsPagination, loading]);
+  }, [buildConversationsUrl, searchTerm, filters, conversationsLoadingMore, conversationsPagination, loading]);
 
   const handleConversationsScroll = useCallback(
     (event) => {
@@ -207,9 +253,9 @@ export default function useCompanyInboxConversations({ data, loading }) {
   );
 
   const handleConversationsSearchEnter = useCallback(() => {
-    setConvSearch(convSearchInput.trim());
+    setConvSearchInput((value) => value.trim());
     loadedConversationPageRef.current = 1;
-  }, [convSearchInput]);
+  }, []);
 
   const handleNextConversationPage = useCallback(() => {
     if (!conversationsPagination) {
@@ -221,14 +267,20 @@ export default function useCompanyInboxConversations({ data, loading }) {
     );
   }, [conversationsPagination]);
 
+  const isSearchMode = searchTerm !== '';
+  const visibleConversations = isSearchMode ? searchResults : conversations;
+  const visiblePagination = isSearchMode ? null : conversationsPagination;
+
   return {
     conversationListRef,
-    conversations,
-    conversationsLoading,
+    conversations: visibleConversations,
+    conversationsLoading: isSearchMode ? searchLoading : conversationsLoading,
     conversationsLoadingMore,
-    conversationsPagination,
+    conversationsPagination: visiblePagination,
     convSearchInput,
     filters,
+    isSearchMode,
+    searchTerm,
     handleConversationsScroll,
     handleConversationsSearchEnter,
     handleNextConversationPage,

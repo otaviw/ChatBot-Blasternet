@@ -13,6 +13,9 @@ final class RealtimeEvents
     public const NOTIFICATION_CREATED = 'notification.created';
     public const APPOINTMENT_CREATED = 'appointment.created';
     public const APPOINTMENT_UPDATED = 'appointment.updated';
+    public const CONVERSATION_TAGS_UPDATED = 'conversation.tags.updated';
+    public const CUSTOMER_TYPING = 'customer.typing';
+    public const CONVERSATION_COUNTERS_UPDATED = 'conversation.counters.updated';
 
     /**
      * @return array<int, string>
@@ -29,6 +32,9 @@ final class RealtimeEvents
             self::NOTIFICATION_CREATED,
             self::APPOINTMENT_CREATED,
             self::APPOINTMENT_UPDATED,
+            self::CONVERSATION_TAGS_UPDATED,
+            self::CUSTOMER_TYPING,
+            self::CONVERSATION_COUNTERS_UPDATED,
         ];
     }
 }

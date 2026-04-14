@@ -1,0 +1,81 @@
+<?php
+
+namespace App\Services\Company;
+
+use App\Models\Conversation;
+use App\Models\Message;
+use App\Support\ConversationStatus;
+
+class CompanyConversationCountersService
+{
+    /**
+     * @return array<string, mixed>
+     */
+    public function buildForCompany(int $companyId): array
+    {
+        $lastMessageDirectionSubquery = Message::query()
+            ->select('direction')
+            ->whereColumn('messages.conversation_id', 'conversations.id')
+            ->latest('id')
+            ->limit(1);
+
+        $openConversationsWithLastDirection = Conversation::query()
+            ->where('conversations.company_id', $companyId)
+            ->where('conversations.status', '!=', ConversationStatus::CLOSED)
+            ->select(['conversations.id', 'conversations.current_area_id'])
+            ->addSelect([
+                'last_message_direction' => $lastMessageDirectionSubquery,
+            ]);
+
+        $rows = Conversation::query()
+            ->fromSub($openConversationsWithLastDirection, 'open_conversations')
+            ->leftJoin('areas', 'areas.id', '=', 'open_conversations.current_area_id')
+            ->selectRaw('
+                open_conversations.current_area_id as area_id,
+                areas.name as area_nome,
+                COUNT(*) as total_abertas,
+                SUM(CASE WHEN open_conversations.last_message_direction = ? THEN 1 ELSE 0 END) as total_sem_resposta
+            ', ['in'])
+            ->groupBy('open_conversations.current_area_id', 'areas.name')
+            ->get();
+
+        $porArea = [];
+        $semAreaTotalAbertas = 0;
+        $semAreaTotalSemResposta = 0;
+        $totalAbertas = 0;
+
+        foreach ($rows as $row) {
+            $areaId = $row->area_id ? (int) $row->area_id : null;
+            $totalAbertasRow = (int) ($row->total_abertas ?? 0);
+            $totalSemRespostaRow = (int) ($row->total_sem_resposta ?? 0);
+            $totalAbertas += $totalAbertasRow;
+
+            if ($areaId === null) {
+                $semAreaTotalAbertas = $totalAbertasRow;
+                $semAreaTotalSemResposta = $totalSemRespostaRow;
+                continue;
+            }
+
+            $porArea[] = [
+                'area_id' => $areaId,
+                'area_nome' => (string) ($row->area_nome ?? ''),
+                'total_abertas' => $totalAbertasRow,
+                'total_sem_resposta' => $totalSemRespostaRow,
+            ];
+        }
+
+        usort($porArea, fn (array $left, array $right): int => strcmp(
+            mb_strtolower((string) ($left['area_nome'] ?? '')),
+            mb_strtolower((string) ($right['area_nome'] ?? ''))
+        ));
+
+        return [
+            'por_area' => $porArea,
+            'sem_area' => [
+                'total_abertas' => $semAreaTotalAbertas,
+                'total_sem_resposta' => $semAreaTotalSemResposta,
+            ],
+            'total_abertas' => $totalAbertas,
+        ];
+    }
+}

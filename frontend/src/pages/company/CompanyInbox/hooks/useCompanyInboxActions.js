@@ -208,18 +208,12 @@ export default function useCompanyInboxActions({
     wasChatNearBottomRef,
   ]);
 
-  const addTag = useCallback(
-    async (tag) => {
-      if (!detail?.id || !tag.trim()) return;
-      const currentTags = detail.tags ?? [];
-      const normalizedTag = tag.toLowerCase().trim();
-      if (currentTags.includes(normalizedTag)) return;
-
-      const newTags = [...currentTags, normalizedTag];
+  const attachTag = useCallback(
+    async (tagId) => {
+      if (!detail?.id || !tagId) return;
       try {
-        await api.put(`/minha-conta/conversas/${detail.id}/tags`, { tags: newTags });
-        setDetail((prev) => ({ ...(prev ?? {}), tags: newTags }));
-        setTagInput('');
+        const res = await api.post(`/minha-conta/conversas/${detail.id}/tags`, { tag_id: tagId });
+        setDetail((prev) => ({ ...(prev ?? {}), tags: res.data.tags ?? prev?.tags ?? [] }));
       } catch (_err) {
         setDetailError('Falha ao adicionar tag.');
       }
@@ -227,13 +221,12 @@ export default function useCompanyInboxActions({
     [detail, setDetail, setDetailError]
   );
 
-  const removeTag = useCallback(
-    async (tag) => {
-      if (!detail?.id) return;
-      const newTags = (detail.tags ?? []).filter((item) => item !== tag);
+  const detachTag = useCallback(
+    async (tagId) => {
+      if (!detail?.id || !tagId) return;
       try {
-        await api.put(`/minha-conta/conversas/${detail.id}/tags`, { tags: newTags });
-        setDetail((prev) => ({ ...(prev ?? {}), tags: newTags }));
+        const res = await api.delete(`/minha-conta/conversas/${detail.id}/tags/${tagId}`);
+        setDetail((prev) => ({ ...(prev ?? {}), tags: res.data.tags ?? prev?.tags ?? [] }));
       } catch (_err) {
         setDetailError('Falha ao remover tag.');
       }
@@ -500,7 +493,8 @@ export default function useCompanyInboxActions({
 
   return {
     actionBusy,
-    addTag,
+    attachTag,
+    detachTag,
     aiSuggestionBusy,
     aiSuggestionError,
     aiSuggestionStatus,
@@ -525,17 +519,14 @@ export default function useCompanyInboxActions({
     requestAiSuggestion,
     releaseConversation,
     removeManualImage,
-    removeTag,
     resetForOpenConversation,
     saveContactName,
     sendManualReply,
     setManualText,
     setShowTemplates,
-    setTagInput,
     setTagsModalOpen,
     setTransferModalOpen,
     showTemplates,
-    tagInput,
     tagsModalOpen,
     transferArea,
     transferBusy,

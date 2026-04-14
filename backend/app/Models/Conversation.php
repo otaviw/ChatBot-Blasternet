@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Support\ConversationHandlingMode;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Conversation extends Model
 {
@@ -26,7 +27,6 @@ class Conversation extends Model
         'bot_last_interaction_at',
         'last_user_message_at',
         'last_business_message_at',
-        'tags',
     ];
 
     protected $casts = [
@@ -36,7 +36,6 @@ class Conversation extends Model
         'last_user_message_at' => 'datetime',
         'last_business_message_at' => 'datetime',
         'bot_context' => 'array',
-        'tags' => 'array',
     ];
 
     public function company()
@@ -62,6 +61,11 @@ class Conversation extends Model
     public function currentArea()
     {
         return $this->belongsTo(Area::class, 'current_area_id');
+    }
+
+    public function tags(): BelongsToMany
+    {
+        return $this->belongsToMany(Tag::class, 'conversation_tag');
     }
 
     public function transferHistory()

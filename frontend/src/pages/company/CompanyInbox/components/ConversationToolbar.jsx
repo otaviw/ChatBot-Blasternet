@@ -21,6 +21,8 @@ function ConversationToolbar({
   onOpenTagsModal,
   onOpenTransferModal,
   onOpenSendTemplateModal,
+  onOpenConversationSearchModal,
+  onDetachTag,
 }) {
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
   const actionsMenuRef = useRef(null);
@@ -49,23 +51,61 @@ function ConversationToolbar({
   }, [actionsMenuOpen]);
 
   const closeMenu = () => setActionsMenuOpen(false);
+  const tags = Array.isArray(detail.tags) ? detail.tags : [];
 
   return (
     <div className="inbox-toolbar shrink-0">
-      {/* Linha principal — sempre visível */}
-      <div className="flex items-center gap-x-2 gap-y-1 flex-wrap">
-        <span className="text-xs text-[#525252] inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5 min-w-0 flex-1">
-          <span className="min-w-0 truncate">
-            <strong>{detail.handling_mode === CONVERSATION_HANDLING_MODE.HUMAN ? 'Manual' : 'Bot'}</strong>
-            {detail.assigned_user ? ` · ${detail.assigned_user.name}` : ''}
+      {/* Linha 1 — nome/área/tags + ações */}
+      <div className="flex items-start gap-x-2 gap-y-1 flex-wrap">
+        {/* Info + tags */}
+        <div className="flex-1 min-w-0 space-y-1">
+          {/* Modo, atendente, área */}
+          <span className="text-xs text-[#525252] inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+            <span className="min-w-0 truncate">
+              <strong>{detail.handling_mode === CONVERSATION_HANDLING_MODE.HUMAN ? 'Manual' : 'Bot'}</strong>
+              {detail.assigned_user ? ` · ${detail.assigned_user.name}` : ''}
+            </span>
+            {detail.current_area?.name ? (
+              <>
+                <span className="text-[#a3a3a3] shrink-0" aria-hidden>·</span>
+                <ServiceAreaBadge areaName={detail.current_area.name} serviceAreaNames={serviceAreaNames} />
+              </>
+            ) : null}
           </span>
-          {detail.current_area?.name ? (
-            <>
-              <span className="text-[#a3a3a3] shrink-0" aria-hidden>·</span>
-              <ServiceAreaBadge areaName={detail.current_area.name} serviceAreaNames={serviceAreaNames} />
-            </>
-          ) : null}
-        </span>
+
+          {/* Tags inline com X */}
+          {tags.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {tags.map((tag) => (
+                <span
+                  key={tag.id}
+                  className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[11px] font-medium text-white"
+                  style={{ backgroundColor: tag.color }}
+                >
+                  {tag.name}
+                  {onDetachTag && (
+                    <button
+                      type="button"
+                      onClick={() => onDetachTag(tag.id)}
+                      className="ml-0.5 opacity-80 hover:opacity-100 leading-none"
+                      aria-label={`Remover tag ${tag.name}`}
+                    >
+                      ×
+                    </button>
+                  )}
+                </span>
+              ))}
+              <button
+                type="button"
+                onClick={onOpenTagsModal}
+                className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] border border-dashed border-[#a3a3a3] text-[#737373] hover:border-[#525252] hover:text-[#525252] transition"
+                title="Gerenciar tags"
+              >
+                + tag
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* Nome do contato — oculto em telas muito pequenas */}
         <div className="hidden sm:flex items-center gap-1.5 shrink-0">
@@ -82,6 +122,14 @@ function ConversationToolbar({
         </div>
 
         <div className="relative shrink-0" ref={actionsMenuRef}>
+          <button
+            type="button"
+            onClick={onOpenConversationSearchModal}
+            className="app-btn-secondary text-xs py-1 mr-1"
+            title="Buscar dentro desta conversa"
+          >
+            Buscar
+          </button>
           <button
             type="button"
             onClick={() => setActionsMenuOpen((open) => !open)}
@@ -152,7 +200,7 @@ function ConversationToolbar({
                 role="menuitem"
                 onClick={() => { onOpenTagsModal(); closeMenu(); }}
               >
-                Tags{(detail.tags ?? []).length > 0 ? ` (${(detail.tags ?? []).length})` : ''}
+                Tags{tags.length > 0 ? ` (${tags.length})` : ''}
               </button>
               <button
                 type="button"
@@ -175,7 +223,7 @@ function ConversationToolbar({
         </div>
       </div>
 
-      {/* Feedback de contato — somente no desktop (no mobile fica dentro do menu) */}
+      {/* Feedback de contato — somente no desktop */}
       {(contactSuccess || contactError) && (
         <div className="hidden sm:flex gap-2 mt-0.5">
           {contactSuccess && <span className="text-xs text-green-600">{contactSuccess}</span>}

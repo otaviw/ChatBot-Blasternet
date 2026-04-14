@@ -7,7 +7,7 @@ const STATUS_OPTIONS = [
   { value: 'closed', label: 'Encerrada' },
 ];
 
-function ConversationsFilter({ filters, onFiltersChange, serviceAreaNames = [], attendants = [] }) {
+function ConversationsFilter({ filters, onFiltersChange, serviceAreaNames = [], attendants = [], companyTags = [] }) {
   const [open, setOpen] = useState(false);
 
   const activeCount = Object.values(filters).filter(Boolean).length;
@@ -17,7 +17,7 @@ function ConversationsFilter({ filters, onFiltersChange, serviceAreaNames = [], 
   }
 
   function handleClear() {
-    onFiltersChange({ status: '', area: '', attendant_id: '', date_from: '', date_to: '' });
+    onFiltersChange({ status: '', area: '', attendant_id: '', tag_id: '', date_from: '', date_to: '' });
   }
 
   return (
@@ -79,6 +79,22 @@ function ConversationsFilter({ filters, onFiltersChange, serviceAreaNames = [], 
                 <option value="">Qualquer atendente</option>
                 {attendants.map((att) => (
                   <option key={att.id} value={String(att.id)}>{att.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {companyTags.length > 0 && (
+            <div className="inbox-filter-row">
+              <label className="inbox-filter-label">Tag</label>
+              <select
+                className="inbox-filter-select app-input"
+                value={filters.tag_id}
+                onChange={(e) => handleChange('tag_id', e.target.value)}
+              >
+                <option value="">Qualquer tag</option>
+                {companyTags.map((tag) => (
+                  <option key={tag.id} value={String(tag.id)}>{tag.name}</option>
                 ))}
               </select>
             </div>

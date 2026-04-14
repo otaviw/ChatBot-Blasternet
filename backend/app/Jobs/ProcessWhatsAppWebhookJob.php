@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Company;
+use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\MessageReaction;
 use App\Services\InboundMessageService;
@@ -14,6 +15,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class ProcessWhatsAppWebhookJob implements ShouldQueue
@@ -40,6 +42,7 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
         }
 
         $this->processStatuses($company, $this->changeValue, $realtimePublisher);
+        $this->processTypingEvents($company, $this->changeValue, $realtimePublisher);
 
         Log::info('Webhook WhatsApp company resolvida por metadata.phone_number_id.', [
             'phone_number_id' => (string) (($this->changeValue['metadata'] ?? [])['phone_number_id'] ?? ''),
@@ -239,6 +242,65 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
                 continue;
             }
             $this->applyStatusUpdate($company, $statusPayload, $metadata);
+        }
+    }
+
+    private function processTypingEvents(Company $company, array $value, RealtimePublisher $realtimePublisher): void
+    {
+        $phoneCandidates = [];
+
+        foreach (($value['messages'] ?? []) as $messagePayload) {
+            if (! is_array($messagePayload)) {
+                continue;
+            }
+
+            $messageType = mb_strtolower(trim((string) ($messagePayload['type'] ?? '')));
+            if ($messageType !== 'typing') {
+                continue;
+            }
+
+            $phoneCandidates[] = (string) ($messagePayload['from'] ?? '');
+        }
+
+        foreach (($value['statuses'] ?? []) as $statusPayload) {
+            if (! is_array($statusPayload)) {
+                continue;
+            }
+
+            $statusName = mb_strtolower(trim((string) ($statusPayload['status'] ?? '')));
+            if (! str_contains($statusName, 'typing')) {
+                continue;
+            }
+
+            $phoneCandidates[] = (string) ($statusPayload['recipient_id'] ?? $statusPayload['from'] ?? '');
+        }
+
+        foreach ($phoneCandidates as $phone) {
+            $normalizedPhone = PhoneNumberNormalizer::normalizeBrazil($phone);
+            if ($normalizedPhone === '') {
+                continue;
+            }
+
+            $conversation = $this->resolveConversationForTyping($company, $normalizedPhone);
+            if (! $conversation) {
+                continue;
+            }
+
+            Cache::put("conversation:typing:{$company->id}:{$conversation->id}", now()->toISOString(), now()->addSeconds(5));
+
+            $realtimePublisher->publish(
+                RealtimeEvents::CUSTOMER_TYPING,
+                [
+                    "company:{$company->id}",
+                    "conversation:{$conversation->id}",
+                ],
+                [
+                    'conversationId' => (int) $conversation->id,
+                    'companyId' => (int) $company->id,
+                    'typing' => true,
+                    'expires_in_ms' => 5000,
+                ]
+            );
         }
     }
 
@@ -462,5 +524,16 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
         $summary = trim(implode(' - ', array_filter([$title, $msg, $code])));
 
         return $summary !== '' ? $summary : null;
+    }
+
+    private function resolveConversationForTyping(Company $company, string $normalizedPhone): ?Conversation
+    {
+        $variants = PhoneNumberNormalizer::variantsForLookup($normalizedPhone);
+
+        return Conversation::query()
+            ->where('company_id', (int) $company->id)
+            ->whereIn('customer_phone', $variants !== [] ? $variants : [$normalizedPhone])
+            ->orderByDesc('id')
+            ->first(['id', 'company_id', 'customer_phone']);
     }
 }

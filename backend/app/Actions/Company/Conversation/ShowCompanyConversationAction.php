@@ -35,7 +35,11 @@ class ShowCompanyConversationAction
         $showQuery = Conversation::query()
             ->where('company_id', $companyId)
             ->whereKey($conversationId)
-            ->with(['assignedUser:id,name,email', 'currentArea:id,name']);
+            ->with([
+                'assignedUser:id,name,email',
+                'currentArea:id,name',
+                'tags' => fn ($q) => $q->select('tags.id', 'tags.name', 'tags.color')->orderBy('tags.name'),
+            ]);
         $this->conversationSupport->applyInboxVisibilityScope($showQuery, $user);
 
         $conversation = $showQuery->first();

@@ -188,6 +188,43 @@ export default function useCompanyInboxDetailMessages({
     [clearConversationPresence, markReadByReference, touchConversationPresence]
   );
 
+  const openConversationAtMessagePage = useCallback(async (messagesPage) => {
+    const id = selectedIdRef.current;
+    if (!id) {
+      return false;
+    }
+
+    const targetPage = Math.max(1, Number(messagesPage || 1));
+    setDetailLoading(true);
+    setDetailError('');
+    pendingMessageScrollRestoreRef.current = null;
+    shouldScrollChatToBottomRef.current = false;
+    wasChatNearBottomRef.current = false;
+
+    try {
+      const response = await api.get(
+        `/minha-conta/conversas/${id}?messages_page=${targetPage}&messages_per_page=${MSG_PER_PAGE}`
+      );
+      const conversation = response.data?.conversation ?? null;
+      if (!conversation || Number(selectedIdRef.current) !== Number(id)) {
+        return false;
+      }
+
+      setDetail({
+        ...conversation,
+        transfer_history: response.data?.transfer_history ?? [],
+      });
+      setMessagesPagination(response.data?.messages_pagination ?? null);
+      setTransferOptions(response.data?.transfer_options ?? EMPTY_TRANSFER_OPTIONS);
+      setContactNameInput(conversation.customer_name ?? '');
+      return true;
+    } catch (_error) {
+      return false;
+    } finally {
+      setDetailLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (queryConversationHandledRef.current || loading || !data?.authenticated) {
       return;
@@ -282,6 +319,7 @@ export default function useCompanyInboxDetailMessages({
     messagesLoadingOlder,
     messagesPagination,
     openConversation,
+    openConversationAtMessagePage,
     refreshConversationDetail,
     selectedId,
     selectedIdRef,

@@ -8,6 +8,7 @@ use App\Http\Controllers\Company\AiAnalyticsController;
 use App\Http\Controllers\Company\AiAuditController;
 use App\Http\Controllers\Company\AiMetricsController;
 use App\Http\Controllers\Company\ConversationController as CompanyConversationController;
+use App\Http\Controllers\Company\ConversationTagController;
 use App\Http\Controllers\Company\QuickReplyController;
 use App\Http\Controllers\Company\UserController as CompanyUserController;
 use Illuminate\Support\Facades\Route;
@@ -21,6 +22,12 @@ Route::middleware(['web', 'auth'])->group(function () {
             ->middleware('throttle:inbox-read');
         Route::get('/conversas', [CompanyConversationController::class, 'index'])
             ->middleware('throttle:inbox-read');
+        Route::get('/conversas/contadores', [CompanyConversationController::class, 'counters'])
+            ->middleware('throttle:inbox-read');
+        Route::get('/conversas/buscar', [CompanyConversationController::class, 'search'])
+            ->middleware('throttle:conversation-search');
+        Route::get('/conversas/{conversationId}/mensagens/buscar', [CompanyConversationController::class, 'searchMessages'])
+            ->middleware('throttle:conversation-search');
         Route::post('/conversas', [CompanyConversationController::class, 'createConversation'])
             ->middleware('throttle:bot-write');
         Route::get('/conversas/{conversationId}', [CompanyConversationController::class, 'show'])
@@ -39,8 +46,20 @@ Route::middleware(['web', 'auth'])->group(function () {
             ->middleware('throttle:bot-write');
         Route::post('/conversas/{conversationId}/encerrar', [CompanyConversationController::class, 'close'])
             ->middleware('throttle:bot-write');
-        Route::put('/conversas/{conversationId}/tags', [CompanyConversationController::class, 'updateTags'])
+        // Tags — CRUD e vínculo com conversas
+        Route::get('/tags', [ConversationTagController::class, 'index'])
+            ->middleware('throttle:inbox-read');
+        Route::post('/tags', [ConversationTagController::class, 'store'])
             ->middleware('throttle:bot-write');
+        Route::put('/tags/{tag}', [ConversationTagController::class, 'update'])
+            ->middleware('throttle:bot-write');
+        Route::delete('/tags/{tag}', [ConversationTagController::class, 'destroy'])
+            ->middleware('throttle:bot-write');
+        Route::post('/conversas/{conversationId}/tags', [ConversationTagController::class, 'attach'])
+            ->middleware('throttle:bot-write');
+        Route::delete('/conversas/{conversationId}/tags/{tagId}', [ConversationTagController::class, 'detach'])
+            ->middleware('throttle:bot-write');
+
         Route::put('/conversas/{conversationId}/contato', [CompanyConversationController::class, 'updateContact'])
             ->middleware('throttle:bot-write');
 

@@ -1,5 +1,5 @@
 import './CompanyInboxPage.css';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Layout from '@/components/layout/Layout/Layout.jsx';
 import InboxBackButton from '@/components/ui/InboxBackButton/InboxBackButton.jsx';
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton/LoadingSkeleton.jsx';
@@ -16,13 +16,28 @@ import TagsModal from './components/TagsModal.jsx';
 import TransferModal from './components/TransferModal.jsx';
 import NewConversationModal from './components/NewConversationModal.jsx';
 import SendTemplateModal from './components/SendTemplateModal.jsx';
+import ConversationSearchModal from './components/ConversationSearchModal.jsx';
 import useCompanyInboxConversations from './hooks/useCompanyInboxConversations';
 import useCompanyInboxDetailMessages from './hooks/useCompanyInboxDetailMessages';
 import useCompanyInboxActions from './hooks/useCompanyInboxActions';
+import api from '@/services/api';
 
 const CONV_PER_PAGE = 25;
 
 function CompanyInboxPage() {
+  const [conversationSearchOpen, setConversationSearchOpen] = useState(false);
+  const [conversationSearchQuery, setConversationSearchQuery] = useState('');
+  const [conversationSearchLoading, setConversationSearchLoading] = useState(false);
+  const [conversationSearchResults, setConversationSearchResults] = useState([]);
+  const [focusedMessageId, setFocusedMessageId] = useState(null);
+  const [conversationCounters, setConversationCounters] = useState({
+    por_area: [],
+    sem_area: { total_abertas: 0, total_sem_resposta: 0 },
+    total_abertas: 0,
+  });
+  const typingTimersRef = useRef(new Map());
+  const [typingConversationIds, setTypingConversationIds] = useState(new Set());
+
   const { data, loading, error } = usePageData(
     `/minha-conta/conversas?page=1&per_page=${CONV_PER_PAGE}`
   );
@@ -43,6 +58,8 @@ function CompanyInboxPage() {
     conversationsPagination,
     convSearchInput,
     filters,
+    isSearchMode,
+    searchTerm,
     handleConversationsScroll,
     handleConversationsSearchEnter,
     handleNextConversationPage,
@@ -58,6 +75,20 @@ function CompanyInboxPage() {
   });
 
   const attendants = useMemo(() => data?.attendants ?? [], [data]);
+  const companyTags = useMemo(() => data?.company_tags ?? [], [data]);
+
+  const loadConversationCounters = useCallback(async () => {
+    try {
+      const response = await api.get('/minha-conta/conversas/contadores');
+      const payload = response.data ?? {};
+      setConversationCounters({
+        por_area: Array.isArray(payload.por_area) ? payload.por_area : [],
+        sem_area: payload.sem_area ?? { total_abertas: 0, total_sem_resposta: 0 },
+        total_abertas: Number(payload.total_abertas ?? 0),
+      });
+    } catch (_error) {
+    }
+  }, []);
 
   const {
     chatListRef,
@@ -71,6 +102,7 @@ function CompanyInboxPage() {
     messagesLoadingOlder,
     messagesPagination,
     openConversation: openConversationRaw,
+    openConversationAtMessagePage,
     refreshConversationDetail,
     selectedId,
     selectedIdRef,
@@ -162,6 +194,22 @@ function CompanyInboxPage() {
     return () => setActiveConversationId(0);
   }, [selectedId, setActiveConversationId]);
 
+  useEffect(() => {
+    if (!data?.authenticated) {
+      return;
+    }
+
+    void loadConversationCounters();
+  }, [data?.authenticated, loadConversationCounters]);
+
+  useEffect(() => {
+    setConversationSearchOpen(false);
+    setConversationSearchQuery('');
+    setConversationSearchResults([]);
+    setConversationSearchLoading(false);
+    setFocusedMessageId(null);
+  }, [selectedId]);
+
   const unreadConversationSet = useMemo(
     () => new Set((unreadConversationIds ?? []).map((value) => Number(value))),
     [unreadConversationIds]
@@ -171,12 +219,119 @@ function CompanyInboxPage() {
     async (conversationId) => {
       resetForOpenConversation();
       await openConversationRaw(conversationId);
+      setFocusedMessageId(null);
     },
     [openConversationRaw, resetForOpenConversation]
   );
 
+  useEffect(() => {
+    if (!conversationSearchOpen || !selectedId) {
+      return undefined;
+    }
+
+    let canceled = false;
+    const handle = setTimeout(async () => {
+      const term = conversationSearchQuery.trim();
+      if (term === '') {
+        setConversationSearchResults([]);
+        setConversationSearchLoading(false);
+        return;
+      }
+
+      setConversationSearchLoading(true);
+      try {
+        const response = await api.get(
+          `/minha-conta/conversas/${selectedId}/mensagens/buscar`,
+          {
+            params: {
+              q: term,
+              messages_per_page: 25,
+            },
+          }
+        );
+        if (canceled) return;
+        setConversationSearchResults(response.data?.results ?? []);
+      } catch (_error) {
+        if (canceled) return;
+      } finally {
+        if (!canceled) setConversationSearchLoading(false);
+      }
+    }, 400);
+
+    return () => {
+      canceled = true;
+      clearTimeout(handle);
+    };
+  }, [conversationSearchOpen, conversationSearchQuery, selectedId]);
+
+  const handleSelectConversationSearchResult = useCallback(
+    async (result) => {
+      const ok = await openConversationAtMessagePage(result?.message_page ?? 1);
+      if (!ok) {
+        return;
+      }
+
+      setFocusedMessageId(Number(result?.message_id || 0) || null);
+      setConversationSearchOpen(false);
+    },
+    [openConversationAtMessagePage]
+  );
+
+  const handleCustomerTyping = useCallback((conversationId, ttlMs = 5000) => {
+    const id = Number(conversationId);
+    if (!id) {
+      return;
+    }
+
+    setTypingConversationIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+
+    const existing = typingTimersRef.current.get(id);
+    if (existing) {
+      clearTimeout(existing);
+    }
+
+    const timeout = setTimeout(() => {
+      typingTimersRef.current.delete(id);
+      setTypingConversationIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }, Math.max(1000, Number(ttlMs) || 5000));
+
+    typingTimersRef.current.set(id, timeout);
+  }, []);
+
+  const handleRealtimeCountersUpdated = useCallback((counters) => {
+    if (counters && typeof counters === 'object') {
+      setConversationCounters({
+        por_area: Array.isArray(counters.por_area) ? counters.por_area : [],
+        sem_area: counters.sem_area ?? { total_abertas: 0, total_sem_resposta: 0 },
+        total_abertas: Number(counters.total_abertas ?? 0),
+      });
+      return;
+    }
+
+    void loadConversationCounters();
+  }, [loadConversationCounters]);
+
+  useEffect(() => {
+    return () => {
+      for (const timeout of typingTimersRef.current.values()) {
+        clearTimeout(timeout);
+      }
+      typingTimersRef.current.clear();
+    };
+  }, []);
+
   useInboxRealtimeSync({
     clearConversationPresence,
+    onCountersUpdated: handleRealtimeCountersUpdated,
+    onCustomerTyping: handleCustomerTyping,
     refreshConversationDetail,
     refreshConversations,
     selectedId,
@@ -213,17 +368,21 @@ function CompanyInboxPage() {
     <Layout role="company" onLogout={logout} fullWidth>
       <div className="inbox-page">
         <div className={`inbox-header${selectedId ? ' inbox-header--hidden-mobile' : ''}`}>
-          <h1 className="inbox-title">Conversas da empresa — atendimento em tempo real</h1>
+          <h1 className="inbox-title">Inbox ({conversationCounters.total_abertas} abertas)</h1>
         </div>
         <div className="inbox-layout">
           <ConversationsSidebar
             serviceAreaNames={serviceAreaNames}
             attendants={attendants}
+            companyTags={companyTags}
+            conversationCounters={conversationCounters}
             selectedId={selectedId}
             mobileVisible={!selectedId}
             convSearchInput={convSearchInput}
             onConvSearchInputChange={setConvSearchInput}
             onConvSearchEnter={handleConversationsSearchEnter}
+            isSearchMode={isSearchMode}
+            searchTerm={searchTerm}
             filters={filters}
             onFiltersChange={setFilters}
             conversationListRef={conversationListRef}
@@ -271,7 +430,16 @@ function CompanyInboxPage() {
                   onOpenTagsModal={() => setTagsModalOpen(true)}
                   onOpenTransferModal={() => setTransferModalOpen(true)}
                   onOpenSendTemplateModal={() => setSendTemplateModalOpen(true)}
+                  onOpenConversationSearchModal={() => setConversationSearchOpen(true)}
                 />
+                {selectedId && typingConversationIds.has(Number(selectedId)) ? (
+                  <div className="inbox-typing-indicator" aria-live="polite">
+                    Cliente digitando
+                    <span className="inbox-typing-dots" aria-hidden>
+                      <span>.</span><span>.</span><span>.</span>
+                    </span>
+                  </div>
+                ) : null}
 
                 <MessagesPanel
                   detail={detail}
@@ -281,6 +449,7 @@ function CompanyInboxPage() {
                   onChatScroll={handleChatScroll}
                   messagesLoadingOlder={messagesLoadingOlder}
                   getMessageImageUrl={getMessageImageUrl}
+                  focusedMessageId={focusedMessageId}
                 />
 
                 <ReplyComposer
@@ -353,6 +522,16 @@ function CompanyInboxPage() {
         busy={sendTemplateBusy}
         error={sendTemplateError}
         success={sendTemplateSuccess}
+      />
+
+      <ConversationSearchModal
+        open={conversationSearchOpen}
+        query={conversationSearchQuery}
+        loading={conversationSearchLoading}
+        results={conversationSearchResults}
+        onQueryChange={setConversationSearchQuery}
+        onClose={() => setConversationSearchOpen(false)}
+        onSelectResult={handleSelectConversationSearchResult}
       />
     </Layout>
   );

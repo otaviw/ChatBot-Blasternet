@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Actions\Conversation\SearchConversationsAction;
 use App\Http\Controllers\Controller;
 use App\Models\Conversation;
 use App\Services\AuditLogService;
 use App\Support\AdminPrivacySanitizer;
+use App\Support\ConversationStatus;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class ConversationController extends Controller
 {
@@ -64,6 +67,19 @@ class ConversationController extends Controller
             'privacy_mode' => 'blind_default',
             'conversation' => AdminPrivacySanitizer::conversationSummary($conversation),
         ]);
+    }
+
+    public function search(Request $request, SearchConversationsAction $action): JsonResponse
+    {
+        $validated = $request->validate([
+            'q' => ['nullable', 'string', 'max:120'],
+            'empresa_id' => ['required', 'integer', 'exists:companies,id'],
+            'data_inicio' => ['nullable', 'date'],
+            'data_fim' => ['nullable', 'date', 'after_or_equal:data_inicio'],
+            'status' => ['nullable', 'string', Rule::in(ConversationStatus::all())],
+        ]);
+
+        return response()->json($action->handleForAdmin((int) $validated['empresa_id'], $validated));
     }
 
     public function assume(Request $request, int $conversationId): JsonResponse

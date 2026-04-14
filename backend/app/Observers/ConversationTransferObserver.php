@@ -56,6 +56,16 @@ class ConversationTransferObserver implements ShouldHandleEventsAfterCommit
                     ->whereColumn('messages.conversation_id', 'conversations.id')
                     ->latest('id')
                     ->limit(1),
+                'last_message_text' => Message::query()
+                    ->select('text')
+                    ->whereColumn('messages.conversation_id', 'conversations.id')
+                    ->latest('id')
+                    ->limit(1),
+                'last_message_direction' => Message::query()
+                    ->select('direction')
+                    ->whereColumn('messages.conversation_id', 'conversations.id')
+                    ->latest('id')
+                    ->limit(1),
             ])
             ->with(['assignedUser:id,name,email', 'currentArea:id,name'])
             ->withCount('messages')
@@ -134,6 +144,8 @@ class ConversationTransferObserver implements ShouldHandleEventsAfterCommit
             ] : null,
             'last_message_id' => $conversation->last_message_id !== null ? (int) $conversation->last_message_id : null,
             'last_message_at' => $lastMessageAtIso,
+            'last_message_text' => $conversation->last_message_text,
+            'last_message_direction' => $conversation->last_message_direction ? (string) $conversation->last_message_direction : null,
             'created_at' => $conversation->created_at?->toISOString(),
             'updated_at' => $conversation->updated_at?->toISOString(),
         ];

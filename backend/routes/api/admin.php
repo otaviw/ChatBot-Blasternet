@@ -27,6 +27,8 @@ Route::middleware(['web', 'auth', 'admin'])->group(function () {
 
         Route::get('/conversas', [AdminConversationController::class, 'index'])
             ->middleware('throttle:inbox-read');
+        Route::get('/conversas/buscar', [AdminConversationController::class, 'search'])
+            ->middleware('throttle:conversation-search');
         Route::get('/conversas/{conversationId}', [AdminConversationController::class, 'show'])
             ->middleware('throttle:inbox-read');
         Route::post('/conversas/{conversationId}/assumir', [AdminConversationController::class, 'assume'])
