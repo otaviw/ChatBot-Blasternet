@@ -1,3 +1,69 @@
+function ConfidenceBadge({ score }) {
+  if (score === null || score === undefined) return null;
+
+  let label, className;
+  if (score > 0.7) {
+    label = 'Alta confiança';
+    className = 'inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2.5 py-0.5';
+  } else if (score >= 0.4) {
+    label = 'Revisar antes de enviar';
+    className = 'inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2.5 py-0.5';
+  } else {
+    label = 'Gerada sem contexto específico';
+    className = 'inline-flex items-center gap-1 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-full px-2.5 py-0.5';
+  }
+
+  const dot = score > 0.7
+    ? 'inline-block w-2 h-2 rounded-full bg-emerald-500'
+    : score >= 0.4
+    ? 'inline-block w-2 h-2 rounded-full bg-amber-500'
+    : 'inline-block w-2 h-2 rounded-full bg-red-500';
+
+  return (
+    <span className={className}>
+      <span className={dot} aria-hidden />
+      {label}
+    </span>
+  );
+}
+
+function SuggestionFeedback({ feedbackState, onFeedback }) {
+  if (feedbackState !== 'pending') return null;
+
+  return (
+    <div className="flex items-center gap-2 text-xs text-[#525252]">
+      <span>Esta sugestão foi útil?</span>
+      <button
+        type="button"
+        onClick={() => onFeedback(true)}
+        className="hover:text-emerald-600 transition text-base leading-none"
+        aria-label="Sim, foi útil"
+        title="Útil"
+      >
+        👍
+      </button>
+      <button
+        type="button"
+        onClick={() => onFeedback(false)}
+        className="hover:text-red-500 transition text-base leading-none"
+        aria-label="Não foi útil"
+        title="Não útil"
+      >
+        👎
+      </button>
+      <button
+        type="button"
+        onClick={() => onFeedback(null)}
+        className="text-[#a3a3a3] hover:text-[#525252] transition leading-none ml-1"
+        aria-label="Fechar"
+        title="Fechar"
+      >
+        ×
+      </button>
+    </div>
+  );
+}
+
 function ReplyComposer({
   onSendManualReply,
   showTemplates,
@@ -14,6 +80,9 @@ function ReplyComposer({
   aiSuggestionBusy,
   aiSuggestionStatus,
   aiSuggestionError,
+  aiConfidenceScore,
+  aiSuggestionFeedbackState,
+  onAiSuggestionFeedback,
   manualBusy,
   manualImagePreviewUrl,
   manualError,
@@ -51,19 +120,17 @@ function ReplyComposer({
         </div>
 
         <div className="company-inbox-upload-row">
-          {/* <button
-            type="button"
-            onClick={onRequestAiSuggestion}
-            disabled={manualBusy || aiSuggestionBusy || !canUseAiSuggestion}
-            className="app-btn-secondary text-xs inbox-reply-action-btn"
-            title={
-              canUseAiSuggestion
-                ? 'Gerar sugestao de resposta com IA'
-                : 'Você não tem permissão para usar sugestão de IA'
-            }
-          >
-            {aiSuggestionBusy ? 'IA gerando resposta...' : 'Sugerir resposta com IA'}
-          </button> */}
+          {canUseAiSuggestion && (
+            <button
+              type="button"
+              onClick={onRequestAiSuggestion}
+              disabled={manualBusy || aiSuggestionBusy}
+              className="app-btn-secondary text-xs inbox-reply-action-btn"
+              title="Gerar sugestão de resposta com IA"
+            >
+              {aiSuggestionBusy ? 'IA gerando...' : '✦ Sugerir com IA'}
+            </button>
+          )}
           <label className="app-btn-secondary text-xs cursor-pointer inbox-reply-action-btn">
             Anexar arquivo
             <input
@@ -85,8 +152,30 @@ function ReplyComposer({
           ) : null}
         </div>
       </div>
-      {aiSuggestionBusy ? <p className="text-xs text-[#525252]">IA gerando resposta...</p> : null}
-      {aiSuggestionStatus ? <p className="text-xs text-green-700">{aiSuggestionStatus}</p> : null}
+
+      {/* AI suggestion status row */}
+      {(aiSuggestionBusy || aiSuggestionStatus || aiConfidenceScore !== null) && (
+        <div className="flex flex-wrap items-center gap-2">
+          {aiSuggestionBusy && (
+            <p className="text-xs text-[#525252]">IA gerando resposta...</p>
+          )}
+          {!aiSuggestionBusy && aiSuggestionStatus && (
+            <p className="text-xs text-green-700">{aiSuggestionStatus}</p>
+          )}
+          {!aiSuggestionBusy && aiConfidenceScore !== null && (
+            <ConfidenceBadge score={aiConfidenceScore} />
+          )}
+        </div>
+      )}
+
+      {/* Feedback row */}
+      {!aiSuggestionBusy && (
+        <SuggestionFeedback
+          feedbackState={aiSuggestionFeedbackState}
+          onFeedback={(helpful) => onAiSuggestionFeedback?.(helpful)}
+        />
+      )}
+
       {aiSuggestionError ? <p className="text-sm text-red-600">{aiSuggestionError}</p> : null}
 
       {manualImageFile ? (
@@ -123,7 +212,7 @@ function ReplyComposer({
         </button>
       </div>
       {manualImagePreviewUrl ? (
-        <div className="company-inbox-image-preview space-y-2"> 
+        <div className="company-inbox-image-preview space-y-2">
           {manualImageFile?.type?.startsWith('image/') ? (
             <img src={manualImagePreviewUrl} alt="Prévia" className="max-w-xs rounded" />
           ) : manualImageFile?.type?.startsWith('video/') ? (
@@ -136,7 +225,7 @@ function ReplyComposer({
             </audio>
           ) : (
             <div className="p-3 bg-gray-100 rounded text-sm">
-             {manualImageFile.name} <br />
+              {manualImageFile.name} <br />
               <span className="text-xs text-gray-500">Prévia indisponível (PDF/DOC/etc.)</span>
             </div>
           )}

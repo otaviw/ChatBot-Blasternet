@@ -7,6 +7,8 @@ use App\Http\Controllers\Company\AiConversationController;
 use App\Http\Controllers\Company\AiAnalyticsController;
 use App\Http\Controllers\Company\AiAuditController;
 use App\Http\Controllers\Company\AiMetricsController;
+use App\Http\Controllers\Company\AiSandboxController;
+use App\Http\Controllers\Company\AiSuggestionFeedbackController;
 use App\Http\Controllers\Company\ConversationController as CompanyConversationController;
 use App\Http\Controllers\Company\ConversationTagController;
 use App\Http\Controllers\Company\QuickReplyController;
@@ -111,6 +113,14 @@ Route::middleware(['web', 'auth'])->group(function () {
             ->middleware('throttle:bot-write');
         Route::delete('/agendamentos/{appointment}', [AppointmentController::class, 'deleteAppointment'])
             ->middleware('throttle:bot-write');
+
+        // Feedback de sugestão de IA — acessível a todos os usuários da empresa
+        Route::post('/ia/sugestoes/{suggestionId}/feedback', [AiSuggestionFeedbackController::class, 'store'])
+            ->middleware('throttle:bot-write');
+
+        // Sandbox de IA — apenas admins da empresa (throttle 20/min)
+        Route::post('/ia/sandbox', [AiSandboxController::class, 'test'])
+            ->middleware('throttle:ai-sandbox');
 
         // Rotas de IA — restritas a superadmin enquanto o módulo não está em produção
         Route::middleware('admin')->group(function () {

@@ -124,7 +124,7 @@ class BotController extends Controller
             'ai_tone' => ['sometimes', 'nullable', 'string', 'max:120'],
             'ai_language' => ['sometimes', 'nullable', 'string', 'max:50'],
             'ai_formality' => ['sometimes', 'nullable', 'string', 'max:50'],
-            'ai_system_prompt' => ['sometimes', 'nullable', 'string', 'max:4000'],
+            'ai_system_prompt' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'ai_max_context_messages' => ['sometimes', 'nullable', 'integer', 'min:10', 'max:20'],
             'ai_temperature' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:2'],
             'ai_max_response_tokens' => ['sometimes', 'nullable', 'integer', 'min:64', 'max:4096'],

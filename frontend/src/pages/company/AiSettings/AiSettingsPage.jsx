@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import Layout from '@/components/layout/Layout/Layout.jsx';
 import Button from '@/components/ui/Button/Button.jsx';
 import Card from '@/components/ui/Card/Card.jsx';
@@ -16,6 +16,9 @@ import useAuth from '@/hooks/useAuth';
 import useLogout from '@/hooks/useLogout';
 import useAdminCompanySelector from '@/hooks/useAdminCompanySelector';
 import useAiSettings from './hooks/useAiSettings';
+import api from '@/services/api';
+
+const SYSTEM_PROMPT_MAX = 2000;
 
 function AiSettingsPage() {
   const { data, loading: meLoading, error: meError } = usePageData('/me');
@@ -32,6 +35,33 @@ function AiSettingsPage() {
   );
 
   const resolvedCompanyId = isAdmin ? selectedCompanyId : '';
+
+  // Sandbox state
+  const [sandboxMessage, setSandboxMessage] = useState('');
+  const [sandboxIncludeRag, setSandboxIncludeRag] = useState(false);
+  const [sandboxBusy, setSandboxBusy] = useState(false);
+  const [sandboxResult, setSandboxResult] = useState(null);
+  const [sandboxError, setSandboxError] = useState('');
+
+  const handleSandboxTest = async () => {
+    if (!sandboxMessage.trim()) return;
+    setSandboxBusy(true);
+    setSandboxResult(null);
+    setSandboxError('');
+    try {
+      const params = isAdmin && resolvedCompanyId ? { company_id: resolvedCompanyId } : {};
+      const response = await api.post('/minha-conta/ia/sandbox', {
+        message: sandboxMessage.trim(),
+        include_rag: sandboxIncludeRag,
+        ...params,
+      });
+      setSandboxResult(response.data);
+    } catch (err) {
+      setSandboxError(err.response?.data?.message ?? 'Falha ao testar a IA.');
+    } finally {
+      setSandboxBusy(false);
+    }
+  };
 
   const {
     company,
@@ -180,13 +210,17 @@ function AiSettingsPage() {
             </Field>
           </div>
 
-          <Field label="Instruções de sistema (prompt)" className="mt-3">
+          <Field label="Prompt do sistema" className="mt-3">
             <TextAreaInput
               rows={5}
+              maxLength={SYSTEM_PROMPT_MAX}
               value={settings.ai_system_prompt ?? ''}
               onChange={(event) => updateField('ai_system_prompt', event.target.value)}
-              placeholder="Instruções fixas para orientar o comportamento da IA."
+              placeholder={`Você é um assistente da empresa. Responda sempre em português, de forma educada e objetiva. Não forneça informações que não sejam sobre os nossos produtos ou serviços.`}
             />
+            <p className={`text-xs mt-1 text-right ${(settings.ai_system_prompt ?? '').length > SYSTEM_PROMPT_MAX * 0.9 ? 'text-amber-600' : 'text-[#a3a3a3]'}`}>
+              {(settings.ai_system_prompt ?? '').length}/{SYSTEM_PROMPT_MAX}
+            </p>
           </Field>
         </Card>
 
@@ -277,6 +311,107 @@ function AiSettingsPage() {
           </Button>
         </div>
       </form>
+
+      {/* Sandbox de Teste */}
+      <Card className="mt-4">
+        <h2 className="text-base font-semibold text-[#0f172a] mb-1">Testar IA</h2>
+        <p className="text-sm text-[#64748b] mb-4">
+          Envie uma mensagem de teste para verificar como a IA está configurada para sua empresa.
+        </p>
+
+        <div className="space-y-3">
+          <Field label="Mensagem de teste">
+            <TextAreaInput
+              rows={3}
+              value={sandboxMessage}
+              onChange={(event) => setSandboxMessage(event.target.value)}
+              placeholder="Ex.: Qual é o prazo de entrega dos pedidos?"
+              maxLength={2000}
+            />
+          </Field>
+
+          <label className="inline-flex items-center gap-2 text-sm text-[#1f2937] cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={sandboxIncludeRag}
+              onChange={(event) => setSandboxIncludeRag(event.target.checked)}
+              className="h-4 w-4 rounded border-[#d4d4d4] text-[#2563eb] focus:ring-[#2563eb]/20"
+            />
+            Usar base de conhecimento
+          </label>
+
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={sandboxBusy || !sandboxMessage.trim()}
+            onClick={handleSandboxTest}
+          >
+            {sandboxBusy ? 'Testando...' : 'Testar'}
+          </Button>
+        </div>
+
+        {sandboxError && (
+          <p className="mt-3 text-sm text-red-600">{sandboxError}</p>
+        )}
+
+        {sandboxResult && (
+          <div className="mt-4 space-y-3 border-t border-[#f0f0f0] pt-4">
+            <div>
+              <p className="text-xs font-semibold uppercase text-[#a3a3a3] mb-1">Resposta da IA</p>
+              <p className="text-sm text-[#1f2937] whitespace-pre-wrap bg-[#f8fafc] rounded-lg p-3 border border-[#e2e8f0]">
+                {sandboxResult.response}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-3 text-xs text-[#475569]">
+              <span>
+                <strong>Provider:</strong> {sandboxResult.provider ?? '-'}
+              </span>
+              <span>
+                <strong>Modelo:</strong> {sandboxResult.model ?? '-'}
+              </span>
+              {sandboxResult.tokens_used != null && (
+                <span>
+                  <strong>Tokens:</strong> {sandboxResult.tokens_used}
+                </span>
+              )}
+              {sandboxResult.confidence_score != null && (
+                <span>
+                  <strong>Confiança:</strong>{' '}
+                  <span className={
+                    sandboxResult.confidence_score > 0.7
+                      ? 'text-emerald-700 font-medium'
+                      : sandboxResult.confidence_score >= 0.4
+                      ? 'text-amber-700 font-medium'
+                      : 'text-red-700 font-medium'
+                  }>
+                    {Math.round(sandboxResult.confidence_score * 100)}%
+                  </span>
+                </span>
+              )}
+            </div>
+
+            {Array.isArray(sandboxResult.rag_chunks_used) && sandboxResult.rag_chunks_used.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase text-[#a3a3a3] mb-1.5">
+                  Chunks da base de conhecimento usados ({sandboxResult.rag_chunks_used.length})
+                </p>
+                <div className="space-y-2">
+                  {sandboxResult.rag_chunks_used.map((chunk, i) => (
+                    <div key={i} className="bg-[#f8fafc] rounded-lg p-2.5 border border-[#e2e8f0] text-xs">
+                      <p className="font-medium text-[#1f2937] mb-0.5">{chunk.title || 'Sem título'}</p>
+                      <p className="text-[#475569] line-clamp-3">{chunk.content}</p>
+                      {chunk.score != null && (
+                        <p className="text-[#a3a3a3] mt-1">Similaridade: {(chunk.score * 100).toFixed(1)}%</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
     </Layout>
   );
 }

@@ -22,7 +22,12 @@ class ConversationAiSuggestionService
         private readonly AiKnowledgeRetrieverService $retrieverService
     ) {}
 
-    public function generateSuggestion(Conversation $conversation, CompanyBotSetting $settings): string
+    /**
+     * Generate a suggestion and return it with metadata.
+     *
+     * @return array{suggestion: string, confidence_score: float, used_rag: bool, rag_chunks: list<array{title:string,content:string,score:float|null}>}
+     */
+    public function generateSuggestion(Conversation $conversation, CompanyBotSetting $settings): array
     {
         $providerName = $this->resolveProviderName($settings);
         $modelName = $this->resolveModelName($settings);
@@ -35,7 +40,7 @@ class ConversationAiSuggestionService
         $rawHistory = $this->fetchRawHistory($conversation, $historyLimit);
         $lastUserText = $this->extractLastUserTextFromHistory($rawHistory);
 
-        $contextMessages = $this->buildContextMessages($conversation, $settings, $historyLimit, $lastUserText, $rawHistory);
+        [$contextMessages, $ragChunks] = $this->buildContextMessagesWithMeta($conversation, $settings, $historyLimit, $lastUserText, $rawHistory);
         if ($lastUserText !== null && $lastUserText !== '') {
             $safetyResult = $this->safetyPipeline->run($lastUserText);
             if ($safetyResult->blocked) {
@@ -72,6 +77,7 @@ class ConversationAiSuggestionService
         }
         // Redacta PII dos turnos de usuário antes de enviar ao provider
         $contextMessages = $this->safetyPipeline->redactContextMessages($contextMessages);
+        $usedRag = $ragChunks !== [];
 
         $provider = $this->providerResolver->resolve($providerName);
         $providerOptions = [
@@ -128,7 +134,129 @@ class ConversationAiSuggestionService
             ]);
         }
 
-        return $suggestion;
+        return [
+            'suggestion'       => $suggestion,
+            'confidence_score' => $this->calculateConfidenceScore($usedRag, $ragChunks),
+            'used_rag'         => $usedRag,
+            'rag_chunks'       => $ragChunks,
+        ];
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, Message>|null  $preloadedHistory
+     * @return array{0: list<array{role:string,content:string}>, 1: list<array{title:string,content:string,score:float|null}>}
+     */
+    private function buildContextMessagesWithMeta(
+        Conversation $conversation,
+        CompanyBotSetting $settings,
+        int $historyLimit,
+        ?string $ragQuery,
+        ?\Illuminate\Support\Collection $preloadedHistory
+    ): array {
+        $messages = [];
+
+        [$systemPrompt, $ragChunks] = $this->buildSystemPromptWithMeta($conversation, $settings, $ragQuery);
+        if ($systemPrompt !== '') {
+            $messages[] = [
+                'role'    => AiMessage::ROLE_SYSTEM,
+                'content' => $systemPrompt,
+            ];
+        }
+
+        $history = $preloadedHistory ?? $this->fetchRawHistory($conversation, $historyLimit);
+
+        foreach ($history as $item) {
+            $role    = $this->normalizeRole((string) ($item->direction ?? ''));
+            $content = $this->normalizeContent($item);
+
+            if ($role === null || $content === '') {
+                continue;
+            }
+
+            $messages[] = ['role' => $role, 'content' => $content];
+        }
+
+        return [$messages, $ragChunks];
+    }
+
+    /**
+     * @return array{0: string, 1: list<array{title:string,content:string,score:float|null}>}
+     */
+    private function buildSystemPromptWithMeta(Conversation $conversation, CompanyBotSetting $settings, ?string $ragQuery = null): array
+    {
+        $sections = [];
+
+        $globalPrompt = trim((string) config('ai.system_prompt', ''));
+        if ($globalPrompt !== '') {
+            $sections[] = $globalPrompt;
+        }
+
+        $companyPrompt = trim((string) ($settings->ai_system_prompt ?? ''));
+        if ($companyPrompt !== '') {
+            $sections[] = $companyPrompt;
+        }
+
+        $companyStyleLines = array_filter([
+            ($p = trim((string) ($settings->ai_persona ?? '')))   !== '' ? "Persona: {$p}" : null,
+            ($t = trim((string) ($settings->ai_tone ?? '')))      !== '' ? "Tom: {$t}"     : null,
+            ($l = trim((string) ($settings->ai_language ?? '')))  !== '' ? "Idioma: {$l}"  : null,
+            ($f = trim((string) ($settings->ai_formality ?? ''))) !== '' ? "Formalidade: {$f}" : null,
+        ]);
+
+        if ($companyStyleLines !== []) {
+            $sections[] = implode(PHP_EOL, $companyStyleLines);
+        }
+
+        $topK   = (int) config('ai.rag.top_k', 3);
+        $chunks = $this->retrieverService->retrieve((int) $conversation->company_id, $ragQuery, $topK);
+
+        if ($chunks !== []) {
+            $lines = ['Base de conhecimento da empresa:'];
+            $n = 1;
+            foreach ($chunks as $chunk) {
+                $title   = trim((string) ($chunk['title']   ?? ''));
+                $content = trim((string) ($chunk['content'] ?? ''));
+                if ($content === '') {
+                    continue;
+                }
+                $label    = $title !== '' ? $title : 'Sem titulo';
+                $lines[]  = "{$n}. {$label}: {$content}";
+                $n++;
+            }
+            if (count($lines) > 1) {
+                $sections[] = implode(PHP_EOL, $lines);
+            }
+        }
+
+        return [implode(PHP_EOL.PHP_EOL, $sections), $chunks];
+    }
+
+    /**
+     * Heuristic confidence score based on whether RAG was used and best similarity score.
+     *
+     * @param  list<array{score:float|null}>  $ragChunks
+     */
+    private function calculateConfidenceScore(bool $usedRag, array $ragChunks): float
+    {
+        if (! $usedRag) {
+            return 0.5;
+        }
+
+        $bestScore = 0.0;
+        foreach ($ragChunks as $chunk) {
+            $score = (float) ($chunk['score'] ?? 0.0);
+            if ($score > $bestScore) {
+                $bestScore = $score;
+            }
+        }
+
+        if ($bestScore === 0.0) {
+            // RAG used via static fallback (no similarity score)
+            return 0.65;
+        }
+
+        // Map cosine similarity [0.3, 1.0] to [0.80, 0.97]
+        return round(min(0.97, max(0.80, 0.80 + ($bestScore - 0.3) * (0.17 / 0.7))), 2);
     }
 
     private function recordErrorMetric(
@@ -215,127 +343,6 @@ class ConversationAiSuggestionService
         }
 
         return null;
-    }
-
-    /**
-     * @param  \Illuminate\Support\Collection<int, Message>|null  $preloadedHistory
-     * @return list<array{role: string, content: string}>
-     */
-    private function buildContextMessages(
-        Conversation $conversation,
-        CompanyBotSetting $settings,
-        int $historyLimit,
-        ?string $ragQuery = null,
-        ?\Illuminate\Support\Collection $preloadedHistory = null
-    ): array {
-        $messages = [];
-
-        $systemPrompt = $this->buildSystemPrompt($conversation, $settings, $ragQuery);
-        if ($systemPrompt !== '') {
-            $messages[] = [
-                'role' => AiMessage::ROLE_SYSTEM,
-                'content' => $systemPrompt,
-            ];
-        }
-
-        $history = $preloadedHistory ?? $this->fetchRawHistory($conversation, $historyLimit);
-
-        foreach ($history as $item) {
-            $role = $this->normalizeRole((string) ($item->direction ?? ''));
-            $content = $this->normalizeContent($item);
-
-            if ($role === null || $content === '') {
-                continue;
-            }
-
-            $messages[] = [
-                'role' => $role,
-                'content' => $content,
-            ];
-        }
-
-        return $messages;
-    }
-
-    private function buildSystemPrompt(Conversation $conversation, CompanyBotSetting $settings, ?string $ragQuery = null): string
-    {
-        $sections = [];
-
-        $globalPrompt = trim((string) config('ai.system_prompt', ''));
-        if ($globalPrompt !== '') {
-            $sections[] = $globalPrompt;
-        }
-
-        $companyPrompt = trim((string) ($settings->ai_system_prompt ?? ''));
-        if ($companyPrompt !== '') {
-            $sections[] = $companyPrompt;
-        }
-
-        $persona = trim((string) ($settings->ai_persona ?? ''));
-        $tone = trim((string) ($settings->ai_tone ?? ''));
-        $language = trim((string) ($settings->ai_language ?? ''));
-        $formality = trim((string) ($settings->ai_formality ?? ''));
-
-        $companyStyleLines = [];
-        if ($persona !== '') {
-            $companyStyleLines[] = "Persona: {$persona}";
-        }
-        if ($tone !== '') {
-            $companyStyleLines[] = "Tom: {$tone}";
-        }
-        if ($language !== '') {
-            $companyStyleLines[] = "Idioma: {$language}";
-        }
-        if ($formality !== '') {
-            $companyStyleLines[] = "Formalidade: {$formality}";
-        }
-
-        if ($companyStyleLines !== []) {
-            $sections[] = implode(PHP_EOL, $companyStyleLines);
-        }
-
-        $knowledgePrompt = $this->buildKnowledgePrompt((int) $conversation->company_id, $ragQuery);
-        if ($knowledgePrompt !== '') {
-            $sections[] = $knowledgePrompt;
-        }
-
-        return implode(PHP_EOL.PHP_EOL, $sections);
-    }
-
-    private function buildKnowledgePrompt(int $companyId, ?string $query = null): string
-    {
-        if ($companyId <= 0) {
-            return '';
-        }
-
-        $topK = (int) config('ai.rag.top_k', 3);
-        $chunks = $this->retrieverService->retrieve($companyId, $query, $topK);
-
-        if ($chunks === []) {
-            return '';
-        }
-
-        $lines = ['Base de conhecimento da empresa:'];
-        $number = 1;
-
-        foreach ($chunks as $chunk) {
-            $title = trim((string) ($chunk['title'] ?? ''));
-            $content = trim((string) ($chunk['content'] ?? ''));
-
-            if ($content === '') {
-                continue;
-            }
-
-            $label = $title !== '' ? $title : 'Sem titulo';
-            $lines[] = "{$number}. {$label}: {$content}";
-            $number++;
-        }
-
-        if (count($lines) === 1) {
-            return '';
-        }
-
-        return implode(PHP_EOL, $lines);
     }
 
     private function resolveHistoryLimit(CompanyBotSetting $settings): int

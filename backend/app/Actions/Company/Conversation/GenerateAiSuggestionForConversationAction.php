@@ -43,11 +43,13 @@ class GenerateAiSuggestionForConversationAction
             return null;
         }
 
-        $suggestion = $this->suggestionService->generateSuggestion($conversation, $settings);
+        $result = $this->suggestionService->generateSuggestion($conversation, $settings);
 
         return [
-            'ok' => true,
-            'suggestion' => $suggestion,
+            'ok'               => true,
+            'suggestion'       => $result['suggestion'],
+            'confidence_score' => $result['confidence_score'],
+            'used_rag'         => $result['used_rag'],
         ];
     }
 }

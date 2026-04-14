@@ -29,6 +29,29 @@ function formatDate(value) {
   return new Date(time).toLocaleString('pt-BR');
 }
 
+function IndexingBadge({ status }) {
+  if (status === 'pending') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+        <span className="animate-spin inline-block w-3 h-3 border border-amber-500 border-t-transparent rounded-full" aria-hidden />
+        Indexando...
+      </span>
+    );
+  }
+  if (status === 'failed') {
+    return (
+      <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium bg-red-50 text-red-700 border border-red-200" title="Falha na indexação. Edite o documento para tentar novamente.">
+        Falha na indexação
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+      Indexado
+    </span>
+  );
+}
+
 function CompanyKnowledgeBasePage() {
   const { user } = useAuth();
   const { logout } = useLogout();
@@ -239,6 +262,7 @@ function CompanyKnowledgeBasePage() {
                 <tr className="text-left text-[#64748b] border-b border-[#e2e8f0]">
                   <th className="px-4 py-3 font-medium">Titulo</th>
                   <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3 font-medium">Indexação</th>
                   <th className="px-4 py-3 font-medium">Atualizado em</th>
                   <th className="px-4 py-3 font-medium w-[1%] whitespace-nowrap">Acoes</th>
                 </tr>
@@ -259,6 +283,9 @@ function CompanyKnowledgeBasePage() {
                       >
                         {item.is_active ? 'Ativo' : 'Inativo'}
                       </span>
+                    </td>
+                    <td data-label="Indexação" className="px-4 py-3">
+                      <IndexingBadge status={item.indexing_status ?? 'indexed'} />
                     </td>
                     <td data-label="Atualizado em" className="px-4 py-3 text-[#475569]">
                       {formatDate(item.updated_at)}

@@ -351,6 +351,38 @@ export default function useInboxRealtimeSync({
       }
     );
 
+    const unsubscribeConversationTagsUpdated = realtimeClient.on(
+      REALTIME_EVENTS.CONVERSATION_TAGS_UPDATED,
+      (envelope) => {
+        const payload = envelope?.payload ?? {};
+        const conversationId = parsePositiveInt(payload.conversationId, payload.conversation_id);
+        const tags = Array.isArray(payload.tags) ? payload.tags : null;
+        if (conversationId === null || tags === null) {
+          return;
+        }
+
+        setConversations((prev) =>
+          prev.map((conversation) => {
+            if (Number(conversation.id) !== conversationId) {
+              return conversation;
+            }
+
+            return { ...conversation, tags };
+          })
+        );
+
+        if (Number(selectedIdRef.current) === conversationId) {
+          setDetail((prev) => {
+            if (!prev || Number(prev.id) !== conversationId) {
+              return prev;
+            }
+
+            return { ...prev, tags };
+          });
+        }
+      }
+    );
+
     return () => {
       unsubscribeMessageCreated();
       unsubscribeConversationTransferred();
@@ -358,6 +390,7 @@ export default function useInboxRealtimeSync({
       unsubscribeMessageReactionsUpdated();
       unsubscribeCustomerTyping();
       unsubscribeConversationCountersUpdated();
+      unsubscribeConversationTagsUpdated();
       if (conversationsRefreshTimerRef.current) {
         clearTimeout(conversationsRefreshTimerRef.current);
         conversationsRefreshTimerRef.current = null;

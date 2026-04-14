@@ -121,10 +121,14 @@ function CompanyInboxPage() {
 
   const {
     actionBusy,
-    addTag,
+    attachTag,
+    detachTag,
     aiSuggestionBusy,
     aiSuggestionError,
     aiSuggestionStatus,
+    aiConfidenceScore,
+    aiSuggestionFeedbackState,
+    submitAiSuggestionFeedback,
     assumeConversation,
     availableUsers,
     closeConversation,
@@ -146,17 +150,14 @@ function CompanyInboxPage() {
     requestAiSuggestion,
     releaseConversation,
     removeManualImage,
-    removeTag,
     resetForOpenConversation,
     saveContactName,
     sendManualReply,
     setManualText,
     setShowTemplates,
-    setTagInput,
     setTagsModalOpen,
     setTransferModalOpen,
     showTemplates,
-    tagInput,
     tagsModalOpen,
     transferArea,
     transferBusy,
@@ -431,6 +432,7 @@ function CompanyInboxPage() {
                   onOpenTransferModal={() => setTransferModalOpen(true)}
                   onOpenSendTemplateModal={() => setSendTemplateModalOpen(true)}
                   onOpenConversationSearchModal={() => setConversationSearchOpen(true)}
+                  onDetachTag={detachTag}
                 />
                 {selectedId && typingConversationIds.has(Number(selectedId)) ? (
                   <div className="inbox-typing-indicator" aria-live="polite">
@@ -470,6 +472,9 @@ function CompanyInboxPage() {
                   aiSuggestionBusy={aiSuggestionBusy}
                   aiSuggestionStatus={aiSuggestionStatus}
                   aiSuggestionError={aiSuggestionError}
+                  aiConfidenceScore={aiConfidenceScore}
+                  aiSuggestionFeedbackState={aiSuggestionFeedbackState}
+                  onAiSuggestionFeedback={submitAiSuggestionFeedback}
                   manualBusy={manualBusy}
                   manualImagePreviewUrl={manualImagePreviewUrl}
                   manualError={manualError}
@@ -483,10 +488,9 @@ function CompanyInboxPage() {
       <TagsModal
         open={tagsModalOpen}
         detail={detail}
-        tagInput={tagInput}
-        onTagInputChange={setTagInput}
-        onAddTag={() => addTag(tagInput)}
-        onRemoveTag={removeTag}
+        companyTags={companyTags}
+        onAttachTag={attachTag}
+        onDetachTag={detachTag}
         onClose={() => setTagsModalOpen(false)}
       />
 

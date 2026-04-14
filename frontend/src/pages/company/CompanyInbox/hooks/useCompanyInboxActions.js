@@ -23,6 +23,9 @@ export default function useCompanyInboxActions({
   const [aiSuggestionBusy, setAiSuggestionBusy] = useState(false);
   const [aiSuggestionError, setAiSuggestionError] = useState('');
   const [aiSuggestionStatus, setAiSuggestionStatus] = useState('');
+  const [aiConfidenceScore, setAiConfidenceScore] = useState(null);
+  const [aiSuggestionId, setAiSuggestionId] = useState(null);
+  const [aiSuggestionFeedbackState, setAiSuggestionFeedbackState] = useState(null); // null | 'pending' | 'submitted'
   const [contactBusy, setContactBusy] = useState(false);
   const [contactError, setContactError] = useState('');
   const [contactSuccess, setContactSuccess] = useState('');
@@ -302,6 +305,9 @@ export default function useCompanyInboxActions({
     setAiSuggestionBusy(true);
     setAiSuggestionError('');
     setAiSuggestionStatus('');
+    setAiConfidenceScore(null);
+    setAiSuggestionId(null);
+    setAiSuggestionFeedbackState(null);
     try {
       const response = await api.post(`/minha-conta/conversas/${detail.id}/ia/sugestao`);
       const suggestion = String(response.data?.suggestion ?? '').trim();
@@ -310,6 +316,9 @@ export default function useCompanyInboxActions({
       }
 
       setManualText(suggestion);
+      setAiConfidenceScore(typeof response.data?.confidence_score === 'number' ? response.data.confidence_score : null);
+      setAiSuggestionId(response.data?.suggestion_id ?? null);
+      setAiSuggestionFeedbackState('pending');
       setAiSuggestionStatus('Sugestao aplicada no campo de resposta.');
     } catch (err) {
       setAiSuggestionError(
@@ -319,6 +328,19 @@ export default function useCompanyInboxActions({
       setAiSuggestionBusy(false);
     }
   }, [detail?.id]);
+
+  const submitAiSuggestionFeedback = useCallback(async (helpful) => {
+    if (!aiSuggestionId) {
+      setAiSuggestionFeedbackState('submitted');
+      return;
+    }
+    setAiSuggestionFeedbackState('submitted');
+    try {
+      await api.post(`/minha-conta/ia/sugestoes/${aiSuggestionId}/feedback`, { helpful });
+    } catch (_err) {
+      // Feedback is best-effort — no error surfaced to user
+    }
+  }, [aiSuggestionId]);
 
   const handleManualImageChange = useCallback(
     (event) => {
@@ -498,6 +520,9 @@ export default function useCompanyInboxActions({
     aiSuggestionBusy,
     aiSuggestionError,
     aiSuggestionStatus,
+    aiConfidenceScore,
+    aiSuggestionFeedbackState,
+    submitAiSuggestionFeedback,
     assumeConversation,
     availableUsers,
     closeConversation,

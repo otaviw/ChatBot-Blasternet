@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Jobs\IndexKnowledgeItemJob;
 use App\Models\AiCompanyKnowledge;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Triggers async re-indexing of knowledge items whenever they are created,
@@ -19,6 +20,14 @@ class AiCompanyKnowledgeObserver
      */
     public function saved(AiCompanyKnowledge $item): void
     {
+        // Mark pending via raw query to avoid re-triggering this observer
+        DB::table('ai_company_knowledge')
+            ->where('id', (int) $item->id)
+            ->update([
+                'indexing_status' => AiCompanyKnowledge::INDEXING_PENDING,
+                'indexed_at'      => null,
+            ]);
+
         IndexKnowledgeItemJob::dispatch((int) $item->id)->afterCommit();
     }
 

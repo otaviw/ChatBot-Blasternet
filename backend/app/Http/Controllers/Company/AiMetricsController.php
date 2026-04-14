@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Company;
 
 use App\Http\Controllers\Controller;
+use App\Models\AiSuggestionFeedback;
 use App\Models\AiUsageLog;
 use App\Models\Company;
 use App\Models\User;
@@ -187,6 +188,19 @@ class AiMetricsController extends Controller
             ];
         }
 
+        // ── Feedback de sugestões ─────────────────────────────────────────────
+        $feedbackQuery = AiSuggestionFeedback::query()
+            ->join('ai_usage_logs', 'ai_suggestion_feedback.suggestion_id', '=', 'ai_usage_logs.id')
+            ->whereBetween('ai_suggestion_feedback.created_at', [$dateFrom, $dateTo]);
+
+        if (! $allCompanies && $companyId !== null) {
+            $feedbackQuery->where('ai_usage_logs.company_id', $companyId);
+        }
+
+        $feedbackTotal   = (clone $feedbackQuery)->count();
+        $feedbackHelpful = (clone $feedbackQuery)->where('ai_suggestion_feedback.helpful', true)->count();
+        $helpfulPct      = $feedbackTotal > 0 ? round($feedbackHelpful / $feedbackTotal * 100, 1) : null;
+
         return response()->json([
             'authenticated' => true,
             'is_admin' => $user->isSystemAdmin(),
@@ -208,6 +222,8 @@ class AiMetricsController extends Controller
                 'avg_response_time_ms' => $avgMs,
                 'p95_response_time_ms' => $p95Ms,
                 'total_tokens' => $totalTokens,
+                'feedback_total' => $feedbackTotal,
+                'feedback_helpful_pct' => $helpfulPct,
             ],
             'by_feature' => $byFeature,
             'by_provider' => $byProvider,

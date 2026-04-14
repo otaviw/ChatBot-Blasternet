@@ -8,6 +8,11 @@ use Illuminate\Database\Eloquent\Model;
 class AiCompanyKnowledge extends Model
 {
     use HasFactory;
+
+    public const INDEXING_PENDING = 'pending';
+    public const INDEXING_INDEXED = 'indexed';
+    public const INDEXING_FAILED  = 'failed';
+
     protected $table = 'ai_company_knowledge';
 
     protected $fillable = [
@@ -15,10 +20,13 @@ class AiCompanyKnowledge extends Model
         'title',
         'content',
         'is_active',
+        'indexing_status',
+        'indexed_at',
     ];
 
     protected $casts = [
-        'is_active' => 'boolean',
+        'is_active'      => 'boolean',
+        'indexed_at'     => 'datetime',
     ];
 
     public function company()

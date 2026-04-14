@@ -89,6 +89,13 @@ class AppServiceProvider extends ServiceProvider
                 ->by($this->limiterKey($request));
         });
 
+        RateLimiter::for('ai-sandbox', function (Request $request) {
+            $user = $request->user();
+            $key  = $user ? "user:{$user->id}" : $this->limiterKey($request);
+
+            return Limit::perMinute(20)->by($key);
+        });
+
         RateLimiter::for('simulation', function (Request $request) {
             return Limit::perMinute((int) env('RATE_LIMIT_SIMULATION', 30))
                 ->by($this->limiterKey($request));

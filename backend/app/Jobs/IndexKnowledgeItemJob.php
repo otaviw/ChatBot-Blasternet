@@ -11,6 +11,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -62,6 +63,10 @@ class IndexKnowledgeItemJob implements ShouldQueue
 
         if (! (bool) $item->is_active) {
             // Item deactivated — chunks removed above, nothing to re-index
+            DB::table('ai_company_knowledge')
+                ->where('id', (int) $item->id)
+                ->update(['indexing_status' => AiCompanyKnowledge::INDEXING_INDEXED, 'indexed_at' => now()]);
+
             return;
         }
 
@@ -94,11 +99,35 @@ class IndexKnowledgeItemJob implements ShouldQueue
             ]);
         }
 
+        // Mark item as indexed
+        DB::table('ai_company_knowledge')
+            ->where('id', (int) $item->id)
+            ->update([
+                'indexing_status' => AiCompanyKnowledge::INDEXING_INDEXED,
+                'indexed_at'      => now(),
+            ]);
+
         Log::debug('ai.rag.indexed', [
             'knowledge_item_id' => (int) $item->id,
             'company_id' => (int) $item->company_id,
             'chunks' => count($rawChunks),
             'model' => $embeddingModel,
+        ]);
+    }
+
+    /**
+     * Called when the job fails after exhausting all retry attempts.
+     * Marks the knowledge item as failed so the UI can surface the error.
+     */
+    public function failed(?\Throwable $exception): void
+    {
+        DB::table('ai_company_knowledge')
+            ->where('id', $this->knowledgeItemId)
+            ->update(['indexing_status' => AiCompanyKnowledge::INDEXING_FAILED]);
+
+        Log::error('ai.rag.index_failed', [
+            'knowledge_item_id' => $this->knowledgeItemId,
+            'error' => $exception?->getMessage(),
         ]);
     }
 }
