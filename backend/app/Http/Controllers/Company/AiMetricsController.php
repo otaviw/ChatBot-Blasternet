@@ -8,10 +8,12 @@ use App\Models\AiUsageLog;
 use App\Models\Company;
 use App\Models\User;
 use App\Services\Ai\AiAccessService;
+use App\Support\CacheKeys;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -55,6 +57,23 @@ class AiMetricsController extends Controller
         // ── Filtros opcionais ─────────────────────────────────────────────────
         $filterProvider = trim((string) $request->query('provider', ''));
         $filterFeature = trim((string) $request->query('feature', ''));
+
+        // ── Cache ─────────────────────────────────────────────────────────────
+        // Dados analíticos históricos toleram 5 min de defasagem. O ganho é alto:
+        // as queries abaixo fazem 6-7 round-trips com aggregations pesados e
+        // o PERCENTILE_CONT é especialmente caro em tabelas grandes.
+        $cacheKey = CacheKeys::aiMetrics(
+            companyScope: $allCompanies ? 'all' : (string) $companyId,
+            dateFrom: $dateFrom->toDateString(),
+            dateTo: $dateTo->toDateString(),
+            provider: $filterProvider,
+            feature: $filterFeature,
+        );
+
+        $cached = Cache::get($cacheKey);
+        if ($cached !== null) {
+            return response()->json($cached);
+        }
 
         // ── Query base ────────────────────────────────────────────────────────
         $base = AiUsageLog::query()
@@ -201,7 +220,7 @@ class AiMetricsController extends Controller
         $feedbackHelpful = (clone $feedbackQuery)->where('ai_suggestion_feedback.helpful', true)->count();
         $helpfulPct      = $feedbackTotal > 0 ? round($feedbackHelpful / $feedbackTotal * 100, 1) : null;
 
-        return response()->json([
+        $payload = [
             'authenticated' => true,
             'is_admin' => $user->isSystemAdmin(),
             'companies' => $companies,
@@ -229,7 +248,11 @@ class AiMetricsController extends Controller
             'by_provider' => $byProvider,
             'by_error_type' => $byErrorType,
             'daily' => $daily,
-        ]);
+        ];
+
+        Cache::put($cacheKey, $payload, now()->addMinutes(5));
+
+        return response()->json($payload);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

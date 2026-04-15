@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\Ai\AiAccessService;
 use App\Services\Company\CompanyConversationSupportService;
 use App\Services\ConversationInactivityService;
+use App\Support\CacheKeys;
 use App\Support\ConversationStatus;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -137,11 +138,18 @@ class ListCompanyConversationsAction
             ->toArray()
         );
 
-        $companyTags = Tag::query()
-            ->where('company_id', $companyId)
-            ->orderBy('name')
-            ->get(['id', 'name', 'color'])
-            ->toArray();
+        // Tags mudam raramente (admin cria/edita/exclui). Cache de 10 min evita a
+        // query repetida em cada carregamento do inbox. Invalidado explicitamente em
+        // ConversationTagController::store/update/destroy.
+        $companyTags = Cache::remember(
+            CacheKeys::companyTags($companyId),
+            now()->addMinutes(10),
+            fn () => Tag::query()
+                ->where('company_id', $companyId)
+                ->orderBy('name')
+                ->get(['id', 'name', 'color'])
+                ->toArray(),
+        );
 
         return [
             'authenticated' => true,

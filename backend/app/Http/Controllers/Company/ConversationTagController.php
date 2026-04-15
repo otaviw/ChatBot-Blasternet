@@ -7,9 +7,11 @@ use App\Models\Conversation;
 use App\Models\Tag;
 use App\Services\AuditLogService;
 use App\Services\RealtimePublisher;
+use App\Support\CacheKeys;
 use App\Support\RealtimeEvents;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 
 class ConversationTagController extends Controller
@@ -77,6 +79,8 @@ class ConversationTagController extends Controller
             'color'  => $tag->color,
         ]);
 
+        Cache::forget(CacheKeys::companyTags((int) $user->company_id));
+
         return response()->json(['ok' => true, 'tag' => $this->serializeTag($tag)], 201);
     }
 
@@ -119,6 +123,8 @@ class ConversationTagController extends Controller
             'color'  => $tag->color,
         ]);
 
+        Cache::forget(CacheKeys::companyTags((int) $user->company_id));
+
         return response()->json(['ok' => true, 'tag' => $this->serializeTag($tag)]);
     }
 
@@ -135,11 +141,14 @@ class ConversationTagController extends Controller
         }
 
         $tagId = $tag->id;
+        $companyId = (int) $user->company_id;
         $tag->delete(); // cascade deletes conversation_tag rows
 
-        $this->auditLog->record($request, 'company.tag.deleted', (int) $user->company_id, [
+        $this->auditLog->record($request, 'company.tag.deleted', $companyId, [
             'tag_id' => $tagId,
         ]);
+
+        Cache::forget(CacheKeys::companyTags($companyId));
 
         return response()->json(['ok' => true]);
     }

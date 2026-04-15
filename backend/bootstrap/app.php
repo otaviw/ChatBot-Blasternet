@@ -5,6 +5,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use App\Exceptions\ApiExceptionHandler;
 use App\Http\Middleware\EnsureAdmin;
+use App\Http\Middleware\RequestMetricsMiddleware;
 use App\Http\Middleware\SecurityHeadersMiddleware;
 use App\Http\Middleware\ValidateWhatsAppWebhookSignature;
 
@@ -21,7 +22,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // throttle:api-global cobre qualquer rota em routes/api.php que não tenha
         // um limiter próprio mais restritivo. Os limiters específicos (login, bot-write,
         // inbox-read, etc.) continuam tendo prioridade por ter seus próprios buckets.
-        $middleware->api(append: ['throttle:api-global']);
+        $middleware->api(append: [
+            'throttle:api-global',
+            RequestMetricsMiddleware::class,
+        ]);
 
         $middleware->alias([
             'admin'              => EnsureAdmin::class,

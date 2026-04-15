@@ -4,7 +4,9 @@ namespace App\Services\Company;
 
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Support\CacheKeys;
 use App\Support\ConversationStatus;
+use Illuminate\Support\Facades\Cache;
 
 class CompanyConversationCountersService
 {
@@ -12,6 +14,23 @@ class CompanyConversationCountersService
      * @return array<string, mixed>
      */
     public function buildForCompany(int $companyId): array
+    {
+        // Cache curto (30 s): equilibra consistência e custo de query.
+        // Este método é chamado em dois pontos quentes:
+        //   1. Polling do frontend (/conversas/contadores) — frequência alta
+        //   2. MessageObserver.created() — dispara a cada mensagem recebida/enviada
+        // Sem cache, cada mensagem nova causaria dois round-trips pesados ao banco.
+        // Invalidação explícita não é necessária: o sistema realtime já envia o
+        // dado atualizado via WebSocket; o cache só serve para reduzir o DB load.
+        return Cache::remember(
+            CacheKeys::conversationCounters($companyId),
+            now()->addSeconds(30),
+            fn () => $this->query($companyId),
+        );
+    }
+
+    /** @return array<string, mixed> */
+    private function query(int $companyId): array
     {
         $lastMessageDirectionSubquery = Message::query()
             ->select('direction')

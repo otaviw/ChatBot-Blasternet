@@ -2,6 +2,7 @@
 
 namespace App\Observers;
 
+use App\Logging\MetricsLogger;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Services\Company\CompanyConversationCountersService;
@@ -49,6 +50,14 @@ class MessageObserver implements ShouldHandleEventsAfterCommit
             return;
         }
 
+        MetricsLogger::message(
+            direction: (string) $message->direction,
+            contentType: (string) ($message->content_type ?: 'text'),
+            senderType: (string) $message->type,
+            conversationId: (int) $message->conversation_id,
+            companyId: (int) $conversation->company_id,
+        );
+
         $meta = is_array($message->meta) ? $message->meta : [];
 
         $this->publisher->publish(
@@ -80,7 +89,9 @@ class MessageObserver implements ShouldHandleEventsAfterCommit
                 'conversation' => $this->serializeConversation(
                     $conversation,
                     (int) $message->id,
-                    $message->created_at?->toISOString()
+                    $message->created_at?->toISOString(),
+                    $message->text,
+                    (string) $message->direction,
                 ),
             ],
             [
@@ -144,7 +155,7 @@ class MessageObserver implements ShouldHandleEventsAfterCommit
     /**
      * @return array<string, mixed>
      */
-    private function serializeConversation(Conversation $conversation, int $lastMessageId, ?string $lastMessageAt): array
+    private function serializeConversation(Conversation $conversation, int $lastMessageId, ?string $lastMessageAt, ?string $lastMessageText, string $lastMessageDirection): array
     {
         $tags = $conversation->relationLoaded('tags')
             ? $conversation->tags->map(fn ($t) => ['id' => (int) $t->id, 'name' => (string) $t->name, 'color' => (string) $t->color])->values()->toArray()
@@ -172,8 +183,8 @@ class MessageObserver implements ShouldHandleEventsAfterCommit
             ] : null,
             'last_message_id' => $lastMessageId,
             'last_message_at' => $lastMessageAt,
-            'last_message_text' => $message->text,
-            'last_message_direction' => (string) $message->direction,
+            'last_message_text' => $lastMessageText,
+            'last_message_direction' => $lastMessageDirection,
             'created_at' => $conversation->created_at?->toISOString(),
             'updated_at' => $conversation->updated_at?->toISOString(),
         ];
