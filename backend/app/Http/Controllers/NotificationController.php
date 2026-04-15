@@ -53,7 +53,7 @@ class NotificationController extends Controller
 
         if ((int) $notification->user_id !== (int) $user->id) {
             return response()->json([
-                'message' => 'Notificacao nao encontrada.',
+                'message' => 'Notificacao não encontrada.',
             ], 404);
         }
 

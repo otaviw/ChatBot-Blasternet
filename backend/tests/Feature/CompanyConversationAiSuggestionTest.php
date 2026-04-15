@@ -20,7 +20,7 @@ class CompanyConversationAiSuggestionTest extends TestCase
         config()->set('ai.model', 'test-model');
         config()->set('ai.providers.test.reply_prefix', '[AI-SUG]');
 
-        $company = Company::create(['name' => 'Empresa Sugestao OK']);
+        $company = Company::create(['name' => 'Empresa Sugestão OK']);
         $user = $this->createCompanyUser($company, 'suggest-ok@test.local', true);
         $conversation = $this->createConversation($company);
         $this->createAiSettings($company, [
@@ -71,7 +71,7 @@ class CompanyConversationAiSuggestionTest extends TestCase
     {
         config()->set('ai.provider', 'test');
 
-        $company = Company::create(['name' => 'Empresa Sugestao Sem Permissao']);
+        $company = Company::create(['name' => 'Empresa Sugestão Sem Permissão']);
         $user = $this->createCompanyUser($company, 'suggest-no-permission@test.local', false, User::ROLE_AGENT);
         $conversation = $this->createConversation($company);
         $this->createAiSettings($company, [
@@ -84,14 +84,14 @@ class CompanyConversationAiSuggestionTest extends TestCase
             ->postJson("/api/minha-conta/conversas/{$conversation->id}/ia/sugestao");
 
         $response->assertStatus(422);
-        $response->assertJsonPath('errors.user.0', 'Usuario nao possui permissao para usar IA interna.');
+        $response->assertJsonPath('errors.user.0', 'Usuário não possui permissão para usar IA interna.');
     }
 
     public function test_ai_suggestion_returns_422_when_company_ai_is_disabled(): void
     {
         config()->set('ai.provider', 'test');
 
-        $company = Company::create(['name' => 'Empresa Sugestao IA Off']);
+        $company = Company::create(['name' => 'Empresa Sugestão IA Off']);
         $user = $this->createCompanyUser($company, 'suggest-company-off@test.local', true);
         $conversation = $this->createConversation($company);
         $this->createAiSettings($company, [
@@ -104,7 +104,7 @@ class CompanyConversationAiSuggestionTest extends TestCase
             ->postJson("/api/minha-conta/conversas/{$conversation->id}/ia/sugestao");
 
         $response->assertStatus(422);
-        $response->assertJsonPath('errors.ai.0', 'IA interna nao esta habilitada para esta empresa.');
+        $response->assertJsonPath('errors.ai.0', 'IA interna não está habilitada para esta empresa.');
     }
 
     public function test_company_admin_can_generate_suggestion_even_when_can_use_ai_is_false(): void
@@ -112,7 +112,7 @@ class CompanyConversationAiSuggestionTest extends TestCase
         config()->set('ai.provider', 'test');
         config()->set('ai.providers.test.reply_prefix', '[AI-ADMIN]');
 
-        $company = Company::create(['name' => 'Empresa Sugestao Admin']);
+        $company = Company::create(['name' => 'Empresa Sugestão Admin']);
         $user = $this->createCompanyUser($company, 'suggest-admin@test.local', false, User::ROLE_COMPANY_ADMIN);
         $conversation = $this->createConversation($company);
         $this->createAiSettings($company, [
@@ -143,7 +143,7 @@ class CompanyConversationAiSuggestionTest extends TestCase
         config()->set('ai.model', 'test-model');
         config()->set('ai.providers.test.reply_prefix', '[AI-LIMIT]');
 
-        $company = Company::create(['name' => 'Empresa Sugestao Limite']);
+        $company = Company::create(['name' => 'Empresa Sugestão Limite']);
         $user = $this->createCompanyUser($company, 'suggest-limit@test.local', true);
         $conversation = $this->createConversation($company);
         $this->createAiSettings($company, [
@@ -180,8 +180,8 @@ class CompanyConversationAiSuggestionTest extends TestCase
     {
         config()->set('ai.provider', 'test');
 
-        $companyA = Company::create(['name' => 'Empresa Sugestao A']);
-        $companyB = Company::create(['name' => 'Empresa Sugestao B']);
+        $companyA = Company::create(['name' => 'Empresa Sugestão A']);
+        $companyB = Company::create(['name' => 'Empresa Sugestão B']);
 
         $userA = $this->createCompanyUser($companyA, 'suggest-company-a@test.local', true);
         $conversationB = $this->createConversation($companyB);
@@ -242,7 +242,7 @@ class CompanyConversationAiSuggestionTest extends TestCase
     ): User
     {
         return User::create([
-            'name' => 'Operador IA Sugestao',
+            'name' => 'Operador IA Sugestão',
             'email' => $email,
             'password' => 'secret123',
             'role' => $role,

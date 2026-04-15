@@ -33,7 +33,7 @@ class ValidateWhatsAppWebhookSignature
         // Configuração ausente é um erro nosso, não do cliente
         $secret = (string) config('whatsapp.app_secret', '');
         if ($secret === '') {
-            Log::error('Webhook WhatsApp bloqueado: WHATSAPP_APP_SECRET nao configurado.', $context);
+            Log::error('Webhook WhatsApp bloqueado: WHATSAPP_APP_SECRET não configurado.', $context);
 
             return response('Internal configuration error', 500);
         }
@@ -62,7 +62,7 @@ class ValidateWhatsAppWebhookSignature
 
         // Comprimento diferente => hash de algoritmo diferente ou truncado
         if (strlen($provided) !== strlen($expected)) {
-            Log::warning('Webhook WhatsApp rejeitado: tamanho de assinatura invalido.', array_merge($context, [
+            Log::warning('Webhook WhatsApp rejeitado: tamanho de assinatura inválido.', array_merge($context, [
                 'provided_length' => strlen($provided),
                 'expected_length' => strlen($expected),
                 'header_raw'      => substr($header, 0, 20) . '...',

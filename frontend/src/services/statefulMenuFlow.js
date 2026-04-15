@@ -135,7 +135,7 @@ function firstStep(steps) {
   };
 }
 
-function statefulMenuFlowToEditor(flow, welcomeMessage = 'Ola! O que voce precisa?') {
+function statefulMenuFlowToEditor(flow, welcomeMessage = 'Ola! O que você precisa?') {
   const source =
     flow && typeof flow === 'object' && !Array.isArray(flow)
       ? flow

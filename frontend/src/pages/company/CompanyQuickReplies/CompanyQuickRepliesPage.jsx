@@ -144,7 +144,7 @@ function CompanyQuickRepliesPage() {
                 {...register('title', {
                   required: 'Informe o titulo.',
                   minLength: { value: 2, message: 'Use ao menos 2 caracteres.' },
-                  maxLength: { value: 80, message: 'Use no maximo 80 caracteres.' },
+                  maxLength: { value: 80, message: 'Use no máximo 80 caracteres.' },
                   validate: (value) =>
                     String(value ?? '').trim().length >= 2 || 'Use ao menos 2 caracteres validos.',
                 })}
@@ -160,7 +160,7 @@ function CompanyQuickRepliesPage() {
               Texto da resposta
               <textarea
                 rows={4}
-                placeholder="Ex: Ola! Como posso ajudar voce hoje?"
+                placeholder="Ex: Ola! Como posso ajudar você hoje?"
                 className="app-input"
                 aria-invalid={errors.text ? 'true' : 'false'}
                 aria-describedby={errors.text ? 'quick-reply-text-error' : undefined}

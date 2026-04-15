@@ -327,7 +327,7 @@ describe('PUT /minha-conta/conversas/{id}/tags', function () {
     });
 
     it('retorna 422 quando tags não é array', function () {
-        $company = Company::create(['name' => 'Empresa Tags Invalido']);
+        $company = Company::create(['name' => 'Empresa Tags Inválido']);
         $agent   = makeAgent($company);
         $conv    = makeOpenConversation($company);
 

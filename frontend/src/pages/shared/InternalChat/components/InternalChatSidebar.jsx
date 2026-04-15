@@ -106,8 +106,8 @@ function InternalChatSidebar({
                   event.stopPropagation();
                   onOpenConversationOptions(conversation);
                 }}
-                title="Opcoes da conversa"
-                aria-label="Opcoes da conversa"
+                title="Opções da conversa"
+                aria-label="Opções da conversa"
               >
                 ...
               </button>

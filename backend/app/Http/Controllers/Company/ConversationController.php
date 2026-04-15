@@ -115,7 +115,7 @@ class ConversationController extends Controller
         $payload = $action->handle($user, $conversationId, (string) $validated['q'], $messagesPerPage);
         if (! $payload) {
             return response()->json([
-                'message' => 'Conversa nao encontrada para esta empresa.',
+                'message' => 'Conversa não encontrada para esta empresa.',
             ], 404);
         }
 
@@ -135,7 +135,7 @@ class ConversationController extends Controller
         $payload = $action->handle($user, $conversationId, $request);
         if (! $payload) {
             return response()->json([
-                'message' => 'Conversa nao encontrada para esta empresa.',
+                'message' => 'Conversa não encontrada para esta empresa.',
             ], 404);
         }
 
@@ -175,14 +175,14 @@ class ConversationController extends Controller
             $message = collect($errors)->flatten()->first();
 
             return response()->json([
-                'message' => $message ?: 'Nao foi possivel gerar sugestao da IA.',
+                'message' => $message ?: 'Não foi possível gerar sugestão da IA.',
                 'errors' => $errors,
             ], 422);
         }
 
         if (! $payload) {
             return response()->json([
-                'message' => 'Conversa nao encontrada para esta empresa.',
+                'message' => 'Conversa não encontrada para esta empresa.',
             ], 404);
         }
 
@@ -201,7 +201,7 @@ class ConversationController extends Controller
 
         $conversation = $action->handle($request, $user, $conversationId);
         if (! $conversation) {
-            return response()->json(['message' => 'Conversa nao encontrada para esta empresa.'], 404);
+            return response()->json(['message' => 'Conversa não encontrada para esta empresa.'], 404);
         }
 
         return response()->json([
@@ -226,7 +226,7 @@ class ConversationController extends Controller
             ->first();
 
         if (! $conversation) {
-            return response()->json(['message' => 'Conversa nao encontrada para esta empresa.'], 404);
+            return response()->json(['message' => 'Conversa não encontrada para esta empresa.'], 404);
         }
 
         $conversation->handling_mode = ConversationHandlingMode::BOT;
@@ -272,7 +272,7 @@ class ConversationController extends Controller
             ->first();
 
         if (! $conversation) {
-            return response()->json(['message' => 'Conversa nao encontrada para esta empresa.'], 404);
+            return response()->json(['message' => 'Conversa não encontrada para esta empresa.'], 404);
         }
 
         if (! $conversation->isManualMode()) {
@@ -431,7 +431,7 @@ class ConversationController extends Controller
             ->first();
 
         if (! $conversation) {
-            return response()->json(['message' => 'Conversa nao encontrada para esta empresa.'], 404);
+            return response()->json(['message' => 'Conversa não encontrada para esta empresa.'], 404);
         }
 
         $prevAssignedType = (string) $conversation->assigned_type;
@@ -487,7 +487,7 @@ class ConversationController extends Controller
             ->first();
 
         if (! $conversation) {
-            return response()->json(['message' => 'Conversa nao encontrada para esta empresa.'], 404);
+            return response()->json(['message' => 'Conversa não encontrada para esta empresa.'], 404);
         }
 
         $tags = collect($validated['tags'])
@@ -531,7 +531,7 @@ class ConversationController extends Controller
             ->first();
 
         if (! $conversation) {
-            return response()->json(['message' => 'Conversa nao encontrada para esta empresa.'], 404);
+            return response()->json(['message' => 'Conversa não encontrada para esta empresa.'], 404);
         }
 
         $customerName = trim((string) ($validated['customer_name'] ?? ''));
@@ -583,7 +583,7 @@ class ConversationController extends Controller
         }
 
         if (! $payload) {
-            return response()->json(['message' => 'Conversa nao encontrada para esta empresa.'], 404);
+            return response()->json(['message' => 'Conversa não encontrada para esta empresa.'], 404);
         }
 
         return response()->json($payload);

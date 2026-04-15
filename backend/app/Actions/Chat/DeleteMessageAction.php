@@ -25,19 +25,19 @@ class DeleteMessageAction
 
         if ($this->chatService->isConversationDeleted($conversation)) {
             return response()->json([
-                'message' => 'Conversa nao encontrada.',
+                'message' => 'Conversa não encontrada.',
             ], 404);
         }
 
         if (! $this->chatService->isVisibleParticipant($conversation, (int) $user->id)) {
             return response()->json([
-                'message' => 'Sem permissao para apagar mensagem nesta conversa.',
+                'message' => 'Sem permissão para apagar mensagem nesta conversa.',
             ], 403);
         }
 
         if (! $this->chatService->belongsToConversation($conversation, $message)) {
             return response()->json([
-                'message' => 'Mensagem nao pertence a conversa informada.',
+                'message' => 'Mensagem não pertence a conversa informada.',
             ], 404);
         }
 

@@ -31,7 +31,7 @@ describe('WelcomeUserMail', function () {
 
         $this->actingAs($actor)
             ->postJson('/api/admin/users', [
-                'name' => 'Novo Usuario',
+                'name' => 'Novo Usuário',
                 'email' => 'novo@empresa.com',
                 'password' => 'senha1234',
                 'role' => User::ROLE_COMPANY_ADMIN,
@@ -54,7 +54,7 @@ describe('WelcomeUserMail', function () {
 
         $this->actingAs($actor)
             ->postJson('/api/admin/users', [
-                'name' => 'Usuario Inativo',
+                'name' => 'Usuário Inativo',
                 'email' => 'inativo@empresa.com',
                 'password' => 'senha1234',
                 'role' => User::ROLE_COMPANY_ADMIN,

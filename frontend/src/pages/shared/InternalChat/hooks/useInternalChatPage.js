@@ -71,7 +71,7 @@ export default function useInternalChatPage({
       setRecipientsError(
         parseErrorMessage(
           requestError,
-          'Nao foi possivel carregar a lista de usuarios para iniciar conversa.'
+          'Não foi possível carregar a lista de usuários para iniciar conversa.'
         )
       );
       return [];
@@ -121,7 +121,7 @@ export default function useInternalChatPage({
   const handleCreateDirectConversation = useCallback(async () => {
     const recipientId = Number.parseInt(String(selectedRecipientId ?? ''), 10);
     if (!recipientId) {
-      setCreateError('Selecione um usuario para iniciar a conversa.');
+      setCreateError('Selecione um usuário para iniciar a conversa.');
       return;
     }
 
@@ -135,7 +135,7 @@ export default function useInternalChatPage({
       });
 
       if (!response.conversation?.id) {
-        throw new Error('Resposta da API nao retornou a conversa criada.');
+        throw new Error('Resposta da API não retornou a conversa criada.');
       }
 
       setConversations((previous) =>
@@ -151,7 +151,7 @@ export default function useInternalChatPage({
       setCreateError(
         parseErrorMessage(
           requestError,
-          'Nao foi possivel iniciar a nova conversa interna.'
+          'Não foi possível iniciar a nova conversa interna.'
         )
       );
     } finally {
@@ -182,7 +182,7 @@ export default function useInternalChatPage({
       });
 
       if (!response.conversation?.id) {
-        throw new Error('Resposta da API nao retornou a conversa criada.');
+        throw new Error('Resposta da API não retornou a conversa criada.');
       }
 
       setConversations((previous) =>
@@ -198,7 +198,7 @@ export default function useInternalChatPage({
       setCreateError(
         parseErrorMessage(
           requestError,
-          'Nao foi possivel criar o grupo.'
+          'Não foi possível criar o grupo.'
         )
       );
     } finally {
@@ -367,7 +367,7 @@ export default function useInternalChatPage({
       closeConversationOptionsModal();
     } catch (requestError) {
       setConversationOptionsError(
-        parseErrorMessage(requestError, 'Nao foi possivel apagar a conversa.')
+        parseErrorMessage(requestError, 'Não foi possível apagar a conversa.')
       );
     } finally {
       setConversationOptionsBusy(false);
@@ -402,7 +402,7 @@ export default function useInternalChatPage({
       }
     } catch (requestError) {
       setConversationOptionsError(
-        parseErrorMessage(requestError, 'Nao foi possivel alterar o nome do grupo.')
+        parseErrorMessage(requestError, 'Não foi possível alterar o nome do grupo.')
       );
     } finally {
       setConversationOptionsBusy(false);
@@ -439,7 +439,7 @@ export default function useInternalChatPage({
         }
       } catch (requestError) {
         setParticipantsModalError(
-          parseErrorMessage(requestError, 'Nao foi possivel adicionar participante ao grupo.')
+          parseErrorMessage(requestError, 'Não foi possível adicionar participante ao grupo.')
         );
       } finally {
         setParticipantsModalBusy(false);
@@ -471,7 +471,7 @@ export default function useInternalChatPage({
         }
       } catch (requestError) {
         setParticipantsModalError(
-          parseErrorMessage(requestError, 'Nao foi possivel remover participante do grupo.')
+          parseErrorMessage(requestError, 'Não foi possível remover participante do grupo.')
         );
       } finally {
         setParticipantsModalBusy(false);
@@ -504,7 +504,7 @@ export default function useInternalChatPage({
         }
       } catch (requestError) {
         setParticipantsModalError(
-          parseErrorMessage(requestError, 'Nao foi possivel atualizar permissao de admin.')
+          parseErrorMessage(requestError, 'Não foi possível atualizar permissão de admin.')
         );
       } finally {
         setParticipantsModalBusy(false);
@@ -535,7 +535,7 @@ export default function useInternalChatPage({
       closeConversationOptionsModal();
     } catch (requestError) {
       setConversationOptionsError(
-        parseErrorMessage(requestError, 'Nao foi possivel sair do grupo.')
+        parseErrorMessage(requestError, 'Não foi possível sair do grupo.')
       );
     } finally {
       setConversationOptionsBusy(false);
@@ -567,7 +567,7 @@ export default function useInternalChatPage({
       closeConversationOptionsModal();
     } catch (requestError) {
       setConversationOptionsError(
-        parseErrorMessage(requestError, 'Nao foi possivel apagar o grupo.')
+        parseErrorMessage(requestError, 'Não foi possível apagar o grupo.')
       );
     } finally {
       setConversationOptionsBusy(false);

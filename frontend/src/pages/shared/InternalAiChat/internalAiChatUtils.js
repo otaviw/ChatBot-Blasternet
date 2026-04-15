@@ -5,8 +5,8 @@ export const toStatusCode = (error) => Number(error?.response?.status ?? 0);
 export const parseRequestErrorMessage = (
   error,
   {
-    fallback422 = 'Nao foi possivel concluir a solicitacao.',
-    fallback404 = 'Registro nao encontrado.',
+    fallback422 = 'Não foi possível concluir a solicitacao.',
+    fallback404 = 'Registro não encontrado.',
     fallbackUnexpected = 'Ocorreu uma falha inesperada. Tente novamente.',
   } = {},
 ) => {

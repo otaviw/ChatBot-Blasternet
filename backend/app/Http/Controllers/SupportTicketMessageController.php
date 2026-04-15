@@ -29,7 +29,7 @@ class SupportTicketMessageController extends Controller
 
         if ((int) ($ticket->requester_user_id ?? 0) !== (int) $user->id) {
             return response()->json([
-                'message' => 'Voce nao tem permissao para visualizar este chat.',
+                'message' => 'Você não tem permissão para visualizar este chat.',
             ], 403);
         }
 
@@ -45,7 +45,7 @@ class SupportTicketMessageController extends Controller
 
         if ((int) ($ticket->requester_user_id ?? 0) !== (int) $user->id) {
             return response()->json([
-                'message' => 'Voce nao tem permissao para enviar mensagens neste chat.',
+                'message' => 'Você não tem permissão para enviar mensagens neste chat.',
             ], 403);
         }
 
@@ -156,7 +156,7 @@ class SupportTicketMessageController extends Controller
 
         if (! $createdMessage instanceof SupportTicketMessage) {
             return response()->json([
-                'message' => 'Nao foi possivel enviar a mensagem.',
+                'message' => 'Não foi possível enviar a mensagem.',
             ], 500);
         }
 
@@ -188,7 +188,7 @@ class SupportTicketMessageController extends Controller
             'id' => (int) $message->id,
             'support_ticket_id' => (int) $message->support_ticket_id,
             'sender_user_id' => $message->sender_user_id ? (int) $message->sender_user_id : null,
-            'sender_name' => (string) ($sender?->name ?? 'Usuario'),
+            'sender_name' => (string) ($sender?->name ?? 'Usuário'),
             'sender_is_admin' => $sender ? (bool) $sender->isSystemAdmin() : false,
             'type' => (string) $message->type,
             'content' => (string) ($message->content ?? ''),
@@ -198,8 +198,8 @@ class SupportTicketMessageController extends Controller
                     ->values()
                     ->all()
                 : [],
-            'created_at' => $message->created_at?->toISOString(),
-            'updated_at' => $message->updated_at?->toISOString(),
+            'created_at' => $message->created_até->toISOString(),
+            'updated_at' => $message->updated_até->toISOString(),
         ];
     }
 

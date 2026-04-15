@@ -55,14 +55,14 @@ class InternalAiConversationService
 
         if (! $user->isSystemAdmin() && (int) $conversation->company_id !== (int) $user->company_id) {
             throw ValidationException::withMessages([
-                'conversation' => ['Conversa de IA nao pertence a empresa do usuario.'],
+                'conversation' => ['Conversa de IA não pertence a empresa do usuário.'],
             ]);
         }
 
         if ($conversation->opened_by_user_id !== null
             && (int) $conversation->opened_by_user_id !== (int) $user->id) {
             throw ValidationException::withMessages([
-                'conversation' => ['Conversa de IA nao pertence ao usuario autenticado.'],
+                'conversation' => ['Conversa de IA não pertence ao usuário autenticado.'],
             ]);
         }
     }
@@ -119,9 +119,9 @@ class InternalAiConversationService
             'origin' => (string) $conversation->origin,
             'title' => $conversation->title ? (string) $conversation->title : null,
             'last_message' => $lastMessage ? $this->serializeMessage($lastMessage) : null,
-            'last_message_at' => $conversation->last_message_at?->toISOString(),
-            'created_at' => $conversation->created_at?->toISOString(),
-            'updated_at' => $conversation->updated_at?->toISOString(),
+            'last_message_at' => $conversation->last_message_até->toISOString(),
+            'created_at' => $conversation->created_até->toISOString(),
+            'updated_at' => $conversation->updated_até->toISOString(),
         ];
     }
 
@@ -157,8 +157,8 @@ class InternalAiConversationService
                 ? (int) $message->response_time_ms
                 : null,
             'meta' => is_array($message->meta) ? $message->meta : [],
-            'created_at' => $message->created_at?->toISOString(),
-            'updated_at' => $message->updated_at?->toISOString(),
+            'created_at' => $message->created_até->toISOString(),
+            'updated_at' => $message->updated_até->toISOString(),
         ];
     }
 
@@ -191,7 +191,7 @@ class InternalAiConversationService
 
         if (! (bool) $user->is_active || $companyId <= 0) {
             throw ValidationException::withMessages([
-                'user' => ['Usuario sem empresa vinculada para usar o chat interno com IA.'],
+                'user' => ['Usuário sem empresa vinculada para usar o chat interno com IA.'],
             ]);
         }
 

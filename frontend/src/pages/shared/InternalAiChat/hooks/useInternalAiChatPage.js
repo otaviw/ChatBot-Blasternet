@@ -137,8 +137,8 @@ export default function useInternalAiChatPage({ enabled, companyId = null }) {
         if (!append) {
           setConversationsError(
             parseRequestErrorMessage(requestError, {
-              fallback422: 'Nao foi possivel carregar a lista de conversas.',
-              fallback404: 'Nao foi possivel localizar as conversas.',
+              fallback422: 'Não foi possível carregar a lista de conversas.',
+              fallback404: 'Não foi possível localizar as conversas.',
               fallbackUnexpected: 'Falha ao carregar conversas do chat interno com IA.',
             })
           );
@@ -184,7 +184,7 @@ export default function useInternalAiChatPage({ enabled, companyId = null }) {
         });
 
         if (!response.conversation) {
-          throw new Error('Conversa nao encontrada.');
+          throw new Error('Conversa não encontrada.');
         }
 
         shouldScrollToBottomRef.current = true;
@@ -203,8 +203,8 @@ export default function useInternalAiChatPage({ enabled, companyId = null }) {
         setDetail(null);
         setDetailError(
           parseRequestErrorMessage(requestError, {
-            fallback422: 'Nao foi possivel abrir a conversa selecionada.',
-            fallback404: 'Conversa nao encontrada para seu usuario.',
+            fallback422: 'Não foi possível abrir a conversa selecionada.',
+            fallback404: 'Conversa não encontrada para seu usuário.',
             fallbackUnexpected: 'Falha ao carregar detalhes da conversa.',
           })
         );
@@ -364,7 +364,7 @@ export default function useInternalAiChatPage({ enabled, companyId = null }) {
     try {
       const response = await createInternalAiConversation({ companyId });
       if (!response.conversation?.id) {
-        throw new Error('Conversa nao retornada pela API.');
+        throw new Error('Conversa não retornada pela API.');
       }
 
       setConversations((previous) =>
@@ -375,8 +375,8 @@ export default function useInternalAiChatPage({ enabled, companyId = null }) {
     } catch (requestError) {
       setCreateError(
         parseRequestErrorMessage(requestError, {
-          fallback422: 'Nao foi possivel criar uma nova conversa de IA.',
-          fallback404: 'Endpoint de conversa nao encontrado.',
+          fallback422: 'Não foi possível criar uma nova conversa de IA.',
+          fallback404: 'Endpoint de conversa não encontrado.',
           fallbackUnexpected: 'Falha ao criar conversa interna com IA.',
         })
       );

@@ -30,7 +30,7 @@ class AddGroupParticipantAction
 
         if ($this->chatService->isConversationDeleted($conversation)) {
             return response()->json([
-                'message' => 'Grupo nao encontrado.',
+                'message' => 'Grupo não encontrado.',
             ], 404);
         }
 
@@ -42,7 +42,7 @@ class AddGroupParticipantAction
 
         if (! $this->chatService->isVisibleParticipant($conversation, (int) $user->id)) {
             return response()->json([
-                'message' => 'Sem permissao para alterar este grupo.',
+                'message' => 'Sem permissão para alterar este grupo.',
             ], 403);
         }
 
@@ -71,13 +71,13 @@ class AddGroupParticipantAction
 
         if (! $participantUser instanceof User) {
             throw ValidationException::withMessages([
-                'participant_id' => ['Usuario invalido ou inativo.'],
+                'participant_id' => ['Usuário inválido ou inativo.'],
             ]);
         }
 
         if (! $this->chatPolicy->canMessage($user, $participantUser)) {
             throw ValidationException::withMessages([
-                'participant_id' => ['Sem permissao para adicionar este participante.'],
+                'participant_id' => ['Sem permissão para adicionar este participante.'],
             ]);
         }
 
@@ -89,7 +89,7 @@ class AddGroupParticipantAction
 
         if ($activeParticipant) {
             throw ValidationException::withMessages([
-                'participant_id' => ['Este usuario ja participa do grupo.'],
+                'participant_id' => ['Este usuário já participa do grupo.'],
             ]);
         }
 

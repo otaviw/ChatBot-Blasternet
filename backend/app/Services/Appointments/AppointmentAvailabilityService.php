@@ -463,7 +463,7 @@ class AppointmentAvailabilityService
         $matchesMinute = $minutesOfDay % $interval === 0;
         if (! $matchesMinute || (int) $startsAt->second !== 0) {
             throw ValidationException::withMessages([
-                'starts_at' => ["Horario invalido. Use intervalos de {$interval} minutos."],
+                'starts_at' => ["Horario inválido. Use intervalos de {$interval} minutos."],
             ]);
         }
     }
@@ -473,7 +473,7 @@ class AppointmentAvailabilityService
         $minimumAllowed = now($timezone)->addMinutes($minNoticeMinutes);
         if ($startsAt->lt($minimumAllowed)) {
             throw ValidationException::withMessages([
-                'starts_at' => ['Horario invalido por antecedencia minima de agendamento.'],
+                'starts_at' => ['Horario inválido por antecedencia minima de agendamento.'],
             ]);
         }
     }
@@ -565,7 +565,7 @@ class AppointmentAvailabilityService
 
         if (! $service) {
             throw ValidationException::withMessages([
-                'service_id' => ['Servico nao encontrado ou inativo para esta empresa.'],
+                'service_id' => ['Serviço não encontrado ou inativo para esta empresa.'],
             ]);
         }
 

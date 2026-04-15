@@ -176,7 +176,7 @@ class TransferConversationService
 
             if (! $user) {
                 throw ValidationException::withMessages([
-                    'id' => ['Usuario destino nao encontrado para esta empresa.'],
+                    'id' => ['Usuário destino não encontrado para esta empresa.'],
                 ]);
             }
 

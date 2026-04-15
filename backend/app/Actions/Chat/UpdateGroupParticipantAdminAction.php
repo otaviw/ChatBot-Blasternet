@@ -25,25 +25,25 @@ class UpdateGroupParticipantAdminAction
 
         if ($this->chatService->isConversationDeleted($conversation)) {
             return response()->json([
-                'message' => 'Grupo nao encontrado.',
+                'message' => 'Grupo não encontrado.',
             ], 404);
         }
 
         if ((string) $conversation->type !== 'group') {
             return response()->json([
-                'message' => 'Apenas grupos permitem alterar permissao de admin.',
+                'message' => 'Apenas grupos permitem alterar permissão de admin.',
             ], 422);
         }
 
         if (! $this->chatService->isVisibleParticipant($conversation, (int) $user->id)) {
             return response()->json([
-                'message' => 'Sem permissao para alterar este grupo.',
+                'message' => 'Sem permissão para alterar este grupo.',
             ], 403);
         }
 
         if (! $this->chatService->isGroupAdmin($conversation, (int) $user->id)) {
             return response()->json([
-                'message' => 'Somente admins podem alterar permissao de admin.',
+                'message' => 'Somente admins podem alterar permissão de admin.',
             ], 403);
         }
 
@@ -61,7 +61,7 @@ class UpdateGroupParticipantAdminAction
         $makeAdmin = filter_var($isAdminRaw, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
         if ($makeAdmin === null) {
             throw ValidationException::withMessages([
-                'is_admin' => ['Valor invalido para permissao de admin.'],
+                'is_admin' => ['Valor inválido para permissão de admin.'],
             ]);
         }
 
@@ -73,7 +73,7 @@ class UpdateGroupParticipantAdminAction
 
         if (! $targetPivot) {
             return response()->json([
-                'message' => 'Participante nao encontrado no grupo.',
+                'message' => 'Participante não encontrado no grupo.',
             ], 404);
         }
 

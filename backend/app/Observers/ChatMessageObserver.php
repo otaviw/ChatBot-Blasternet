@@ -73,7 +73,7 @@ class ChatMessageObserver implements ShouldHandleEventsAfterCommit
             'id' => (int) $message->id,
             'conversation_id' => (int) $message->conversation_id,
             'sender_id' => (int) $message->sender_id,
-            'sender_name' => (string) ($message->sender?->name ?? 'Usuario'),
+            'sender_name' => (string) ($message->sender?->name ?? 'Usuário'),
             'type' => (string) $message->type,
             'content' => $isDeleted ? 'Mensagem apagada' : (string) ($message->content ?? ''),
             'metadata' => is_array($message->metadata) ? $message->metadata : [],
@@ -83,10 +83,10 @@ class ChatMessageObserver implements ShouldHandleEventsAfterCommit
                     ->map(fn (ChatAttachment $attachment): array => $this->serializeAttachment($attachment))
                     ->values()
                     ->all(),
-            'created_at' => $message->created_at?->toISOString(),
-            'updated_at' => $message->updated_at?->toISOString(),
-            'edited_at' => $message->edited_at?->toISOString(),
-            'deleted_at' => $message->deleted_at?->toISOString(),
+            'created_at' => $message->created_até->toISOString(),
+            'updated_at' => $message->updated_até->toISOString(),
+            'edited_at' => $message->edited_até->toISOString(),
+            'deleted_at' => $message->deleted_até->toISOString(),
             'is_deleted' => $isDeleted,
         ];
     }

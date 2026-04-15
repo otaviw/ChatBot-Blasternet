@@ -38,7 +38,7 @@ class SupportTicketTest extends TestCase
 
         $second = $this->actingAs($user)->postJson('/api/suporte/solicitacoes', [
             'subject' => 'Erro no filtro',
-            'message' => 'Nao consigo filtrar por tags.',
+            'message' => 'Não consigo filtrar por tags.',
         ]);
         $second->assertStatus(201);
         $second->assertJsonPath('ticket.ticket_number', 2);
@@ -72,7 +72,7 @@ class SupportTicketTest extends TestCase
             'requester_contact' => $owner->email,
             'requester_company_name' => $company->name,
             'subject' => 'Chamado do dono',
-            'message' => 'Descricao do dono',
+            'message' => 'Descrição do dono',
             'status' => SupportTicket::STATUS_OPEN,
         ]);
         SupportTicket::create([
@@ -130,7 +130,7 @@ class SupportTicketTest extends TestCase
             'requester_contact' => $agent->email,
             'requester_company_name' => $company->name,
             'subject' => 'Chamado aberto',
-            'message' => 'Descricao teste',
+            'message' => 'Descrição teste',
             'status' => SupportTicket::STATUS_OPEN,
         ]);
 
@@ -165,7 +165,7 @@ class SupportTicketTest extends TestCase
         $ticketA = SupportTicket::create([
             'ticket_number' => 1,
             'company_id' => $companyA->id,
-            'requester_name' => 'Usuario A',
+            'requester_name' => 'Usuário A',
             'requester_contact' => 'a@test.local',
             'requester_company_name' => $companyA->name,
             'subject' => 'Ticket A',
@@ -175,7 +175,7 @@ class SupportTicketTest extends TestCase
         SupportTicket::create([
             'ticket_number' => 2,
             'company_id' => $companyB->id,
-            'requester_name' => 'Usuario B',
+            'requester_name' => 'Usuário B',
             'requester_contact' => 'b@test.local',
             'requester_company_name' => $companyB->name,
             'subject' => 'Ticket B',

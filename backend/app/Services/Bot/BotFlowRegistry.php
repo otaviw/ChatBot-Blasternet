@@ -449,7 +449,7 @@ class BotFlowRegistry
                 'on_text' => [
                     'kind' => 'handoff',
                     'target_area_name' => self::AREA_SUPPORT,
-                    'reply_text' => 'Perfeito, vou encaminhar sua descricao para o Suporte.',
+                    'reply_text' => 'Perfeito, vou encaminhar sua descrição para o Suporte.',
                 ],
             ],
         ];

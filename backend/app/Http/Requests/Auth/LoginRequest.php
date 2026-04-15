@@ -37,7 +37,7 @@ class LoginRequest extends FormRequest
     {
         return [
             'email.required'    => 'Informe o e-mail.',
-            'email.email'       => 'E-mail invalido.',
+            'email.email'       => 'E-mail inválido.',
             'email.max'         => 'E-mail muito longo.',
             'password.required' => 'Informe a senha.',
         ];

@@ -80,7 +80,7 @@ export const normalizeUser = (raw) => {
 
   return {
     id,
-    name: String(raw.name ?? raw.full_name ?? `Usuario #${id}`),
+    name: String(raw.name ?? raw.full_name ?? `Usuário #${id}`),
     email: raw.email ? String(raw.email) : '',
     role: raw.role ? String(raw.role) : '',
     company_id: toInteger(raw.company_id, raw.companyId),
@@ -140,7 +140,7 @@ export const normalizeMessage = (raw) => {
     id,
     conversation_id: conversationId,
     sender_id: normalizedSenderId,
-    sender_name: String(raw.sender_name ?? sender?.name ?? raw.user_name ?? 'Usuario'),
+    sender_name: String(raw.sender_name ?? sender?.name ?? raw.user_name ?? 'Usuário'),
     type,
     content,
     metadata,

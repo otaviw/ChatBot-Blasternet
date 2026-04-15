@@ -145,14 +145,14 @@ export async function getUsers(companyId) {
 export async function updateUserPermission(userId, canUseAi, companyId) {
   const normalizedUserId = toPositiveInt(userId);
   if (!normalizedUserId) {
-    throw new Error('Usuario invalido.');
+    throw new Error('Usuário inválido.');
   }
 
   const usersResponse = await getUsers(companyId);
   const currentUser = (usersResponse.users ?? []).find((item) => item.id === normalizedUserId);
 
   if (!currentUser) {
-    throw new Error('Usuario nao encontrado.');
+    throw new Error('Usuário não encontrado.');
   }
 
   const payload = {

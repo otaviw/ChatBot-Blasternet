@@ -56,7 +56,7 @@ class JwtTokenService
     {
         $secret = trim((string) config('realtime.jwt.secret', ''));
         if ($secret === '') {
-            throw new RuntimeException('REALTIME_JWT_SECRET nao configurado.');
+            throw new RuntimeException('REALTIME_JWT_SECRET não configurado.');
         }
 
         return $secret;

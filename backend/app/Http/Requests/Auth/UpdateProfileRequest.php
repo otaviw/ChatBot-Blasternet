@@ -36,7 +36,7 @@ class UpdateProfileRequest extends FormRequest
         return [
             'name.required' => 'Informe o nome.',
             'name.min'      => 'O nome deve ter pelo menos 2 caracteres.',
-            'name.max'      => 'O nome nao pode ultrapassar 255 caracteres.',
+            'name.max'      => 'O nome não pode ultrapassar 255 caracteres.',
         ];
     }
 }

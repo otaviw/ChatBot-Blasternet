@@ -60,7 +60,7 @@ class RealtimeTokenController extends Controller
 
         if (! $this->canJoinConversation($user, $conversation)) {
             return response()->json([
-                'message' => 'Sem permissao para entrar na room desta conversa.',
+                'message' => 'Sem permissão para entrar na room desta conversa.',
             ], 403);
         }
 
@@ -99,7 +99,7 @@ class RealtimeTokenController extends Controller
 
         if (! $this->canJoinChatConversation($user, $chatConversation)) {
             return response()->json([
-                'message' => 'Sem permissao para entrar na room deste chat.',
+                'message' => 'Sem permissão para entrar na room deste chat.',
             ], 403);
         }
 
@@ -138,7 +138,7 @@ class RealtimeTokenController extends Controller
 
         if (! $this->canJoinConversation($user, $conversation)) {
             return response()->json([
-                'message' => 'Sem permissao para atualizar presenca desta conversa.',
+                'message' => 'Sem permissão para atualizar presenca desta conversa.',
             ], 403);
         }
 
@@ -159,7 +159,7 @@ class RealtimeTokenController extends Controller
 
         if (! $this->canJoinConversation($user, $conversation)) {
             return response()->json([
-                'message' => 'Sem permissao para atualizar presenca desta conversa.',
+                'message' => 'Sem permissão para atualizar presenca desta conversa.',
             ], 403);
         }
 

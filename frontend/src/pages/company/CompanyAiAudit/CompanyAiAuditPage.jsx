@@ -129,7 +129,7 @@ function CompanyAiAuditPage() {
       const response = await api.get(detailUrl);
       setDetailItem(response.data?.item ?? null);
     } catch (err) {
-      setDetailError(err.response?.data?.message ?? 'Nao foi possivel carregar o detalhe.');
+      setDetailError(err.response?.data?.message ?? 'Não foi possível carregar o detalhe.');
     } finally {
       setDetailLoading(false);
     }
@@ -154,7 +154,7 @@ function CompanyAiAuditPage() {
   if (error || !data?.authenticated) {
     return (
       <Layout role={layoutRole} onLogout={logout}>
-        <p className="text-sm text-red-600">Nao foi possivel carregar a auditoria da IA.</p>
+        <p className="text-sm text-red-600">Não foi possível carregar a auditoria da IA.</p>
       </Layout>
     );
   }
@@ -163,7 +163,7 @@ function CompanyAiAuditPage() {
     <Layout role={layoutRole} onLogout={logout}>
       <PageHeader
         title="Auditoria da IA"
-        subtitle="Acompanhe tudo o que a IA fez com logs completos para debug e confianca."
+        subtitle="Acompanhe tudo o que a IA fez com logs completos para debug e confiança."
         action={isAdmin && companies.length > 0 ? (
           <select
             value={selectedCompanyId}
@@ -183,7 +183,7 @@ function CompanyAiAuditPage() {
       <Card className="mb-4 p-4">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-5">
           <label className="text-sm text-[#334155]">
-            Usuario
+            Usuário
             <select
               value={draftFilters.userId}
               onChange={(event) =>
@@ -259,28 +259,28 @@ function CompanyAiAuditPage() {
               <table className="min-w-full text-sm app-responsive-table">
                 <thead className="bg-[#f8fafc]">
                   <tr className="border-b border-[#e2e8f0] text-left text-[#64748b]">
-                    <th className="px-4 py-3 font-medium">Usuario</th>
+                    <th className="px-4 py-3 font-medium">Usuário</th>
                     <th className="px-4 py-3 font-medium">Mensagem enviada</th>
                     <th className="px-4 py-3 font-medium">Resposta da IA</th>
                     <th className="px-4 py-3 font-medium">Tool</th>
                     <th className="px-4 py-3 font-medium">Tipo</th>
                     <th className="px-4 py-3 font-medium">Status</th>
                     <th className="px-4 py-3 font-medium">Data/hora</th>
-                    <th className="px-4 py-3 font-medium">Acao</th>
+                    <th className="px-4 py-3 font-medium">Ação</th>
                   </tr>
                 </thead>
                 <tbody>
                   {!visibleItems.length ? (
                     <tr className="border-b border-[#f1f5f9]">
                       <td data-label="Info" colSpan={8} className="px-4 py-4 text-sm text-[#64748b]">
-                        Nenhum item nesta pagina.
+                        Nenhum item nesta página.
                       </td>
                     </tr>
                   ) : null}
 
                   {visibleItems.map((item) => (
                     <tr key={item.id} className="border-b border-[#f1f5f9] align-top">
-                      <td data-label="Usuario" className="px-4 py-3 text-[#0f172a]">{item.user_name || '-'}</td>
+                      <td data-label="Usuário" className="px-4 py-3 text-[#0f172a]">{item.user_name || '-'}</td>
                       <td data-label="Mensagem enviada" className="px-4 py-3 text-[#334155] max-w-[260px]">
                         <p className="line-clamp-3">{item.message || '-'}</p>
                       </td>
@@ -303,7 +303,7 @@ function CompanyAiAuditPage() {
                         </span>
                       </td>
                       <td data-label="Data/hora" className="px-4 py-3 text-[#334155]">{formatDateTime(item.created_at)}</td>
-                      <td data-label="Acao" className="px-4 py-3">
+                      <td data-label="Ação" className="px-4 py-3">
                         <Button
                           variant="secondary"
                           className="px-3 py-1.5 text-xs"
@@ -325,7 +325,7 @@ function CompanyAiAuditPage() {
 
               <div className="flex flex-wrap items-center gap-2">
                 <label className="inline-flex items-center gap-2 text-xs text-[#475569]">
-                  Itens por pagina
+                  Itens por página
                   <select
                     value={String(perPage)}
                     onChange={(event) => {
@@ -398,9 +398,9 @@ function CompanyAiAuditPage() {
             {detailItem ? (
               <div className="space-y-4">
                 <div className="grid grid-cols-1 gap-2 text-sm md:grid-cols-2">
-                  <p><strong>Usuario:</strong> {detailItem.user_name || '-'}</p>
+                  <p><strong>Usuário:</strong> {detailItem.user_name || '-'}</p>
                   <p><strong>Status:</strong> {detailItem.status === 'erro' ? 'Erro' : 'OK'}</p>
-                  <p><strong>Acao:</strong> {detailItem.action}</p>
+                  <p><strong>Ação:</strong> {detailItem.action}</p>
                   <p><strong>Data/hora:</strong> {formatDateTime(detailItem.created_at)}</p>
                   <p><strong>Conversa:</strong> {detailItem.conversation_id || '-'}</p>
                 </div>
@@ -420,7 +420,7 @@ function CompanyAiAuditPage() {
                         <thead className="bg-[#f8fafc]">
                           <tr className="border-b border-[#e2e8f0] text-left text-[#64748b]">
                             <th className="px-3 py-2 font-medium">Papel</th>
-                            <th className="px-3 py-2 font-medium">Conteudo</th>
+                            <th className="px-3 py-2 font-medium">Conteúdo</th>
                             <th className="px-3 py-2 font-medium">Data</th>
                           </tr>
                         </thead>
@@ -428,7 +428,7 @@ function CompanyAiAuditPage() {
                           {detailItem.conversation_messages.map((message) => (
                             <tr key={message.id} className="border-b border-[#f1f5f9] align-top">
                               <td data-label="Papel" className="px-3 py-2 text-[#334155]">{message.role}</td>
-                              <td data-label="Conteudo" className="px-3 py-2 text-[#0f172a] whitespace-pre-wrap">{message.content}</td>
+                              <td data-label="Conteúdo" className="px-3 py-2 text-[#0f172a] whitespace-pre-wrap">{message.content}</td>
                               <td data-label="Data" className="px-3 py-2 text-[#334155]">{formatDateTime(message.created_at)}</td>
                             </tr>
                           ))}

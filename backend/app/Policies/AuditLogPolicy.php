@@ -15,27 +15,27 @@ class AuditLogPolicy
             return Response::allow();
         }
 
-        return Response::deny('Voce nao possui permissao para acessar logs de auditoria.');
+        return Response::deny('Você não possui permissão para acessar logs de auditoria.');
     }
 
     public function view(User $user, AuditLog $auditLog): Response
     {
-        return Response::deny('Acesso direto aos logs de auditoria nao e permitido.');
+        return Response::deny('Acesso direto aos logs de auditoria não é permitido.');
     }
 
     public function create(User $user): Response
     {
-        return Response::deny('Criacao manual de logs de auditoria nao e permitida.');
+        return Response::deny('Criacao manual de logs de auditoria não é permitida.');
     }
 
     public function update(User $user, AuditLog $auditLog): Response
     {
-        return Response::deny('Atualizacao de logs de auditoria nao e permitida.');
+        return Response::deny('Atualizacao de logs de auditoria não é permitida.');
     }
 
     public function delete(User $user, AuditLog $auditLog): Response
     {
-        return Response::deny('Exclusao de logs de auditoria nao e permitida.');
+        return Response::deny('Exclusao de logs de auditoria não é permitida.');
     }
 
     private function resolveResellerId(User $user): int

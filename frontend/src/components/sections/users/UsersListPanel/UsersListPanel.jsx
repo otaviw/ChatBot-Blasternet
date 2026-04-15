@@ -6,8 +6,8 @@ function UsersListPanel({ users, roleLabel, onEdit, onDelete, showCompany = fals
   if (!users.length) {
     return (
       <EmptyState
-        title="Nenhum usuario cadastrado"
-        subtitle="Crie o primeiro usuario para comecar a gerenciar acessos."
+        title="Nenhum usuário cadastrado"
+        subtitle="Crie o primeiro usuário para comecar a gerenciar acessos."
       />
     );
   }

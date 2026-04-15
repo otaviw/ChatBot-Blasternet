@@ -24,21 +24,21 @@ class ToggleReactionAction
 
         if ($this->chatService->isConversationDeleted($conversation)) {
             return response()->json([
-                'message' => 'Conversa nao encontrada.',
+                'message' => 'Conversa não encontrada.',
             ], 404);
         }
 
         if (! $this->chatService->isVisibleParticipant($conversation, (int) $user->id)) {
-            return response()->json(['message' => 'Sem permissao para reagir nesta conversa.'], 403);
+            return response()->json(['message' => 'Sem permissão para reagir nesta conversa.'], 403);
         }
 
         if (! $this->chatService->belongsToConversation($conversation, $message)) {
-            return response()->json(['message' => 'Mensagem nao pertence a conversa informada.'], 404);
+            return response()->json(['message' => 'Mensagem não pertence a conversa informada.'], 404);
         }
 
         if ($message->deleted_at) {
             throw ValidationException::withMessages([
-                'emoji' => ['Nao e possivel reagir a uma mensagem apagada.'],
+                'emoji' => ['Não é possível reagir a uma mensagem apagada.'],
             ]);
         }
 

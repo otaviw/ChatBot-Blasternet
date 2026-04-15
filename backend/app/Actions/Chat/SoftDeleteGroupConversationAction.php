@@ -22,7 +22,7 @@ class SoftDeleteGroupConversationAction
 
         if ($this->chatService->isConversationDeleted($conversation)) {
             return response()->json([
-                'message' => 'Grupo nao encontrado.',
+                'message' => 'Grupo não encontrado.',
             ], 404);
         }
 
@@ -34,7 +34,7 @@ class SoftDeleteGroupConversationAction
 
         if (! $this->chatService->isVisibleParticipant($conversation, (int) $user->id)) {
             return response()->json([
-                'message' => 'Sem permissao para apagar este grupo.',
+                'message' => 'Sem permissão para apagar este grupo.',
             ], 403);
         }
 

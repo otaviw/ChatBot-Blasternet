@@ -155,7 +155,7 @@ class AppointmentController extends Controller
         }
 
         if ((int) $service->company_id !== (int) $company->id) {
-            return response()->json(['message' => 'Servico nao pertence a empresa.'], 404);
+            return response()->json(['message' => 'Serviço não pertence a empresa.'], 404);
         }
 
         $validated = $request->validate([
@@ -193,7 +193,7 @@ class AppointmentController extends Controller
         }
 
         if ((int) $service->company_id !== (int) $company->id) {
-            return response()->json(['message' => 'Servico nao pertence a empresa.'], 404);
+            return response()->json(['message' => 'Serviço não pertence a empresa.'], 404);
         }
 
         $service->is_active = false;
@@ -245,7 +245,7 @@ class AppointmentController extends Controller
         }
 
         if ((int) $staffProfile->company_id !== (int) $company->id) {
-            return response()->json(['message' => 'Atendente nao pertence a empresa.'], 404);
+            return response()->json(['message' => 'Atendente não pertence a empresa.'], 404);
         }
 
         $validated = $request->validate([
@@ -280,7 +280,7 @@ class AppointmentController extends Controller
         }
 
         if ((int) $staffProfile->company_id !== (int) $company->id) {
-            return response()->json(['message' => 'Atendente nao pertence a empresa.'], 404);
+            return response()->json(['message' => 'Atendente não pertence a empresa.'], 404);
         }
 
         $validated = $request->validate([
@@ -412,7 +412,7 @@ class AppointmentController extends Controller
                 ->whereKey((int) $validated['staff_profile_id'])
                 ->exists();
             if (! $staffExists) {
-                return response()->json(['message' => 'Atendente nao pertence a empresa.'], 404);
+                return response()->json(['message' => 'Atendente não pertence a empresa.'], 404);
             }
         }
 
@@ -443,7 +443,7 @@ class AppointmentController extends Controller
         }
 
         if ((int) $timeOff->company_id !== (int) $company->id) {
-            return response()->json(['message' => 'Bloqueio nao pertence a empresa.'], 404);
+            return response()->json(['message' => 'Bloqueio não pertence a empresa.'], 404);
         }
 
         $timeOff->delete();
@@ -569,7 +569,7 @@ class AppointmentController extends Controller
         }
 
         if ((int) $appointment->company_id !== (int) $company->id) {
-            return response()->json(['message' => 'Agendamento nao pertence a empresa.'], 404);
+            return response()->json(['message' => 'Agendamento não pertence a empresa.'], 404);
         }
 
         $allowed = [
@@ -618,9 +618,9 @@ class AppointmentController extends Controller
         if ($newStatus === AppointmentStatus::CANCELLED && (bool) ($validated['notify_customer'] ?? true)) {
             $settings = AppointmentSetting::query()->where('company_id', (int) $company->id)->first();
             $timezone = (string) ($settings?->timezone ?: 'America/Sao_Paulo');
-            $startsAt = $appointment->starts_at?->setTimezone($timezone);
-            $dateStr = $startsAt?->format('d/m/Y') ?? '';
-            $timeStr = $startsAt?->format('H:i') ?? '';
+            $startsAt = $appointment->starts_até->setTimezone($timezone);
+            $dateStr = $startsAté->format('d/m/Y') ?? '';
+            $timeStr = $startsAté->format('H:i') ?? '';
             $reason = $this->nullableTrim($validated['reason'] ?? null);
             $reasonLine = $reason ? "\nMotivo: {$reason}" : '';
             $text = "Olá! Informamos que seu agendamento do dia {$dateStr} às {$timeStr} foi cancelado pela nossa equipe.{$reasonLine}\nPor favor, entre em contato para reagendar se desejar.";
@@ -640,7 +640,7 @@ class AppointmentController extends Controller
         }
 
         if ((int) $appointment->company_id !== (int) $company->id) {
-            return response()->json(['message' => 'Agendamento nao pertence a empresa.'], 404);
+            return response()->json(['message' => 'Agendamento não pertence a empresa.'], 404);
         }
 
         $appointment->delete();
@@ -664,21 +664,21 @@ class AppointmentController extends Controller
         if (! $actor->isCompanyUser()) {
             return [$actor, null, response()->json([
                 'authenticated' => true,
-                'message' => 'Somente usuarios da empresa podem acessar agendamentos.',
+                'message' => 'Somente usuários da empresa podem acessar agendamentos.',
             ], 403)];
         }
 
         if ($requiresManagePermission && ! $actor->isCompanyAdmin() && ! $actor->isAgent()) {
             return [$actor, null, response()->json([
                 'authenticated' => true,
-                'message' => 'Usuario sem permissao para alterar agendamentos.',
+                'message' => 'Usuário sem permissão para alterar agendamentos.',
             ], 403)];
         }
 
         $company = Company::query()->find((int) $actor->company_id);
         if (! $company) {
             return [$actor, null, response()->json([
-                'message' => 'Empresa nao encontrada.',
+                'message' => 'Empresa não encontrada.',
             ], 404)];
         }
 
@@ -769,8 +769,8 @@ class AppointmentController extends Controller
             'company_id' => (int) $timeOff->company_id,
             'staff_profile_id' => $timeOff->staff_profile_id ? (int) $timeOff->staff_profile_id : null,
             'staff_name' => $timeOff->staffProfile?->display_name ?: $timeOff->staffProfile?->user?->name,
-            'starts_at' => $timeOff->starts_at?->toIso8601String(),
-            'ends_at' => $timeOff->ends_at?->toIso8601String(),
+            'starts_at' => $timeOff->starts_até->toIso8601String(),
+            'ends_at' => $timeOff->ends_até->toIso8601String(),
             'is_all_day' => (bool) $timeOff->is_all_day,
             'reason' => $timeOff->reason,
             'source' => (string) $timeOff->source,
@@ -794,14 +794,14 @@ class AppointmentController extends Controller
             'customer_name' => $appointment->customer_name,
             'customer_phone' => (string) $appointment->customer_phone,
             'customer_email' => $appointment->customer_email,
-            'starts_at' => $appointment->starts_at?->toIso8601String(),
-            'ends_at' => $appointment->ends_at?->toIso8601String(),
-            'effective_start_at' => $appointment->effective_start_at?->toIso8601String(),
-            'effective_end_at' => $appointment->effective_end_at?->toIso8601String(),
+            'starts_at' => $appointment->starts_até->toIso8601String(),
+            'ends_at' => $appointment->ends_até->toIso8601String(),
+            'effective_start_at' => $appointment->effective_start_até->toIso8601String(),
+            'effective_end_at' => $appointment->effective_end_até->toIso8601String(),
             'status' => (string) $appointment->status,
             'source' => (string) $appointment->source,
             'notes' => $appointment->notes,
-            'created_at' => $appointment->created_at?->toIso8601String(),
+            'created_at' => $appointment->created_até->toIso8601String(),
         ];
     }
 

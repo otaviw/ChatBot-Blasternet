@@ -173,7 +173,7 @@ export default function useInternalChatDetail({
         const conversation = response.conversation;
 
         if (!conversation) {
-          throw new Error('Conversa nao encontrada.');
+          throw new Error('Conversa não encontrada.');
         }
 
         shouldScrollToBottomRef.current = true;
@@ -206,7 +206,7 @@ export default function useInternalChatDetail({
         }
       } catch (requestError) {
         setDetail(null);
-        setDetailError(parseErrorMessage(requestError, 'Nao foi possivel abrir a conversa.'));
+        setDetailError(parseErrorMessage(requestError, 'Não foi possível abrir a conversa.'));
       } finally {
         setDetailLoading(false);
       }

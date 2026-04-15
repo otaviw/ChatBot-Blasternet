@@ -26,7 +26,7 @@ class MessageMediaStorageService
 
         $binary = file_get_contents($file->getRealPath());
         if ($binary === false) {
-            throw new RuntimeException('Nao foi possivel ler o arquivo de anexo.');
+            throw new RuntimeException('Não foi possível ler o arquivo de anexo.');
         }
 
         Storage::disk($disk)->put($key, $binary, ['visibility' => 'private']);
@@ -47,7 +47,7 @@ class MessageMediaStorageService
     {
         $binary = file_get_contents($file->getRealPath());
         if ($binary === false) {
-            throw new \RuntimeException('Nao foi possivel ler o arquivo enviado.');
+            throw new \RuntimeException('Não foi possível ler o arquivo enviado.');
         }
 
         return $this->storeBinaryImage(

@@ -60,10 +60,10 @@ const buildMessageSenderLabel = (message, currentUserId) => {
   }
 
   if (Number(message?.user_id ?? 0) === Number(currentUserId ?? 0)) {
-    return 'Voce';
+    return 'Você';
   }
 
-  return 'Usuario';
+  return 'Usuário';
 };
 
 function InternalAiChatPage() {

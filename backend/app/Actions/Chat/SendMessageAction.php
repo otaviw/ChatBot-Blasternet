@@ -27,13 +27,13 @@ class SendMessageAction
 
         if ($this->chatService->isConversationDeleted($conversation)) {
             return response()->json([
-                'message' => 'Conversa nao encontrada.',
+                'message' => 'Conversa não encontrada.',
             ], 404);
         }
 
         if (! $this->chatService->isVisibleParticipant($conversation, (int) $user->id)) {
             return response()->json([
-                'message' => 'Sem permissao para enviar mensagem nesta conversa.',
+                'message' => 'Sem permissão para enviar mensagem nesta conversa.',
             ], 403);
         }
 

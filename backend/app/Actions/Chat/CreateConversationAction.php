@@ -40,20 +40,20 @@ class CreateConversationAction
         $recipientId = $this->chatService->resolveRecipientId($request);
         if ($recipientId <= 0) {
             throw ValidationException::withMessages([
-                'recipient_id' => ['recipient_id e obrigatorio.'],
+                'recipient_id' => ['recipient_id e obrigatório.'],
             ]);
         }
 
         $recipient = User::query()->find($recipientId);
         if (! $recipient instanceof User || ! $recipient->is_active) {
             throw ValidationException::withMessages([
-                'recipient_id' => ['Usuario destino invalido ou inativo.'],
+                'recipient_id' => ['Usuário destino inválido ou inativo.'],
             ]);
         }
 
         if (! $this->chatPolicy->canMessage($sender, $recipient)) {
             return response()->json([
-                'message' => 'Sem permissao para iniciar conversa com este usuario.',
+                'message' => 'Sem permissão para iniciar conversa com este usuário.',
             ], 403);
         }
 
@@ -174,7 +174,7 @@ class CreateConversationAction
         foreach ($users as $recipient) {
             if (! $this->chatPolicy->canMessage($sender, $recipient)) {
                 throw ValidationException::withMessages([
-                    'participant_ids' => ["Sem permissao para conversar com {$recipient->name}."],
+                    'participant_ids' => ["Sem permissão para conversar com {$recipient->name}."],
                 ]);
             }
         }

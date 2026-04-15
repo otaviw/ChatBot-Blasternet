@@ -185,7 +185,7 @@ function InternalChatMessagesPanel({
       >
         <span className="internal-chat-message-label">
           {message.sender_name}
-          {isMine ? ' (voce)' : ''}
+          {isMine ? ' (você)' : ''}
           {isDeleted ? ' (apagada)' : message.edited_at ? ' (editada)' : ''}
         </span>
 
@@ -320,8 +320,8 @@ function InternalChatMessagesPanel({
                     className="internal-chat-message-options-trigger"
                     disabled={isMessageActionBusy}
                     onClick={() => onToggleMessageOptions(message.id)}
-                    aria-label="Opcoes da mensagem"
-                    title="Opcoes"
+                    aria-label="Opções da mensagem"
+                    title="Opções"
                   >
                     <span aria-hidden="true" className="internal-chat-message-options-icon" />
                   </button>

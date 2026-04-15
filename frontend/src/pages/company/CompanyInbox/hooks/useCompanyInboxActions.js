@@ -165,7 +165,7 @@ export default function useCompanyInboxActions({
   const transferConversation = useCallback(async () => {
     if (!detail?.id) return;
     if (!transferArea && !transferUserId) {
-      setTransferError('Selecione uma area ou um usuario destino.');
+      setTransferError('Selecione uma area ou um usuário destino.');
       setTransferSuccess('');
       return;
     }
@@ -324,10 +324,10 @@ export default function useCompanyInboxActions({
       setAiConfidenceScore(typeof response.data?.confidence_score === 'number' ? response.data.confidence_score : null);
       setAiSuggestionId(response.data?.suggestion_id ?? null);
       setAiSuggestionFeedbackState('pending');
-      setAiSuggestionStatus('Sugestao aplicada no campo de resposta.');
+      setAiSuggestionStatus('Sugestão aplicada no campo de resposta.');
     } catch (err) {
       setAiSuggestionError(
-        err.response?.data?.message || 'Nao foi possivel gerar sugestao de IA agora.'
+        err.response?.data?.message || 'Não foi possível gerar sugestão de IA agora.'
       );
     } finally {
       setAiSuggestionBusy(false);

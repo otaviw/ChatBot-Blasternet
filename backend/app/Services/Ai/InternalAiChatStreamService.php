@@ -205,7 +205,7 @@ class InternalAiChatStreamService
         $assistantText = trim((string) ($providerResult['text'] ?? ''));
         if ($assistantText === '') {
             throw ValidationException::withMessages([
-                'ai' => ['A IA nao retornou conteudo para esta conversa.'],
+                'ai' => ['A IA não retornou conteúdo para esta conversa.'],
             ]);
         }
 
@@ -347,7 +347,7 @@ class InternalAiChatStreamService
         $meta = is_array($providerResult['meta'] ?? null) ? $providerResult['meta'] : [];
         $message = trim((string) ($meta['message'] ?? ''));
 
-        return $message !== '' ? $message : 'Nao foi possivel gerar resposta da IA para esta conversa.';
+        return $message !== '' ? $message : 'Não foi possível gerar resposta da IA para esta conversa.';
     }
 
     /**

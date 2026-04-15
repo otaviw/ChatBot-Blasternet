@@ -53,10 +53,10 @@ class SendMessageRequest extends FormRequest
     {
         return [
             'content.required_without' => 'Envie texto ou anexo para continuar.',
-            'content.max'              => 'O texto nao pode ultrapassar 20.000 caracteres.',
-            'type.in'                  => 'Tipo de mensagem invalido. Use: text, image ou file.',
-            'file.max'                 => 'O arquivo nao pode ser maior que 10 MB.',
-            'file.mimes'               => 'Tipo de arquivo nao permitido.',
+            'content.max'              => 'O texto não pode ultrapassar 20.000 caracteres.',
+            'type.in'                  => 'Tipo de mensagem inválido. Use: text, image ou file.',
+            'file.max'                 => 'O arquivo não pode ser maior que 10 MB.',
+            'file.mimes'               => 'Tipo de arquivo não permitido.',
         ];
     }
 }

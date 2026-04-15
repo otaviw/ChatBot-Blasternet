@@ -41,7 +41,7 @@ class SimulatedMessageController extends Controller
         if ($user->isCompanyUser() && (int) $user->company_id !== $companyId) {
             return response()->json([
                 'authenticated' => true,
-                'message' => 'Empresa nao pode simular mensagens para outro tenant.',
+                'message' => 'Empresa não pode simular mensagens para outro tenant.',
             ], 403);
         }
 

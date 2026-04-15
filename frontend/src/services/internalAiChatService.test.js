@@ -66,7 +66,7 @@ describe('internalAiChatService', () => {
       });
     });
 
-    it('retorna lista vazia quando API nao trouxer conversas', async () => {
+    it('retorna lista vazia quando API não trouxer conversas', async () => {
       api.get.mockResolvedValue({ data: {} });
 
       const response = await listInternalAiConversations();
@@ -150,7 +150,7 @@ describe('internalAiChatService', () => {
       });
     });
 
-    it('falha quando conversationId for invalido', async () => {
+    it('falha quando conversationId for inválido', async () => {
       await expect(
         getInternalAiConversation({
           conversationId: null,

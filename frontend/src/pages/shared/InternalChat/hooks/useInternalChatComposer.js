@@ -146,7 +146,7 @@ export default function useInternalChatComposer({
           void loadConversations({ silent: true });
         });
       } catch (requestError) {
-        setSendError(parseErrorMessage(requestError, 'Nao foi possivel enviar a mensagem.'));
+        setSendError(parseErrorMessage(requestError, 'Não foi possível enviar a mensagem.'));
       } finally {
         setSendBusy(false);
       }
@@ -272,7 +272,7 @@ export default function useInternalChatComposer({
         setOpenMessageOptionsId(null);
       } catch (requestError) {
         setMessageActionError(
-          parseErrorMessage(requestError, 'Nao foi possivel editar a mensagem.')
+          parseErrorMessage(requestError, 'Não foi possível editar a mensagem.')
         );
       } finally {
         setMessageActionBusyId(null);
@@ -345,7 +345,7 @@ export default function useInternalChatComposer({
         }
       } catch (requestError) {
         setMessageActionError(
-          parseErrorMessage(requestError, 'Nao foi possivel apagar a mensagem.')
+          parseErrorMessage(requestError, 'Não foi possível apagar a mensagem.')
         );
       } finally {
         setMessageActionBusyId(null);

@@ -68,7 +68,7 @@ class AiUsageService
 
             if (! $lockedSettings instanceof CompanyBotSetting) {
                 throw ValidationException::withMessages([
-                    'ai' => ['Configuracao de IA da empresa nao encontrada.'],
+                    'ai' => ['Configuracao de IA da empresa não encontrada.'],
                 ]);
             }
 
@@ -153,7 +153,7 @@ class AiUsageService
         }
 
         throw ValidationException::withMessages([
-            'ai' => ['Nao foi possivel identificar a empresa para controle de uso da IA.'],
+            'ai' => ['Não foi possível identificar a empresa para controle de uso da IA.'],
         ]);
     }
 

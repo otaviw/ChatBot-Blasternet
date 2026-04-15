@@ -27,7 +27,7 @@ class GenerateAiSuggestionForConversationAction
         $this->aiAccessService->assertCanUseInternalAi($user, $settings);
         if (! $settings instanceof CompanyBotSetting) {
             throw ValidationException::withMessages([
-                'ai' => ['IA interna nao esta habilitada para esta empresa.'],
+                'ai' => ['IA interna não está habilitada para esta empresa.'],
             ]);
         }
 

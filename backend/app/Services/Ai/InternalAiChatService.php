@@ -155,7 +155,7 @@ class InternalAiChatService
         $assistantText = trim((string) ($providerResult['text'] ?? ''));
         if ($assistantText === '') {
             throw ValidationException::withMessages([
-                'ai' => ['A IA nao retornou conteudo para esta conversa.'],
+                'ai' => ['A IA não retornou conteúdo para esta conversa.'],
             ]);
         }
 
@@ -351,7 +351,7 @@ class InternalAiChatService
             return $configuredMessage;
         }
 
-        return 'Nao foi possivel gerar resposta da IA para esta conversa.';
+        return 'Não foi possível gerar resposta da IA para esta conversa.';
     }
 
     /**
@@ -615,7 +615,7 @@ class InternalAiChatService
         $contextMessages = $this->contextBuilder->build($conversation, $systemPrompt, null, $settings);
         $contextMessages[] = [
             'role' => AiMessage::ROLE_SYSTEM,
-            'content' => 'Nao foi possivel usar a ferramenta solicitada. Responda sem ferramenta com base no contexto disponivel.',
+            'content' => 'Não foi possível usar a ferramenta solicitada. Responda sem ferramenta com base no contexto disponível.',
         ];
 
         $attempt = $this->callProvider($provider, $contextMessages, $providerOptions);

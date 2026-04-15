@@ -189,7 +189,7 @@ function InternalChatConversationOptionsModal({
                           <p>{participant.email}</p>
                           <span className="internal-chat-participant-badges">
                             {isParticipantAdmin ? 'Admin' : 'Participante'}
-                            {isSelf ? ' | voce' : ''}
+                            {isSelf ? ' | você' : ''}
                           </span>
                         </div>
                         <div className="internal-chat-participant-actions">

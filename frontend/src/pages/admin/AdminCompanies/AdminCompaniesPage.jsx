@@ -210,7 +210,7 @@ function AdminCompaniesPage() {
         title="Excluir empresa"
         description={
           deleteTarget
-            ? `Tem certeza que deseja excluir a empresa "${deleteTarget.name}"? Esta acao nao pode ser desfeita.`
+            ? `Tem certeza que deseja excluir a empresa "${deleteTarget.name}"? Esta ação não pode ser desfeita.`
             : ''
         }
         confirmLabel="Excluir"

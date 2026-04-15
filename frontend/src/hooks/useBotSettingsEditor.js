@@ -187,7 +187,7 @@ export default function useBotSettingsEditor({
         setTimeout(() => setSaveState('idle'), 2500);
       } catch (err) {
         setSaveState('error');
-        setSaveError(err.response?.data?.message || 'Falha ao salvar configuracoes.');
+        setSaveError(err.response?.data?.message || 'Falha ao salvar configurações.');
       }
     },
     [applySettings, persistSettings, settings, statefulMenuEditor, useDefaultStatefulMenu]

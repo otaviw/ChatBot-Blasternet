@@ -180,7 +180,7 @@ export default function useNotifications(options = {}) {
 
       return visible;
     } catch (err) {
-      setError(err?.response?.data?.message || 'Falha ao carregar notificacoes.');
+      setError(err?.response?.data?.message || 'Falha ao carregar notificações.');
       return [];
     } finally {
       setLoading(false);
@@ -197,7 +197,7 @@ export default function useNotifications(options = {}) {
       applyUnreadCounters(response.unread_by_module, response.total_unread);
       return response;
     } catch (err) {
-      setError((prev) => prev || err?.response?.data?.message || 'Falha ao carregar contadores de notificacoes.');
+      setError((prev) => prev || err?.response?.data?.message || 'Falha ao carregar contadores de notificações.');
       return { unread_by_module: {}, total_unread: 0 };
     }
   }, [applyUnreadCounters, clearedUntilId, enabled]);
@@ -368,7 +368,7 @@ export default function useNotifications(options = {}) {
 
       return response;
     } catch (err) {
-      setError(err?.response?.data?.message || 'Falha ao marcar notificacoes por referencia.');
+      setError(err?.response?.data?.message || 'Falha ao marcar notificações por referência.');
       return null;
     }
   }, [applyUnreadCounters, clearedUntilId, enabled]);

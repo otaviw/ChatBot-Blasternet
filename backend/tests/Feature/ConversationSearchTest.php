@@ -34,7 +34,7 @@ class ConversationSearchTest extends TestCase
         Message::create([
             'conversation_id' => $otherCompanyConversation->id,
             'direction' => 'in',
-            'text' => 'Nao deve aparecer.',
+            'text' => 'Não deve aparecer.',
         ]);
 
         $response = $this->actingAs($agent)
@@ -78,7 +78,7 @@ class ConversationSearchTest extends TestCase
 
     public function test_company_user_can_search_conversations_by_action(): void
     {
-        $company = Company::create(['name' => 'Empresa Busca Acao']);
+        $company = Company::create(['name' => 'Empresa Busca Ação']);
         $agent = $this->makeAgent($company);
 
         $matchingConversation = $this->makeConversation($company, '5511911111111');

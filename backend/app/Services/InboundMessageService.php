@@ -51,7 +51,7 @@ class InboundMessageService
         $normalizedContactName = $this->normalizeContactName($contactName);
 
         if ($normalizedFrom === '' || $normalizedText === '') {
-            throw new InvalidArgumentException('Phone e texto sao obrigatorios para processar mensagem.');
+            throw new InvalidArgumentException('Phone e texto sao obrigatórios para processar mensagem.');
         }
 
         // Deduplicação — camada 2 (service):
@@ -237,7 +237,7 @@ class InboundMessageService
         $captionValue = trim((string) $caption);
 
         if ($normalizedFrom === '' || $normalizedMediaId === '') {
-            throw new InvalidArgumentException('Phone e mediaId sao obrigatorios para processar imagem.');
+            throw new InvalidArgumentException('Phone e mediaId sao obrigatórios para processar imagem.');
         }
 
         // Deduplicação — camada 2 (service):
@@ -411,7 +411,7 @@ class InboundMessageService
         $captionValue = trim((string) $caption);
 
         if ($normalizedFrom === '') {
-            throw new InvalidArgumentException('Phone e imagem sao obrigatorios para processar mensagem.');
+            throw new InvalidArgumentException('Phone e imagem sao obrigatórios para processar mensagem.');
         }
 
         $conversation = $this->bootstrapConversation($company, $normalizedFrom, $normalizedContactName);

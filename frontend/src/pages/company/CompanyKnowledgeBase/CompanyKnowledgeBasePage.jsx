@@ -143,10 +143,10 @@ function CompanyKnowledgeBasePage() {
         if (updated) {
           setItems((prev) => prev.map((item) => (item.id === editingId ? updated : item)));
         }
-        showSuccess('Conteudo atualizado com sucesso.');
+        showSuccess('Conteúdo atualizado com sucesso.');
       } else {
         if (reachedLimit) {
-          showError(`Limite atingido: maximo de ${maxItems} conteudos.`);
+          showError(`Limite atingido: máximo de ${maxItems} conteúdos.`);
           return;
         }
 
@@ -155,14 +155,14 @@ function CompanyKnowledgeBasePage() {
         if (created) {
           setItems((prev) => [created, ...prev]);
         }
-        showSuccess('Conteudo criado com sucesso.');
+        showSuccess('Conteúdo criado com sucesso.');
       }
 
       setModalOpen(false);
       setEditingId(null);
       reset(EMPTY_FORM);
     } catch (err) {
-      showError(err.response?.data?.message ?? 'Nao foi possivel salvar o conteudo.');
+      showError(err.response?.data?.message ?? 'Não foi possível salvar o conteúdo.');
     } finally {
       setBusy(false);
     }
@@ -176,9 +176,9 @@ function CompanyKnowledgeBasePage() {
       await api.delete(`/minha-conta/base-conhecimento/${deleteTarget.id}`);
       setItems((prev) => prev.filter((current) => current.id !== deleteTarget.id));
       setDeleteTarget(null);
-      showSuccess('Conteudo excluido com sucesso.');
+      showSuccess('Conteúdo excluido com sucesso.');
     } catch (err) {
-      showError(err.response?.data?.message ?? 'Nao foi possivel excluir o conteudo.');
+      showError(err.response?.data?.message ?? 'Não foi possível excluir o conteúdo.');
     } finally {
       setBusy(false);
     }
@@ -209,7 +209,7 @@ function CompanyKnowledgeBasePage() {
       >
       <PageHeader
         title="Base de conhecimento"
-        subtitle="Gerencie conteudos usados pela IA para melhorar a qualidade das respostas."
+        subtitle="Gerencie conteúdos usados pela IA para melhorar a qualidade das respostas."
         action={(
           <div className="flex items-center gap-2 flex-wrap">
             {isAdmin && companies.length > 0 ? (
@@ -236,7 +236,7 @@ function CompanyKnowledgeBasePage() {
 
       <div className="mb-4 flex flex-wrap items-center gap-3 text-sm">
         <span className="rounded-full bg-[#f8fafc] px-3 py-1 text-[#475569] border border-[#e2e8f0]">
-          {itemCount}/{maxItems} conteudos
+          {itemCount}/{maxItems} conteúdos
         </span>
         {!canManageKnowledge ? (
           <span className="text-[#64748b]">Somente admin da empresa pode criar, editar e excluir.</span>
@@ -247,9 +247,9 @@ function CompanyKnowledgeBasePage() {
         {!sortedItems.length ? (
           <div className="p-4">
             <EmptyState
-              title="Nenhum conteudo cadastrado"
-              subtitle="Cadastre o primeiro conteudo para orientar as respostas da IA."
-              actionLabel={canManageKnowledge ? 'Criar conteudo' : ''}
+              title="Nenhum conteúdo cadastrado"
+              subtitle="Cadastre o primeiro conteúdo para orientar as respostas da IA."
+              actionLabel={canManageKnowledge ? 'Criar conteúdo' : ''}
               onAction={canManageKnowledge ? openCreateModal : undefined}
             />
           </div>
@@ -262,7 +262,7 @@ function CompanyKnowledgeBasePage() {
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium">Indexação</th>
                   <th className="px-4 py-3 font-medium">Atualizado em</th>
-                  <th className="px-4 py-3 font-medium w-[1%] whitespace-nowrap">Acoes</th>
+                  <th className="px-4 py-3 font-medium w-[1%] whitespace-nowrap">Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -288,7 +288,7 @@ function CompanyKnowledgeBasePage() {
                     <td data-label="Atualizado em" className="px-4 py-3 text-[#475569]">
                       {formatDate(item.updated_at)}
                     </td>
-                    <td data-label="Acoes" className="px-4 py-3">
+                    <td data-label="Ações" className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <Button
                           variant="secondary"
@@ -318,10 +318,10 @@ function CompanyKnowledgeBasePage() {
 
       <ConfirmDialog
         open={Boolean(deleteTarget)}
-        title="Excluir conteudo"
+        title="Excluir conteúdo"
         description={
           deleteTarget
-            ? `Tem certeza que deseja excluir "${deleteTarget.title}"? Esta acao nao pode ser desfeita.`
+            ? `Tem certeza que deseja excluir "${deleteTarget.title}"? Esta ação não pode ser desfeita.`
             : ''
         }
         confirmLabel="Excluir"
@@ -347,10 +347,10 @@ function CompanyKnowledgeBasePage() {
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold text-[#0f172a]">
-                  {editingId ? 'Editar conteudo' : 'Novo conteudo'}
+                  {editingId ? 'Editar conteúdo' : 'Novo conteúdo'}
                 </h2>
                 <p className="text-sm text-[#64748b]">
-                  Esse conteudo sera usado pela IA nas respostas da empresa.
+                  Esse conteúdo sera usado pela IA nas respostas da empresa.
                 </p>
               </div>
               <button
@@ -376,7 +376,7 @@ function CompanyKnowledgeBasePage() {
                   {...register('title', {
                     required: 'Informe o titulo.',
                     minLength: { value: 3, message: 'Use ao menos 3 caracteres.' },
-                    maxLength: { value: 190, message: 'Use no maximo 190 caracteres.' },
+                    maxLength: { value: 190, message: 'Use no máximo 190 caracteres.' },
                     validate: (value) =>
                       String(value ?? '').trim().length >= 3 || 'Use ao menos 3 caracteres validos.',
                   })}
@@ -389,7 +389,7 @@ function CompanyKnowledgeBasePage() {
               ) : null}
 
               <label className="block text-sm">
-                <span className="mb-1 block text-[#334155]">Conteudo</span>
+                <span className="mb-1 block text-[#334155]">Conteúdo</span>
                 <textarea
                   rows={12}
                   className="w-full rounded-lg border border-[#d4d4d4] px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
@@ -397,7 +397,7 @@ function CompanyKnowledgeBasePage() {
                   aria-invalid={errors.content ? 'true' : 'false'}
                   aria-describedby={errors.content ? 'knowledge-content-error' : undefined}
                   {...register('content', {
-                    required: 'Informe o conteudo.',
+                    required: 'Informe o conteúdo.',
                     minLength: { value: 20, message: 'Use ao menos 20 caracteres.' },
                     validate: (value) =>
                       String(value ?? '').trim().length >= 20 || 'Use ao menos 20 caracteres validos.',

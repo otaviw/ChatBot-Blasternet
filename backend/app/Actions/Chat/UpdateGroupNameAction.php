@@ -23,7 +23,7 @@ class UpdateGroupNameAction
 
         if ($this->chatService->isConversationDeleted($conversation)) {
             return response()->json([
-                'message' => 'Grupo nao encontrado.',
+                'message' => 'Grupo não encontrado.',
             ], 404);
         }
 
@@ -35,7 +35,7 @@ class UpdateGroupNameAction
 
         if (! $this->chatService->isVisibleParticipant($conversation, (int) $user->id)) {
             return response()->json([
-                'message' => 'Sem permissao para alterar este grupo.',
+                'message' => 'Sem permissão para alterar este grupo.',
             ], 403);
         }
 
@@ -54,7 +54,7 @@ class UpdateGroupNameAction
 
         if (mb_strlen($name) > 120) {
             throw ValidationException::withMessages([
-                'name' => ['O nome do grupo deve ter no maximo 120 caracteres.'],
+                'name' => ['O nome do grupo deve ter no máximo 120 caracteres.'],
             ]);
         }
 

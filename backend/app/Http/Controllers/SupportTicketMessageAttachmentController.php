@@ -23,27 +23,27 @@ class SupportTicketMessageAttachmentController extends Controller
 
         if (! $ticket) {
             return response()->json([
-                'message' => 'Anexo nao encontrado.',
+                'message' => 'Anexo não encontrado.',
             ], 404);
         }
 
         if (! $user->isSystemAdmin() && (int) ($ticket->requester_user_id ?? 0) !== (int) $user->id) {
             return response()->json([
-                'message' => 'Voce nao tem permissao para acessar este anexo.',
+                'message' => 'Você não tem permissão para acessar este anexo.',
             ], 403);
         }
 
         $storageKey = trim((string) ($attachment->storage_key ?? ''));
         if ($storageKey === '') {
             return response()->json([
-                'message' => 'Arquivo de midia nao encontrado.',
+                'message' => 'Arquivo de midia não encontrado.',
             ], 404);
         }
 
         $disk = $attachment->storage_provider ?: (string) config('whatsapp.media_disk', 'public');
         if (! Storage::disk($disk)->exists($storageKey)) {
             return response()->json([
-                'message' => 'Arquivo de midia nao encontrado.',
+                'message' => 'Arquivo de midia não encontrado.',
             ], 404);
         }
 

@@ -8,7 +8,7 @@ import {
 describe('internalAiChatUtils', () => {
   describe('parseRequestErrorMessage', () => {
     it('prioriza a mensagem da API para erro 422', () => {
-      const error = { response: { status: 422, data: { message: 'Conteudo invalido.' } } };
+      const error = { response: { status: 422, data: { message: 'Conteúdo inválido.' } } };
 
       expect(
         parseRequestErrorMessage(error, {
@@ -16,10 +16,10 @@ describe('internalAiChatUtils', () => {
           fallback404: 'Fallback 404',
           fallbackUnexpected: 'Fallback geral',
         }),
-      ).toBe('Conteudo invalido.');
+      ).toBe('Conteúdo inválido.');
     });
 
-    it('usa fallback de 422 quando nao houver mensagem da API', () => {
+    it('usa fallback de 422 quando não houver mensagem da API', () => {
       const error = { response: { status: 422, data: {} } };
 
       expect(
@@ -31,7 +31,7 @@ describe('internalAiChatUtils', () => {
       ).toBe('Fallback 422');
     });
 
-    it('usa fallback de 404 quando nao houver mensagem da API', () => {
+    it('usa fallback de 404 quando não houver mensagem da API', () => {
       const error = { response: { status: 404, data: {} } };
 
       expect(
@@ -71,7 +71,7 @@ describe('internalAiChatUtils', () => {
           {
             id: 1,
             role: 'user',
-            content: 'mensagem do usuario',
+            content: 'mensagem do usuário',
             created_at: '2026-03-20T09:59:00.000Z',
           },
         ],
@@ -93,16 +93,16 @@ describe('internalAiChatUtils', () => {
   });
 
   describe('canRequestMessageSend', () => {
-    it('bloqueia envio quando nao ha conversa selecionada', () => {
+    it('bloqueia envio quando não ha conversa selecionada', () => {
       expect(canRequestMessageSend({ conversationId: null, sendBusy: false })).toBe(false);
       expect(canRequestMessageSend({ conversationId: 0, sendBusy: false })).toBe(false);
     });
 
-    it('bloqueia envio quando ja existe envio em andamento', () => {
+    it('bloqueia envio quando já existe envio em andamento', () => {
       expect(canRequestMessageSend({ conversationId: 10, sendBusy: true })).toBe(false);
     });
 
-    it('permite envio quando conversa eh valida e nao esta ocupada', () => {
+    it('permite envio quando conversa eh valida e não está ocupada', () => {
       expect(canRequestMessageSend({ conversationId: 10, sendBusy: false })).toBe(true);
       expect(canRequestMessageSend({ conversationId: '10', sendBusy: false })).toBe(true);
     });

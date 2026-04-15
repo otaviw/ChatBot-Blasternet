@@ -146,7 +146,7 @@ describe('POST /reset-password — sem enumeração de usuários', function () {
     it('retorna 422 com mensagem genérica quando token é inválido', function () {
         User::create([
             'name'       => 'Token Inválido',
-            'email'      => 'token-invalido@exemplo.com',
+            'email'      => 'token-inválido@exemplo.com',
             'password'   => bcrypt('senha123'),
             'is_active'  => true,
             'role'       => 'company',
@@ -154,7 +154,7 @@ describe('POST /reset-password — sem enumeração de usuários', function () {
         ]);
 
         $response = $this->postJson('/api/reset-password', [
-            'email'                 => 'token-invalido@exemplo.com',
+            'email'                 => 'token-inválido@exemplo.com',
             'token'                 => 'token-errado-qualquer',
             'password'              => 'novasenha123',
             'password_confirmation' => 'novasenha123',

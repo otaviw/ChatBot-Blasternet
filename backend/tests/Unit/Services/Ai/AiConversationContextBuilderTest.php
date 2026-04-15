@@ -68,7 +68,7 @@ class AiConversationContextBuilderTest extends TestCase
         $this->assertStringContainsString('Prompt da empresa', $context[0]['content']);
 
         $historyPrompt = collect($context)
-            ->first(fn (array $item) => str_contains((string) ($item['content'] ?? ''), 'Historico recente:'));
+            ->first(fn (array $item) => str_contains((string) ($item['content'] ?? ''), 'Histórico recente:'));
 
         $this->assertNotNull($historyPrompt);
         $this->assertStringContainsString('User: Primeira mensagem', $historyPrompt['content']);
@@ -178,49 +178,49 @@ class AiConversationContextBuilderTest extends TestCase
         AiCompanyKnowledge::create([
             'company_id' => $company->id,
             'title' => 'Base 1',
-            'content' => 'Conteudo 1',
+            'content' => 'Conteúdo 1',
             'is_active' => true,
         ]);
         AiCompanyKnowledge::create([
             'company_id' => $company->id,
             'title' => 'Base 2',
-            'content' => 'Conteudo 2',
+            'content' => 'Conteúdo 2',
             'is_active' => true,
         ]);
         AiCompanyKnowledge::create([
             'company_id' => $company->id,
             'title' => 'Base 3',
-            'content' => 'Conteudo 3',
+            'content' => 'Conteúdo 3',
             'is_active' => true,
         ]);
         AiCompanyKnowledge::create([
             'company_id' => $company->id,
             'title' => 'Base 4',
-            'content' => 'Conteudo 4',
+            'content' => 'Conteúdo 4',
             'is_active' => true,
         ]);
         AiCompanyKnowledge::create([
             'company_id' => $company->id,
             'title' => 'Base 5',
-            'content' => 'Conteudo 5',
+            'content' => 'Conteúdo 5',
             'is_active' => true,
         ]);
         AiCompanyKnowledge::create([
             'company_id' => $company->id,
             'title' => 'Base 6',
-            'content' => 'Conteudo 6',
+            'content' => 'Conteúdo 6',
             'is_active' => true,
         ]);
         AiCompanyKnowledge::create([
             'company_id' => $company->id,
             'title' => 'Base Inativa',
-            'content' => 'Conteudo inativo',
+            'content' => 'Conteúdo inativo',
             'is_active' => false,
         ]);
         AiCompanyKnowledge::create([
             'company_id' => $otherCompany->id,
             'title' => 'Base Outra Empresa',
-            'content' => 'Conteudo outra empresa',
+            'content' => 'Conteúdo outra empresa',
             'is_active' => true,
         ]);
 
@@ -231,11 +231,11 @@ class AiConversationContextBuilderTest extends TestCase
             ->first(fn (array $item) => str_contains((string) ($item['content'] ?? ''), 'Informacoes da empresa:'));
 
         $this->assertNotNull($knowledgePrompt);
-        $this->assertStringContainsString('- Base 6: Conteudo 6', $knowledgePrompt['content']);
-        $this->assertStringContainsString('- Base 5: Conteudo 5', $knowledgePrompt['content']);
-        $this->assertStringContainsString('- Base 4: Conteudo 4', $knowledgePrompt['content']);
-        $this->assertStringContainsString('- Base 3: Conteudo 3', $knowledgePrompt['content']);
-        $this->assertStringContainsString('- Base 2: Conteudo 2', $knowledgePrompt['content']);
+        $this->assertStringContainsString('- Base 6: Conteúdo 6', $knowledgePrompt['content']);
+        $this->assertStringContainsString('- Base 5: Conteúdo 5', $knowledgePrompt['content']);
+        $this->assertStringContainsString('- Base 4: Conteúdo 4', $knowledgePrompt['content']);
+        $this->assertStringContainsString('- Base 3: Conteúdo 3', $knowledgePrompt['content']);
+        $this->assertStringContainsString('- Base 2: Conteúdo 2', $knowledgePrompt['content']);
         $this->assertStringNotContainsString('Base 1', $knowledgePrompt['content']);
         $this->assertStringNotContainsString('Base Inativa', $knowledgePrompt['content']);
         $this->assertStringNotContainsString('Base Outra Empresa', $knowledgePrompt['content']);
@@ -259,4 +259,3 @@ class AiConversationContextBuilderTest extends TestCase
         ]);
     }
 }
-

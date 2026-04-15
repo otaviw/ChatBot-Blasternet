@@ -39,7 +39,7 @@ class InternalAiChatServiceTest extends TestCase
         $service = $this->app->make(InternalAiChatService::class);
 
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('IA interna nao esta habilitada para esta empresa.');
+        $this->expectExceptionMessage('IA interna não está habilitada para esta empresa.');
 
         $service->sendMessage($user, 'Teste');
     }
@@ -62,7 +62,7 @@ class InternalAiChatServiceTest extends TestCase
         $service = $this->app->make(InternalAiChatService::class);
 
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('IA interna nao esta habilitada para esta empresa.');
+        $this->expectExceptionMessage('IA interna não está habilitada para esta empresa.');
 
         $service->sendMessage($user, 'Teste');
     }
@@ -246,10 +246,10 @@ class InternalAiChatServiceTest extends TestCase
         ]);
 
         $service = $this->app->make(InternalAiChatService::class);
-        $result = $service->sendMessage($user, 'Pergunta com provider invalido');
+        $result = $service->sendMessage($user, 'Pergunta com provider inválido');
 
         $this->assertSame('test', $result['provider']);
-        $this->assertStringContainsString('Pergunta com provider invalido', (string) $result['assistant_message']->content);
+        $this->assertStringContainsString('Pergunta com provider inválido', (string) $result['assistant_message']->content);
     }
 
     public function test_send_message_fails_when_conversation_belongs_to_another_internal_user(): void
@@ -275,7 +275,7 @@ class InternalAiChatServiceTest extends TestCase
         $service = $this->app->make(InternalAiChatService::class);
 
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Conversa de IA nao pertence ao usuario autenticado.');
+        $this->expectExceptionMessage('Conversa de IA não pertence ao usuário autenticado.');
 
         $service->sendMessage($otherUser, 'Mensagem indevida', $conversation);
     }
@@ -295,9 +295,9 @@ class InternalAiChatServiceTest extends TestCase
         $service = $this->app->make(InternalAiChatService::class);
 
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Usuario nao possui permissao para usar IA interna.');
+        $this->expectExceptionMessage('Usuário não possui permissão para usar IA interna.');
 
-        $service->sendMessage($user, 'Mensagem sem permissao');
+        $service->sendMessage($user, 'Mensagem sem permissão');
     }
 
     public function test_send_message_allows_company_admin_even_when_can_use_ai_is_false(): void

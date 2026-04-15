@@ -30,7 +30,7 @@ class AiConversationController extends Controller
         try {
             $payload = $action->handle($user, $request);
         } catch (ValidationException $exception) {
-            return $this->validationErrorResponse($exception, 'Nao foi possivel listar conversas internas de IA.');
+            return $this->validationErrorResponse($exception, 'Não foi possível listar conversas internas de IA.');
         }
 
         return response()->json($payload);
@@ -48,7 +48,7 @@ class AiConversationController extends Controller
         try {
             $payload = $action->handle($user, $request);
         } catch (ValidationException $exception) {
-            return $this->validationErrorResponse($exception, 'Nao foi possivel criar a conversa interna de IA.');
+            return $this->validationErrorResponse($exception, 'Não foi possível criar a conversa interna de IA.');
         }
 
         return response()->json($payload, 201);
@@ -64,12 +64,12 @@ class AiConversationController extends Controller
         try {
             $payload = $action->handle($user, $conversationId, $request);
         } catch (ValidationException $exception) {
-            return $this->validationErrorResponse($exception, 'Nao foi possivel carregar a conversa interna de IA.');
+            return $this->validationErrorResponse($exception, 'Não foi possível carregar a conversa interna de IA.');
         }
 
         if (! $payload) {
             return response()->json([
-                'message' => 'Conversa interna de IA nao encontrada para este usuario.',
+                'message' => 'Conversa interna de IA não encontrada para este usuário.',
             ], 404);
         }
 
@@ -89,12 +89,12 @@ class AiConversationController extends Controller
         try {
             $payload = $action->handle($user, $conversationId, $request);
         } catch (ValidationException $exception) {
-            return $this->validationErrorResponse($exception, 'Nao foi possivel enviar mensagem para a IA.');
+            return $this->validationErrorResponse($exception, 'Não foi possível enviar mensagem para a IA.');
         }
 
         if (! $payload) {
             return response()->json([
-                'message' => 'Conversa interna de IA nao encontrada para este usuario.',
+                'message' => 'Conversa interna de IA não encontrada para este usuário.',
             ], 404);
         }
 
@@ -122,7 +122,7 @@ class AiConversationController extends Controller
 
         $conversation = $conversationService->findForUser($user, $conversationId, $companyId);
         if (! $conversation) {
-            return response()->json(['message' => 'Conversa interna de IA nao encontrada.'], 404);
+            return response()->json(['message' => 'Conversa interna de IA não encontrada.'], 404);
         }
 
         $content = (string) ($request->input('content') ?? $request->input('text') ?? '');
@@ -159,7 +159,7 @@ class AiConversationController extends Controller
                 } catch (ValidationException $exception) {
                     $errors = $exception->errors();
                     $message = collect($errors)->flatten()->first()
-                        ?? 'Nao foi possivel processar a mensagem.';
+                        ?? 'Não foi possível processar a mensagem.';
 
                     echo 'data: '.json_encode(
                         ['type' => 'error', 'message' => $message],

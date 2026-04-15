@@ -15,7 +15,7 @@ class BotSettingsAiFieldsTest extends TestCase
     protected function setUp(): void
     {
         if (! extension_loaded('pdo_sqlite')) {
-            $this->markTestSkipped('Extensao pdo_sqlite nao habilitada neste ambiente.');
+            $this->markTestSkipped('Extensao pdo_sqlite não habilitada neste ambiente.');
         }
 
         parent::setUp();
@@ -54,7 +54,7 @@ class BotSettingsAiFieldsTest extends TestCase
             'is_active' => true,
             'timezone' => 'America/Sao_Paulo',
             'welcome_message' => 'Oi.',
-            'fallback_message' => 'Nao entendi.',
+            'fallback_message' => 'Não entendi.',
             'out_of_hours_message' => 'Fora do horario.',
             'business_hours' => [
                 'monday' => ['enabled' => true, 'start' => '08:00', 'end' => '18:00'],

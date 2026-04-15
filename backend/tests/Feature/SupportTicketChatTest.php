@@ -114,7 +114,7 @@ class SupportTicketChatTest extends TestCase
         ]);
 
         $adminSend = $this->actingAs($adminSender)->postJson("/api/admin/suporte/solicitacoes/{$ticket->id}/chat", [
-            'message' => 'Retorno do suporte para voce.',
+            'message' => 'Retorno do suporte para você.',
         ]);
         $adminSend->assertStatus(201);
 
@@ -140,7 +140,7 @@ class SupportTicketChatTest extends TestCase
         $sendResponse = $this->actingAs($requester)->post(
             "/api/suporte/minhas-solicitacoes/{$ticket->id}/chat",
             [
-                'message' => 'Imagem para validar permissao.',
+                'message' => 'Imagem para validar permissão.',
                 'images' => [
                     $this->fakePng('evidencia.png'),
                 ],
@@ -188,7 +188,7 @@ class SupportTicketChatTest extends TestCase
             'requester_contact' => $requester->email,
             'requester_company_name' => $company->name,
             'subject' => 'Falha no fluxo do bot',
-            'message' => 'Quando tento publicar, o fluxo nao salva.',
+            'message' => 'Quando tento publicar, o fluxo não salva.',
             'status' => SupportTicket::STATUS_OPEN,
             'managed_by_user_id' => null,
             'closed_at' => null,

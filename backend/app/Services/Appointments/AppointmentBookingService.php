@@ -43,25 +43,25 @@ class AppointmentBookingService
 
         if ($serviceId <= 0) {
             throw ValidationException::withMessages([
-                'service_id' => ['Servico obrigatorio para criar agendamento.'],
+                'service_id' => ['Serviço obrigatório para criar agendamento.'],
             ]);
         }
 
         if ($staffProfileId <= 0) {
             throw ValidationException::withMessages([
-                'staff_profile_id' => ['Atendente obrigatorio para criar agendamento.'],
+                'staff_profile_id' => ['Atendente obrigatório para criar agendamento.'],
             ]);
         }
 
         if ($startsAt === '') {
             throw ValidationException::withMessages([
-                'starts_at' => ['Horario obrigatorio para criar agendamento.'],
+                'starts_at' => ['Horario obrigatório para criar agendamento.'],
             ]);
         }
 
         if ($customerPhone === '') {
             throw ValidationException::withMessages([
-                'customer_phone' => ['Telefone do cliente obrigatorio para criar agendamento.'],
+                'customer_phone' => ['Telefone do cliente obrigatório para criar agendamento.'],
             ]);
         }
 
@@ -74,7 +74,7 @@ class AppointmentBookingService
 
             if (! $service) {
                 throw ValidationException::withMessages([
-                    'service_id' => ['Servico nao encontrado ou inativo para esta empresa.'],
+                'service_id' => ['Serviço não encontrado ou inativo para esta empresa.'],
                 ]);
             }
 
@@ -86,7 +86,7 @@ class AppointmentBookingService
 
             if (! $staffProfile) {
                 throw ValidationException::withMessages([
-                    'staff_profile_id' => ['Atendente nao encontrado ou indisponivel para agendamento.'],
+                    'staff_profile_id' => ['Atendente não encontrado ou indisponivel para agendamento.'],
                 ]);
             }
 
@@ -132,8 +132,8 @@ class AppointmentBookingService
                 'payload' => [
                     'status' => $appointment->status,
                     'source' => $appointment->source,
-                    'starts_at' => $appointment->starts_at?->toIso8601String(),
-                    'ends_at' => $appointment->ends_at?->toIso8601String(),
+                    'starts_at' => $appointment->starts_até->toIso8601String(),
+                    'ends_at' => $appointment->ends_até->toIso8601String(),
                     'timezone' => (string) $slot['timezone'],
                 ],
             ]);

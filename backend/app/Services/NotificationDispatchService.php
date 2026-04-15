@@ -102,8 +102,8 @@ class NotificationDispatchService
             ->first(['id', 'customer_phone', 'customer_name']);
 
         $label = trim((string) ($conversation?->customer_name ?: $conversation?->customer_phone ?: 'cliente'));
-        $title = 'Conversa transferida para voce';
-        $text = "Voce recebeu o atendimento de {$label}.";
+        $title = 'Conversa transferida para você';
+        $text = "Você recebeu o atendimento de {$label}.";
 
         if (! $this->preferenceService->isEnabled((int) $targetUserId, 'conversation_transferred')) {
             return;
@@ -208,7 +208,7 @@ class NotificationDispatchService
         }
 
         $ticketNumber = (int) ($ticket->ticket_number ?: $ticket->id);
-        $senderName = trim((string) ($message->sender?->name ?? 'Usuario'));
+        $senderName = trim((string) ($message->sender?->name ?? 'Usuário'));
         $title = "Nova mensagem na solicitacao #{$ticketNumber}";
         $text = $this->supportTicketMessageNotificationText($message);
 
@@ -254,7 +254,7 @@ class NotificationDispatchService
         }
 
         $sender = $message->sender;
-        $senderName = trim((string) ($sender?->name ?? 'Usuario'));
+        $senderName = trim((string) ($sender?->name ?? 'Usuário'));
         $title = $senderName === ''
             ? 'Nova mensagem no chat interno'
             : "Nova mensagem de {$senderName}";
@@ -418,15 +418,15 @@ class NotificationDispatchService
         }
 
         $groupName = trim((string) ($conversation->name ?? ''));
-        $title = 'Voce foi adicionado a um grupo';
+        $title = 'Você foi adicionado a um grupo';
         if ($adderName !== '' && $groupName !== '') {
-            $text = "{$adderName} adicionou voce ao grupo \"{$groupName}\".";
+            $text = "{$adderName} adicionou você ao grupo \"{$groupName}\".";
         } elseif ($adderName !== '') {
-            $text = "{$adderName} adicionou voce a um grupo.";
+            $text = "{$adderName} adicionou você a um grupo.";
         } elseif ($groupName !== '') {
-            $text = "Voce foi adicionado ao grupo \"{$groupName}\".";
+            $text = "Você foi adicionado ao grupo \"{$groupName}\".";
         } else {
-            $text = 'Voce foi adicionado a um grupo no chat interno.';
+            $text = 'Você foi adicionado a um grupo no chat interno.';
         }
 
         $this->notificationService->createForUser((int) $activeAddedUser, [
@@ -522,7 +522,7 @@ class NotificationDispatchService
             return 'Enviou um anexo no chat interno.';
         }
 
-        return 'Voce recebeu uma nova mensagem no chat interno.';
+        return 'Você recebeu uma nova mensagem no chat interno.';
     }
 
     private function supportTicketMessageNotificationText(SupportTicketMessage $message): string
@@ -539,6 +539,6 @@ class NotificationDispatchService
             return mb_substr($text, 0, 240);
         }
 
-        return 'Voce recebeu uma nova mensagem na solicitacao de suporte.';
+        return 'Você recebeu uma nova mensagem na solicitacao de suporte.';
     }
 }

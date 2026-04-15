@@ -43,7 +43,7 @@ class CompanyUserManagementTest extends TestCase
 
     public function test_company_admin_can_define_ai_permission_for_agent_on_create_and_update(): void
     {
-        $company = Company::create(['name' => 'Empresa IA Usuarios']);
+        $company = Company::create(['name' => 'Empresa IA Usuários']);
         $companyAdmin = User::create([
             'name' => 'Admin Empresa IA',
             'email' => 'company-admin-ia@test.local',
@@ -102,7 +102,7 @@ class CompanyUserManagementTest extends TestCase
             'is_active' => true,
         ]);
         $otherCompanyUser = User::create([
-            'name' => 'Usuario Empresa B',
+            'name' => 'Usuário Empresa B',
             'email' => 'company-user-b@test.local',
             'password' => 'secret123',
             'role' => User::ROLE_AGENT,
@@ -111,7 +111,7 @@ class CompanyUserManagementTest extends TestCase
         ]);
 
         $response = $this->actingAs($companyAdmin)->putJson("/api/minha-conta/users/{$otherCompanyUser->id}", [
-            'name' => 'Nao Pode',
+            'name' => 'Não Pode',
             'email' => 'company-user-b@test.local',
             'role' => User::ROLE_AGENT,
             'is_active' => true,
@@ -134,7 +134,7 @@ class CompanyUserManagementTest extends TestCase
         ]);
 
         $response = $this->actingAs($companyAdmin)->postJson('/api/minha-conta/users', [
-            'name' => 'Usuario Escopo Empresa A',
+            'name' => 'Usuário Escopo Empresa A',
             'email' => 'company-scope-a@test.local',
             'password' => 'secret123',
             'role' => User::ROLE_AGENT,
@@ -195,8 +195,8 @@ class CompanyUserManagementTest extends TestCase
         ]);
 
         $response = $this->actingAs($agent)->postJson('/api/minha-conta/users', [
-            'name' => 'Nao permitido',
-            'email' => 'nao-permitido@test.local',
+            'name' => 'Não permitido',
+            'email' => 'não-permitido@test.local',
             'password' => 'secret123',
             'role' => User::ROLE_AGENT,
             'is_active' => true,

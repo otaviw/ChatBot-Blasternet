@@ -25,7 +25,7 @@ class LeaveGroupConversationAction
 
         if ($this->chatService->isConversationDeleted($conversation)) {
             return response()->json([
-                'message' => 'Grupo nao encontrado.',
+                'message' => 'Grupo não encontrado.',
             ], 404);
         }
 
@@ -43,7 +43,7 @@ class LeaveGroupConversationAction
 
         if (! $currentPivot) {
             return response()->json([
-                'message' => 'Voce nao participa deste grupo.',
+                'message' => 'Você não participa deste grupo.',
             ], 403);
         }
 
@@ -68,7 +68,7 @@ class LeaveGroupConversationAction
 
                 if (! $targetPivot) {
                     throw ValidationException::withMessages([
-                        'transfer_admin_to' => ['Participante escolhido para transferencia nao foi encontrado.'],
+                        'transfer_admin_to' => ['Participante escolhido para transferencia não foi encontrado.'],
                     ]);
                 }
 

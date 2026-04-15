@@ -90,7 +90,7 @@ class RealtimeClient {
   async connect(forceRefresh = false) {
     const socketToken = await this.fetchSocketToken();
     if (!socketToken?.token) {
-      throw new Error('Token de realtime invalido.');
+      throw new Error('Token de realtime inválido.');
     }
 
     if (this.socket) {

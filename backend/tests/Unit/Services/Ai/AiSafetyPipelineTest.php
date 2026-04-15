@@ -30,10 +30,10 @@ class AiSafetyPipelineTest extends TestCase
 
     public function test_pii_redacts_email(): void
     {
-        $result = $this->pii->run('Meu email é usuario@empresa.com.br, pode usar.');
+        $result = $this->pii->run('Meu email é usuário@empresa.com.br, pode usar.');
         $this->assertFalse($result->blocked);
         $this->assertStringContainsString('[EMAIL]', $result->output);
-        $this->assertStringNotContainsString('usuario@empresa.com.br', $result->output);
+        $this->assertStringNotContainsString('usuário@empresa.com.br', $result->output);
         $this->assertContains('pii_email_redacted', $result->flags);
     }
 

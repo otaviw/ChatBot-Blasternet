@@ -122,7 +122,7 @@ class AuditLogController extends Controller
 
         $item = $query->first();
         if (! $item) {
-            return response()->json(['message' => 'Log de auditoria nao encontrado.'], 404);
+            return response()->json(['message' => 'Log de auditoria não encontrado.'], 404);
         }
 
         return response()->json(['item' => $item]);

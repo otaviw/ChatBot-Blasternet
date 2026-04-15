@@ -35,13 +35,13 @@ class WebhookController extends Controller
         $expectedToken = (string) config('whatsapp.verify_token');
 
         if ($mode !== 'subscribe') {
-            Log::warning('Webhook WhatsApp: verificacao com mode invalido.', $context);
+            Log::warning('Webhook WhatsApp: verificacao com mode inválido.', $context);
 
             return response('Forbidden', 403);
         }
 
         if ($token !== $expectedToken) {
-            Log::warning('Webhook WhatsApp: verify_token invalido.', $context);
+            Log::warning('Webhook WhatsApp: verify_token inválido.', $context);
 
             return response('Forbidden', 403);
         }

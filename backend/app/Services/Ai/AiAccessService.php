@@ -120,18 +120,18 @@ class AiAccessService
 
         if (! $this->companyAllowsInternalAi($effectiveSettings)) {
             throw ValidationException::withMessages([
-                'ai' => ['IA interna nao esta habilitada para esta empresa.'],
+                'ai' => ['IA interna não está habilitada para esta empresa.'],
             ]);
         }
 
         if ($normalizedRole === User::ROLE_AGENT && ! (bool) $user->can_use_ai) {
             throw ValidationException::withMessages([
-                'user' => ['Usuario nao possui permissao para usar IA interna.'],
+                'user' => ['Usuário não possui permissão para usar IA interna.'],
             ]);
         }
 
         throw ValidationException::withMessages([
-            'user' => ['Usuario nao possui permissao para usar IA interna.'],
+            'user' => ['Usuário não possui permissão para usar IA interna.'],
         ]);
     }
 }

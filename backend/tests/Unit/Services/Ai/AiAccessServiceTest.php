@@ -81,7 +81,7 @@ class AiAccessServiceTest extends TestCase
             $this->fail('Expected ValidationException not thrown.');
         } catch (ValidationException $exception) {
             $this->assertSame(
-                'Usuario nao possui permissao para usar IA interna.',
+                'Usuário não possui permissão para usar IA interna.',
                 $exception->errors()['user'][0] ?? ''
             );
         }
@@ -115,7 +115,7 @@ class AiAccessServiceTest extends TestCase
             $this->fail('Expected ValidationException not thrown.');
         } catch (ValidationException $exception) {
             $this->assertSame(
-                'IA interna nao esta habilitada para esta empresa.',
+                'IA interna não está habilitada para esta empresa.',
                 $exception->errors()['ai'][0] ?? ''
             );
         }

@@ -6,11 +6,11 @@ function normalizeMessage(message, fallback) {
 }
 
 export function showSuccess(message, options = {}) {
-  return toast.success(normalizeMessage(message, 'Operacao concluida com sucesso.'), options);
+  return toast.success(normalizeMessage(message, 'Operação concluida com sucesso.'), options);
 }
 
 export function showError(message, options = {}) {
-  return toast.error(normalizeMessage(message, 'Nao foi possivel concluir a operacao.'), options);
+  return toast.error(normalizeMessage(message, 'Não foi possível concluir a operação.'), options);
 }
 
 export function showInfo(message, options = {}) {

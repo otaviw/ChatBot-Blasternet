@@ -156,7 +156,7 @@ class UserController extends Controller
         $companyId = $actor->isSystemAdmin() ? (int) $user->company_id : (int) $actor->company_id;
         if ((int) $user->company_id !== $companyId || ! in_array($user->role, User::companyRoleValues(), true)) {
             return response()->json([
-                'message' => 'Usuario nao pertence a empresa.',
+                'message' => 'Usuário não pertence a empresa.',
             ], 404);
         }
 
@@ -220,7 +220,7 @@ class UserController extends Controller
         $companyId = (int) $actor->company_id;
         if ((int) $user->company_id !== $companyId || ! in_array($user->role, User::companyRoleValues(), true)) {
             return response()->json([
-                'message' => 'Usuario nao pertence a empresa.',
+                'message' => 'Usuário não pertence a empresa.',
             ], 404);
         }
 
@@ -266,7 +266,7 @@ class UserController extends Controller
 
             if (count($resolvedByName) !== count(array_unique($names))) {
                 throw ValidationException::withMessages([
-                    'areas' => ['Uma ou mais areas informadas nao existem para a empresa.'],
+                    'areas' => ['Uma ou mais areas informadas não existem para a empresa.'],
                 ]);
             }
 
@@ -285,7 +285,7 @@ class UserController extends Controller
 
         if ($validAreaCount !== count($ids)) {
             throw ValidationException::withMessages([
-                'area_ids' => ['Area informada nao pertence a empresa.'],
+                'area_ids' => ['Area informada não pertence a empresa.'],
             ]);
         }
 

@@ -184,7 +184,7 @@ function NotificationsPage() {
   return (
     <Layout role={uiRole} companyName={data?.user?.company_name ?? null} onLogout={logout}>
       <PageHeader
-        title="Central de notificacoes"
+        title="Central de notificações"
         subtitle="Acompanhe pendencias por modulo e acesse rapidamente os itens relacionados."
       />
 

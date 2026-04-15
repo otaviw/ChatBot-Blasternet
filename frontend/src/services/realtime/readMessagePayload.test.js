@@ -8,11 +8,11 @@ describe('readMessagePayload', () => {
     expect(readMessagePayload(payload)).toEqual({ id: 10, body: 'oi' });
   });
 
-  it('retorna null quando payload for invalido', () => {
+  it('retorna null quando payload for inválido', () => {
     expect(readMessagePayload(null)).toBe(null);
   });
 
-  it('retorna null quando message nao for objeto', () => {
+  it('retorna null quando message não for objeto', () => {
     expect(readMessagePayload({ message: 'texto' })).toBe(null);
   });
 });

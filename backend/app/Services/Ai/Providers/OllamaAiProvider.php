@@ -24,7 +24,7 @@ class OllamaAiProvider implements AiProvider, AiStreamingProvider
     {
         $model = trim((string) ($options['model'] ?? config('ai.model', '')));
         if ($model === '') {
-            return $this->errorResult('Modelo da IA nao configurado para o provider Ollama.', [
+            return $this->errorResult('Modelo da IA não configurado para o provider Ollama.', [
                 'provider' => 'ollama',
             ]);
         }
@@ -102,7 +102,7 @@ class OllamaAiProvider implements AiProvider, AiStreamingProvider
         $text = trim((string) data_get($responseJson, 'message.content', data_get($responseJson, 'response', '')));
 
         if ($text === '') {
-            return $this->errorResult('Ollama nao retornou conteudo de resposta.', [
+            return $this->errorResult('Ollama não retornou conteúdo de resposta.', [
                 'provider' => 'ollama',
                 'model' => $model,
                 'url' => $url,
@@ -145,7 +145,7 @@ class OllamaAiProvider implements AiProvider, AiStreamingProvider
     {
         $model = trim((string) ($options['model'] ?? config('ai.model', '')));
         if ($model === '') {
-            return $this->errorResult('Modelo da IA nao configurado para o provider Ollama.', [
+            return $this->errorResult('Modelo da IA não configurado para o provider Ollama.', [
                 'provider' => 'ollama',
             ]);
         }
@@ -262,7 +262,7 @@ class OllamaAiProvider implements AiProvider, AiStreamingProvider
         }
 
         if ($fullText === '') {
-            return $this->errorResult('Ollama nao retornou conteudo de resposta.', [
+            return $this->errorResult('Ollama não retornou conteúdo de resposta.', [
                 'provider' => 'ollama',
                 'model' => $model,
                 'url' => $url,

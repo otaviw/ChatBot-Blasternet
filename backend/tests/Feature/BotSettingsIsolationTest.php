@@ -15,7 +15,7 @@ class BotSettingsIsolationTest extends TestCase
     protected function setUp(): void
     {
         if (! extension_loaded('pdo_sqlite')) {
-            $this->markTestSkipped('Extensao pdo_sqlite nao habilitada neste ambiente.');
+            $this->markTestSkipped('Extensao pdo_sqlite não habilitada neste ambiente.');
         }
 
         parent::setUp();

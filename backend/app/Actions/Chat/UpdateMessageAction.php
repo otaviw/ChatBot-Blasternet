@@ -24,19 +24,19 @@ class UpdateMessageAction
 
         if ($this->chatService->isConversationDeleted($conversation)) {
             return response()->json([
-                'message' => 'Conversa nao encontrada.',
+                'message' => 'Conversa não encontrada.',
             ], 404);
         }
 
         if (! $this->chatService->isVisibleParticipant($conversation, (int) $user->id)) {
             return response()->json([
-                'message' => 'Sem permissao para editar mensagem nesta conversa.',
+                'message' => 'Sem permissão para editar mensagem nesta conversa.',
             ], 403);
         }
 
         if (! $this->chatService->belongsToConversation($conversation, $message)) {
             return response()->json([
-                'message' => 'Mensagem nao pertence a conversa informada.',
+                'message' => 'Mensagem não pertence a conversa informada.',
             ], 404);
         }
 
@@ -48,7 +48,7 @@ class UpdateMessageAction
 
         if ($message->deleted_at) {
             throw ValidationException::withMessages([
-                'message' => ['Nao e possivel editar uma mensagem apagada.'],
+                'message' => ['Não é possível editar uma mensagem apagada.'],
             ]);
         }
 

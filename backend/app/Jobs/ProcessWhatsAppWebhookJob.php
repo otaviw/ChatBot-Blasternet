@@ -403,7 +403,7 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
                 $message->status_error = $this->formatStatusError($statusPayload['errors'] ?? null);
                 break;
             default:
-                Log::info('Webhook status ignorado por status nao mapeado.', [
+                Log::info('Webhook status ignorado por status não mapeado.', [
                     'company_id' => (int) $company->id,
                     'message_id' => (int) $message->id,
                     'whatsapp_message_id' => $whatsAppMessageId,
@@ -513,7 +513,7 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
             ->map(fn (MessageReaction $reaction): array => [
                 'reactor_phone' => (string) $reaction->reactor_phone,
                 'emoji' => (string) ($reaction->emoji ?? ''),
-                'reacted_at' => $reaction->reacted_at?->toISOString(),
+                'reacted_at' => $reaction->reacted_até->toISOString(),
             ])
             ->values()
             ->all();

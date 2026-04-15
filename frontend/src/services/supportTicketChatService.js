@@ -45,7 +45,7 @@ function normalizeMessage(item) {
     id,
     support_ticket_id: Number.parseInt(String(item.support_ticket_id ?? ''), 10) || null,
     sender_user_id: Number.parseInt(String(item.sender_user_id ?? ''), 10) || null,
-    sender_name: String(item.sender_name ?? 'Usuario'),
+    sender_name: String(item.sender_name ?? 'Usuário'),
     sender_is_admin: Boolean(item.sender_is_admin),
     type: String(item.type ?? 'text'),
     content: String(item.content ?? ''),

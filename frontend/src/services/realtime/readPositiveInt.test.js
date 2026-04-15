@@ -6,11 +6,11 @@ describe('readPositiveInt', () => {
     expect(readPositiveInt({ a: '0', b: '12' }, ['a', 'b'])).toBe(12);
   });
 
-  it('retorna null quando nao encontrar valor valido', () => {
+  it('retorna null quando não encontrar valor valido', () => {
     expect(readPositiveInt({ a: '0', b: '-5' }, ['a', 'b'])).toBe(null);
   });
 
-  it('retorna null quando source nao for objeto', () => {
+  it('retorna null quando source não for objeto', () => {
     expect(readPositiveInt(null, ['id'])).toBe(null);
   });
 });

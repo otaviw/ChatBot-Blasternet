@@ -4,7 +4,7 @@ import './ConfirmDialog.css';
 
 function ConfirmDialog({
   open = false,
-  title = 'Confirmar acao',
+  title = 'Confirmar ação',
   description = '',
   confirmLabel = 'Confirmar',
   cancelLabel = 'Cancelar',

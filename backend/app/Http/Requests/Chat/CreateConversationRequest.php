@@ -65,14 +65,14 @@ class CreateConversationRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'recipient_id.required'   => 'recipient_id e obrigatorio.',
-            'recipient_id.integer'    => 'recipient_id invalido.',
-            'recipient_id.min'        => 'recipient_id invalido.',
+            'recipient_id.required'   => 'recipient_id e obrigatório.',
+            'recipient_id.integer'    => 'recipient_id inválido.',
+            'recipient_id.min'        => 'recipient_id inválido.',
             'participant_ids.required' => 'Selecione os participantes do grupo.',
             'participant_ids.min'     => 'Selecione pelo menos 2 participantes.',
-            'participant_ids.*.integer' => 'ID de participante invalido.',
-            'name.max'                => 'O nome do grupo nao pode ultrapassar 120 caracteres.',
-            'content.max'             => 'O texto nao pode ultrapassar 20.000 caracteres.',
+            'participant_ids.*.integer' => 'ID de participante inválido.',
+            'name.max'                => 'O nome do grupo não pode ultrapassar 120 caracteres.',
+            'content.max'             => 'O texto não pode ultrapassar 20.000 caracteres.',
         ];
     }
 }

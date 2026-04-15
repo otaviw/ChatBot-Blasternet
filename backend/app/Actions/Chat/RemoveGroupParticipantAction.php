@@ -25,7 +25,7 @@ class RemoveGroupParticipantAction
 
         if ($this->chatService->isConversationDeleted($conversation)) {
             return response()->json([
-                'message' => 'Grupo nao encontrado.',
+                'message' => 'Grupo não encontrado.',
             ], 404);
         }
 
@@ -37,7 +37,7 @@ class RemoveGroupParticipantAction
 
         if (! $this->chatService->isVisibleParticipant($conversation, (int) $user->id)) {
             return response()->json([
-                'message' => 'Sem permissao para alterar este grupo.',
+                'message' => 'Sem permissão para alterar este grupo.',
             ], 403);
         }
 
@@ -49,7 +49,7 @@ class RemoveGroupParticipantAction
 
         if ((int) $participant->id === (int) $user->id) {
             throw ValidationException::withMessages([
-                'participant_id' => ['Use a opcao sair do grupo para remover a si mesmo.'],
+                'participant_id' => ['Use a opção sair do grupo para remover a si mesmo.'],
             ]);
         }
 
@@ -61,7 +61,7 @@ class RemoveGroupParticipantAction
 
         if (! $targetPivot) {
             return response()->json([
-                'message' => 'Participante nao encontrado no grupo.',
+                'message' => 'Participante não encontrado no grupo.',
             ], 404);
         }
 

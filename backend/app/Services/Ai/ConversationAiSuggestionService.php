@@ -96,7 +96,7 @@ class ConversationAiSuggestionService
         if ($exception !== null) {
             $this->recordErrorMetric($conversation, $providerName, $modelName, $responseTimeMs, 'provider_exception', $exception);
             throw ValidationException::withMessages([
-                'ai' => ['Falha ao obter sugestao da IA.'],
+                'ai' => ['Falha ao obter sugestão da IA.'],
             ]);
         }
 
@@ -130,7 +130,7 @@ class ConversationAiSuggestionService
         $suggestion = trim((string) ($providerResult['text'] ?? ''));
         if ($suggestion === '') {
             throw ValidationException::withMessages([
-                'ai' => ['A IA nao retornou sugestao para esta conversa.'],
+                'ai' => ['A IA não retornou sugestão para esta conversa.'],
             ]);
         }
 
@@ -461,7 +461,7 @@ class ConversationAiSuggestionService
             return $configuredMessage;
         }
 
-        return 'Nao foi possivel gerar sugestao de IA para esta conversa.';
+        return 'Não foi possível gerar sugestão de IA para esta conversa.';
     }
 
     /**

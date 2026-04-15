@@ -29,7 +29,7 @@ class WhatsAppSendService
         $normalizedTo = $this->normalizeRecipient($toPhone);
 
         if ($normalizedTo === '') {
-            Log::warning('WhatsApp envio de texto ignorado: destinatario invalido.', [
+            Log::warning('WhatsApp envio de texto ignorado: destinatario inválido.', [
                 'company_id' => $company?->id,
                 'to_original' => $toPhone,
             ]);
@@ -113,7 +113,7 @@ class WhatsAppSendService
         }
 
         if ($normalizedTo === '') {
-            Log::warning('WhatsApp envio de imagem ignorado: destinatario invalido.', [
+            Log::warning('WhatsApp envio de imagem ignorado: destinatario inválido.', [
                 'company_id' => $company?->id,
                 'to_original' => $toPhone,
             ]);
@@ -471,7 +471,7 @@ class WhatsAppSendService
             'company_id'             => $company?->id,
             'to'                     => $toPhone,
             'template'               => $templateName,
-            'last_user_message_at'   => $conversation?->last_user_message_at?->toIso8601String(),
+            'last_user_message_at'   => $conversation?->last_user_message_até->toIso8601String(),
         ]);
 
         return $this->sendTemplateMessage($company, $toPhone, $templateName, $templateVariables);

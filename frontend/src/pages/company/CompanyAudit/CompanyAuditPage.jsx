@@ -79,7 +79,7 @@ function CompanyAuditPage() {
       const response = await api.get(`/minha-conta/audit-logs/${id}`);
       setDetailItem(response.data?.item ?? null);
     } catch (err) {
-      setDetailError(err.response?.data?.message ?? 'Nao foi possivel carregar o detalhe do log.');
+      setDetailError(err.response?.data?.message ?? 'Não foi possível carregar o detalhe do log.');
     } finally {
       setDetailLoading(false);
     }
@@ -95,13 +95,13 @@ function CompanyAuditPage() {
       >
       <PageHeader
         title="Auditoria"
-        subtitle="Consulte eventos auditados com filtros por acao e data."
+        subtitle="Consulte eventos auditados com filtros por açãnão é data."
       />
 
       <Card className="mb-4 p-4">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
           <label className="text-sm text-[#334155]">
-            Acao
+            Ação
             <input
               type="text"
               value={draft.action}
@@ -143,11 +143,11 @@ function CompanyAuditPage() {
           <table className="min-w-full text-sm app-responsive-table">
             <thead className="bg-[#f8fafc]">
               <tr className="border-b border-[#e2e8f0] text-left text-[#64748b]">
-                <th className="px-4 py-3 font-medium">Acao</th>
-                <th className="px-4 py-3 font-medium">Usuario</th>
+                <th className="px-4 py-3 font-medium">Ação</th>
+                <th className="px-4 py-3 font-medium">Usuário</th>
                 <th className="px-4 py-3 font-medium">Entidade</th>
                 <th className="px-4 py-3 font-medium">Data</th>
-                <th className="px-4 py-3 font-medium">Acao</th>
+                <th className="px-4 py-3 font-medium">Ação</th>
               </tr>
             </thead>
             <tbody>
@@ -160,8 +160,8 @@ function CompanyAuditPage() {
               ) : null}
               {rows.map((item) => (
                 <tr key={item.id} className="border-b border-[#f1f5f9] align-top">
-                  <td data-label="Acao" className="px-4 py-3 text-[#0f172a]">{item.action || '-'}</td>
-                  <td data-label="Usuario" className="px-4 py-3 text-[#334155]">{item.user_name || '-'}</td>
+                  <td data-label="Ação" className="px-4 py-3 text-[#0f172a]">{item.action || '-'}</td>
+                  <td data-label="Usuário" className="px-4 py-3 text-[#334155]">{item.user_name || '-'}</td>
                   <td data-label="Entidade" className="px-4 py-3 text-[#334155]">
                     {item.entity_type || '-'}{item.entity_id ? ` #${item.entity_id}` : ''}
                   </td>
@@ -244,8 +244,8 @@ function CompanyAuditPage() {
             {detailItem ? (
               <>
                 <div className="grid grid-cols-1 gap-2 text-sm md:grid-cols-2 mb-4">
-                  <p><strong>Acao:</strong> {detailItem.action || '-'}</p>
-                  <p><strong>Usuario:</strong> {detailItem.user_name || '-'}</p>
+                  <p><strong>Ação:</strong> {detailItem.action || '-'}</p>
+                  <p><strong>Usuário:</strong> {detailItem.user_name || '-'}</p>
                   <p><strong>Entidade:</strong> {detailItem.entity_type || '-'}</p>
                   <p><strong>ID entidade:</strong> {detailItem.entity_id || '-'}</p>
                   <p><strong>Data:</strong> {formatDateTime(detailItem.created_at)}</p>

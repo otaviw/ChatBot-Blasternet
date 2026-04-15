@@ -204,7 +204,7 @@ export default function CompanyAppointmentsPage() {
     if (nextService) setServiceForm({ name: nextService.name || 'Atendimento', description: nextService.description || '', duration_minutes: Number(nextService.duration_minutes || 30), is_active: !!nextService.is_active });
     const firstBookable = nextStaff.find((s) => s.is_bookable);
     if (!selectedStaffId && firstBookable) setSelectedStaffId(String(firstBookable.id));
-  }, 'Nao foi possivel carregar dados de agendamento.');
+  }, 'Não foi possível carregar dados de agendamento.');
 
   const reloadCalendar = async () => run(async () => {
     const [a1, a2] = await Promise.all([
@@ -212,14 +212,14 @@ export default function CompanyAppointmentsPage() {
       fetchTimeOffs({ date_from: calRange.start, date_to: calRange.end, staff_profile_id: selectedStaffId || undefined }),
     ]);
     setAppointments(a1?.items || []); setTimeOffs(a2?.time_offs || []);
-  }, 'Nao foi possivel carregar calendario.');
+  }, 'Não foi possível carregar calendário.');
 
   const reloadAvailability = async () => {
     if (!serviceId) { setAvailability([]); return; }
     await run(async () => {
       const r = await fetchAppointmentAvailability({ service_id: Number(serviceId), date: availDate, staff_profile_id: selectedStaffId || undefined });
       setAvailability(r?.staff || []);
-    }, 'Nao foi possivel carregar horarios livres.');
+    }, 'Não foi possível carregar horários livres.');
   };
 
   useEffect(() => { if (data?.authenticated) void reloadBase(); }, [data?.authenticated]);
@@ -242,14 +242,14 @@ export default function CompanyAppointmentsPage() {
 
   const saveSettings = () => run(async () => {
     const payload = { timezone: settings.timezone, slot_interval_minutes: Number(settings.slot_interval_minutes), booking_min_notice_minutes: Number(settings.booking_min_notice_minutes), booking_max_advance_days: Number(settings.booking_max_advance_days), cancellation_min_notice_minutes: Number(settings.cancellation_min_notice_minutes), reschedule_min_notice_minutes: Number(settings.reschedule_min_notice_minutes), allow_customer_choose_staff: !!settings.allow_customer_choose_staff };
-    const r = await updateAppointmentSettings(payload); setSettings(r?.settings || settings); setMsg('Configuracoes salvas.'); await reloadAvailability();
-  }, 'Falha ao salvar configuracoes.');
+    const r = await updateAppointmentSettings(payload); setSettings(r?.settings || settings); setMsg('Configurações salvas.'); await reloadAvailability();
+  }, 'Falha ao salvar configurações.');
 
   const saveService = (e) => run(async () => {
     e.preventDefault(); const payload = { ...serviceForm, duration_minutes: Number(serviceForm.duration_minutes), buffer_before_minutes: 0, buffer_after_minutes: 0, max_bookings_per_slot: 1, is_active: !!serviceForm.is_active };
     const r = service?.id ? await updateAppointmentService(service.id, payload) : await createAppointmentService(payload);
-    setService(r?.service || service); setMsg(service?.id ? 'Servico atualizado.' : 'Servico criado.'); await reloadAvailability();
-  }, 'Falha ao salvar servico.');
+    setService(r?.service || service); setMsg(service?.id ? 'Serviço atualizado.' : 'Serviço criado.'); await reloadAvailability();
+  }, 'Falha ao salvar serviço.');
 
   const saveHours = (e) => run(async () => {
     e.preventDefault(); if (!selectedStaffId) throw new Error('Selecione um atendente.');
@@ -278,7 +278,7 @@ export default function CompanyAppointmentsPage() {
   const addAppointment = (e) => run(async () => {
     e.preventDefault();
     if (!serviceId || !selectedStaffId) {
-      throw new Error('Selecione servico e atendente para criar agendamento.');
+      throw new Error('Selecione serviçnão é atendente para criar agendamento.');
     }
     await createAppointment({ service_id: Number(serviceId), staff_profile_id: Number(selectedStaffId), starts_at: newAppt.starts_at, customer_name: newAppt.customer_name, customer_phone: newAppt.customer_phone, source: 'dashboard' });
     setNewAppt({ starts_at: '', customer_name: '', customer_phone: '' }); setMsg('Agendamento criado.'); await Promise.all([reloadCalendar(), reloadAvailability()]);
@@ -306,7 +306,7 @@ export default function CompanyAppointmentsPage() {
       </Layout>
     );
   }
-  if (error || !data?.authenticated) return <Layout><p className="text-sm text-red-600">Nao foi possivel carregar a agenda.</p></Layout>;
+  if (error || !data?.authenticated) return <Layout><p className="text-sm text-red-600">Não foi possível carregar a agenda.</p></Layout>;
   if (!canManage) return <Layout role="company" companyName={data?.user?.company_name} onLogout={logout}><p className="text-sm text-[#64748b]">Acesso restrito ao time da empresa.</p></Layout>;
 
   return (
@@ -314,7 +314,7 @@ export default function CompanyAppointmentsPage() {
       <section className="appointments-page">
         <header className="appointments-header">
           <h1 className="appointments-title">Agendamentos</h1>
-          <p className="appointments-subtitle">Servico unico, atendentes, horarios livres por dia e calendario semanal/mensal.</p>
+          <p className="appointments-subtitle">Serviço único, atendentes, horários livres por dia e calendário semanal/mensal.</p>
           <div className="appointments-filters"><label>Atendente<select value={selectedStaffId} onChange={(e) => setSelectedStaffId(e.target.value)}><option value="">Todos</option>{staff.filter((s) => s.is_bookable).map((s) => <option key={s.id} value={String(s.id)}>{s.display_name || s.user_name}</option>)}</select></label></div>
           {busy && <p className="appointments-note">Atualizando...</p>}
           {msg && <p className="appointments-note appointments-note--ok">{msg}</p>}
@@ -322,22 +322,22 @@ export default function CompanyAppointmentsPage() {
         </header>
 
         <div className="appointments-grid">
-          <article className="appointments-card"><h2>Configuracoes</h2>{settings && <div className="appointments-form-grid">
+          <article className="appointments-card"><h2>Configurações</h2>{settings && <div className="appointments-form-grid">
             <label>Fuso<input value={settings.timezone || ''} onChange={(e) => setSettings((p) => ({ ...p, timezone: e.target.value }))} /></label>
             <label>Intervalo entre atendimentos (min)<input type="number" min="5" value={settings.slot_interval_minutes || 15} onChange={(e) => setSettings((p) => ({ ...p, slot_interval_minutes: Number(e.target.value) }))} /></label>
-            <label>Antecedencia minima para agendar (tempo minimo antes do horario)<DurationInput valueMinutes={settings.booking_min_notice_minutes || 0} onChange={(v) => setSettings((p) => ({ ...p, booking_min_notice_minutes: v }))} /></label>
-            <label>Maximo em dias (quantos dias no futuro pode marcar)<input type="number" min="0" value={settings.booking_max_advance_days || 0} onChange={(e) => setSettings((p) => ({ ...p, booking_max_advance_days: Number(e.target.value) }))} /></label>
+            <label>Antecedencia minima para agendar (tempo mínimo antes do horario)<DurationInput valueMinutes={settings.booking_min_notice_minutes || 0} onChange={(v) => setSettings((p) => ({ ...p, booking_min_notice_minutes: v }))} /></label>
+            <label>Máximo em dias (quantos dias no futuro pode marcar)<input type="number" min="0" value={settings.booking_max_advance_days || 0} onChange={(e) => setSettings((p) => ({ ...p, booking_max_advance_days: Number(e.target.value) }))} /></label>
             <label>Antecedencia minima para cancelamento (0 = sem restricao)<DurationInput valueMinutes={settings.cancellation_min_notice_minutes || 0} onChange={(v) => setSettings((p) => ({ ...p, cancellation_min_notice_minutes: v }))} /></label>
-          </div>}<button type="button" className="appointments-btn" onClick={saveSettings}>Salvar configuracoes</button></article>
+          </div>}<button type="button" className="appointments-btn" onClick={saveSettings}>Salvar configurações</button></article>
 
-          <article className="appointments-card"><h2>Servico (unico)</h2><p className="appointments-help">Duracao = tempo de atendimento. O intervalo entre horarios e configurado na jornada de cada dia.</p>
+          <article className="appointments-card"><h2>Serviço (único)</h2><p className="appointments-help">Duração = tempo de atendimento. O intervalo entre horários e configurado na jornada de cada dia.</p>
             <form onSubmit={saveService} className="appointments-form-grid">
               <label>Nome<input required value={serviceForm.name} onChange={(e) => setServiceForm((p) => ({ ...p, name: e.target.value }))} /></label>
-              <label>Duracao (min)<input required type="number" min="5" value={serviceForm.duration_minutes} onChange={(e) => setServiceForm((p) => ({ ...p, duration_minutes: Number(e.target.value) }))} /></label>
+              <label>Duração (min)<input required type="number" min="5" value={serviceForm.duration_minutes} onChange={(e) => setServiceForm((p) => ({ ...p, duration_minutes: Number(e.target.value) }))} /></label>
               <label className="appointments-checkbox"><input type="checkbox" checked={!!serviceForm.is_active} onChange={(e) => setServiceForm((p) => ({ ...p, is_active: e.target.checked }))} />Ativo</label>
-              <button className="appointments-btn" type="submit">{service?.id ? 'Salvar servico' : 'Criar servico'}</button>
+              <button className="appointments-btn" type="submit">{service?.id ? 'Salvar serviço' : 'Criar serviço'}</button>
             </form>
-            <p className="appointments-help">Para o bot mostrar "4 - Marcar agendamento", o servico precisa estar ativo e deve existir ao menos um usuario marcado como atendente na tela de Usuarios.</p>
+            <p className="appointments-help">Para o bot mostrar "4 - Marcar agendamento", o serviço precisa estar ativo e deve existir ao menos um usuário marcado como atendente na tela de Usuários.</p>
           </article>
 
           <article className="appointments-card appointments-card--full"><h2>Jornada por atendente</h2>
@@ -422,12 +422,12 @@ export default function CompanyAppointmentsPage() {
             </form>
           </article>
 
-          <article className="appointments-card"><h2>Horarios livres</h2><div className="appointments-inline">
+          <article className="appointments-card"><h2>Horários livres</h2><div className="appointments-inline">
             <button className="appointments-btn appointments-btn--light" type="button" onClick={() => setAvailDate((p) => plusDays(p, -1))}>Dia anterior</button><strong>{fmtYmd(availDate)}</strong>
-            <button className="appointments-btn appointments-btn--light" type="button" onClick={() => setAvailDate((p) => plusDays(p, 1))}>Proximo dia</button>
-          </div>{!serviceId && <p className="appointments-empty">Crie o servico para ver horarios.</p>}
+            <button className="appointments-btn appointments-btn--light" type="button" onClick={() => setAvailDate((p) => plusDays(p, 1))}>Próximo dia</button>
+          </div>{!serviceId && <p className="appointments-empty">Crie o serviço para ver horários.</p>}
             <div className="appointments-availability-list">{availability.map((s) => <div className="appointments-availability-group" key={s.staff_profile_id}><h3>{s.staff_name}</h3>
-              {s.slots?.length ? <div className="appointments-slots">{s.slots.map((slot) => <button key={`${s.staff_profile_id}-${slot.starts_at}`} type="button" className="appointments-slot-btn" onClick={() => { setSelectedStaffId(String(s.staff_profile_id)); setNewAppt((p) => ({ ...p, starts_at: toLocalInput(slot.starts_at_local || slot.starts_at) })); }}>{fmtHm(slot.starts_at_local || slot.starts_at)}</button>)}</div> : <p className="appointments-empty">Sem horarios.</p>}
+              {s.slots?.length ? <div className="appointments-slots">{s.slots.map((slot) => <button key={`${s.staff_profile_id}-${slot.starts_at}`} type="button" className="appointments-slot-btn" onClick={() => { setSelectedStaffId(String(s.staff_profile_id)); setNewAppt((p) => ({ ...p, starts_at: toLocalInput(slot.starts_at_local || slot.starts_at) })); }}>{fmtHm(slot.starts_at_local || slot.starts_at)}</button>)}</div> : <p className="appointments-empty">Sem horários.</p>}
             </div>)}</div>
           </article>
 
@@ -453,11 +453,11 @@ export default function CompanyAppointmentsPage() {
             <button className="appointments-btn" type="submit">Registrar bloqueio</button></form>
           </article>
 
-          <article className="appointments-card appointments-card--full"><h2>Calendario</h2><div className="appointments-calendar-toolbar">
+          <article className="appointments-card appointments-card--full"><h2>Calendário</h2><div className="appointments-calendar-toolbar">
             <div className="appointments-inline"><button type="button" className="appointments-btn appointments-btn--light" onClick={() => setAnchorDate((v) => calendarView === 'month' ? ymd(new Date(parseYmd(v).setMonth(parseYmd(v).getMonth() - 1))) : plusDays(v, -7))}>Anterior</button>
               <button type="button" className="appointments-btn appointments-btn--light" onClick={() => setAnchorDate(today)}>Hoje</button>
-              <button type="button" className="appointments-btn appointments-btn--light" onClick={() => setAnchorDate((v) => calendarView === 'month' ? ymd(new Date(parseYmd(v).setMonth(parseYmd(v).getMonth() + 1))) : plusDays(v, 7))}>Proximo</button></div>
-            <div className="appointments-inline"><button type="button" className={`appointments-btn appointments-btn--light ${calendarView === 'week' ? 'is-active' : ''}`} onClick={() => setCalendarView('week')}>Semana</button><button type="button" className={`appointments-btn appointments-btn--light ${calendarView === 'month' ? 'is-active' : ''}`} onClick={() => setCalendarView('month')}>Mes</button></div>
+              <button type="button" className="appointments-btn appointments-btn--light" onClick={() => setAnchorDate((v) => calendarView === 'month' ? ymd(new Date(parseYmd(v).setMonth(parseYmd(v).getMonth() + 1))) : plusDays(v, 7))}>Próximo</button></div>
+            <div className="appointments-inline"><button type="button" className={`appointments-btn appointments-btn--light ${calendarView === 'week' ? 'is-active' : ''}`} onClick={() => setCalendarView('week')}>Semana</button><button type="button" className={`appointments-btn appointments-btn--light ${calendarView === 'month' ? 'is-active' : ''}`} onClick={() => setCalendarView('month')}>Mês</button></div>
           </div>
             <div className="appointments-calendar-grid">{calDays.map((d) => <div key={d} className={`appointments-calendar-cell ${calendarView === 'month' && d.slice(0, 7) !== anchorDate.slice(0, 7) ? 'is-muted' : ''}`}>
               <div className="appointments-calendar-date">{fmtYmd(d)}</div>
@@ -525,7 +525,7 @@ export default function CompanyAppointmentsPage() {
           </article>
 
           <article className="appointments-card appointments-card--full"><h2>Bloqueios do periodo</h2>
-            {!timeOffs.length ? <p className="appointments-empty">Nenhum bloqueio.</p> : <ul className="appointments-block-list">{timeOffs.map((t) => <li key={t.id}><div><strong>{t.staff_name || 'Todos os atendentes'}</strong><p>{fmtDt(t.starts_at)} ate {fmtDt(t.ends_at)}</p><p>{t.reason || 'Sem motivo informado'}</p></div><button type="button" className="appointments-btn appointments-btn--danger" onClick={() => void removeTimeOff(t.id)}>Remover</button></li>)}</ul>}
+            {!timeOffs.length ? <p className="appointments-empty">Nenhum bloqueio.</p> : <ul className="appointments-block-list">{timeOffs.map((t) => <li key={t.id}><div><strong>{t.staff_name || 'Todos os atendentes'}</strong><p>{fmtDt(t.starts_at)} até {fmtDt(t.ends_at)}</p><p>{t.reason || 'Sem motivo informado'}</p></div><button type="button" className="appointments-btn appointments-btn--danger" onClick={() => void removeTimeOff(t.id)}>Remover</button></li>)}</ul>}
           </article>
         </div>
       </section>

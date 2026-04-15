@@ -21,7 +21,7 @@ function EsqueceuSenhaPage() {
       await api.get('/sanctum/csrf-cookie');
       await api.post('/forgot-password', { email });
       setSent(true);
-      showSuccess('Se o email existir, o link de redefinicao foi enviado.');
+      showSuccess('Se o email existir, o link de redefinição foi enviado.');
     } catch (err) {
       showError(err.response?.data?.message || 'Ocorreu um erro. Tente novamente.');
     } finally {
@@ -55,7 +55,7 @@ function EsqueceuSenhaPage() {
               </Field>
 
               <Button type="submit" variant="primary" className="w-full" disabled={busy}>
-                {busy ? 'Enviando...' : 'Enviar link de redefinicao'}
+                {busy ? 'Enviando...' : 'Enviar link de redefinição'}
               </Button>
             </form>
           )}

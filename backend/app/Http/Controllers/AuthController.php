@@ -41,7 +41,7 @@ class AuthController extends Controller
             $request->session()->regenerateToken();
 
             return response()->json([
-                'message' => 'Usuario inativo. Procure um administrador.',
+                'message' => 'Usuário inativo. Procure um administrador.',
             ], 403);
         }
 
@@ -86,7 +86,7 @@ class AuthController extends Controller
     {
         $user = $request->user();
         if (! $user) {
-            return response()->json(['message' => 'Nao autenticado.'], 403);
+            return response()->json(['message' => 'Não autenticado.'], 403);
         }
 
         $validated = $request->validated();

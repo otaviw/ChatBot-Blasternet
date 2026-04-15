@@ -129,7 +129,7 @@ export default function useInternalChatConversations({ authenticated, role }) {
         setConversationsError(
           parseErrorMessage(
             requestError,
-            'Nao foi possivel carregar as conversas de chat interno.'
+            'Não foi possível carregar as conversas de chat interno.'
           )
         );
       } finally {

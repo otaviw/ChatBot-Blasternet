@@ -154,7 +154,7 @@ class CompanyInternalAiChatApiTest extends TestCase
         ]);
 
         $create->assertStatus(422);
-        $create->assertJsonPath('errors.ai.0', 'IA interna nao esta habilitada para esta empresa.');
+        $create->assertJsonPath('errors.ai.0', 'IA interna não está habilitada para esta empresa.');
     }
 
     public function test_send_message_blocks_when_internal_ai_chat_is_disabled_for_company(): void
@@ -184,7 +184,7 @@ class CompanyInternalAiChatApiTest extends TestCase
         ]);
 
         $send->assertStatus(422);
-        $send->assertJsonPath('errors.ai.0', 'IA interna nao esta habilitada para esta empresa.');
+        $send->assertJsonPath('errors.ai.0', 'IA interna não está habilitada para esta empresa.');
     }
 
     public function test_send_message_requires_user_permission_for_internal_ai(): void
@@ -205,15 +205,15 @@ class CompanyInternalAiChatApiTest extends TestCase
             'company_id' => (int) $company->id,
             'opened_by_user_id' => (int) $user->id,
             'origin' => AiConversation::ORIGIN_INTERNAL_CHAT,
-            'title' => 'Thread sem permissao',
+            'title' => 'Thread sem permissão',
         ]);
 
         $send = $this->actingAs($user)->postJson("/api/minha-conta/ia/conversas/{$conversation->id}/mensagens", [
-            'content' => 'Mensagem sem permissao',
+            'content' => 'Mensagem sem permissão',
         ]);
 
         $send->assertStatus(422);
-        $send->assertJsonPath('errors.user.0', 'Usuario nao possui permissao para usar IA interna.');
+        $send->assertJsonPath('errors.user.0', 'Usuário não possui permissão para usar IA interna.');
     }
 
     public function test_company_admin_can_send_message_even_when_can_use_ai_is_false(): void

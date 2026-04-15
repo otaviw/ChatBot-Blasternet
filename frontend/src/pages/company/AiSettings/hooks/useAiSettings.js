@@ -42,7 +42,7 @@ export default function useAiSettings({ enabled, companyId }) {
       setSettings(settingsResponse.settings ?? null);
       setUsers(usersResponse.users ?? []);
     } catch (requestError) {
-      setError(parseRequestError(requestError, 'Nao foi possivel carregar as configuracoes de IA.'));
+      setError(parseRequestError(requestError, 'Não foi possível carregar as configurações de IA.'));
     } finally {
       setLoading(false);
     }
@@ -76,10 +76,10 @@ export default function useAiSettings({ enabled, companyId }) {
     try {
       const response = await updateSettings(settings, companyId);
       setSettings(response.settings ?? settings);
-      showSuccess('Configuracoes de IA salvas com sucesso.');
+      showSuccess('Configurações de IA salvas com sucesso.');
       return true;
     } catch (requestError) {
-      const message = parseRequestError(requestError, 'Nao foi possivel salvar as configuracoes.');
+      const message = parseRequestError(requestError, 'Não foi possível salvar as configurações.');
       setSaveError(message);
       showError(message);
       return false;
@@ -115,9 +115,9 @@ export default function useAiSettings({ enabled, companyId }) {
           })
         );
 
-        showSuccess('Permissao de IA atualizada.');
+        showSuccess('Permissão de IA atualizada.');
       } catch (requestError) {
-        const message = parseRequestError(requestError, 'Nao foi possivel atualizar a permissao do usuario.');
+        const message = parseRequestError(requestError, 'Não foi possível atualizar a permissão do usuário.');
         showError(message);
       } finally {
         setPermissionBusyById((previous) => ({ ...previous, [normalizedUserId]: false }));

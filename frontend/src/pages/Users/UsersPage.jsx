@@ -223,9 +223,9 @@ export default function UsersPage({ scope = "company" }) {
       await api.post(usersEndpoint, buildPayload(createForm));
       await refreshUsers();
       setCreateForm(initialForm(isAdminScope));
-      showSuccess("Usuario criado com sucesso.");
+      showSuccess("Usuário criado com sucesso.");
     } catch (err) {
-      showError(err.response?.data?.message || "Falha ao criar usuario.");
+      showError(err.response?.data?.message || "Falha ao criar usuário.");
     } finally {
       setCreateBusy(false);
     }
@@ -281,9 +281,9 @@ export default function UsersPage({ scope = "company" }) {
       await refreshUsers();
       setSelectedUserId(null);
       setEditForm(null);
-      showSuccess("Usuario atualizado com sucesso.");
+      showSuccess("Usuário atualizado com sucesso.");
     } catch (err) {
-      showError(err.response?.data?.message || "Falha ao atualizar usuario.");
+      showError(err.response?.data?.message || "Falha ao atualizar usuário.");
     } finally {
       setEditBusy(false);
     }
@@ -302,9 +302,9 @@ export default function UsersPage({ scope = "company" }) {
       await api.delete(`${usersEndpoint}/${deleteTarget.id}`);
       await refreshUsers();
       setDeleteTarget(null);
-      showSuccess("Usuario excluido com sucesso.");
+      showSuccess("Usuário excluido com sucesso.");
     } catch (err) {
-      showError(err.response?.data?.message || "Falha ao excluir usuario.");
+      showError(err.response?.data?.message || "Falha ao excluir usuário.");
     } finally {
       setDeleteBusy(false);
     }
@@ -468,10 +468,10 @@ export default function UsersPage({ scope = "company" }) {
 
       <ConfirmDialog
         open={Boolean(deleteTarget)}
-        title="Excluir usuario"
+        title="Excluir usuário"
         description={
           deleteTarget
-            ? `Tem certeza que deseja excluir "${deleteTarget.name ?? "este usuario"}"?`
+            ? `Tem certeza que deseja excluir "${deleteTarget.name ?? "este usuário"}"?`
             : ""
         }
         confirmLabel="Excluir"

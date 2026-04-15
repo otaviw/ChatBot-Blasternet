@@ -127,7 +127,6 @@ const iconKey = (label) => {
     IA: 'bot',
     'Configuracoes de IA': 'bot',
     'Configuracoes da IA': 'bot',
-    'Configurações de IA': 'bot',
     'Analytics IA': 'chatIa',
     'Auditoria IA': 'chatIa',
     'Chat interno': 'chatInterno',
@@ -547,7 +546,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
         href: '/minha-conta/agendamentos',
         label: 'Agendamentos',
         icon: 'agendamentos',
-        ariaLabel: 'Gestao de agenda e horarios dos atendentes',
+        ariaLabel: 'Gestao de agenda e horários dos atendentes',
       },
     );
 
@@ -997,7 +996,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
                   className={`layout-header__btn ${notificationsPanelOpen ? 'layout-header__btn--active' : ''}`}
                   onClick={() => setNotificationsPanelOpen((v) => !v)}
                   title="Notificações"
-                  aria-label="Abrir notificacoes"
+                  aria-label="Abrir notificações"
                 >
                   {ICONS.notificacoes}
                   {totalUnreadCount > 0 && (
@@ -1184,8 +1183,8 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
                   type="button"
                   className="layout-notifications__config-btn"
                   onClick={() => { setNotificationsPanelOpen(false); setNotifPrefsOpen(true); }}
-                  title="Configurar notificacoes"
-                  aria-label="Configurar notificacoes"
+                  title="Configurar notificações"
+                  aria-label="Configurar notificações"
                 >
                   <svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                     <circle cx="10" cy="10" r="3" stroke="currentColor" strokeWidth="1.6"/>
@@ -1198,7 +1197,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
                   className="layout-notifications__close"
                   onClick={() => setNotificationsPanelOpen(false)}
                   title="Fechar"
-                  aria-label="Fechar painel de notificacoes"
+                  aria-label="Fechar painel de notificações"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <line x1="18" y1="6" x2="6" y2="18" />

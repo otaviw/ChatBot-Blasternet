@@ -118,7 +118,7 @@ class InternalChatApiTest extends TestCase
         $createGroup = $this->actingAs($creator)->postJson('/api/chat/conversations', [
             'type' => 'group',
             'participant_ids' => [$memberA->id, $memberB->id],
-            'name' => 'Grupo Operacao',
+            'name' => 'Grupo Operação',
         ]);
         $createGroup->assertCreated();
 
@@ -135,7 +135,7 @@ class InternalChatApiTest extends TestCase
 
         $renameAsMember = $this->actingAs($memberA)->patchJson(
             "/api/chat/conversations/{$conversationId}/group-name",
-            ['name' => 'Tentativa sem permissao']
+            ['name' => 'Tentativa sem permissão']
         );
         $renameAsMember->assertForbidden();
 
@@ -582,7 +582,7 @@ class InternalChatApiTest extends TestCase
         $outsiderShow->assertForbidden();
 
         $outsiderSend = $this->actingAs($outsider)->postJson("/api/chat/conversations/{$conversationId}/messages", [
-            'content' => 'Nao deveria enviar',
+            'content' => 'Não deveria enviar',
         ]);
         $outsiderSend->assertForbidden();
     }
@@ -622,7 +622,7 @@ class InternalChatApiTest extends TestCase
 
         $editAsOther = $this->actingAs($participant)->patchJson(
             "/api/chat/conversations/{$conversationId}/messages/{$messageId}",
-            ['content' => 'Nao deveria editar']
+            ['content' => 'Não deveria editar']
         );
         $editAsOther->assertForbidden();
 

@@ -78,7 +78,7 @@ const requestWithFallback = async ({
     throw lastError;
   }
 
-  throw new Error(`Nenhum endpoint de chat interno disponivel para: ${action}`);
+  throw new Error(`Nenhum endpoint de chat interno disponível para: ${action}`);
 };
 
 export async function listInternalChatConversations({
@@ -136,7 +136,7 @@ export async function getInternalChatConversation({
 }) {
   const id = toPositiveInt(conversationId);
   if (!id) {
-    throw new Error('ID de conversa invalido.');
+    throw new Error('ID de conversa inválido.');
   }
 
   const normalizedMessagesPage = toPositiveInt(messagesPage);
@@ -182,7 +182,7 @@ export async function getInternalChatConversation({
   });
 
   if (!conversation) {
-    throw new Error('Conversa nao encontrada.');
+    throw new Error('Conversa não encontrada.');
   }
 
   conversation.messages = sortMessagesChronologically(conversation.messages ?? []);
@@ -198,7 +198,7 @@ export async function getInternalChatConversation({
 export async function createInternalDirectConversation({ role, recipientId, initialText = '' }) {
   const id = toPositiveInt(recipientId);
   if (!id) {
-    throw new Error('Destinatario invalido.');
+    throw new Error('Destinatario inválido.');
   }
 
   const text = String(initialText ?? '').trim();
@@ -294,7 +294,7 @@ export async function deleteInternalChatConversation({ role, conversationId }) {
 export async function updateInternalChatGroupName({ role, conversationId, name }) {
   const id = toPositiveInt(conversationId);
   if (!id) {
-    throw new Error('Grupo invalido.');
+    throw new Error('Grupo inválido.');
   }
 
   const normalizedName = String(name ?? '').trim();
@@ -327,7 +327,7 @@ export async function addInternalChatGroupParticipant({ role, conversationId, pa
   const id = toPositiveInt(conversationId);
   const userId = toPositiveInt(participantId);
   if (!id || !userId) {
-    throw new Error('Grupo/participante invalido.');
+    throw new Error('Grupo/participante inválido.');
   }
 
   const response = await requestWithFallback({
@@ -355,7 +355,7 @@ export async function removeInternalChatGroupParticipant({ role, conversationId,
   const id = toPositiveInt(conversationId);
   const userId = toPositiveInt(participantId);
   if (!id || !userId) {
-    throw new Error('Grupo/participante invalido.');
+    throw new Error('Grupo/participante inválido.');
   }
 
   const response = await requestWithFallback({
@@ -388,7 +388,7 @@ export async function updateInternalChatGroupParticipantAdmin({
   const id = toPositiveInt(conversationId);
   const userId = toPositiveInt(participantId);
   if (!id || !userId) {
-    throw new Error('Grupo/participante invalido.');
+    throw new Error('Grupo/participante inválido.');
   }
 
   const response = await requestWithFallback({
@@ -416,7 +416,7 @@ export async function updateInternalChatGroupParticipantAdmin({
 export async function leaveInternalChatGroup({ role, conversationId, transferAdminTo = null }) {
   const id = toPositiveInt(conversationId);
   if (!id) {
-    throw new Error('Grupo invalido.');
+    throw new Error('Grupo inválido.');
   }
 
   const transferId = toPositiveInt(transferAdminTo);
@@ -440,7 +440,7 @@ export async function leaveInternalChatGroup({ role, conversationId, transferAdm
 export async function deleteInternalChatGroup({ role, conversationId }) {
   const id = toPositiveInt(conversationId);
   if (!id) {
-    throw new Error('Grupo invalido.');
+    throw new Error('Grupo inválido.');
   }
 
   const response = await requestWithFallback({

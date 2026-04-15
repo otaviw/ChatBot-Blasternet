@@ -47,7 +47,7 @@ function RedefinirSenhaPage() {
       setSuccess(true);
       showSuccess('Senha redefinida com sucesso.');
     } catch (err) {
-      showError(err.response?.data?.message || 'Nao foi possivel redefinir a senha.');
+      showError(err.response?.data?.message || 'Não foi possível redefinir a senha.');
     } finally {
       setBusy(false);
     }
@@ -97,7 +97,7 @@ function RedefinirSenhaPage() {
               <Field label="Nova senha">
                 <TextInput
                   type="password"
-                  placeholder="Minimo 6 caracteres"
+                  placeholder="Mínimo 6 caracteres"
                   aria-invalid={errors.password ? 'true' : 'false'}
                   aria-describedby={errors.password ? 'reset-password-error' : undefined}
                   {...register('password', {

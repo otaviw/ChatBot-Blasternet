@@ -23,7 +23,7 @@ class HideConversationAction
 
         if ($this->chatService->isConversationDeleted($conversation)) {
             return response()->json([
-                'message' => 'Conversa nao encontrada.',
+                'message' => 'Conversa não encontrada.',
             ], 404);
         }
 
@@ -41,7 +41,7 @@ class HideConversationAction
 
         if (! $participant) {
             return response()->json([
-                'message' => 'Sem permissao para apagar esta conversa.',
+                'message' => 'Sem permissão para apagar esta conversa.',
             ], 403);
         }
 

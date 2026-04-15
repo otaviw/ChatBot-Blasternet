@@ -57,7 +57,7 @@ class ConversationController extends Controller
 
         if (! $conversation) {
             return response()->json([
-                'message' => 'Conversa nao encontrada.',
+                'message' => 'Conversa não encontrada.',
             ], 404);
         }
 
@@ -120,7 +120,7 @@ class ConversationController extends Controller
 
         if (! $conversation) {
             return response()->json([
-                'message' => 'Conversa nao encontrada.',
+                'message' => 'Conversa não encontrada.',
             ], 404);
         }
 
@@ -159,7 +159,7 @@ class ConversationController extends Controller
         );
 
         return response()->json([
-            'message' => 'Operacao bloqueada para superadmin no modo privacidade.',
+            'message' => 'Operação bloqueada para superadmin no modo privacidade.',
             'privacy_mode' => 'blind_default',
         ], 403);
     }

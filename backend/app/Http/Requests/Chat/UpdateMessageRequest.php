@@ -39,8 +39,8 @@ class UpdateMessageRequest extends FormRequest
     {
         return [
             'content.required' => 'Informe o novo texto da mensagem para editar.',
-            'content.min'      => 'O texto nao pode estar vazio.',
-            'content.max'      => 'O texto nao pode ultrapassar 20.000 caracteres.',
+            'content.min'      => 'O texto não pode estar vazio.',
+            'content.max'      => 'O texto não pode ultrapassar 20.000 caracteres.',
         ];
     }
 }

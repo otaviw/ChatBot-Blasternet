@@ -31,7 +31,7 @@ class AttachmentController extends Controller
             || ! $this->chatService->isVisibleParticipant($conversation, (int) $user->id)
         ) {
             return response()->json([
-                'message' => 'Sem permissao para acessar este anexo.',
+                'message' => 'Sem permissão para acessar este anexo.',
             ], 403);
         }
 
@@ -47,14 +47,14 @@ class AttachmentController extends Controller
 
         if ($diskPath === '') {
             return response()->json([
-                'message' => 'Anexo nao encontrado.',
+                'message' => 'Anexo não encontrado.',
             ], 404);
         }
 
         $disk = 'public';
         if (! Storage::disk($disk)->exists($diskPath)) {
             return response()->json([
-                'message' => 'Arquivo do anexo nao encontrado.',
+                'message' => 'Arquivo do anexo não encontrado.',
             ], 404);
         }
 

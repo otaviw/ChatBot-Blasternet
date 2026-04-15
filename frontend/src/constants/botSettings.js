@@ -31,8 +31,8 @@ const DEFAULT_SETTINGS = {
   stateful_menu_flow: null,
 };
 
-function buildDefaultStatefulMenuFlow(welcomeMessage = 'Ola! O que voce precisa?') {
-  const intro = String(welcomeMessage || '').trim() || 'Ola! O que voce precisa?';
+function buildDefaultStatefulMenuFlow(welcomeMessage = 'Ola! O que você precisa?') {
+  const intro = String(welcomeMessage || '').trim() || 'Ola! O que você precisa?';
 
   return {
     commands: ['#', 'menu'],
@@ -97,7 +97,7 @@ function buildDefaultStatefulMenuFlow(welcomeMessage = 'Ola! O que voce precisa?
         on_text: {
           kind: 'handoff',
           target_area_name: 'Suporte',
-          reply_text: 'Perfeito, vou encaminhar sua descricao para o Suporte.',
+          reply_text: 'Perfeito, vou encaminhar sua descrição para o Suporte.',
         },
       },
     },

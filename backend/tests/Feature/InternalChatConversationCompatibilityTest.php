@@ -21,7 +21,7 @@ class InternalChatConversationCompatibilityTest extends TestCase
         ]);
 
         $response->assertStatus(422);
-        $response->assertJsonPath('errors.recipient_id.0', 'recipient_id e obrigatorio.');
+        $response->assertJsonPath('errors.recipient_id.0', 'recipient_id e obrigatório.');
     }
 
     public function test_store_existing_direct_conversation_returns_200_and_created_false(): void
@@ -85,7 +85,7 @@ class InternalChatConversationCompatibilityTest extends TestCase
         );
 
         $response->assertStatus(404);
-        $response->assertJsonPath('message', 'Mensagem nao pertence a conversa informada.');
+        $response->assertJsonPath('message', 'Mensagem não pertence a conversa informada.');
     }
 
     public function test_delete_message_rejects_non_owner_with_legacy_message(): void
@@ -124,7 +124,7 @@ class InternalChatConversationCompatibilityTest extends TestCase
         $response = $this->actingAs($outsider)->postJson("/api/chat/conversations/{$conversationId}/read");
 
         $response->assertForbidden();
-        $response->assertJsonPath('message', 'Sem permissao para marcar leitura desta conversa.');
+        $response->assertJsonPath('message', 'Sem permissão para marcar leitura desta conversa.');
     }
 
     private function createConversation(User $sender, User $recipient): int

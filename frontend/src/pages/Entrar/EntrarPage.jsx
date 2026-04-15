@@ -44,10 +44,10 @@ function EntrarPage() {
         <Card>
           <PageHeader
             title="Acessar painel"
-            subtitle="Entre com seu usuario para monitorar conversas, bot e atendimento manual."
+            subtitle="Entre com seu usuário para monitorar conversas, bot e atendimento manual."
           />
 
-          {loading ? <Notice tone="info">Carregando dados de autenticacao...</Notice> : null}
+          {loading ? <Notice tone="info">Carregando dados de autenticação...</Notice> : null}
           {error ? <Notice tone="danger">Erro ao carregar dados de entrada. Tente novamente.</Notice> : null}
 
           {!loading && !error ? (
@@ -85,11 +85,11 @@ function EntrarPage() {
 
         <div className="space-y-4">
           <Card>
-            <h2 className="text-base font-semibold text-[#171717] mb-2">Fluxo otimizado para operacao</h2>
+            <h2 className="text-base font-semibold text-[#171717] mb-2">Fluxo otimizado para operação</h2>
             <ul className="space-y-2 text-sm text-[#737373] leading-relaxed">
-              <li>Painel unico para conversas, usuarios e configuracoes do bot.</li>
+              <li>Painel único para conversas, usuários e configurações do bot.</li>
               <li>Atualizacao em tempo real de mensagens e transferencias.</li>
-              <li>Acoes manuais com historico completo para auditoria.</li>
+              <li>Ações manuais com histórico completo para auditoria.</li>
             </ul>
           </Card>
         </div>

@@ -28,8 +28,8 @@ class UpdatePasswordRequest extends FormRequest
             'current_password.required' => 'Informe a senha atual.',
             'password.required'         => 'Informe a nova senha.',
             'password.min'              => 'A nova senha deve ter pelo menos 8 caracteres.',
-            'password.max'              => 'A nova senha nao pode ultrapassar 255 caracteres.',
-            'password.confirmed'        => 'A confirmacao da nova senha nao confere.',
+            'password.max'              => 'A nova senha não pode ultrapassar 255 caracteres.',
+            'password.confirmed'        => 'A confirmacao da nova senha não confere.',
         ];
     }
 }
