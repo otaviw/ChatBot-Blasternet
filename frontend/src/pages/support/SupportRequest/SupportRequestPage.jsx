@@ -1,6 +1,7 @@
 import './SupportRequestPage.css';
 import { useState } from 'react';
 import Layout from '@/components/layout/Layout/Layout.jsx';
+import PageLoading from '@/components/ui/PageLoading/PageLoading.jsx';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
 import api from '@/services/api';
@@ -76,7 +77,7 @@ function SupportRequestPage() {
   if (loading) {
     return (
       <Layout>
-        <p className="text-sm text-[#64748b]">Carregando suporte...</p>
+        <PageLoading rows={2} />
       </Layout>
     );
   }

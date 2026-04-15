@@ -5,6 +5,7 @@ import { NOTIFICATION_MODULE, NOTIFICATION_REFERENCE_TYPE } from '@/constants/no
 import { useNotificationsContext } from '@/hooks/useNotificationsContext';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
+import PageLoading from '@/components/ui/PageLoading/PageLoading.jsx';
 import api from '@/services/api';
 
 function formatTicketNumber(value) {
@@ -206,7 +207,7 @@ function AdminSupportTicketsPage() {
   if (loading) {
     return (
       <Layout role="admin" onLogout={logout}>
-        <p className="text-sm text-[#64748b]">Carregando solicitacoes de suporte...</p>
+        <PageLoading rows={2} cards={2} />
       </Layout>
     );
   }

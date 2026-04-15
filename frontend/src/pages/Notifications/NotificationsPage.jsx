@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import Layout from '@/components/layout/Layout/Layout.jsx';
+import PageLoading from '@/components/ui/PageLoading/PageLoading.jsx';
 import PageHeader from '@/components/ui/PageHeader/PageHeader.jsx';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
@@ -167,7 +168,7 @@ function NotificationsPage() {
   if (loading) {
     return (
       <Layout>
-        <p className="text-sm text-[#64748b]">Carregando notificacoes...</p>
+        <PageLoading rows={1} cards={2} />
       </Layout>
     );
   }

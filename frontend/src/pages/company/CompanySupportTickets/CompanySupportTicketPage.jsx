@@ -4,6 +4,7 @@ import { NOTIFICATION_MODULE, NOTIFICATION_REFERENCE_TYPE } from '@/constants/no
 import { useNotificationsContext } from '@/hooks/useNotificationsContext';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
+import PageLoading from '@/components/ui/PageLoading/PageLoading.jsx';
 
 function formatTicketNumber(value) {
   const number = Number.parseInt(String(value ?? ''), 10);
@@ -126,7 +127,7 @@ function CompanySupportTicketPage() {
   if (loading) {
     return (
       <Layout role="company" onLogout={logout}>
-        <p className="text-sm text-[#64748b]">Carregando solicitacoes de suporte...</p>
+        <PageLoading rows={2} cards={2} />
       </Layout>
     );
   }

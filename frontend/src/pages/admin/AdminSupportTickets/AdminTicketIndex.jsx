@@ -2,6 +2,7 @@ import './AdminSupportTicketsPage.css';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import Layout from '@/components/layout/Layout/Layout.jsx';
+import PageLoading from '@/components/ui/PageLoading/PageLoading.jsx';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
 import SupportTicketChatTab from '@/pages/shared/SupportTicketChat/SupportTicketChatTab.jsx';
@@ -71,7 +72,7 @@ function AdminSupportTicketShowPage({ ticketId: ticketIdProp }) {
   if (loading) {
     return (
       <Layout role="admin" onLogout={logout}>
-        <p className="text-sm text-[#64748b]">Carregando solicitacao...</p>
+        <PageLoading rows={2} />
       </Layout>
     );
   }

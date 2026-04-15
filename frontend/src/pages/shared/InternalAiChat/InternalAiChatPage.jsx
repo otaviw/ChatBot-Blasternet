@@ -2,6 +2,7 @@ import './InternalAiChatPage.css';
 import { useMemo } from 'react';
 import Layout from '@/components/layout/Layout/Layout.jsx';
 import Notice from '@/components/ui/Notice/Notice.jsx';
+import PageLoading from '@/components/ui/PageLoading/PageLoading.jsx';
 import PageHeader from '@/components/ui/PageHeader/PageHeader.jsx';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
@@ -126,9 +127,7 @@ function InternalAiChatPage() {
   if (loading) {
     return (
       <Layout role={role} onLogout={logout}>
-        <p className="text-sm text-[#737373]" role="status">
-          Carregando chat com IA...
-        </p>
+        <PageLoading cards={2} cardClassName="h-[420px] w-full" />
       </Layout>
     );
   }

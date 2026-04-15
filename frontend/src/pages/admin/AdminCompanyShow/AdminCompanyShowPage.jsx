@@ -5,6 +5,8 @@ import { useParams } from 'react-router-dom';
 import Layout from '@/components/layout/Layout/Layout.jsx';
 import BotConfigStep from '@/components/company/BotConfigStep/BotConfigStep.jsx';
 import StatefulMenuFlowEditor from '@/components/sections/StatefulMenuFlowEditor/StatefulMenuFlowEditor.jsx';
+import LoadingSkeleton from '@/components/ui/LoadingSkeleton/LoadingSkeleton.jsx';
+import PageLoading from '@/components/ui/PageLoading/PageLoading.jsx';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
 import useBotSettingsEditor from '@/hooks/useBotSettingsEditor';
@@ -148,7 +150,7 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
   if (loading) {
     return (
       <Layout role="admin" onLogout={logout}>
-        <p className="text-sm text-[#737373]">Carregando empresa...</p>
+        <PageLoading rows={2} cards={2} />
       </Layout>
     );
   }
@@ -233,7 +235,16 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
         </div>
       </section>
 
-      {metricsLoading && <p className="text-sm text-[#737373]">Carregando métricas...</p>}
+      {metricsLoading && (
+        <section className="app-panel mb-6">
+          <LoadingSkeleton className="h-5 w-32" />
+          <div className="mt-4 grid grid-cols-2 md:grid-cols-5 gap-4">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <LoadingSkeleton key={`metrics-skeleton-${index}`} className="h-20 w-full" />
+            ))}
+          </div>
+        </section>
+      )}
       {metricsData?.metrics && (
         <section className="app-panel mb-6">
           <h2 className="font-medium mb-4">Métricas</h2>

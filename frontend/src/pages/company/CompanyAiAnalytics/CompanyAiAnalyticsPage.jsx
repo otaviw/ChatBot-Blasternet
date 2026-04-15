@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import Layout from '@/components/layout/Layout/Layout.jsx';
 import Card from '@/components/ui/Card/Card.jsx';
+import PageLoading from '@/components/ui/PageLoading/PageLoading.jsx';
 import PageHeader from '@/components/ui/PageHeader/PageHeader.jsx';
 import usePageData from '@/hooks/usePageData';
 import useAuth from '@/hooks/useAuth';
@@ -344,7 +345,7 @@ function CompanyAiAnalyticsPage() {
   if (loading) {
     return (
       <Layout role={layoutRole} onLogout={logout}>
-        <p className="text-sm text-[#64748b]">Carregando...</p>
+        <PageLoading rows={1} cards={4} cardsGridClassName="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4" />
       </Layout>
     );
   }

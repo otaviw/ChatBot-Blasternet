@@ -6,6 +6,7 @@ import useLogout from '@/hooks/useLogout';
 import api from '@/services/api';
 import MessageSimulatorCard from '@/components/sections/simulator/MessageSimulatorCard/MessageSimulatorCard.jsx';
 import SimulationResultCard from '@/components/sections/simulator/SimulationResultCard/SimulationResultCard.jsx';
+import PageLoading from '@/components/ui/PageLoading/PageLoading.jsx';
 import PageHeader from '@/components/ui/PageHeader/PageHeader.jsx';
 import { showError } from '@/services/toastService';
 
@@ -64,7 +65,7 @@ function AdminSimulatorPage() {
   if (loading) {
     return (
       <Layout role="admin" onLogout={logout}>
-        <p className="text-sm text-[#64748b]">Carregando simulador...</p>
+        <PageLoading rows={1} cards={2} />
       </Layout>
     );
   }

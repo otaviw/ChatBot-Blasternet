@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import Layout from '@/components/layout/Layout/Layout.jsx';
 import Button from '@/components/ui/Button/Button.jsx';
 import Card from '@/components/ui/Card/Card.jsx';
+import PageLoading from '@/components/ui/PageLoading/PageLoading.jsx';
 import {
   CheckboxField,
   Field,
@@ -90,7 +91,7 @@ function AiSettingsPage() {
   if (meLoading) {
     return (
       <Layout role={layoutRole} companyName={companyName} onLogout={logout}>
-        <p className="text-sm text-[#64748b]">Carregando configurações de IA...</p>
+        <PageLoading rows={2} cards={1} />
       </Layout>
     );
   }
@@ -114,7 +115,7 @@ function AiSettingsPage() {
   if (loading || !settings) {
     return (
       <Layout role={layoutRole} companyName={companyName} onLogout={logout}>
-        <p className="text-sm text-[#64748b]">Carregando dados de IA...</p>
+        <PageLoading rows={2} cards={1} />
       </Layout>
     );
   }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Layout from '@/components/layout/Layout/Layout.jsx';
 import Button from '@/components/ui/Button/Button.jsx';
 import Card from '@/components/ui/Card/Card.jsx';
+import PageLoading from '@/components/ui/PageLoading/PageLoading.jsx';
 import PageHeader from '@/components/ui/PageHeader/PageHeader.jsx';
 import usePageData from '@/hooks/usePageData';
 import useAuth from '@/hooks/useAuth';
@@ -145,7 +146,7 @@ function CompanyAiAuditPage() {
   if (loading) {
     return (
       <Layout role={layoutRole} onLogout={logout}>
-        <p className="text-sm text-[#64748b]">Carregando auditoria da IA...</p>
+        <PageLoading rows={2} cards={1} />
       </Layout>
     );
   }

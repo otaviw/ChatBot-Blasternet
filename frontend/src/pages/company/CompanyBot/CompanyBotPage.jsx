@@ -1,6 +1,7 @@
 import './CompanyBotPage.css';
 import { useCallback, useState } from 'react';
 import Layout from '@/components/layout/Layout/Layout.jsx';
+import PageLoading from '@/components/ui/PageLoading/PageLoading.jsx';
 import BotConfigStep from '@/components/company/BotConfigStep/BotConfigStep.jsx';
 import StatefulMenuFlowEditor from '@/components/sections/StatefulMenuFlowEditor/StatefulMenuFlowEditor.jsx';
 import usePageData from '@/hooks/usePageData';
@@ -73,7 +74,7 @@ function CompanyBotPage() {
   if (loading) {
     return (
       <Layout role="company" onLogout={logout}>
-        <p className="text-sm text-[#706f6c]">Carregando configurações do bot...</p>
+        <PageLoading rows={2} cards={2} />
       </Layout>
     );
   }

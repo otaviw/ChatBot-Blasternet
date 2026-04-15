@@ -1,6 +1,7 @@
 import './InternalChatPage.css';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import Layout from '@/components/layout/Layout/Layout.jsx';
+import PageLoading from '@/components/ui/PageLoading/PageLoading.jsx';
 import { useNotificationsContext } from '@/hooks/useNotificationsContext';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
@@ -229,7 +230,7 @@ function InternalChatPage() {
   if (loading) {
     return (
       <Layout role="company" onLogout={logout}>
-        <p className="text-sm text-[#706f6c]">Carregando chat interno...</p>
+        <PageLoading cards={2} cardClassName="h-[420px] w-full" />
       </Layout>
     );
   }

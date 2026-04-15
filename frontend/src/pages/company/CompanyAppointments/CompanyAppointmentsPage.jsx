@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import './CompanyAppointmentsPage.css';
 import Layout from '@/components/layout/Layout/Layout.jsx';
+import PageLoading from '@/components/ui/PageLoading/PageLoading.jsx';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
 import realtimeClient from '@/services/realtimeClient';
@@ -298,7 +299,13 @@ export default function CompanyAppointmentsPage() {
     setMsg('Agendamento removido.'); await reloadCalendar();
   }, 'Falha ao remover agendamento.');
 
-  if (loading) return <Layout role="company" onLogout={logout}><p className="text-sm text-[#64748b]">Carregando agenda...</p></Layout>;
+  if (loading) {
+    return (
+      <Layout role="company" onLogout={logout}>
+        <PageLoading rows={1} cards={2} />
+      </Layout>
+    );
+  }
   if (error || !data?.authenticated) return <Layout><p className="text-sm text-red-600">Nao foi possivel carregar a agenda.</p></Layout>;
   if (!canManage) return <Layout role="company" companyName={data?.user?.company_name} onLogout={logout}><p className="text-sm text-[#64748b]">Acesso restrito ao time da empresa.</p></Layout>;
 
