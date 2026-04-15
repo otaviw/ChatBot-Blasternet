@@ -180,7 +180,6 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
   const [sidebarHovered, setSidebarHovered] = useState(false);
   const [sidebarMobileOpen, setSidebarMobileOpen] = useState(false);
   const [supportAccordionOpen, setSupportAccordionOpen] = useState(false);
-  const [policiesAccordionOpen, setPoliciesAccordionOpen] = useState(false);
   const [notificationsPanelOpen, setNotificationsPanelOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -662,15 +661,10 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
   });
 
   const isAnySupportActive = isAnyGroupActive(supportLinks);
-  const isAnyPolicyActive = isAnyGroupActive(policyLinks);
 
   useEffect(() => {
     if (isAnySupportActive) setSupportAccordionOpen(true);
   }, [isAnySupportActive]);
-
-  useEffect(() => {
-    if (isAnyPolicyActive) setPoliciesAccordionOpen(true);
-  }, [isAnyPolicyActive]);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth <= 768);
@@ -806,49 +800,22 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
             )}
             {policyLinks.length > 0 && (
               <div className="layout-sidebar__accordion layout-sidebar__accordion--stacked">
-                <button
-                  id="sidebar-policy-trigger"
-                  type="button"
-                  className={`layout-sidebar__accordion-trigger ${policiesAccordionOpen || isAnyPolicyActive ? 'layout-sidebar__accordion-trigger--active' : ''}`}
-                  onClick={() => setPoliciesAccordionOpen((v) => !v)}
-                  title="Políticas e privacidade — expandir ou recolher"
-                  aria-label="Políticas e privacidade — expandir ou recolher"
-                  aria-expanded={policiesAccordionOpen}
-                  aria-controls="sidebar-policy-panel"
-                >
-                  <span className="layout-sidebar__icon">{ICONS.politica}</span>
-                  <span className="layout-sidebar__label">Políticas e privacidade</span>
-                  <span className={`layout-sidebar__accordion-chevron ${policiesAccordionOpen ? 'layout-sidebar__accordion-chevron--open' : ''}`}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polyline points="6 9 12 15 18 9" />
-                    </svg>
-                  </span>
-                </button>
-                <div
-                  id="sidebar-policy-panel"
-                  role="region"
-                  aria-labelledby="sidebar-policy-trigger"
-                  className={`layout-sidebar__accordion-content ${policiesAccordionOpen ? 'layout-sidebar__accordion-content--open' : ''}`}
-                >
-                  <div>
-                    {policyLinks.map((item) => {
-                      const linkTitle = item.ariaLabel || item.label;
-                      return (
-                        <a
-                          key={item.href}
-                          href={item.href}
-                          className={`layout-sidebar__link layout-sidebar__link--nested ${isActive(item.href) ? 'layout-sidebar__link--active' : ''}`}
-                          title={linkTitle}
-                          aria-label={linkTitle}
-                          aria-current={isActive(item.href) ? 'page' : undefined}
-                        >
-                          <span className="layout-sidebar__icon">{ICONS[sidebarIconFor(item)]}</span>
-                          <span className="layout-sidebar__label">{item.label}</span>
-                        </a>
-                      );
-                    })}
-                  </div>
-                </div>
+                {policyLinks.map((item) => {
+                  const linkTitle = item.ariaLabel || item.label;
+                  return (
+                    <a
+                      key={item.href}
+                      href={item.href}
+                      className={`layout-sidebar__link ${isActive(item.href) ? 'layout-sidebar__link--active' : ''}`}
+                      title={linkTitle}
+                      aria-label={linkTitle}
+                      aria-current={isActive(item.href) ? 'page' : undefined}
+                    >
+                      <span className="layout-sidebar__icon">{ICONS[sidebarIconFor(item)]}</span>
+                      <span className="layout-sidebar__label">{item.label}</span>
+                    </a>
+                  );
+                })}
               </div>
             )}
           </nav>
@@ -963,50 +930,23 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
               )}
               {policyLinks.length > 0 && (
                 <div className="layout-sidebar__accordion layout-sidebar__accordion--stacked">
-                  <button
-                    id="sidebar-policy-trigger-mobile"
-                    type="button"
-                    className={`layout-sidebar__accordion-trigger ${policiesAccordionOpen || isAnyPolicyActive ? 'layout-sidebar__accordion-trigger--active' : ''}`}
-                    onClick={() => setPoliciesAccordionOpen((v) => !v)}
-                    title="Políticas e privacidade — expandir ou recolher"
-                    aria-label="Políticas e privacidade — expandir ou recolher"
-                    aria-expanded={policiesAccordionOpen}
-                    aria-controls="sidebar-policy-panel-mobile"
-                  >
-                    <span className="layout-sidebar__icon">{ICONS.politica}</span>
-                    <span className="layout-sidebar__label">Políticas e privacidade</span>
-                    <span className={`layout-sidebar__accordion-chevron ${policiesAccordionOpen ? 'layout-sidebar__accordion-chevron--open' : ''}`}>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <polyline points="6 9 12 15 18 9" />
-                      </svg>
-                    </span>
-                  </button>
-                  <div
-                    id="sidebar-policy-panel-mobile"
-                    role="region"
-                    aria-labelledby="sidebar-policy-trigger-mobile"
-                    className={`layout-sidebar__accordion-content ${policiesAccordionOpen ? 'layout-sidebar__accordion-content--open' : ''}`}
-                  >
-                    <div>
-                      {policyLinks.map((item) => {
-                        const linkTitle = item.ariaLabel || item.label;
-                        return (
-                          <a
-                            key={item.href}
-                            href={item.href}
-                            className={`layout-sidebar__link layout-sidebar__link--nested ${isActive(item.href) ? 'layout-sidebar__link--active' : ''}`}
-                            title={linkTitle}
-                            aria-label={linkTitle}
-                            aria-current={isActive(item.href) ? 'page' : undefined}
-                            onClick={closeSidebarMobile}
-                          >
-                            <span className="layout-sidebar__icon">{ICONS[sidebarIconFor(item)]}</span>
-                            <span className="layout-sidebar__label">{item.label}</span>
-                          </a>
-                        );
-                      })}
-                    </div>
-                  </div>
+                  {policyLinks.map((item) => {
+                    const linkTitle = item.ariaLabel || item.label;
+                    return (
+                      <a
+                        key={item.href}
+                        href={item.href}
+                        className={`layout-sidebar__link ${isActive(item.href) ? 'layout-sidebar__link--active' : ''}`}
+                        title={linkTitle}
+                        aria-label={linkTitle}
+                        aria-current={isActive(item.href) ? 'page' : undefined}
+                        onClick={closeSidebarMobile}
+                      >
+                        <span className="layout-sidebar__icon">{ICONS[sidebarIconFor(item)]}</span>
+                        <span className="layout-sidebar__label">{item.label}</span>
+                      </a>
+                    );
+                  })}
                 </div>
               )}
             </nav>
