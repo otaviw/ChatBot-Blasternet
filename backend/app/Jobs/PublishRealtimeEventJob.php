@@ -38,4 +38,20 @@ class PublishRealtimeEventJob implements ShouldQueue
     {
         $publisher->publishNow($this->envelope);
     }
+
+    /**
+     * Chamado após esgotar todas as tentativas.
+     * Eventos realtime perdidos não bloqueiam o sistema, mas devem ser visíveis
+     * nos logs para detectar instabilidade no transporte (Pusher, Ably, etc.).
+     */
+    public function failed(?\Throwable $exception): void
+    {
+        \Illuminate\Support\Facades\Log::error('PublishRealtimeEventJob: falhou após todas as tentativas.', [
+            'event'           => $this->envelope['event'] ?? null,
+            'channels'        => $this->envelope['channels'] ?? null,
+            'attempts'        => $this->tries,
+            'exception_class' => $exception !== null ? get_class($exception) : null,
+            'exception'       => $exception?->getMessage(),
+        ]);
+    }
 }

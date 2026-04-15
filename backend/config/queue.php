@@ -68,7 +68,11 @@ return [
             'driver' => 'redis',
             'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
             'queue' => env('REDIS_QUEUE', 'default'),
-            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 90),
+            // retry_after deve ser maior que o timeout do job mais longo.
+            // Temos jobs com timeout=120s (Reminder, Alert, IndexKnowledge).
+            // Valor padrão anterior de 90s causava re-enfileiramento enquanto
+            // o job ainda estava rodando — o worker pegava o mesmo job duas vezes.
+            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 180),
             'block_for' => null,
             'after_commit' => false,
         ],

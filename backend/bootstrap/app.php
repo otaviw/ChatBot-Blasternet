@@ -3,6 +3,7 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use App\Exceptions\ApiExceptionHandler;
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\SecurityHeadersMiddleware;
 use App\Http\Middleware\ValidateWhatsAppWebhookSignature;
@@ -28,5 +29,5 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        ApiExceptionHandler::configure($exceptions);
     })->create();

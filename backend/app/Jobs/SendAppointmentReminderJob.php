@@ -9,15 +9,31 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 class SendAppointmentReminderJob implements ShouldQueue
 {
     use Queueable, SerializesModels;
 
-    public int $tries = 1;
+    // 3 tentativas: o job é seguro para retry porque cada agendamento é marcado
+    // individualmente com reminder_sent_at antes de seguir para o próximo.
+    // Um retry recomeça do primeiro agendamento sem reminder_sent_at — sem duplicatas.
+    public int $tries = 3;
 
     public int $timeout = 120;
+
+    /**
+     * Intervalo entre tentativas (segundos).
+     * Este é um job de batch pesado — retries espaçados evitam sobrecarga no SMTP
+     * em caso de falha transitória do servidor de e-mail.
+     *
+     * @return array<int, int>
+     */
+    public function backoff(): array
+    {
+        return [60, 300];
+    }
 
     public function __construct()
     {
@@ -46,5 +62,19 @@ class SendAppointmentReminderJob implements ShouldQueue
                     $appointment->update(['reminder_sent_at' => now()]);
                 }
             });
+    }
+
+    /**
+     * Chamado após esgotar todas as tentativas.
+     * Agendamentos sem reminder_sent_at perderão o lembrete neste ciclo —
+     * o próximo ciclo agendado pode não mais encontrá-los dentro da janela de 24h.
+     */
+    public function failed(?\Throwable $exception): void
+    {
+        Log::error('SendAppointmentReminderJob: falhou após todas as tentativas.', [
+            'attempts'        => $this->tries,
+            'exception_class' => $exception !== null ? get_class($exception) : null,
+            'exception'       => $exception?->getMessage(),
+        ]);
     }
 }

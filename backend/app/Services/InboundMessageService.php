@@ -54,6 +54,34 @@ class InboundMessageService
             throw new InvalidArgumentException('Phone e texto sao obrigatorios para processar mensagem.');
         }
 
+        // Deduplicação — camada 2 (service):
+        // Segunda linha de defesa contra wamids já processados. Posicionada antes do
+        // bootstrapConversation para não alterar estado (last_user_message_at, etc.)
+        // em mensagens repetidas. O job já faz o check da camada 1, mas dois jobs
+        // concorrentes podem passar pela camada 1 ao mesmo tempo antes de qualquer
+        // um ter persistido a mensagem.
+        $wamid = $this->extractWhatsAppMessageId($inMeta);
+        if ($wamid !== null) {
+            $existing = Message::where('whatsapp_message_id', $wamid)->first();
+            if ($existing !== null) {
+                Log::info('InboundMessageService: mensagem de texto duplicada ignorada.', [
+                    'wamid'       => $wamid,
+                    'from'        => $normalizedFrom,
+                    'message_id'  => $existing->id,
+                    'company_id'  => $company?->id,
+                ]);
+
+                return [
+                    'conversation'  => $existing->conversation,
+                    'in_message'    => $existing,
+                    'out_message'   => null,
+                    'reply'         => null,
+                    'was_sent'      => false,
+                    'auto_replied'  => false,
+                ];
+            }
+        }
+
         $conversation = $this->bootstrapConversation($company, $normalizedFrom, $normalizedContactName);
 
         $isFirstInboundMessage = ! Message::where('conversation_id', $conversation->id)
@@ -212,6 +240,33 @@ class InboundMessageService
             throw new InvalidArgumentException('Phone e mediaId sao obrigatorios para processar imagem.');
         }
 
+        // Deduplicação — camada 2 (service):
+        // Verificação crítica aqui porque o download de mídia da Meta API é uma
+        // chamada HTTP externa cara. Sem este check, um reenvio duplicado baixaria
+        // a mesma mídia desnecessariamente antes de tentar criar a mensagem.
+        $wamid = $this->extractWhatsAppMessageId($inMeta);
+        if ($wamid !== null) {
+            $existing = Message::where('whatsapp_message_id', $wamid)->first();
+            if ($existing !== null) {
+                Log::info('InboundMessageService: mensagem de mídia duplicada ignorada.', [
+                    'wamid'          => $wamid,
+                    'from'           => $normalizedFrom,
+                    'message_id'     => $existing->id,
+                    'company_id'     => $company?->id,
+                    'incoming_type'  => $inMeta['incoming_type'] ?? 'media',
+                ]);
+
+                return [
+                    'conversation'  => $existing->conversation,
+                    'in_message'    => $existing,
+                    'out_message'   => null,
+                    'reply'         => null,
+                    'was_sent'      => false,
+                    'auto_replied'  => false,
+                ];
+            }
+        }
+
         $conversation = $this->bootstrapConversation($company, $normalizedFrom, $normalizedContactName);
 
         $download = $this->whatsAppSend->downloadInboundImage($company, $normalizedMediaId);
@@ -291,6 +346,29 @@ class InboundMessageService
 
         if ($normalizedFrom === '') {
             throw new InvalidArgumentException('Phone é obrigatório para processar localização.');
+        }
+
+        // Deduplicação — camada 2 (service)
+        $wamid = $this->extractWhatsAppMessageId($inMeta);
+        if ($wamid !== null) {
+            $existing = Message::where('whatsapp_message_id', $wamid)->first();
+            if ($existing !== null) {
+                Log::info('InboundMessageService: mensagem de localização duplicada ignorada.', [
+                    'wamid'      => $wamid,
+                    'from'       => $normalizedFrom,
+                    'message_id' => $existing->id,
+                    'company_id' => $company?->id,
+                ]);
+
+                return [
+                    'conversation'  => $existing->conversation,
+                    'in_message'    => $existing,
+                    'out_message'   => null,
+                    'reply'         => null,
+                    'was_sent'      => false,
+                    'auto_replied'  => false,
+                ];
+            }
         }
 
         $conversation = $this->bootstrapConversation($company, $normalizedFrom, $normalizedContactName);

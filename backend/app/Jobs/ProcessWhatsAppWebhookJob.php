@@ -26,6 +26,19 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
 
     public int $timeout = 60;
 
+    /**
+     * Intervalo entre tentativas (segundos).
+     * Tenta novamente em 10s, depois em 60s.
+     * Mantemos os valores abaixo do timeout (60s) para não conflitar com o
+     * retry_after do Redis.
+     *
+     * @return array<int, int>
+     */
+    public function backoff(): array
+    {
+        return [10, 60];
+    }
+
     public function __construct(
         private readonly array $changeValue,
         private readonly ?int $companyId,
@@ -67,6 +80,25 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
 
             if (trim($from) === '') {
                 continue;
+            }
+
+            // Deduplicação — camada 1 (job):
+            // Verifica o wamid antes de qualquer chamada de serviço ou escrita no banco.
+            // Cobre dois cenários:
+            //   a) Reenvio da Meta: mesmo evento entregue em HTTP requests distintos
+            //   b) Retry do job: falha após a mensagem já ter sido persistida
+            // A checagem é feita antes do bootstrapConversation e do download de mídia
+            // para evitar trabalho desnecessário.
+            if ($messageType !== 'reaction' && $messageId !== '') {
+                if (Message::where('whatsapp_message_id', $messageId)->exists()) {
+                    Log::info('Webhook: mensagem duplicada ignorada no job.', [
+                        'company_id' => (int) $company->id,
+                        'wamid'      => $messageId,
+                        'from'       => $from,
+                        'type'       => $messageType,
+                    ]);
+                    continue;
+                }
             }
 
             if ($messageType === 'reaction') {
@@ -535,5 +567,26 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
             ->whereIn('customer_phone', $variants !== [] ? $variants : [$normalizedPhone])
             ->orderByDesc('id')
             ->first(['id', 'company_id', 'customer_phone']);
+    }
+
+    /**
+     * Chamado pelo framework após esgotar todas as tentativas.
+     * Loga contexto suficiente para investigação sem expor o payload completo.
+     */
+    public function failed(?\Throwable $exception): void
+    {
+        $metadata = is_array($this->changeValue['metadata'] ?? null)
+            ? $this->changeValue['metadata']
+            : [];
+
+        Log::error('ProcessWhatsAppWebhookJob: falhou após todas as tentativas.', [
+            'company_id'      => $this->companyId,
+            'phone_number_id' => $metadata['phone_number_id'] ?? null,
+            'messages_count'  => count($this->changeValue['messages'] ?? []),
+            'statuses_count'  => count($this->changeValue['statuses'] ?? []),
+            'attempts'        => $this->tries,
+            'exception_class' => $exception !== null ? get_class($exception) : null,
+            'exception'       => $exception?->getMessage(),
+        ]);
     }
 }
