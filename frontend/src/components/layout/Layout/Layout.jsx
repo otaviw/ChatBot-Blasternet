@@ -47,6 +47,14 @@ const ICONS = {
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
     </svg>
   ),
+  politica: (
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="8" y1="13" x2="16" y2="13" />
+      <line x1="8" y1="17" x2="14" y2="17" />
+    </svg>
+  ),
   notificacoes: (
     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
@@ -133,6 +141,8 @@ const iconKey = (label) => {
     'Novo chamado': 'novoChamado',
     'Abrir suporte': 'suporte',
     'Pedir ajuda': 'suporte',
+    'Política de privacidade': 'politica',
+    'Políticas e privacidade': 'politica',
     Notificacoes: 'notificacoes',
     Simulador: 'simulador',
     'Testar bot': 'simulador',
@@ -170,6 +180,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
   const [sidebarHovered, setSidebarHovered] = useState(false);
   const [sidebarMobileOpen, setSidebarMobileOpen] = useState(false);
   const [supportAccordionOpen, setSupportAccordionOpen] = useState(false);
+  const [policiesAccordionOpen, setPoliciesAccordionOpen] = useState(false);
   const [notificationsPanelOpen, setNotificationsPanelOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -613,9 +624,18 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
     },
   ];
 
+  const policyLinks = [
+    {
+      href: '/politica-de-privacidade.html',
+      label: 'Política de privacidade',
+      icon: 'politica',
+      ariaLabel: 'Abrir página de política de privacidade',
+    },
+  ];
+
   const mainLinks = role === 'admin' ? adminMainLinks : role === 'company' ? companyMainLinks : [];
   const supportLinks = role === 'admin' ? adminSupportLinks : role === 'company' ? companySupportLinks : [];
-  const hasSidebar = isLogged && (mainLinks.length > 0 || supportLinks.length > 0);
+  const hasSidebar = isLogged && (mainLinks.length > 0 || supportLinks.length > 0 || policyLinks.length > 0);
 
   const handleLogout = (event) => {
     if (!onLogout) return;
@@ -629,7 +649,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
     return currentPath.startsWith(`${href}/`);
   };
 
-  const isAnySupportActive = supportLinks.some((item) => {
+  const isAnyGroupActive = (links) => links.some((item) => {
     if (currentPath === item.href) {
       return true;
     }
@@ -641,9 +661,16 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
     return currentPath.startsWith(`${item.href}/`);
   });
 
+  const isAnySupportActive = isAnyGroupActive(supportLinks);
+  const isAnyPolicyActive = isAnyGroupActive(policyLinks);
+
   useEffect(() => {
     if (isAnySupportActive) setSupportAccordionOpen(true);
   }, [isAnySupportActive]);
+
+  useEffect(() => {
+    if (isAnyPolicyActive) setPoliciesAccordionOpen(true);
+  }, [isAnyPolicyActive]);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth <= 768);
@@ -777,6 +804,53 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
                 </div>
               </div>
             )}
+            {policyLinks.length > 0 && (
+              <div className="layout-sidebar__accordion layout-sidebar__accordion--stacked">
+                <button
+                  id="sidebar-policy-trigger"
+                  type="button"
+                  className={`layout-sidebar__accordion-trigger ${policiesAccordionOpen || isAnyPolicyActive ? 'layout-sidebar__accordion-trigger--active' : ''}`}
+                  onClick={() => setPoliciesAccordionOpen((v) => !v)}
+                  title="Políticas e privacidade — expandir ou recolher"
+                  aria-label="Políticas e privacidade — expandir ou recolher"
+                  aria-expanded={policiesAccordionOpen}
+                  aria-controls="sidebar-policy-panel"
+                >
+                  <span className="layout-sidebar__icon">{ICONS.politica}</span>
+                  <span className="layout-sidebar__label">Políticas e privacidade</span>
+                  <span className={`layout-sidebar__accordion-chevron ${policiesAccordionOpen ? 'layout-sidebar__accordion-chevron--open' : ''}`}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </span>
+                </button>
+                <div
+                  id="sidebar-policy-panel"
+                  role="region"
+                  aria-labelledby="sidebar-policy-trigger"
+                  className={`layout-sidebar__accordion-content ${policiesAccordionOpen ? 'layout-sidebar__accordion-content--open' : ''}`}
+                >
+                  <div>
+                    {policyLinks.map((item) => {
+                      const linkTitle = item.ariaLabel || item.label;
+                      return (
+                        <a
+                          key={item.href}
+                          href={item.href}
+                          className={`layout-sidebar__link layout-sidebar__link--nested ${isActive(item.href) ? 'layout-sidebar__link--active' : ''}`}
+                          title={linkTitle}
+                          aria-label={linkTitle}
+                          aria-current={isActive(item.href) ? 'page' : undefined}
+                        >
+                          <span className="layout-sidebar__icon">{ICONS[sidebarIconFor(item)]}</span>
+                          <span className="layout-sidebar__label">{item.label}</span>
+                        </a>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
           </nav>
         </aside>
       )}
@@ -880,6 +954,54 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
                             {unreadCount > 0 && (
                               <span className="layout-sidebar__badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
                             )}
+                          </a>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {policyLinks.length > 0 && (
+                <div className="layout-sidebar__accordion layout-sidebar__accordion--stacked">
+                  <button
+                    id="sidebar-policy-trigger-mobile"
+                    type="button"
+                    className={`layout-sidebar__accordion-trigger ${policiesAccordionOpen || isAnyPolicyActive ? 'layout-sidebar__accordion-trigger--active' : ''}`}
+                    onClick={() => setPoliciesAccordionOpen((v) => !v)}
+                    title="Políticas e privacidade — expandir ou recolher"
+                    aria-label="Políticas e privacidade — expandir ou recolher"
+                    aria-expanded={policiesAccordionOpen}
+                    aria-controls="sidebar-policy-panel-mobile"
+                  >
+                    <span className="layout-sidebar__icon">{ICONS.politica}</span>
+                    <span className="layout-sidebar__label">Políticas e privacidade</span>
+                    <span className={`layout-sidebar__accordion-chevron ${policiesAccordionOpen ? 'layout-sidebar__accordion-chevron--open' : ''}`}>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg>
+                    </span>
+                  </button>
+                  <div
+                    id="sidebar-policy-panel-mobile"
+                    role="region"
+                    aria-labelledby="sidebar-policy-trigger-mobile"
+                    className={`layout-sidebar__accordion-content ${policiesAccordionOpen ? 'layout-sidebar__accordion-content--open' : ''}`}
+                  >
+                    <div>
+                      {policyLinks.map((item) => {
+                        const linkTitle = item.ariaLabel || item.label;
+                        return (
+                          <a
+                            key={item.href}
+                            href={item.href}
+                            className={`layout-sidebar__link layout-sidebar__link--nested ${isActive(item.href) ? 'layout-sidebar__link--active' : ''}`}
+                            title={linkTitle}
+                            aria-label={linkTitle}
+                            aria-current={isActive(item.href) ? 'page' : undefined}
+                            onClick={closeSidebarMobile}
+                          >
+                            <span className="layout-sidebar__icon">{ICONS[sidebarIconFor(item)]}</span>
+                            <span className="layout-sidebar__label">{item.label}</span>
                           </a>
                         );
                       })}
