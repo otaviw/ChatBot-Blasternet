@@ -1,4 +1,4 @@
-const DEFAULT_TITLE = 'ChatBot-Blasternet';
+const DEFAULT_TITLE = 'Blasternet ChatBot';
 const BADGE_SIZE = 32;
 
 let originalHref = null;

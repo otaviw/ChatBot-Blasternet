@@ -8,7 +8,7 @@ describe('faviconBadge', () => {
 
   beforeEach(() => {
     document.head.innerHTML = '<link rel="icon" type="image/x-icon" href="/favicon.ico" />';
-    document.title = 'ChatBot-Blasternet';
+    document.title = 'Blasternet ChatBot';
 
     ctx = {
       drawImage: vi.fn(),

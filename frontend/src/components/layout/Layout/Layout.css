@@ -17,6 +17,14 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge legado */
+}
+
+.layout-sidebar::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none; /* Chrome/Safari/Edge */
 }
 
 .layout-sidebar--expanded {
@@ -44,6 +52,15 @@
   font-size: 14px;
   white-space: nowrap;
   transition: background 0.16s, color 0.16s;
+}
+
+/* Mantém o ícone da página de política alinhado quando o label quebra em múltiplas linhas */
+.layout-sidebar__link[href="/politica-de-privacidade.html"] {
+  align-items: flex-start;
+}
+
+.layout-sidebar__link[href="/politica-de-privacidade.html"] .layout-sidebar__icon {
+  margin-top: 1px;
 }
 
 .layout-sidebar__link:hover {
