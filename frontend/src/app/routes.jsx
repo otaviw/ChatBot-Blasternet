@@ -40,6 +40,7 @@ const CompanyAiAnalyticsPage = lazy(
 const CompanyAiAuditPage = lazy(
   () => import('@/pages/company/CompanyAiAudit/CompanyAiAuditPage.jsx')
 );
+const CompanyAuditPage = lazy(() => import('@/pages/company/CompanyAudit/CompanyAuditPage.jsx'));
 const CompanySupportTicketPage = lazy(
   () => import('@/pages/company/CompanySupportTickets/CompanySupportTicketPage.jsx')
 );
@@ -108,6 +109,7 @@ function AppRoutes() {
         <Route path="/minha-conta/chat-ia" element={<SuperAdminRoute><InternalAiChatPage /></SuperAdminRoute>} />
         <Route path="/minha-conta/ia/analytics" element={<AiManagementRoute><CompanyAiAnalyticsPage /></AiManagementRoute>} />
         <Route path="/minha-conta/ia/auditoria" element={<AiManagementRoute><CompanyAiAuditPage /></AiManagementRoute>} />
+        <Route path="/minha-conta/auditoria" element={<CompanyAuditPage />} />
         <Route path="/minha-conta/ia/configuracoes" element={<AiManagementRoute><AiSettingsPage /></AiManagementRoute>} />
         <Route path="/minha-conta/bot" element={<CompanyBotPage />} />
         <Route path="/minha-conta/base-conhecimento" element={<AiManagementRoute><CompanyKnowledgeBasePage /></AiManagementRoute>} />

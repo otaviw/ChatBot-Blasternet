@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Area;
 use App\Models\AppointmentStaffProfile;
 use App\Models\User;
-use App\Services\AuditLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -14,10 +13,6 @@ use Illuminate\Validation\ValidationException;
 
 class UserController extends Controller
 {
-    public function __construct(
-        private AuditLogService $auditLog
-    ) {}
-
     public function index(Request $request): JsonResponse
     {
         $actor = $request->user();
@@ -118,14 +113,6 @@ class UserController extends Controller
         $this->syncAppointmentProfile($companyId, $user, $validated);
         $user->load(['company:id,name', 'areas:id,name,company_id', 'appointmentStaffProfile']);
 
-        $this->auditLog->record($request, 'company.user.created', $companyId, [
-            'user_id' => $user->id,
-            'role' => $user->role,
-            'is_active' => $user->is_active,
-            'can_use_ai' => $user->can_use_ai,
-            'area_ids' => $areaIds,
-        ]);
-
         return response()->json([
             'ok' => true,
             'user' => $this->serializeUser($user),
@@ -175,16 +162,6 @@ class UserController extends Controller
         $isActive = (bool) $validated['is_active'];
         $canUseAi = $this->resolveCanUseAi($normalizedRole, $validated, $user);
 
-        $before = [
-            'name' => $user->name,
-            'email' => $user->email,
-            'role' => $user->role,
-            'is_active' => $user->is_active,
-            'can_use_ai' => (bool) $user->can_use_ai,
-            'disabled_at' => $user->disabled_at,
-            'area_ids' => $user->areas()->pluck('areas.id')->values()->all(),
-        ];
-
         $user->name = $validated['name'];
         $user->email = $validated['email'];
         $user->role = $normalizedRole;
@@ -199,20 +176,6 @@ class UserController extends Controller
         $user->areas()->sync($areaIds);
         $this->syncAppointmentProfile($companyId, $user, $validated);
         $user->load(['company:id,name', 'areas:id,name,company_id', 'appointmentStaffProfile']);
-
-        $this->auditLog->record($request, 'company.user.updated', $companyId, [
-            'user_id' => $user->id,
-            'before' => $before,
-            'after' => [
-                'name' => $user->name,
-                'email' => $user->email,
-                'role' => $user->role,
-                'is_active' => $user->is_active,
-                'can_use_ai' => (bool) $user->can_use_ai,
-                'disabled_at' => $user->disabled_at,
-                'area_ids' => $areaIds,
-            ],
-        ]);
 
         return response()->json([
             'ok' => true,
@@ -249,12 +212,7 @@ class UserController extends Controller
             ], 422);
         }
 
-        $userId = $user->id;
         $user->delete();
-
-        $this->auditLog->record($request, 'company.user.deleted', $companyId, [
-            'user_id' => $userId,
-        ]);
 
         return response()->json([
             'ok' => true,

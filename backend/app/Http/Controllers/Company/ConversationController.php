@@ -14,6 +14,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Services\AuditLogService;
+use App\Services\AuditService;
 use App\Services\Company\CompanyConversationSupportService;
 use App\Services\Company\CompanyConversationCountersService;
 use App\Services\MessageDeliveryStatusService;
@@ -335,6 +336,13 @@ class ConversationController extends Controller
                 'actor_user_id' => $user->id,
             ],
         ]);
+
+        AuditService::log(
+            action: 'send_message',
+            entityType: 'message',
+            entityId: $message->id,
+            newData: $this->buildMessageAuditSummary($message, $conversation, 'manual')
+        );
 
         $sendOutbound = (bool) ($validated['send_outbound'] ?? true);
         $sendResult = null;
@@ -685,6 +693,13 @@ class ConversationController extends Controller
                 ],
             ]);
 
+            AuditService::log(
+                action: 'send_message',
+                entityType: 'message',
+                entityId: $message->id,
+                newData: $this->buildMessageAuditSummary($message, $conversation, 'template')
+            );
+
             if ($templateSent) {
                 $conversation->last_business_message_at = now();
                 $conversation->save();
@@ -761,6 +776,13 @@ class ConversationController extends Controller
             ],
         ]);
 
+        AuditService::log(
+            action: 'send_message',
+            entityType: 'message',
+            entityId: $message->id,
+            newData: $this->buildMessageAuditSummary($message, $conversation, 'template')
+        );
+
         if ($templateSent) {
             $conversation->last_business_message_at = now();
 
@@ -828,5 +850,27 @@ class ConversationController extends Controller
         }
 
         return response()->download($filePath, basename($msg->media_filename ?? 'arquivo'));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildMessageAuditSummary(Message $message, Conversation $conversation, string $source): array
+    {
+        $textPreview = null;
+        if (is_string($message->text) && trim($message->text) !== '') {
+            $textPreview = mb_substr(trim($message->text), 0, 120);
+        }
+
+        return [
+            'conversation_id' => $conversation->id,
+            'source' => $source,
+            'direction' => $message->direction,
+            'type' => $message->type,
+            'content_type' => $message->content_type,
+            'delivery_status' => $message->delivery_status,
+            'has_media' => ! empty($message->media_key),
+            'text_preview' => $textPreview,
+        ];
     }
 }

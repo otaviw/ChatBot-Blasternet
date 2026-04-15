@@ -1,5 +1,7 @@
 <?php
 
+use App\Logging\AddRequestContext;
+use App\Logging\AppJsonFormatter;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
@@ -54,8 +56,39 @@ return [
 
         'stack' => [
             'driver' => 'stack',
+            // Em produção, defina LOG_STACK=json no .env para usar JSON estruturado.
+            // Em desenvolvimento, LOG_STACK=single mantém o log legível no terminal.
             'channels' => explode(',', (string) env('LOG_STACK', 'single')),
             'ignore_exceptions' => false,
+        ],
+
+        // Canal JSON estruturado — arquivo rotativo diário
+        // Defina LOG_STACK=json (ou LOG_STACK=json,stderr-json) no .env de produção.
+        'json' => [
+            'driver'     => 'monolog',
+            'level'      => env('LOG_LEVEL', 'debug'),
+            'handler'    => StreamHandler::class,
+            'handler_with' => [
+                'stream' => storage_path('logs/laravel.log'),
+            ],
+            'formatter'       => AppJsonFormatter::class,
+            'formatter_with'  => [],
+            'processors'      => [AddRequestContext::class],
+        ],
+
+        // Canal JSON para stderr — ideal para contêineres Docker/Kubernetes
+        // onde o agente de log coleta stdout/stderr em vez de arquivos.
+        // Defina LOG_STACK=stderr-json no ambiente de contêiner.
+        'stderr-json' => [
+            'driver'     => 'monolog',
+            'level'      => env('LOG_LEVEL', 'debug'),
+            'handler'    => StreamHandler::class,
+            'handler_with' => [
+                'stream' => 'php://stderr',
+            ],
+            'formatter'       => AppJsonFormatter::class,
+            'formatter_with'  => [],
+            'processors'      => [AddRequestContext::class],
         ],
 
         'single' => [

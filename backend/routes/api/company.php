@@ -6,6 +6,7 @@ use App\Http\Controllers\Company\AiCompanyKnowledgeController;
 use App\Http\Controllers\Company\AiConversationController;
 use App\Http\Controllers\Company\AiAnalyticsController;
 use App\Http\Controllers\Company\AiAuditController;
+use App\Http\Controllers\Company\AuditLogController;
 use App\Http\Controllers\Company\AiMetricsController;
 use App\Http\Controllers\Company\AiSandboxController;
 use App\Http\Controllers\Company\AiSuggestionFeedbackController;
@@ -78,6 +79,10 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::post('/users', [CompanyUserController::class, 'store'])->middleware('throttle:bot-write');
         Route::put('/users/{user}', [CompanyUserController::class, 'update'])->middleware('throttle:bot-write');
         Route::delete('/users/{user}', [CompanyUserController::class, 'destroy'])->middleware('throttle:bot-write');
+
+        // Auditoria: listagem com escopo multi-tenant e paginação obrigatória.
+        Route::get('/audit-logs', [AuditLogController::class, 'index'])->middleware('throttle:inbox-read');
+        Route::get('/audit-logs/{auditLog}', [AuditLogController::class, 'show'])->middleware('throttle:inbox-read');
 
         Route::get('/agendamentos/configuracoes', [AppointmentController::class, 'settings'])
             ->middleware('throttle:inbox-read');

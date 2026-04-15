@@ -470,6 +470,12 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
         ariaLabel: 'Auditoria de ações da IA',
       },
       {
+        href: '/minha-conta/auditoria',
+        label: 'Auditoria',
+        icon: 'chatIa',
+        ariaLabel: 'Auditoria geral do sistema',
+      },
+      {
         href: '/minha-conta/base-conhecimento',
         label: 'Base de conhecimento',
         icon: 'bot',
@@ -540,6 +546,13 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
       label: 'Respostas rápidas',
       icon: 'respostas',
       ariaLabel: 'Mensagens prontas para resposta rápida',
+    });
+
+    links.push({
+      href: '/minha-conta/auditoria',
+      label: 'Auditoria',
+      icon: 'chatIa',
+      ariaLabel: 'Auditoria geral do sistema',
     });
 
     if (userData?.role === 'system_admin') {

@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Exceptions\ConfigurationException;
 use App\Models\AiCompanyKnowledge;
+use App\Models\AuditLog;
 use App\Models\Appointment;
 use App\Models\CompanyBotSetting;
 use App\Models\Area;
@@ -15,6 +16,7 @@ use App\Models\Message;
 use App\Models\Notification;
 use App\Models\SupportTicket;
 use App\Models\SupportTicketMessage;
+use App\Models\User;
 use App\Observers\AiCompanyKnowledgeObserver;
 use App\Observers\AppointmentObserver;
 use App\Observers\ChatMessageObserver;
@@ -25,7 +27,9 @@ use App\Observers\MessageObserver;
 use App\Observers\NotificationObserver;
 use App\Observers\SupportTicketObserver;
 use App\Observers\SupportTicketMessageObserver;
+use App\Observers\UserObserver;
 use App\Policies\AreaPolicy;
+use App\Policies\AuditLogPolicy;
 use App\Policies\ChatPolicy;
 use App\Policies\ConversationPolicy;
 use App\Services\Ai\AiProviderResolver;
@@ -73,6 +77,7 @@ class AppServiceProvider extends ServiceProvider
         Carbon::setLocale('pt_BR');
 
         Gate::policy(Area::class, AreaPolicy::class);
+        Gate::policy(AuditLog::class, AuditLogPolicy::class);
         Gate::policy(Conversation::class, ConversationPolicy::class);
         AiCompanyKnowledge::observe(AiCompanyKnowledgeObserver::class);
         Appointment::observe(AppointmentObserver::class);
@@ -83,6 +88,7 @@ class AppServiceProvider extends ServiceProvider
         Notification::observe(NotificationObserver::class);
         SupportTicket::observe(SupportTicketObserver::class);
         SupportTicketMessage::observe(SupportTicketMessageObserver::class);
+        User::observe(UserObserver::class);
 
         // ---------------------------------------------------------------------------
         // Auth — chave IP+email impede que um atacante trave várias contas pela
