@@ -1,10 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import api from '@/services/api';
 
 function usePageData(url, initial = null) {
   const [data, setData] = useState(initial);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [refreshToken, setRefreshToken] = useState(0);
+
+  // refetch() re-executa a busca sem mudar a URL.
+  // Exposto principalmente para o botão "Tentar novamente" do ErrorPanel.
+  const refetch = useCallback(() => setRefreshToken((t) => t + 1), []);
 
   useEffect(() => {
     let canceled = false;
@@ -39,9 +44,9 @@ function usePageData(url, initial = null) {
     return () => {
       canceled = true;
     };
-  }, [url]);
+  }, [url, refreshToken]);
 
-  return { data, loading, error };
+  return { data, loading, error, refetch };
 }
 
 export default usePageData;

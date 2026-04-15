@@ -4,14 +4,15 @@ import Layout from '@/components/layout/Layout/Layout.jsx';
 import Button from '@/components/ui/Button/Button.jsx';
 import Card from '@/components/ui/Card/Card.jsx';
 import PageHeader from '@/components/ui/PageHeader/PageHeader.jsx';
+import PageState from '@/components/ui/PageState/PageState.jsx';
+import LoadingSkeleton from '@/components/ui/LoadingSkeleton/LoadingSkeleton.jsx';
+import EmptyState from '@/components/ui/EmptyState/EmptyState.jsx';
 import usePageData from '@/hooks/usePageData';
 import useAuth from '@/hooks/useAuth';
 import useLogout from '@/hooks/useLogout';
 import useAdminCompanySelector from '@/hooks/useAdminCompanySelector';
 import api from '@/services/api';
 import ConfirmDialog from '@/components/ui/ConfirmDialog/ConfirmDialog.jsx';
-import LoadingSkeleton from '@/components/ui/LoadingSkeleton/LoadingSkeleton.jsx';
-import EmptyState from '@/components/ui/EmptyState/EmptyState.jsx';
 import { showError, showSuccess } from '@/services/toastService';
 
 const MAX_CONTENT_ITEMS = 50;
@@ -63,7 +64,7 @@ function CompanyKnowledgeBasePage() {
     ? `/minha-conta/base-conhecimento?company_id=${selectedCompanyId}`
     : '/minha-conta/base-conhecimento';
 
-  const { data, loading, error } = usePageData(baseUrl);
+  const { data, loading, error, refetch } = usePageData(baseUrl);
   const [items, setItems] = useState([]);
   const [busy, setBusy] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -185,30 +186,27 @@ function CompanyKnowledgeBasePage() {
 
   const layoutRole = isAdmin ? 'admin' : 'company';
 
-  if (loading) {
-    return (
-      <Layout role={layoutRole} onLogout={logout}>
-        <div className="space-y-3">
-          <LoadingSkeleton className="h-6 w-56" />
-          <LoadingSkeleton className="h-4 w-96 max-w-full" />
-          <LoadingSkeleton className="h-14 w-full" />
-          <LoadingSkeleton className="h-14 w-full" />
-          <LoadingSkeleton className="h-14 w-full" />
-        </div>
-      </Layout>
-    );
-  }
-
-  if (error || !data?.authenticated) {
-    return (
-      <Layout role={layoutRole} onLogout={logout}>
-        <p className="text-sm text-red-600">Nao foi possivel carregar a base de conhecimento.</p>
-      </Layout>
-    );
-  }
+  // Slot de loading customizado: imita o layout real da página (header + linhas)
+  // para evitar o salto de layout quando o conteúdo carrega.
+  const knowledgeLoadingSlot = (
+    <div className="space-y-3">
+      <LoadingSkeleton className="h-6 w-56" />
+      <LoadingSkeleton className="h-4 w-96 max-w-full" />
+      <LoadingSkeleton className="h-14 w-full" />
+      <LoadingSkeleton className="h-14 w-full" />
+      <LoadingSkeleton className="h-14 w-full" />
+    </div>
+  );
 
   return (
     <Layout role={layoutRole} onLogout={logout}>
+      <PageState
+        loading={loading}
+        loadingSlot={knowledgeLoadingSlot}
+        error={error || !data?.authenticated}
+        errorMessage="Não foi possível carregar a base de conhecimento."
+        onRetry={refetch}
+      >
       <PageHeader
         title="Base de conhecimento"
         subtitle="Gerencie conteudos usados pela IA para melhorar a qualidade das respostas."
@@ -433,6 +431,7 @@ function CompanyKnowledgeBasePage() {
           </div>
         </div>
       ) : null}
+      </PageState>
     </Layout>
   );
 }

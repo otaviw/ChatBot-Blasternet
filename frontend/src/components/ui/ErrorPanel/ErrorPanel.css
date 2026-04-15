@@ -1,0 +1,65 @@
+/* ErrorPanel — painel inline para erros de fetch/API.
+   Distinto do ErrorBoundary (crashes JS) e do Notice (banners simples).
+   Usado diretamente ou via PageState. */
+
+.error-panel {
+  width: 100%;
+  border: 1px solid #fecaca;
+  border-radius: 0.9rem;
+  padding: 1rem;
+  background: #fff5f5;
+  text-align: center;
+}
+
+.error-panel__icon-wrap {
+  width: 2.4rem;
+  height: 2.4rem;
+  margin: 0 auto 0.6rem;
+  border-radius: 999px;
+  border: 1px solid #fecaca;
+  background: #ffffff;
+  color: #dc2626;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.error-panel__message {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: #991b1b;
+  font-weight: 500;
+}
+
+.error-panel__detail {
+  margin: 0.3rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #b91c1c;
+}
+
+.error-panel__action {
+  margin-top: 0.9rem;
+}
+
+/* ── dark ──────────────────────────────────────────────────────────────── */
+
+body.theme-dark .error-panel {
+  border-color: #7f1d1d;
+  background: #1c0f0f;
+}
+
+body.theme-dark .error-panel__icon-wrap {
+  border-color: #7f1d1d;
+  background: #2d1212;
+  color: #f87171;
+}
+
+body.theme-dark .error-panel__message {
+  color: #fca5a5;
+}
+
+body.theme-dark .error-panel__detail {
+  color: #f87171;
+}

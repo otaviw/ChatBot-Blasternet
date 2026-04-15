@@ -47,6 +47,7 @@ export default function useCompanyInboxActions({
   const [sendTemplateBusy, setSendTemplateBusy] = useState(false);
   const [sendTemplateError, setSendTemplateError] = useState('');
   const [sendTemplateSuccess, setSendTemplateSuccess] = useState('');
+  const [usageWarning, setUsageWarning] = useState('');
 
   useEffect(() => {
     return () => {
@@ -245,6 +246,7 @@ export default function useCompanyInboxActions({
 
       setManualBusy(true);
       setManualError('');
+      setUsageWarning('');
       setAiSuggestionError('');
       setAiSuggestionStatus('');
       try {
@@ -273,6 +275,9 @@ export default function useCompanyInboxActions({
           messages: appendUniqueMessage(prev?.messages ?? [], message),
         }));
         upsertConversationInList(response.data?.conversation);
+        if (response.data?.usage_warning && response.data?.usage_message) {
+          setUsageWarning(response.data.usage_message);
+        }
         setManualText('');
         if (manualImagePreviewUrl) {
           URL.revokeObjectURL(manualImagePreviewUrl);
@@ -498,6 +503,9 @@ export default function useCompanyInboxActions({
       }));
       upsertConversationInList(response.data?.conversation);
       setSendTemplateSuccess('Template enviado com sucesso.');
+      if (response.data?.usage_warning && response.data?.usage_message) {
+        setUsageWarning(response.data.usage_message);
+      }
       await refreshConversations();
     } catch (err) {
       setSendTemplateError(err.response?.data?.message || 'Falha ao enviar template.');
@@ -571,5 +579,7 @@ export default function useCompanyInboxActions({
     sendTemplateError,
     sendTemplateSuccess,
     setSendTemplateModalOpen,
+    usageWarning,
+    setUsageWarning,
   };
 }

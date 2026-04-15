@@ -3,6 +3,7 @@ import Layout from '@/components/layout/Layout/Layout.jsx';
 import Button from '@/components/ui/Button/Button.jsx';
 import Card from '@/components/ui/Card/Card.jsx';
 import PageHeader from '@/components/ui/PageHeader/PageHeader.jsx';
+import PageState from '@/components/ui/PageState/PageState.jsx';
 import usePageData from '@/hooks/usePageData';
 import useAuth from '@/hooks/useAuth';
 import useLogout from '@/hooks/useLogout';
@@ -49,7 +50,7 @@ function CompanyAuditPage() {
   const [detailItem, setDetailItem] = useState(null);
 
   const dataUrl = useMemo(() => buildUrl(filters, page), [filters, page]);
-  const { data, loading, error } = usePageData(dataUrl);
+  const { data, loading, error, refetch } = usePageData(dataUrl);
 
   const rows = Array.isArray(data?.data) ? data.data : [];
   const currentPage = Number(data?.current_page ?? 1);
@@ -84,24 +85,14 @@ function CompanyAuditPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <Layout role={layoutRole} onLogout={logout}>
-        <p className="text-sm text-[#64748b]">Carregando auditoria...</p>
-      </Layout>
-    );
-  }
-
-  if (error) {
-    return (
-      <Layout role={layoutRole} onLogout={logout}>
-        <p className="text-sm text-red-600">Nao foi possivel carregar os logs de auditoria.</p>
-      </Layout>
-    );
-  }
-
   return (
     <Layout role={layoutRole} onLogout={logout}>
+      <PageState
+        loading={loading}
+        error={error}
+        errorMessage="Não foi possível carregar os logs de auditoria."
+        onRetry={refetch}
+      >
       <PageHeader
         title="Auditoria"
         subtitle="Consulte eventos auditados com filtros por acao e data."
@@ -279,6 +270,7 @@ function CompanyAuditPage() {
           </div>
         </div>
       )}
+      </PageState>
     </Layout>
   );
 }

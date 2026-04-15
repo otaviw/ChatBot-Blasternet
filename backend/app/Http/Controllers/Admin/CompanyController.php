@@ -61,6 +61,9 @@ class CompanyController extends Controller
             'ai_chatbot_rules' => ['nullable', 'array'],
             'ai_usage_enabled' => ['sometimes', 'boolean'],
             'ai_usage_limit_monthly' => ['nullable', 'integer', 'min:1'],
+            'max_users' => ['nullable', 'integer', 'min:1'],
+            'max_conversation_messages_monthly' => ['nullable', 'integer', 'min:1'],
+            'max_template_messages_monthly' => ['nullable', 'integer', 'min:1'],
             'timezone' => ['required', 'string', Rule::in(timezone_identifiers_list())],
             'welcome_message' => ['nullable', 'string', 'max:2000'],
             'fallback_message' => ['nullable', 'string', 'max:2000'],
@@ -114,6 +117,19 @@ class CompanyController extends Controller
                 ? (int) $validated['ai_usage_limit_monthly']
                 : null;
         }
+        if (array_key_exists('max_users', $validated)) {
+            $settingsPayload['max_users'] = $validated['max_users'] !== null ? (int) $validated['max_users'] : null;
+        }
+        if (array_key_exists('max_conversation_messages_monthly', $validated)) {
+            $settingsPayload['max_conversation_messages_monthly'] = $validated['max_conversation_messages_monthly'] !== null
+                ? (int) $validated['max_conversation_messages_monthly']
+                : null;
+        }
+        if (array_key_exists('max_template_messages_monthly', $validated)) {
+            $settingsPayload['max_template_messages_monthly'] = $validated['max_template_messages_monthly'] !== null
+                ? (int) $validated['max_template_messages_monthly']
+                : null;
+        }
 
         $settings = CompanyBotSetting::updateOrCreate(
             ['company_id' => $company->id],
@@ -155,6 +171,9 @@ class CompanyController extends Controller
             'ai_chatbot_rules' => ['nullable', 'array'],
             'ai_usage_enabled' => ['sometimes', 'boolean'],
             'ai_usage_limit_monthly' => ['nullable', 'integer', 'min:1'],
+            'max_users' => ['nullable', 'integer', 'min:1'],
+            'max_conversation_messages_monthly' => ['nullable', 'integer', 'min:1'],
+            'max_template_messages_monthly' => ['nullable', 'integer', 'min:1'],
         ]);
 
         $company = Company::create([
@@ -174,6 +193,9 @@ class CompanyController extends Controller
                 'ai_chatbot_rules' => $validated['ai_chatbot_rules'] ?? null,
                 'ai_usage_enabled' => (bool) ($validated['ai_usage_enabled'] ?? true),
                 'ai_usage_limit_monthly' => $validated['ai_usage_limit_monthly'] ?? null,
+                'max_users' => $validated['max_users'] ?? null,
+                'max_conversation_messages_monthly' => $validated['max_conversation_messages_monthly'] ?? null,
+                'max_template_messages_monthly' => $validated['max_template_messages_monthly'] ?? null,
                 'timezone' => 'America/Sao_Paulo',
                 'welcome_message' => 'Oi. Como posso ajudar?',
                 'fallback_message' => 'Não entendi sua mensagem. Pode reformular?',

@@ -39,6 +39,13 @@ class CompanyBotSetting extends Model
         'stateful_menu_flow',
         'inactivity_close_hours',
         'unattended_alert_hours',
+        'max_users',
+        'max_conversation_messages_monthly',
+        'max_template_messages_monthly',
+        'conversation_messages_used',
+        'template_messages_used',
+        'usage_reset_month',
+        'usage_reset_year',
     ];
 
     protected $casts = [
@@ -61,6 +68,13 @@ class CompanyBotSetting extends Model
         'stateful_menu_flow' => 'array',
         'inactivity_close_hours' => 'integer',
         'unattended_alert_hours' => 'integer',
+        'max_users' => 'integer',
+        'max_conversation_messages_monthly' => 'integer',
+        'max_template_messages_monthly' => 'integer',
+        'conversation_messages_used' => 'integer',
+        'template_messages_used' => 'integer',
+        'usage_reset_month' => 'integer',
+        'usage_reset_year' => 'integer',
     ];
 
     public function company()

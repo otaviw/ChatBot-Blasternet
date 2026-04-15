@@ -8,6 +8,7 @@ use App\Models\Company;
 use App\Models\CompanyBotSetting;
 use App\Services\AuditLogService;
 use App\Services\Ai\AiAccessService;
+use App\Services\Company\CompanyUsageLimitsService;
 use App\Services\WhatsAppCredentialsValidatorService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,6 +20,7 @@ class BotController extends Controller
         private AuditLogService $auditLog,
         private AiAccessService $aiAccess,
         private WhatsAppCredentialsValidatorService $credentialsValidator,
+        private CompanyUsageLimitsService $usageLimits,
     ) {}
 
     /** Configuracoes do bot da empresa logada (respostas, horarios etc.). */
@@ -454,5 +456,26 @@ class BotController extends Controller
         }
 
         return $flow;
+    }
+
+    /** Usage snapshot for the current company (limits + counters). */
+    public function usageSnapshot(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (! $user || ! $user->isCompanyUser()) {
+            return response()->json(['authenticated' => false, 'redirect' => '/entrar'], 403);
+        }
+
+        $companyId = $user->isSystemAdmin()
+            ? (int) $request->integer('company_id', (int) ($user->company_id ?? 0))
+            : (int) $user->company_id;
+
+        if ($companyId <= 0) {
+            return response()->json(['usage' => null]);
+        }
+
+        return response()->json([
+            'usage' => $this->usageLimits->snapshot($companyId),
+        ]);
     }
 }

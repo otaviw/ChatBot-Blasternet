@@ -1,0 +1,6 @@
+/* PageState — container das animações de loading dentro de PageState */
+
+.page-state-loading {
+  width: 100%;
+  padding: 0.25rem 0;
+}

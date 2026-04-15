@@ -1,0 +1,891 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="index, follow" />
+    <title>Política de Privacidade — Blasternet</title>
+    <meta name="description" content="Política de privacidade da plataforma Blasternet: como coletamos, usamos, armazenamos e excluímos seus dados pessoais." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet" />
+    <style>
+      /* ── Reset & tokens ─────────────────────────────────────────── */
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      :root {
+        --bg:        #fafafa;
+        --surface:   #ffffff;
+        --border:    #eeeeee;
+        --border-md: #e5e5e5;
+        --text:      #171717;
+        --muted:     #737373;
+        --subtle:    #a3a3a3;
+        --accent:    #2563eb;
+        --accent-bg: #eff6ff;
+        --radius:    12px;
+        --radius-sm: 8px;
+        --shadow:    0 2px 8px rgba(0,0,0,.06);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg:        #0f1117;
+          --surface:   #1a1d27;
+          --border:    #252836;
+          --border-md: #343848;
+          --text:      #e8eaf2;
+          --muted:     #8b8fa8;
+          --subtle:    #5c6078;
+          --accent:    #4f8ef7;
+          --accent-bg: rgba(79,142,247,.12);
+          --shadow:    0 2px 8px rgba(0,0,0,.4);
+        }
+      }
+
+      /* ── Base ───────────────────────────────────────────────────── */
+      html { scroll-behavior: smooth; }
+
+      body {
+        font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+        font-size: 15px;
+        line-height: 1.7;
+        background: var(--bg);
+        color: var(--text);
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+      }
+
+      /* ── Layout ─────────────────────────────────────────────────── */
+      .page-wrap {
+        max-width: 780px;
+        margin: 0 auto;
+        padding: 0 1.25rem;
+      }
+
+      /* ── Header ─────────────────────────────────────────────────── */
+      .site-header {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+      }
+
+      .site-header__inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        height: 3.25rem;
+        max-width: 780px;
+        margin: 0 auto;
+        padding: 0 1.25rem;
+      }
+
+      .site-header__brand {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--text);
+        text-decoration: none;
+        letter-spacing: -0.02em;
+      }
+
+      .site-header__back {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.82rem;
+        font-weight: 500;
+        color: var(--muted);
+        text-decoration: none;
+        padding: 0.35rem 0.7rem;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border-md);
+        background: var(--surface);
+        transition: color .15s, border-color .15s, background .15s;
+      }
+
+      .site-header__back:hover {
+        color: var(--text);
+        border-color: var(--border-md);
+        background: var(--bg);
+      }
+
+      /* ── Hero ───────────────────────────────────────────────────── */
+      .hero {
+        padding: 3rem 0 2rem;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 2.5rem;
+      }
+
+      .hero__eyebrow {
+        display: inline-block;
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .07em;
+        color: var(--accent);
+        background: var(--accent-bg);
+        border-radius: 999px;
+        padding: .2rem .65rem;
+        margin-bottom: .75rem;
+      }
+
+      .hero__title {
+        font-size: clamp(1.6rem, 4vw, 2.1rem);
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        line-height: 1.2;
+        color: var(--text);
+        margin-bottom: .6rem;
+      }
+
+      .hero__meta {
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+
+      /* ── Table of contents ──────────────────────────────────────── */
+      .toc {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.2rem 1.4rem;
+        margin-bottom: 2.5rem;
+        box-shadow: var(--shadow);
+      }
+
+      .toc__title {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        color: var(--subtle);
+        margin-bottom: .65rem;
+      }
+
+      .toc__list {
+        list-style: none;
+        display: flex;
+        flex-wrap: wrap;
+        gap: .3rem .6rem;
+        padding: 0;
+      }
+
+      .toc__item a {
+        font-size: 0.82rem;
+        font-weight: 500;
+        color: var(--accent);
+        text-decoration: none;
+        padding: .18rem .5rem;
+        border-radius: var(--radius-sm);
+        transition: background .13s;
+      }
+
+      .toc__item a:hover {
+        background: var(--accent-bg);
+      }
+
+      /* ── Sections ───────────────────────────────────────────────── */
+      .policy-section {
+        margin-bottom: 3rem;
+        scroll-margin-top: 4.5rem;
+      }
+
+      .policy-section__header {
+        display: flex;
+        align-items: center;
+        gap: .7rem;
+        margin-bottom: 1.1rem;
+      }
+
+      .policy-section__number {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.9rem;
+        height: 1.9rem;
+        border-radius: 999px;
+        background: var(--accent-bg);
+        color: var(--accent);
+        font-size: .75rem;
+        font-weight: 700;
+        flex-shrink: 0;
+      }
+
+      .policy-section__title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        color: var(--text);
+      }
+
+      /* ── Prose ──────────────────────────────────────────────────── */
+      .prose p {
+        color: var(--muted);
+        margin-bottom: .85rem;
+      }
+
+      .prose p:last-child { margin-bottom: 0; }
+
+      .prose h3 {
+        font-size: .92rem;
+        font-weight: 700;
+        color: var(--text);
+        letter-spacing: -0.01em;
+        margin: 1.4rem 0 .5rem;
+      }
+
+      .prose ul, .prose ol {
+        padding-left: 1.3rem;
+        margin-bottom: .85rem;
+        color: var(--muted);
+      }
+
+      .prose li { margin-bottom: .3rem; }
+      .prose li:last-child { margin-bottom: 0; }
+
+      .prose strong { color: var(--text); font-weight: 600; }
+
+      .prose a { color: var(--accent); }
+      .prose a:hover { text-decoration: underline; }
+
+      /* ── Callout boxes ──────────────────────────────────────────── */
+      .callout {
+        border-radius: var(--radius-sm);
+        padding: .9rem 1.1rem;
+        margin: 1.1rem 0;
+        font-size: .88rem;
+        line-height: 1.6;
+        border-left: 3px solid;
+      }
+
+      .callout--info {
+        background: var(--accent-bg);
+        border-left-color: var(--accent);
+        color: var(--text);
+      }
+
+      .callout--warn {
+        background: rgba(234,179,8,.08);
+        border-left-color: #ca8a04;
+        color: var(--text);
+      }
+
+      .callout p { color: inherit; margin: 0; }
+
+      /* ── Data table ─────────────────────────────────────────────── */
+      .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: .86rem;
+        margin: 1rem 0 1.5rem;
+        overflow: hidden;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+      }
+
+      .data-table th {
+        background: var(--bg);
+        color: var(--subtle);
+        font-size: .72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .05em;
+        padding: .6rem .85rem;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .data-table td {
+        padding: .6rem .85rem;
+        color: var(--muted);
+        border-bottom: 1px solid var(--border);
+        vertical-align: top;
+      }
+
+      .data-table tr:last-child td { border-bottom: none; }
+
+      .data-table td strong { color: var(--text); }
+
+      /* ── Rights grid ────────────────────────────────────────────── */
+      .rights-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+        gap: .75rem;
+        margin: 1rem 0 1.5rem;
+      }
+
+      .right-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: .85rem 1rem;
+      }
+
+      .right-card__icon { font-size: 1.25rem; margin-bottom: .4rem; }
+
+      .right-card__title {
+        font-size: .86rem;
+        font-weight: 700;
+        color: var(--text);
+        margin-bottom: .25rem;
+      }
+
+      .right-card__desc {
+        font-size: .8rem;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      /* ── Footer ─────────────────────────────────────────────────── */
+      .site-footer {
+        border-top: 1px solid var(--border);
+        padding: 2rem 0;
+        margin-top: 3rem;
+        text-align: center;
+        font-size: .82rem;
+        color: var(--subtle);
+      }
+
+      .site-footer a { color: var(--accent); text-decoration: none; }
+      .site-footer a:hover { text-decoration: underline; }
+
+      /* ── Responsive ─────────────────────────────────────────────── */
+      @media (max-width: 600px) {
+        .data-table thead { display: none; }
+        .data-table tr {
+          display: block;
+          border-bottom: 1px solid var(--border);
+          padding: .6rem 0;
+        }
+        .data-table tr:last-child { border-bottom: none; }
+        .data-table td {
+          display: grid;
+          grid-template-columns: 90px 1fr;
+          gap: .4rem;
+          border-bottom: none;
+          padding: .25rem .85rem;
+        }
+        .data-table td::before {
+          content: attr(data-label);
+          font-size: .7rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: .04em;
+          color: var(--subtle);
+        }
+        .rights-grid { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+
+    <!-- ── Header ─────────────────────────────────────────────────── -->
+    <header class="site-header">
+      <div class="site-header__inner">
+        <a href="/entrar" class="site-header__brand">Blasternet</a>
+        <a href="/entrar" class="site-header__back">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Voltar
+        </a>
+      </div>
+    </header>
+
+    <!-- ── Main ───────────────────────────────────────────────────── -->
+    <main>
+      <div class="page-wrap">
+
+        <!-- Hero -->
+        <div class="hero">
+          <span class="hero__eyebrow">Legal</span>
+          <h1 class="hero__title">Política de Privacidade</h1>
+          <p class="hero__meta">Última atualização: 15 de abril de 2026 &nbsp;·&nbsp; Versão 1.0</p>
+        </div>
+
+        <!-- Índice -->
+        <nav class="toc" aria-label="Índice">
+          <p class="toc__title">Nesta página</p>
+          <ol class="toc__list">
+            <li class="toc__item"><a href="#coleta">1. Coleta de dados</a></li>
+            <li class="toc__item"><a href="#uso">2. Uso dos dados</a></li>
+            <li class="toc__item"><a href="#armazenamento">3. Armazenamento</a></li>
+            <li class="toc__item"><a href="#exclusao">4. Exclusão e direitos</a></li>
+            <li class="toc__item"><a href="#cookies">5. Cookies</a></li>
+            <li class="toc__item"><a href="#compartilhamento">6. Compartilhamento</a></li>
+            <li class="toc__item"><a href="#contato">7. Contato</a></li>
+          </ol>
+        </nav>
+
+        <!-- Introdução -->
+        <div class="prose" style="margin-bottom: 2.5rem;">
+          <p>
+            A <strong>Blasternet</strong> ("nós", "nosso") opera a plataforma de automação de
+            atendimento via WhatsApp descrita neste documento. Esta Política de Privacidade explica
+            quais dados pessoais coletamos, como os utilizamos, onde os armazenamos e como você pode
+            exercer seus direitos — em conformidade com a
+            <strong>Lei Geral de Proteção de Dados Pessoais (LGPD — Lei nº 13.709/2018)</strong>.
+          </p>
+          <p>
+            Ao utilizar a plataforma, você concorda com os termos aqui descritos. Caso não concorde
+            com qualquer parte desta política, recomendamos que interrompa o uso dos serviços e entre
+            em contato conosco para esclarecimentos.
+          </p>
+        </div>
+
+        <!-- ── 1. Coleta ─────────────────────────────────────────── -->
+        <section class="policy-section" id="coleta" aria-labelledby="title-coleta">
+          <div class="policy-section__header">
+            <span class="policy-section__number" aria-hidden="true">1</span>
+            <h2 class="policy-section__title" id="title-coleta">Coleta de Dados</h2>
+          </div>
+          <div class="prose">
+            <p>
+              Coletamos apenas os dados estritamente necessários para a prestação do serviço.
+              A coleta ocorre em três contextos distintos.
+            </p>
+
+            <h3>1.1 Dados de cadastro (empresas e usuários da plataforma)</h3>
+            <table class="data-table" aria-label="Dados de cadastro coletados">
+              <thead>
+                <tr>
+                  <th>Dado</th>
+                  <th>Finalidade</th>
+                  <th>Base legal (LGPD)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td data-label="Dado"><strong>Nome completo</strong></td>
+                  <td data-label="Finalidade">Identificação do usuário no painel</td>
+                  <td data-label="Base legal">Execução de contrato (art. 7º, V)</td>
+                </tr>
+                <tr>
+                  <td data-label="Dado"><strong>E-mail corporativo</strong></td>
+                  <td data-label="Finalidade">Autenticação, recuperação de senha, notificações</td>
+                  <td data-label="Base legal">Execução de contrato (art. 7º, V)</td>
+                </tr>
+                <tr>
+                  <td data-label="Dado"><strong>Senha (hash bcrypt)</strong></td>
+                  <td data-label="Finalidade">Autenticação segura</td>
+                  <td data-label="Base legal">Execução de contrato (art. 7º, V)</td>
+                </tr>
+                <tr>
+                  <td data-label="Dado"><strong>Nome da empresa</strong></td>
+                  <td data-label="Finalidade">Identificação da conta no painel</td>
+                  <td data-label="Base legal">Execução de contrato (art. 7º, V)</td>
+                </tr>
+                <tr>
+                  <td data-label="Dado"><strong>Credenciais de integração Meta (WhatsApp)</strong></td>
+                  <td data-label="Finalidade">Envio e recebimento de mensagens via API oficial do WhatsApp</td>
+                  <td data-label="Base legal">Execução de contrato (art. 7º, V)</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <h3>1.2 Dados dos clientes finais (usuários do WhatsApp)</h3>
+            <table class="data-table" aria-label="Dados de clientes finais coletados">
+              <thead>
+                <tr>
+                  <th>Dado</th>
+                  <th>Finalidade</th>
+                  <th>Base legal (LGPD)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td data-label="Dado"><strong>Número de telefone (WhatsApp)</strong></td>
+                  <td data-label="Finalidade">Identificação única do contato e entrega de mensagens</td>
+                  <td data-label="Base legal">Legítimo interesse (art. 7º, IX)</td>
+                </tr>
+                <tr>
+                  <td data-label="Dado"><strong>Nome do contato</strong></td>
+                  <td data-label="Finalidade">Personalização do atendimento</td>
+                  <td data-label="Base legal">Legítimo interesse (art. 7º, IX)</td>
+                </tr>
+                <tr>
+                  <td data-label="Dado"><strong>Conteúdo das mensagens</strong> (texto, imagem, áudio, documento, localização)</td>
+                  <td data-label="Finalidade">Prestação do serviço de atendimento automatizado e humano</td>
+                  <td data-label="Base legal">Execução de contrato (art. 7º, V)</td>
+                </tr>
+                <tr>
+                  <td data-label="Dado"><strong>E-mail do cliente</strong> (quando fornecido voluntariamente para agendamentos)</td>
+                  <td data-label="Finalidade">Envio de confirmação e lembretes de agendamento</td>
+                  <td data-label="Base legal">Consentimento (art. 7º, I)</td>
+                </tr>
+                <tr>
+                  <td data-label="Dado"><strong>Data e horário das mensagens</strong></td>
+                  <td data-label="Finalidade">Registro de histórico de atendimento</td>
+                  <td data-label="Base legal">Legítimo interesse (art. 7º, IX)</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <h3>1.3 Dados técnicos (coletados automaticamente)</h3>
+            <ul>
+              <li><strong>Endereço IP</strong> — registro de segurança para detecção de acessos suspeitos.</li>
+              <li><strong>User-agent (navegador/dispositivo)</strong> — diagnóstico de compatibilidade.</li>
+              <li><strong>Logs de acesso à API</strong> — rastreabilidade de ações para auditoria interna.</li>
+              <li><strong>Identificadores de sessão (cookies)</strong> — manutenção do estado de autenticação.</li>
+            </ul>
+
+            <div class="callout callout--info">
+              <p>
+                <strong>Não coletamos</strong> dados sensíveis conforme art. 5º, II da LGPD (saúde,
+                biometria, origem racial, convicção religiosa, orientação sexual etc.), salvo quando
+                o próprio cliente final os envie espontaneamente em uma conversa — neste caso,
+                o dado é tratado apenas para fins de atendimento e não é processado de forma
+                destacada.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── 2. Uso ─────────────────────────────────────────────── -->
+        <section class="policy-section" id="uso" aria-labelledby="title-uso">
+          <div class="policy-section__header">
+            <span class="policy-section__number" aria-hidden="true">2</span>
+            <h2 class="policy-section__title" id="title-uso">Uso dos Dados</h2>
+          </div>
+          <div class="prose">
+            <p>Os dados coletados são utilizados exclusivamente para as finalidades listadas abaixo.</p>
+
+            <h3>2.1 Operação do serviço</h3>
+            <ul>
+              <li>Autenticar usuários e controlar acesso por perfil (administrador, agente).</li>
+              <li>Receber mensagens de clientes finais via API oficial do WhatsApp (Meta).</li>
+              <li>Gerar e enviar respostas automáticas com base nas regras configuradas pela empresa.</li>
+              <li>Permitir o atendimento humano manual quando o bot transfere ou encerra o fluxo automático.</li>
+              <li>Registrar e exibir o histórico de conversas no painel da empresa.</li>
+            </ul>
+
+            <h3>2.2 Recursos adicionais ativados pela empresa</h3>
+            <ul>
+              <li>
+                <strong>Sugestões por Inteligência Artificial:</strong> quando habilitado, o conteúdo
+                das conversas é enviado a provedores de IA (ex.: Anthropic Claude) para gerar
+                sugestões de resposta. Nenhum dado é retido pelo provedor de IA além do necessário
+                para processar a solicitação imediata.
+              </li>
+              <li>
+                <strong>Agendamentos:</strong> nome, e-mail e horário do cliente são usados para
+                enviar e-mails de confirmação e lembretes.
+              </li>
+              <li>
+                <strong>Alertas de inatividade:</strong> administradores podem receber alertas por
+                e-mail quando conversas ficam sem resposta por período configurado.
+              </li>
+            </ul>
+
+            <h3>2.3 Segurança e conformidade</h3>
+            <ul>
+              <li>Detectar e bloquear tentativas de acesso não autorizado (rate limiting, assinatura HMAC).</li>
+              <li>Gerar logs de auditoria de ações realizadas no painel para rastreabilidade.</li>
+              <li>Cumprir obrigações legais e regulatórias aplicáveis.</li>
+            </ul>
+
+            <div class="callout callout--warn">
+              <p>
+                <strong>Não usamos seus dados para:</strong> publicidade de terceiros, venda de
+                listas de contatos, criação de perfis comportamentais para fins comerciais não
+                relacionados ao serviço, ou qualquer forma de compartilhamento não descrita nesta
+                política.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── 3. Armazenamento ───────────────────────────────────── -->
+        <section class="policy-section" id="armazenamento" aria-labelledby="title-armazenamento">
+          <div class="policy-section__header">
+            <span class="policy-section__number" aria-hidden="true">3</span>
+            <h2 class="policy-section__title" id="title-armazenamento">Armazenamento e Segurança</h2>
+          </div>
+          <div class="prose">
+            <h3>3.1 Onde os dados são armazenados</h3>
+            <p>
+              Todos os dados são armazenados em servidores localizados no <strong>Brasil</strong>
+              ou em regiões com nível de proteção equivalente ao exigido pela LGPD.
+              O banco de dados principal (PostgreSQL) e os arquivos de mídia são mantidos em
+              infraestrutura com backups automáticos diários e retenção de 30 dias.
+            </p>
+
+            <h3>3.2 Por quanto tempo mantemos os dados</h3>
+            <table class="data-table" aria-label="Prazos de retenção de dados">
+              <thead>
+                <tr>
+                  <th>Tipo de dado</th>
+                  <th>Prazo de retenção</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td data-label="Tipo de dado"><strong>Histórico de conversas e mensagens</strong></td>
+                  <td data-label="Prazo">Enquanto o contrato da empresa estiver ativo + 90 dias após encerramento</td>
+                </tr>
+                <tr>
+                  <td data-label="Tipo de dado"><strong>Arquivos de mídia enviados</strong></td>
+                  <td data-label="Prazo">Enquanto o contrato estiver ativo + 30 dias após encerramento</td>
+                </tr>
+                <tr>
+                  <td data-label="Tipo de dado"><strong>Dados de agendamentos</strong></td>
+                  <td data-label="Prazo">2 anos após a data do agendamento</td>
+                </tr>
+                <tr>
+                  <td data-label="Tipo de dado"><strong>Logs de auditoria (ações no painel)</strong></td>
+                  <td data-label="Prazo">1 ano a partir do registro</td>
+                </tr>
+                <tr>
+                  <td data-label="Tipo de dado"><strong>Logs técnicos de acesso (IP, user-agent)</strong></td>
+                  <td data-label="Prazo">90 dias a partir do registro</td>
+                </tr>
+                <tr>
+                  <td data-label="Tipo de dado"><strong>Dados de cadastro de usuários</strong></td>
+                  <td data-label="Prazo">Enquanto a conta existir + 30 dias após exclusão</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <h3>3.3 Medidas de segurança</h3>
+            <ul>
+              <li><strong>Transmissão:</strong> toda comunicação entre o navegador e nossos servidores é
+                criptografada via TLS 1.2+.</li>
+              <li><strong>Autenticação:</strong> sessões autenticadas via cookie HttpOnly/Secure com
+                proteção CSRF; senhas armazenadas com hash bcrypt.</li>
+              <li><strong>Controle de acesso:</strong> cada empresa acessa apenas seus próprios dados
+                (isolamento por empresa_id em todas as queries).</li>
+              <li><strong>Rate limiting:</strong> proteção contra força bruta no login e nos endpoints
+                de API.</li>
+              <li><strong>Validação de webhook:</strong> assinatura HMAC-SHA256 verificada em cada
+                requisição recebida da Meta.</li>
+              <li><strong>Backups:</strong> cópias incrementais diárias com retenção de 30 dias.</li>
+            </ul>
+
+            <div class="callout callout--info">
+              <p>
+                Apesar de adotarmos medidas técnicas e organizacionais para proteger seus dados,
+                nenhum sistema é 100% seguro. Em caso de incidente de segurança que afete dados
+                pessoais, notificaremos a Autoridade Nacional de Proteção de Dados (ANPD) e os
+                titulares afetados conforme prazos legais.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── 4. Exclusão e Direitos ────────────────────────────── -->
+        <section class="policy-section" id="exclusao" aria-labelledby="title-exclusao">
+          <div class="policy-section__header">
+            <span class="policy-section__number" aria-hidden="true">4</span>
+            <h2 class="policy-section__title" id="title-exclusao">Exclusão e Direitos do Titular</h2>
+          </div>
+          <div class="prose">
+            <p>
+              A LGPD garante ao titular de dados pessoais um conjunto de direitos que podem ser
+              exercidos a qualquer momento mediante solicitação ao nosso encarregado de dados
+              (DPO).
+            </p>
+
+            <div class="rights-grid" role="list" aria-label="Direitos do titular">
+              <div class="right-card" role="listitem">
+                <div class="right-card__icon" aria-hidden="true">👁️</div>
+                <p class="right-card__title">Acesso</p>
+                <p class="right-card__desc">Obter confirmação de que seus dados são tratados e receber uma cópia completa.</p>
+              </div>
+              <div class="right-card" role="listitem">
+                <div class="right-card__icon" aria-hidden="true">✏️</div>
+                <p class="right-card__title">Correção</p>
+                <p class="right-card__desc">Solicitar a atualização de dados incompletos, inexatos ou desatualizados.</p>
+              </div>
+              <div class="right-card" role="listitem">
+                <div class="right-card__icon" aria-hidden="true">🗑️</div>
+                <p class="right-card__title">Exclusão</p>
+                <p class="right-card__desc">Pedir a eliminação dos dados tratados com base em consentimento ou legítimo interesse.</p>
+              </div>
+              <div class="right-card" role="listitem">
+                <div class="right-card__icon" aria-hidden="true">📦</div>
+                <p class="right-card__title">Portabilidade</p>
+                <p class="right-card__desc">Receber seus dados em formato estruturado e de leitura automatizada.</p>
+              </div>
+              <div class="right-card" role="listitem">
+                <div class="right-card__icon" aria-hidden="true">⏸️</div>
+                <p class="right-card__title">Oposição</p>
+                <p class="right-card__desc">Opor-se ao tratamento realizado com base em legítimo interesse.</p>
+              </div>
+              <div class="right-card" role="listitem">
+                <div class="right-card__icon" aria-hidden="true">ℹ️</div>
+                <p class="right-card__title">Informação</p>
+                <p class="right-card__desc">Saber com quais entidades compartilhamos seus dados e por quê.</p>
+              </div>
+            </div>
+
+            <h3>Como exercer seus direitos</h3>
+            <ol>
+              <li>
+                Envie um e-mail para <a href="mailto:privacidade@blasternet.com.br">privacidade@blasternet.com.br</a>
+                com o assunto <strong>"Exercício de Direito LGPD"</strong>.
+              </li>
+              <li>
+                Informe seu nome completo, e-mail cadastrado e o direito que deseja exercer.
+                Para solicitações de exclusão, informe também se deseja excluir apenas sua conta
+                de usuário ou todos os dados da empresa associada.
+              </li>
+              <li>
+                Responderemos em até <strong>15 dias úteis</strong>. Casos complexos podem ser
+                prorrogados por mais 15 dias, com justificativa informada dentro do prazo inicial.
+              </li>
+            </ol>
+
+            <h3>Exclusão de conta</h3>
+            <p>
+              Administradores da empresa podem solicitar a exclusão completa da conta e de todos
+              os dados associados (conversas, mensagens, agendamentos, usuários) pelo mesmo canal
+              acima. Após confirmação, os dados serão apagados em até <strong>30 dias</strong>,
+              respeitados os prazos de retenção obrigatórios previstos em legislação específica
+              (ex.: obrigações fiscais e tributárias).
+            </p>
+
+            <div class="callout callout--warn">
+              <p>
+                Dados de logs de auditoria que documentem operações com relevância legal (ex.:
+                registros de envio de mensagens) podem ser retidos pelo prazo mínimo exigido pela
+                legislação aplicável mesmo após a solicitação de exclusão.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── 5. Cookies ─────────────────────────────────────────── -->
+        <section class="policy-section" id="cookies" aria-labelledby="title-cookies">
+          <div class="policy-section__header">
+            <span class="policy-section__number" aria-hidden="true">5</span>
+            <h2 class="policy-section__title" id="title-cookies">Cookies e Rastreamento</h2>
+          </div>
+          <div class="prose">
+            <p>
+              A plataforma utiliza <strong>exclusivamente cookies de sessão</strong>, necessários
+              para o funcionamento da autenticação. Não utilizamos cookies de rastreamento,
+              publicidade ou analytics de terceiros.
+            </p>
+            <table class="data-table" aria-label="Cookies utilizados">
+              <thead>
+                <tr>
+                  <th>Cookie</th>
+                  <th>Finalidade</th>
+                  <th>Duração</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td data-label="Cookie"><strong>laravel_session</strong></td>
+                  <td data-label="Finalidade">Manter o estado de autenticação do usuário logado</td>
+                  <td data-label="Duração">Sessão do navegador (HttpOnly, Secure, SameSite=Lax)</td>
+                </tr>
+                <tr>
+                  <td data-label="Cookie"><strong>XSRF-TOKEN</strong></td>
+                  <td data-label="Finalidade">Proteção contra ataques CSRF em requisições de escrita</td>
+                  <td data-label="Duração">Sessão do navegador</td>
+                </tr>
+              </tbody>
+            </table>
+            <p>
+              Nenhum cookie é instalado antes do login. Ao fechar a sessão, os cookies são
+              removidos do navegador.
+            </p>
+          </div>
+        </section>
+
+        <!-- ── 6. Compartilhamento ────────────────────────────────── -->
+        <section class="policy-section" id="compartilhamento" aria-labelledby="title-compartilhamento">
+          <div class="policy-section__header">
+            <span class="policy-section__number" aria-hidden="true">6</span>
+            <h2 class="policy-section__title" id="title-compartilhamento">Compartilhamento de Dados</h2>
+          </div>
+          <div class="prose">
+            <p>
+              Não vendemos nem alugamos dados pessoais a terceiros. O compartilhamento ocorre
+              apenas nos casos abaixo, todos necessários para a prestação do serviço:
+            </p>
+            <ul>
+              <li>
+                <strong>Meta (WhatsApp Business API):</strong> mensagens são transmitidas à
+                infraestrutura da Meta para entrega ao destinatário. A Meta opera sob seus
+                próprios termos e política de privacidade.
+              </li>
+              <li>
+                <strong>Provedores de IA (Anthropic Claude e outros):</strong> quando o recurso de
+                IA está habilitado, trechos de conversa são enviados para geração de sugestões.
+                Os dados são tratados conforme as políticas de privacidade e termos de uso do
+                provedor, que não retém os dados para treino de modelos sem consentimento explícito.
+              </li>
+              <li>
+                <strong>Serviço de e-mail transacional (SMTP):</strong> endereços de e-mail são
+                transmitidos ao serviço de envio para entrega de confirmações e lembretes.
+              </li>
+              <li>
+                <strong>Autoridades legais:</strong> quando exigido por lei, ordem judicial ou
+                autoridade competente.
+              </li>
+            </ul>
+            <p>
+              Todos os terceiros com acesso a dados pessoais estão contratualmente obrigados a
+              tratar esses dados com o mesmo nível de proteção exigido pela LGPD.
+            </p>
+          </div>
+        </section>
+
+        <!-- ── 7. Contato ─────────────────────────────────────────── -->
+        <section class="policy-section" id="contato" aria-labelledby="title-contato">
+          <div class="policy-section__header">
+            <span class="policy-section__number" aria-hidden="true">7</span>
+            <h2 class="policy-section__title" id="title-contato">Contato e Encarregado (DPO)</h2>
+          </div>
+          <div class="prose">
+            <p>
+              Para dúvidas sobre esta política, exercício de direitos ou qualquer questão
+              relacionada ao tratamento de dados pessoais, entre em contato com nosso
+              encarregado de proteção de dados:
+            </p>
+            <ul>
+              <li><strong>E-mail:</strong> <a href="mailto:privacidade@blasternet.com.br">privacidade@blasternet.com.br</a></li>
+              <li><strong>Assunto recomendado:</strong> "Privacidade — [descreva sua solicitação]"</li>
+              <li><strong>Prazo de resposta:</strong> até 15 dias úteis</li>
+            </ul>
+            <p>
+              Você também pode registrar reclamações junto à
+              <strong>Autoridade Nacional de Proteção de Dados (ANPD)</strong> pelo site
+              <a href="https://www.gov.br/anpd" target="_blank" rel="noopener noreferrer">gov.br/anpd</a>.
+            </p>
+
+            <h3>Alterações nesta política</h3>
+            <p>
+              Podemos atualizar esta política periodicamente. Mudanças materiais serão comunicadas
+              por e-mail aos usuários cadastrados com pelo menos 15 dias de antecedência.
+              A data de "última atualização" no topo indica quando a versão vigente entrou em vigor.
+            </p>
+          </div>
+        </section>
+
+      </div><!-- /page-wrap -->
+    </main>
+
+    <!-- ── Footer ─────────────────────────────────────────────────── -->
+    <footer class="site-footer">
+      <div class="page-wrap">
+        <p>
+          &copy; 2026 Blasternet &nbsp;·&nbsp;
+          <a href="/entrar">Acessar plataforma</a> &nbsp;·&nbsp;
+          <a href="mailto:privacidade@blasternet.com.br">privacidade@blasternet.com.br</a>
+        </p>
+        <p style="margin-top: .4rem;">
+          Em conformidade com a Lei Geral de Proteção de Dados Pessoais — Lei nº 13.709/2018.
+        </p>
+      </div>
+    </footer>
+
+  </body>
+</html>

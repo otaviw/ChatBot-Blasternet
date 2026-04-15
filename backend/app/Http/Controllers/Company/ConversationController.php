@@ -17,6 +17,7 @@ use App\Services\AuditLogService;
 use App\Services\AuditService;
 use App\Services\Company\CompanyConversationSupportService;
 use App\Services\Company\CompanyConversationCountersService;
+use App\Services\Company\CompanyUsageLimitsService;
 use App\Services\MessageDeliveryStatusService;
 use App\Services\MessageMediaStorageService;
 use App\Services\NotificationDispatchService;
@@ -42,7 +43,8 @@ class ConversationController extends Controller
         private AuditLogService $auditLog,
         private CompanyConversationSupportService $conversationSupport,
         private CompanyConversationCountersService $countersService,
-        private NotificationDispatchService $dispatchService
+        private NotificationDispatchService $dispatchService,
+        private CompanyUsageLimitsService $usageLimits
     ) {}
 
     public function index(Request $request, ListCompanyConversationsAction $action): JsonResponse
@@ -300,6 +302,16 @@ class ConversationController extends Controller
             ], 422);
         }
 
+        $limitCheck = $this->usageLimits->checkAndConsume((int) $conversation->company_id, 'conversation');
+        if (! $limitCheck['allowed']) {
+            return response()->json([
+                'message'       => $limitCheck['error_message'],
+                'limit_blocked' => true,
+                'used'          => $limitCheck['used'],
+                'limit'         => $limitCheck['limit'],
+            ], 429);
+        }
+
         $storedMedia = null;
         if ($uploadedFile) {
             $storedMedia = $this->mediaStorage->storeUploadedImage($uploadedFile, $conversation->company_id);
@@ -392,10 +404,14 @@ class ConversationController extends Controller
         $this->conversationSupport->normalizeConversationAssignmentRelations($conversation);
 
         return response()->json([
-            'ok' => true,
-            'message' => $message,
-            'was_sent' => $wasSent,
-            'conversation' => $conversation,
+            'ok'              => true,
+            'message'         => $message,
+            'was_sent'        => $wasSent,
+            'conversation'    => $conversation,
+            'usage_warning'   => $limitCheck['warning'] ?? false,
+            'usage_message'   => $limitCheck['warning_message'] ?? null,
+            'usage_used'      => $limitCheck['used'] ?? null,
+            'usage_limit'     => $limitCheck['limit'] ?? null,
         ]);
     }
 
@@ -752,6 +768,16 @@ class ConversationController extends Controller
             $templateName = 'iniciar_conversa';
         }
 
+        $templateLimitCheck = $this->usageLimits->checkAndConsume((int) $conversation->company_id, 'template');
+        if (! $templateLimitCheck['allowed']) {
+            return response()->json([
+                'message'       => $templateLimitCheck['error_message'],
+                'limit_blocked' => true,
+                'used'          => $templateLimitCheck['used'],
+                'limit'         => $templateLimitCheck['limit'],
+            ], 429);
+        }
+
         $sendResult = $this->whatsAppSend->sendTemplateMessage(
             $conversation->company,
             $conversation->customer_phone,
@@ -805,10 +831,14 @@ class ConversationController extends Controller
         ]);
 
         return response()->json([
-            'ok'           => $templateSent,
-            'message'      => $message,
-            'conversation' => $conversation,
-            'error'        => $templateSent ? null : ($sendResult['error'] ?? 'Falha ao enviar template.'),
+            'ok'            => $templateSent,
+            'message'       => $message,
+            'conversation'  => $conversation,
+            'error'         => $templateSent ? null : ($sendResult['error'] ?? 'Falha ao enviar template.'),
+            'usage_warning' => $templateLimitCheck['warning'] ?? false,
+            'usage_message' => $templateLimitCheck['warning_message'] ?? null,
+            'usage_used'    => $templateLimitCheck['used'] ?? null,
+            'usage_limit'   => $templateLimitCheck['limit'] ?? null,
         ]);
     }
 

@@ -177,6 +177,8 @@ function CompanyInboxPage() {
     sendTemplateError,
     sendTemplateSuccess,
     setSendTemplateModalOpen,
+    usageWarning,
+    setUsageWarning,
   } = useCompanyInboxActions({
     contactNameInput,
     detail,
@@ -479,6 +481,20 @@ function CompanyInboxPage() {
                   manualImagePreviewUrl={manualImagePreviewUrl}
                   manualError={manualError}
                 />
+                {usageWarning ? (
+                  <div className="mx-2 mb-2 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    <span className="mt-0.5 shrink-0">⚠</span>
+                    <span>{usageWarning}</span>
+                    <button
+                      type="button"
+                      className="ml-auto shrink-0 text-amber-500 hover:text-amber-700"
+                      onClick={() => setUsageWarning('')}
+                      aria-label="Fechar aviso"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ) : null}
               </div>
             )}
           </section>

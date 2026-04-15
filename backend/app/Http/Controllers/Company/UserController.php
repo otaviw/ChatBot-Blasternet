@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Area;
 use App\Models\AppointmentStaffProfile;
 use App\Models\User;
+use App\Services\Company\CompanyUsageLimitsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -13,6 +14,8 @@ use Illuminate\Validation\ValidationException;
 
 class UserController extends Controller
 {
+    public function __construct(private CompanyUsageLimitsService $usageLimits) {}
+
     public function index(Request $request): JsonResponse
     {
         $actor = $request->user();
@@ -93,6 +96,17 @@ class UserController extends Controller
         ]);
 
         $companyId = (int) $actor->company_id;
+
+        $userLimitCheck = $this->usageLimits->checkUserLimit($companyId);
+        if (! $userLimitCheck['allowed']) {
+            return response()->json([
+                'message'       => $userLimitCheck['error_message'],
+                'limit_blocked' => true,
+                'current'       => $userLimitCheck['current'],
+                'limit'         => $userLimitCheck['limit'],
+            ], 429);
+        }
+
         $normalizedRole = User::normalizeRole((string) $validated['role']);
         $areaIds = $this->resolveAreaIds($companyId, $validated);
         $isActive = (bool) ($validated['is_active'] ?? true);
@@ -114,8 +128,12 @@ class UserController extends Controller
         $user->load(['company:id,name', 'areas:id,name,company_id', 'appointmentStaffProfile']);
 
         return response()->json([
-            'ok' => true,
-            'user' => $this->serializeUser($user),
+            'ok'            => true,
+            'user'          => $this->serializeUser($user),
+            'usage_warning' => $userLimitCheck['warning'] ?? false,
+            'usage_message' => $userLimitCheck['warning_message'] ?? null,
+            'current_users' => $userLimitCheck['current'] ?? null,
+            'max_users'     => $userLimitCheck['limit'] ?? null,
         ], 201);
     }
 
