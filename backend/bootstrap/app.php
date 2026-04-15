@@ -5,6 +5,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\SecurityHeadersMiddleware;
+use App\Http\Middleware\ValidateWhatsAppWebhookSignature;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -15,8 +16,15 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->append(SecurityHeadersMiddleware::class);
+
+        // throttle:api-global cobre qualquer rota em routes/api.php que não tenha
+        // um limiter próprio mais restritivo. Os limiters específicos (login, bot-write,
+        // inbox-read, etc.) continuam tendo prioridade por ter seus próprios buckets.
+        $middleware->api(append: ['throttle:api-global']);
+
         $middleware->alias([
-            'admin' => EnsureAdmin::class,
+            'admin'              => EnsureAdmin::class,
+            'webhook.signature'  => ValidateWhatsAppWebhookSignature::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

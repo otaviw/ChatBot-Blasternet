@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\Ai\AiAccessService;
+use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Requests\Auth\UpdatePasswordRequest;
+use App\Http\Requests\Auth\UpdateProfileRequest;
 use App\Models\User;
+use App\Services\Ai\AiAccessService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,12 +18,9 @@ class AuthController extends Controller
         private readonly AiAccessService $aiAccessService
     ) {}
 
-    public function login(Request $request): JsonResponse
+    public function login(LoginRequest $request): JsonResponse
     {
-        $credentials = $request->validate([
-            'email' => ['required', 'email'],
-            'password' => ['required', 'string'],
-        ]);
+        $credentials = $request->validated();
 
         if (! Auth::attempt($credentials, true)) {
             return response()->json([
@@ -67,18 +67,14 @@ class AuthController extends Controller
         ]);
     }
 
-    public function updateProfile(Request $request): JsonResponse
+    public function updateProfile(UpdateProfileRequest $request): JsonResponse
     {
         $user = $request->user();
         if (! $user) {
             return response()->json(['message' => 'Não autenticado.'], 403);
         }
 
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-        ]);
-
-        $user->name = $validated['name'];
+        $user->name = $request->validated('name');
         $user->save();
 
         return response()->json([
@@ -86,22 +82,14 @@ class AuthController extends Controller
         ]);
     }
 
-    public function updatePassword(Request $request): JsonResponse
+    public function updatePassword(UpdatePasswordRequest $request): JsonResponse
     {
         $user = $request->user();
         if (! $user) {
             return response()->json(['message' => 'Nao autenticado.'], 403);
         }
 
-        $validated = $request->validate([
-            'current_password' => ['required', 'string'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
-        ], [
-            'current_password.required' => 'Informe a senha atual.',
-            'password.required' => 'Informe a nova senha.',
-            'password.min' => 'A nova senha deve ter pelo menos 8 caracteres.',
-            'password.confirmed' => 'A confirmacao da nova senha nao confere.',
-        ]);
+        $validated = $request->validated();
 
         if (! Hash::check($validated['current_password'], $user->password)) {
             return response()->json([

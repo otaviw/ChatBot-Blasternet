@@ -84,6 +84,61 @@ class AppServiceProvider extends ServiceProvider
         SupportTicket::observe(SupportTicketObserver::class);
         SupportTicketMessage::observe(SupportTicketMessageObserver::class);
 
+        // ---------------------------------------------------------------------------
+        // Auth — chave IP+email impede que um atacante trave várias contas pela
+        // mesma origem: cada conta tem seu próprio bucket de 5 tentativas/min.
+        // ---------------------------------------------------------------------------
+        RateLimiter::for('login', function (Request $request) {
+            $email = mb_strtolower(trim((string) $request->input('email', '')));
+            $key   = 'login|' . $request->ip() . '|' . $email;
+
+            return Limit::perMinute((int) env('RATE_LIMIT_LOGIN', 5))
+                ->by($key)
+                ->response(fn () => response()->json([
+                    'message' => 'Muitas tentativas de login. Aguarde 1 minuto e tente novamente.',
+                    'errors'  => ['email' => ['Limite de tentativas atingido.']],
+                ], 429));
+        });
+
+        RateLimiter::for('password-reset', function (Request $request) {
+            $email = mb_strtolower(trim((string) $request->input('email', '')));
+            $key   = 'pwd-reset|' . $request->ip() . '|' . $email;
+
+            return Limit::perMinute((int) env('RATE_LIMIT_PASSWORD_RESET', 5))
+                ->by($key)
+                ->response(fn () => response()->json([
+                    'message' => 'Muitas tentativas de recuperação de senha. Aguarde 1 minuto.',
+                ], 429));
+        });
+
+        // ---------------------------------------------------------------------------
+        // Webhook inbound — a Meta envia bursts; 500/min por IP é suficientemente
+        // generoso para produção e ainda bloqueia flood não-Meta.
+        // ---------------------------------------------------------------------------
+        RateLimiter::for('webhook-inbound', function (Request $request) {
+            return Limit::perMinute((int) env('RATE_LIMIT_WEBHOOK_INBOUND', 500))
+                ->by('webhook|' . $request->ip());
+        });
+
+        // ---------------------------------------------------------------------------
+        // API global — camada de fallback que cobre qualquer rota sem limiter próprio.
+        // Usuários autenticados têm bucket por user ID (justo entre usuários);
+        // guests têm bucket por IP (cobre webhook e rotas públicas).
+        // O valor é intencionalmente alto — os limiters específicos são mais restritivos.
+        // ---------------------------------------------------------------------------
+        RateLimiter::for('api-global', function (Request $request) {
+            $user = $request->user();
+            $key  = $user
+                ? 'api|user:' . $user->id
+                : 'api|ip:' . $request->ip();
+
+            return Limit::perMinute((int) env('RATE_LIMIT_API_GLOBAL', 600))
+                ->by($key)
+                ->response(fn () => response()->json([
+                    'message' => 'Muitas requisições. Tente novamente em instantes.',
+                ], 429));
+        });
+
         RateLimiter::for('bot-write', function (Request $request) {
             return Limit::perMinute((int) env('RATE_LIMIT_BOT_WRITE', 60))
                 ->by($this->limiterKey($request));

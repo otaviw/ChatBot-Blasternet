@@ -18,6 +18,9 @@ use App\Actions\Chat\UpdateGroupNameAction;
 use App\Actions\Chat\UpdateGroupParticipantAdminAction;
 use App\Actions\Chat\UpdateMessageAction;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Chat\CreateConversationRequest;
+use App\Http\Requests\Chat\SendMessageRequest;
+use App\Http\Requests\Chat\UpdateMessageRequest;
 use App\Models\ChatConversation;
 use App\Models\ChatMessage;
 use App\Models\User;
@@ -58,7 +61,7 @@ class ConversationController extends Controller
         return $this->showConversationAction->handle($request, $conversation);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(CreateConversationRequest $request): JsonResponse
     {
         return $this->createConversationAction->handle($request);
     }
@@ -68,12 +71,12 @@ class ConversationController extends Controller
         return $this->hideConversationAction->handle($request, $conversation);
     }
 
-    public function sendMessage(Request $request, ChatConversation $conversation): JsonResponse
+    public function sendMessage(SendMessageRequest $request, ChatConversation $conversation): JsonResponse
     {
         return $this->sendMessageAction->handle($request, $conversation);
     }
 
-    public function updateMessage(Request $request, ChatConversation $conversation, ChatMessage $message): JsonResponse
+    public function updateMessage(UpdateMessageRequest $request, ChatConversation $conversation, ChatMessage $message): JsonResponse
     {
         return $this->updateMessageAction->handle($request, $conversation, $message);
     }
