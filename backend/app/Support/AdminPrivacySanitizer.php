@@ -12,7 +12,11 @@ class AdminPrivacySanitizer
      */
     public static function conversationSummary(Conversation $conversation): array
     {
-        $tags = is_array($conversation->tags) ? $conversation->tags : [];
+        $tagsCount = (int) ($conversation->tags_count ?? 0);
+
+        if ($tagsCount <= 0 && $conversation->relationLoaded('tags')) {
+            $tagsCount = $conversation->tags->count();
+        }
 
         return [
             'id' => (int) $conversation->id,
@@ -24,7 +28,7 @@ class AdminPrivacySanitizer
             'handling_mode' => ConversationHandlingMode::normalize((string) $conversation->handling_mode),
             'assigned_type' => $conversation->assigned_type,
             'messages_count' => (int) ($conversation->messages_count ?? 0),
-            'tags_count' => count($tags),
+            'tags_count' => $tagsCount,
             'created_at' => $conversation->created_at,
             'updated_at' => $conversation->updated_at,
             'assumed_at' => $conversation->assumed_at,

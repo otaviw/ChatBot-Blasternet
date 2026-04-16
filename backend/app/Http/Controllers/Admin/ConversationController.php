@@ -23,6 +23,7 @@ class ConversationController extends Controller
         $query = Conversation::query()
             ->with(['company:id,name'])
             ->withCount('messages')
+            ->withCount('tags')
             ->latest();
         $companyId = $request->query('company_id');
         if ($companyId) {
@@ -53,6 +54,7 @@ class ConversationController extends Controller
         $conversation = Conversation::query()
             ->with(['company:id,name'])
             ->withCount('messages')
+            ->withCount('tags')
             ->find($conversationId);
 
         if (! $conversation) {
@@ -116,6 +118,7 @@ class ConversationController extends Controller
         $conversation = Conversation::query()
             ->with(['company:id,name'])
             ->withCount('messages')
+            ->withCount('tags')
             ->find($conversationId);
 
         if (! $conversation) {
