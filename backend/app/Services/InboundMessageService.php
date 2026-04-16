@@ -126,12 +126,14 @@ class InboundMessageService
         );
 
         $statefulHandled = (bool) ($statefulResult['handled'] ?? false);
+        $replyMessage = $statefulHandled ? ($statefulResult['reply_message'] ?? null) : null;
         $reply = $statefulHandled
             ? trim((string) ($statefulResult['reply_text'] ?? ''))
             : $this->botReply->buildReply($company, $normalizedText, $isFirstInboundMessage);
 
         if ($reply === '') {
             $statefulHandled = false;
+            $replyMessage = null;
             $reply = $this->botReply->buildReply($company, $normalizedText, $isFirstInboundMessage);
         }
 
@@ -152,6 +154,7 @@ class InboundMessageService
                 if ($aiReply !== null) {
                     $reply = $aiReply;
                     $statefulHandled = false; // resposta de IA não é fluxo stateful
+                    $replyMessage = null;
                 }
             }
         }
@@ -194,9 +197,40 @@ class InboundMessageService
             return [$outMessage, $lockedConversation];
         });
 
-        $sendResult = $sendOutbound
-            ? $this->whatsAppSend->sendText($company, $from, $reply)
-            : null;
+        $sendResult = null;
+        if ($sendOutbound) {
+            if ($statefulHandled && is_array($replyMessage)) {
+                $msgType = $replyMessage['type'] ?? 'text';
+                if ($msgType === 'interactive_buttons') {
+                    $sendResult = $this->whatsAppSend->sendInteractiveButtons(
+                        $from,
+                        $replyMessage['body_text'] ?? $reply,
+                        $replyMessage['buttons'] ?? [],
+                        array_filter([
+                            'header_text' => $replyMessage['header_text'] ?? '',
+                            'footer_text' => $replyMessage['footer_text'] ?? '',
+                        ], fn ($v) => $v !== ''),
+                        $company
+                    );
+                } elseif ($msgType === 'interactive_list') {
+                    $sendResult = $this->whatsAppSend->sendInteractiveList(
+                        $from,
+                        $replyMessage['body_text'] ?? $reply,
+                        $replyMessage['rows'] ?? [],
+                        array_filter([
+                            'header_text'  => $replyMessage['header_text'] ?? '',
+                            'footer_text'  => $replyMessage['footer_text'] ?? '',
+                            'action_label' => $replyMessage['action_label'] ?? '',
+                        ], fn ($v) => $v !== ''),
+                        $company
+                    );
+                } else {
+                    $sendResult = $this->whatsAppSend->sendText($company, $from, $reply);
+                }
+            } else {
+                $sendResult = $this->whatsAppSend->sendText($company, $from, $reply);
+            }
+        }
         $wasSent = (bool) ($sendResult['ok'] ?? false);
 
         if ($sendResult !== null) {
