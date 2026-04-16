@@ -214,7 +214,7 @@ export default function useInternalAiChatPage({ enabled, companyId = null }) {
         }
       }
     },
-    [enabled, removeConversationFromList]
+    [companyId, enabled, removeConversationFromList]
   );
 
   const reloadSelectedConversation = useCallback(async () => {
@@ -270,7 +270,7 @@ export default function useInternalAiChatPage({ enabled, companyId = null }) {
     } finally {
       setMessagesLoadingOlder(false);
     }
-  }, [messagesLoadingOlder, messagesPagination]);
+  }, [companyId, messagesLoadingOlder, messagesPagination]);
 
   const sendMessage = useCallback(async () => {
     const conversationId = Number(selectedConversationIdRef.current ?? 0);
@@ -351,7 +351,7 @@ export default function useInternalAiChatPage({ enabled, companyId = null }) {
         setSendBusy(false);
       },
     });
-  }, [draftMessage, removeConversationFromList, sendBusy, companyId]);
+  }, [companyId, draftMessage, sendBusy]);
 
   const createConversation = useCallback(async () => {
     if (!enabled || createBusy) {
@@ -383,7 +383,7 @@ export default function useInternalAiChatPage({ enabled, companyId = null }) {
     } finally {
       setCreateBusy(false);
     }
-  }, [createBusy, enabled, loadConversations, openConversation]);
+  }, [companyId, createBusy, enabled, loadConversations, openConversation]);
 
   const handleChatScroll = useCallback((event) => {
     const element = event.currentTarget;

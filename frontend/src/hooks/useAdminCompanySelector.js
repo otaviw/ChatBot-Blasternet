@@ -11,9 +11,9 @@ export default function useAdminCompanySelector({ isAdmin }) {
       .then((res) => {
         const list = Array.isArray(res.data?.companies) ? res.data.companies : [];
         setCompanies(list);
-        if (list.length > 0 && selectedCompanyId === '') {
-          setSelectedCompanyId(String(list[0].id));
-        }
+        setSelectedCompanyId((previous) =>
+          previous === '' && list.length > 0 ? String(list[0].id) : previous
+        );
       })
       .catch(() => {});
   }, [isAdmin]);

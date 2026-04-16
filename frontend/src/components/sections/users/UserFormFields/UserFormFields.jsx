@@ -15,7 +15,7 @@ function UserFormFields({
   availableAreas = [],
   onToggleArea,
   areaEmptyMessage = 'Nenhuma area disponível.',
-  showAiPermissionField = false,
+  showAiPermissionField: _showAiPermissionField = false,
   showAppointmentFields = false,
 }) {
   const updateForm = (patch) => {

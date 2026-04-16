@@ -336,11 +336,12 @@ function CompanyInboxPage() {
   }, [loadConversationCounters]);
 
   useEffect(() => {
+    const timers = typingTimersRef.current;
     return () => {
-      for (const timeout of typingTimersRef.current.values()) {
+      for (const timeout of timers.values()) {
         clearTimeout(timeout);
       }
-      typingTimersRef.current.clear();
+      timers.clear();
     };
   }, []);
 

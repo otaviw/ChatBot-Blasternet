@@ -30,7 +30,6 @@ export default function useCompanyInboxActions({
   const [contactError, setContactError] = useState('');
   const [contactSuccess, setContactSuccess] = useState('');
   const [actionBusy, setActionBusy] = useState(false);
-  const [tagInput, setTagInput] = useState('');
   const [showTemplates, setShowTemplates] = useState(false);
   const [tagsModalOpen, setTagsModalOpen] = useState(false);
   const [transferModalOpen, setTransferModalOpen] = useState(false);

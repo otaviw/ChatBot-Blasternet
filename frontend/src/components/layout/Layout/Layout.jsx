@@ -268,10 +268,6 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
   };
 
   const uiRole = role === 'admin' ? 'admin' : 'company';
-  const canAccessInternalAiChat = Boolean(
-    userData?.can_access_internal_ai_chat ?? userData?.can_use_ai
-  );
-
   const handleNotificationMarkAsRead = async (notificationId) => {
     const id = Number.parseInt(String(notificationId ?? ''), 10);
     if (!id) return;

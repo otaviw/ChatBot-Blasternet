@@ -116,7 +116,7 @@ class AiSandboxTest extends TestCase
 
     public function test_company_admin_without_ai_enabled_is_forbidden(): void
     {
-        [$, $user] = $this->makeAdmin(['ai_enabled' => false]);
+        [, $user] = $this->makeAdmin(['ai_enabled' => false]);
 
         $response = $this->actingAs($user)
             ->postJson('/api/minha-conta/ia/sandbox', ['message' => 'Olá']);
@@ -128,7 +128,7 @@ class AiSandboxTest extends TestCase
 
     public function test_admin_receives_ai_response(): void
     {
-        [$, $user] = $this->makeAdmin();
+        [, $user] = $this->makeAdmin();
         $this->stubProvider($this->okProviderResult('Olá, posso ajudar!'));
 
         $response = $this->actingAs($user)
@@ -144,7 +144,7 @@ class AiSandboxTest extends TestCase
 
     public function test_missing_message_returns_validation_error(): void
     {
-        [$, $user] = $this->makeAdmin();
+        [, $user] = $this->makeAdmin();
         $this->stubProvider($this->okProviderResult());
 
         $response = $this->actingAs($user)
@@ -156,7 +156,7 @@ class AiSandboxTest extends TestCase
 
     public function test_message_exceeding_max_length_returns_validation_error(): void
     {
-        [$, $user] = $this->makeAdmin();
+        [, $user] = $this->makeAdmin();
         $this->stubProvider($this->okProviderResult());
 
         $response = $this->actingAs($user)
@@ -172,7 +172,7 @@ class AiSandboxTest extends TestCase
 
     public function test_without_rag_confidence_is_0_5(): void
     {
-        [$, $user] = $this->makeAdmin();
+        [, $user] = $this->makeAdmin();
         $this->stubProvider($this->okProviderResult());
 
         $response = $this->actingAs($user)
@@ -188,7 +188,7 @@ class AiSandboxTest extends TestCase
 
     public function test_with_rag_chunks_included_in_response(): void
     {
-        [$, $user] = $this->makeAdmin();
+        [, $user] = $this->makeAdmin();
         $this->stubProvider($this->okProviderResult());
 
         // Stub the retriever to return fake chunks
@@ -214,7 +214,7 @@ class AiSandboxTest extends TestCase
 
     public function test_with_rag_but_no_chunks_confidence_is_0_5(): void
     {
-        [$, $user] = $this->makeAdmin();
+        [, $user] = $this->makeAdmin();
         $this->stubProvider($this->okProviderResult());
 
         // Retriever returns empty — RAG enabled but nothing retrieved
@@ -235,7 +235,7 @@ class AiSandboxTest extends TestCase
 
     public function test_rag_chunk_score_raises_confidence(): void
     {
-        [$, $user] = $this->makeAdmin();
+        [, $user] = $this->makeAdmin();
         $this->stubProvider($this->okProviderResult());
 
         $retriever = Mockery::mock(AiKnowledgeRetrieverService::class);
@@ -258,7 +258,7 @@ class AiSandboxTest extends TestCase
 
     public function test_provider_failure_returns_422(): void
     {
-        [$, $user] = $this->makeAdmin();
+        [, $user] = $this->makeAdmin();
 
         $failProvider = Mockery::mock(AiProvider::class);
         $failProvider->allows('reply')->andReturn([
@@ -285,7 +285,7 @@ class AiSandboxTest extends TestCase
 
     public function test_tokens_used_is_included_when_provider_returns_it(): void
     {
-        [$, $user] = $this->makeAdmin();
+        [, $user] = $this->makeAdmin();
         $this->stubProvider([
             'ok'    => true,
             'text'  => 'Resposta',

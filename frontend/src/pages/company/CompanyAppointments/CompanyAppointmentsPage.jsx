@@ -10,7 +10,6 @@ import {
   createAppointment,
   createAppointmentService,
   createTimeOff,
-  deleteAppointment,
   deleteTimeOff,
   fetchAppointmentAvailability,
   fetchAppointments,
@@ -222,8 +221,11 @@ export default function CompanyAppointmentsPage() {
     }, 'Não foi possível carregar horários livres.');
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (data?.authenticated) void reloadBase(); }, [data?.authenticated]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (data?.authenticated) void reloadCalendar(); }, [data?.authenticated, calRange.start, calRange.end, selectedStaffId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (data?.authenticated) void reloadAvailability(); }, [data?.authenticated, serviceId, availDate, selectedStaffId]);
   useEffect(() => {
     const t = staff.find((x) => String(x.id) === selectedStaffId);
@@ -293,11 +295,6 @@ export default function CompanyAppointmentsPage() {
     if (!window.confirm(`Cancelar o agendamento de ${customerName || 'este cliente'}?\nO cliente será notificado por WhatsApp.`)) return;
     void changeApptStatus(id, 'cancelled', { notify_customer: true });
   };
-
-  const removeAppointment = (id) => run(async () => {
-    await deleteAppointment(Number(id));
-    setMsg('Agendamento removido.'); await reloadCalendar();
-  }, 'Falha ao remover agendamento.');
 
   if (loading) {
     return (
