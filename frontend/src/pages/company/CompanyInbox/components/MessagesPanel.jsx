@@ -234,9 +234,9 @@ function MessagesPanel({
         key={message.id}
         className={`inbox-message-bubble inbox-message-${message.direction === 'in' ? 'in' : 'out'}${isFocused ? ' inbox-message-focus' : ''}`}
       >
-        {(message.direction === 'in' || message.meta?.actor_user_name) && (
+        {(message.direction === 'in' || message.sender_name) && (
           <span className="inbox-message-label">
-            {message.direction === 'in' ? 'Cliente' : message.meta.actor_user_name}
+            {message.direction === 'in' ? 'Cliente' : message.sender_name}
           </span>
         )}
         {message.content_type === 'image' ? (

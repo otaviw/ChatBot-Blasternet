@@ -43,6 +43,15 @@ class Message extends Model
         'failed_at' => 'datetime',
     ];
 
+    protected $appends = ['sender_name'];
+
+    public function getSenderNameAttribute(): ?string
+    {
+        $meta = is_array($this->meta) ? $this->meta : [];
+        $name = $meta['actor_user_name'] ?? null;
+        return ($name !== null && $name !== '') ? (string) $name : null;
+    }
+
     public function conversation()
     {
         return $this->belongsTo(Conversation::class);
