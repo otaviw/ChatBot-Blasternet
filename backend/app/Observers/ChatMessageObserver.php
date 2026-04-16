@@ -83,10 +83,10 @@ class ChatMessageObserver implements ShouldHandleEventsAfterCommit
                     ->map(fn (ChatAttachment $attachment): array => $this->serializeAttachment($attachment))
                     ->values()
                     ->all(),
-            'created_at' => $message->created_até->toISOString(),
-            'updated_at' => $message->updated_até->toISOString(),
-            'edited_at' => $message->edited_até->toISOString(),
-            'deleted_at' => $message->deleted_até->toISOString(),
+            'created_at' => $message->created_at?->toISOString(),
+            'updated_at' => $message->updated_at?->toISOString(),
+            'edited_at' => $message->edited_at?->toISOString(),
+            'deleted_at' => $message->deleted_at?->toISOString(),
             'is_deleted' => $isDeleted,
         ];
     }

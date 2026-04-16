@@ -1,6 +1,6 @@
 const PREFIXES_BY_ROLE = Object.freeze({
   admin: ['/admin', '', '/minha-conta'],
-  company: ['/minha-conta', '', '/admin'],
+  company: ['', '/minha-conta', '/admin'],
 });
 
 const CANONICAL_ACTION_TEMPLATES = Object.freeze({

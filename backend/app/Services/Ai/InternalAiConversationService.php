@@ -119,9 +119,9 @@ class InternalAiConversationService
             'origin' => (string) $conversation->origin,
             'title' => $conversation->title ? (string) $conversation->title : null,
             'last_message' => $lastMessage ? $this->serializeMessage($lastMessage) : null,
-            'last_message_at' => $conversation->last_message_até->toISOString(),
-            'created_at' => $conversation->created_até->toISOString(),
-            'updated_at' => $conversation->updated_até->toISOString(),
+            'last_message_at' => $conversation->last_message_at?->toISOString(),
+            'created_at' => $conversation->created_at?->toISOString(),
+            'updated_at' => $conversation->updated_at?->toISOString(),
         ];
     }
 
@@ -157,8 +157,8 @@ class InternalAiConversationService
                 ? (int) $message->response_time_ms
                 : null,
             'meta' => is_array($message->meta) ? $message->meta : [],
-            'created_at' => $message->created_até->toISOString(),
-            'updated_at' => $message->updated_até->toISOString(),
+            'created_at' => $message->created_at?->toISOString(),
+            'updated_at' => $message->updated_at?->toISOString(),
         ];
     }
 

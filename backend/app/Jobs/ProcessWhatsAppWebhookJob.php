@@ -582,7 +582,7 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
             ->map(fn (MessageReaction $reaction): array => [
                 'reactor_phone' => (string) $reaction->reactor_phone,
                 'emoji' => (string) ($reaction->emoji ?? ''),
-                'reacted_at' => $reaction->reacted_até->toISOString(),
+                'reacted_at' => $reaction->reacted_at?->toISOString(),
             ])
             ->values()
             ->all();

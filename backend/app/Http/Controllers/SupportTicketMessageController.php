@@ -198,8 +198,8 @@ class SupportTicketMessageController extends Controller
                     ->values()
                     ->all()
                 : [],
-            'created_at' => $message->created_até->toISOString(),
-            'updated_at' => $message->updated_até->toISOString(),
+            'created_at' => $message->created_at?->toISOString(),
+            'updated_at' => $message->updated_at?->toISOString(),
         ];
     }
 

@@ -208,13 +208,13 @@ class InternalChatConversationService
             'participant_count' => (int) $conversation->participants->count(),
             'current_user_is_admin' => $viewerIsAdmin,
             'last_message' => $lastMessage ? $this->serializeMessage($lastMessage) : null,
-            'last_message_at' => $lastMessage?->created_até->toISOString()
-                ?? $conversation->updated_até->toISOString()
-                ?? $conversation->created_até->toISOString(),
+            'last_message_at' => $lastMessage?->created_at?->toISOString()
+                ?? $conversation->updated_at?->toISOString()
+                ?? $conversation->created_at?->toISOString(),
             'unread_count' => $this->calculateUnreadCount($conversation, $viewer),
-            'created_at' => $conversation->created_até->toISOString(),
-            'updated_at' => $conversation->updated_até->toISOString(),
-            'deleted_at' => $conversation->deleted_até->toISOString(),
+            'created_at' => $conversation->created_at?->toISOString(),
+            'updated_at' => $conversation->updated_at?->toISOString(),
+            'deleted_at' => $conversation->deleted_at?->toISOString(),
         ];
     }
 
@@ -288,10 +288,10 @@ class InternalChatConversationService
             'metadata' => $metadata,
             'reactions' => $reactions,
             'attachments' => $serializedAttachments,
-            'created_at' => $message->created_até->toISOString(),
-            'updated_at' => $message->updated_até->toISOString(),
-            'edited_at' => $message->edited_até->toISOString(),
-            'deleted_at' => $message->deleted_até->toISOString(),
+            'created_at' => $message->created_at?->toISOString(),
+            'updated_at' => $message->updated_at?->toISOString(),
+            'edited_at' => $message->edited_at?->toISOString(),
+            'deleted_at' => $message->deleted_at?->toISOString(),
             'is_deleted' => $isDeleted,
         ];
     }
