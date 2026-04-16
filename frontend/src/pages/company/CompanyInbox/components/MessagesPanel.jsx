@@ -234,7 +234,11 @@ function MessagesPanel({
         key={message.id}
         className={`inbox-message-bubble inbox-message-${message.direction === 'in' ? 'in' : 'out'}${isFocused ? ' inbox-message-focus' : ''}`}
       >
-        <span className="inbox-message-label">{message.direction === 'in' ? 'Cliente' : 'Atendente/Bot'}</span>
+        {(message.direction === 'in' || message.meta?.actor_user_name) && (
+          <span className="inbox-message-label">
+            {message.direction === 'in' ? 'Cliente' : message.meta.actor_user_name}
+          </span>
+        )}
         {message.content_type === 'image' ? (
           <div className="company-inbox-message-media">
             <a href={getMessageImageUrl(message)} target="_blank" rel="noreferrer">

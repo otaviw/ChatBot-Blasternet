@@ -346,6 +346,7 @@ class ConversationController extends Controller
             'meta' => [
                 'source' => 'manual',
                 'actor_user_id' => $user->id,
+                'actor_user_name' => $user->name,
             ],
         ]);
 
@@ -705,6 +706,7 @@ class ConversationController extends Controller
                     'source'        => 'template',
                     'template_name' => $templateName,
                     'actor_user_id' => $user->id,
+                    'actor_user_name' => $user->name,
                     'send_result'   => $sendResult,
                 ],
             ]);
@@ -798,6 +800,7 @@ class ConversationController extends Controller
                 'source'        => 'template',
                 'template_name' => $templateName,
                 'actor_user_id' => $user->id,
+                'actor_user_name' => $user->name,
                 'send_result'   => $sendResult,
             ],
         ]);

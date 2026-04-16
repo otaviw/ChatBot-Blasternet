@@ -155,6 +155,14 @@ export function buildRealtimeMessage(payload, conversationId, messageId) {
     reactions: normalizeMessageReactions(
       payload.reactions ?? payload.message_reactions ?? nestedMessage?.reactions ?? []
     ),
+    meta: {
+      actor_user_name:
+        payload.actorUserName ??
+        payload.actor_user_name ??
+        nestedMessage?.actorUserName ??
+        nestedMessage?.meta?.actor_user_name ??
+        null,
+    },
   };
 }
 

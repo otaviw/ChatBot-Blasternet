@@ -407,6 +407,16 @@
   margin-bottom: 0.25rem;
 }
 
+.inbox-message-out .inbox-message-label {
+  color: #1d6a7a;
+  opacity: 1;
+}
+
+body.theme-dark .inbox-message-out .inbox-message-label {
+  color: #5eb8cc;
+  opacity: 1;
+}
+
 .inbox-message-text {
   word-break: break-word;
   overflow-wrap: break-word;

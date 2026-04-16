@@ -86,6 +86,7 @@ class MessageObserver implements ShouldHandleEventsAfterCommit
                 'readAt' => $message->read_at?->toISOString(),
                 'failedAt' => $message->failed_at?->toISOString(),
                 'createdAt' => $message->created_at?->toISOString(),
+                'actorUserName' => isset($meta['actor_user_name']) ? (string) $meta['actor_user_name'] : null,
                 'conversation' => $this->serializeConversation(
                     $conversation,
                     (int) $message->id,

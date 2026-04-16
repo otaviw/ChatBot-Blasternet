@@ -35,7 +35,7 @@ function UserFormFields({
       </Field>
 
       {showAppointmentFields && (
-        <Field label="Nome exibido no agendamento">
+        <Field label="Nome do atendente">
           <TextInput
             type="text"
             placeholder="Ex.: Dra. Ana / Joao - Suporte"
