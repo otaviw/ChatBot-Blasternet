@@ -362,8 +362,9 @@ class ConversationController extends Controller
         $wasSent = false;
 
         $senderName = trim((string) ($user->name ?? ''));
-        $textWithSender = $senderName !== '' && $trimmedText !== ''
-            ? "{$senderName}:\n{$trimmedText}"
+        $senderNameForWhatsApp = str_replace('*', '', $senderName);
+        $textWithSender = $senderNameForWhatsApp !== '' && $trimmedText !== ''
+            ? "*{$senderNameForWhatsApp}*:\n{$trimmedText}"
             : $trimmedText;
 
         if ($sendOutbound) {
