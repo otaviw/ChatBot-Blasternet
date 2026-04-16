@@ -225,6 +225,75 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
                 Log::info('Webhook location processado.', ['company_id' => $company->id]);
                 continue;
             }
+
+            if ($messageType === 'interactive') {
+                $interactivePayload = is_array($msg['interactive'] ?? null) ? $msg['interactive'] : [];
+                $interactiveType    = trim((string) ($interactivePayload['type'] ?? ''));
+
+                if ($interactiveType === 'button_reply') {
+                    $replyData   = is_array($interactivePayload['button_reply'] ?? null) ? $interactivePayload['button_reply'] : [];
+                    $buttonId    = trim((string) ($replyData['id'] ?? ''));
+                    $buttonTitle = trim((string) ($replyData['title'] ?? ''));
+                } elseif ($interactiveType === 'list_reply') {
+                    $replyData   = is_array($interactivePayload['list_reply'] ?? null) ? $interactivePayload['list_reply'] : [];
+                    $buttonId    = trim((string) ($replyData['id'] ?? ''));
+                    $buttonTitle = trim((string) ($replyData['title'] ?? ''));
+                } else {
+                    Log::info('Webhook interactive ignorado por tipo desconhecido.', [
+                        'company_id'       => $company->id,
+                        'from'             => $from,
+                        'interactive_type' => $interactiveType,
+                    ]);
+                    continue;
+                }
+
+                if ($buttonId === '') {
+                    Log::warning('Webhook interactive ignorado: button_id vazio.', [
+                        'company_id'       => $company->id,
+                        'from'             => $from,
+                        'interactive_type' => $interactiveType,
+                    ]);
+                    continue;
+                }
+
+                $result = $inboundMessage->handleIncomingText(
+                    $company,
+                    $from,
+                    $buttonId,
+                    [
+                        'wamid'             => $messageId,
+                        'from'              => $from,
+                        'source'            => 'webhook',
+                        'interactive_reply' => true,
+                        'button_id'         => $buttonId,
+                        'button_title'      => $buttonTitle,
+                    ],
+                    ['source' => 'webhook'],
+                    true,
+                    $contactName
+                );
+
+                // Atualiza content_type e texto de exibição da mensagem gravada,
+                // pois handleIncomingText usa button_id como texto de roteamento
+                // mas o registro no banco deve refletir o que o usuário viu/clicou.
+                $inMessage = $result['in_message'] ?? null;
+                if ($inMessage instanceof Message) {
+                    $inMessage->content_type = 'interactive_reply';
+                    $inMessage->text         = $buttonTitle !== '' ? $buttonTitle : $buttonId;
+                    $inMessage->meta         = ['button_id' => $buttonId];
+                    $inMessage->save();
+                }
+
+                Log::info('Webhook interactive reply processado.', [
+                    'company_id'       => $company->id,
+                    'from'             => $from,
+                    'message_id'       => $messageId,
+                    'interactive_type' => $interactiveType,
+                    'button_id'        => $buttonId,
+                    'button_title'     => $buttonTitle,
+                ]);
+                continue;
+            }
         }
     }
 

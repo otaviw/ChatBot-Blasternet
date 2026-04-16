@@ -129,18 +129,20 @@ class StatefulBotService
         }
 
         $context = [];
+        $replyMessage = null;
         if (($initialStep['type'] ?? null) === 'numeric_menu') {
             $context['last_menu_keys'] = array_map(
                 static fn($value) => (string) $value,
                 array_keys(is_array($initialStep['options'] ?? null) ? $initialStep['options'] : [])
             );
+            $replyMessage = $this->buildMenuReplyMessage($initialStep);
         }
 
         return $this->botStateResult($replyText, [
             'flow' => $flow,
             'step' => $step,
             'context' => $context,
-        ]);
+        ], $replyMessage);
     }
 
     /**
@@ -170,7 +172,9 @@ class StatefulBotService
             array_keys($optionsByKey)
         );
 
-        if (! in_array($normalizedText, $expectedOptions, true)) {
+        $resolvedKey = $this->resolveOptionKey($stepDefinition, $normalizedText);
+
+        if ($resolvedKey === null) {
             $invalidOptionText = trim((string) ($stepDefinition['invalid_option_text'] ?? ''));
             if ($invalidOptionText === '') {
                 $invalidOptionText = $this->registry->invalidOptionText($expectedOptions);
@@ -188,7 +192,7 @@ class StatefulBotService
             );
         }
 
-        $selectedOption = is_array($optionsByKey[$normalizedText] ?? null) ? $optionsByKey[$normalizedText] : null;
+        $selectedOption = is_array($optionsByKey[$resolvedKey] ?? null) ? $optionsByKey[$resolvedKey] : null;
         $action = is_array($selectedOption['action'] ?? null) ? $selectedOption['action'] : null;
         if (! is_array($action)) {
             return $this->notHandled();
@@ -199,7 +203,7 @@ class StatefulBotService
             $conversation,
             $definition,
             $action,
-            ['selected_option' => $normalizedText]
+            ['selected_option' => $resolvedKey]
         );
     }
 
@@ -284,18 +288,20 @@ class StatefulBotService
             }
 
             $context = $extraContext;
+            $replyMessage = null;
             if (($nextStepDefinition['type'] ?? null) === 'numeric_menu') {
                 $context['last_menu_keys'] = array_map(
                     static fn($value) => (string) $value,
                     array_keys(is_array($nextStepDefinition['options'] ?? null) ? $nextStepDefinition['options'] : [])
                 );
+                $replyMessage = $this->buildMenuReplyMessage($nextStepDefinition);
             }
 
             return $this->botStateResult($replyText, [
                 'flow' => $nextFlow,
                 'step' => $nextStep,
                 'context' => $context,
-            ]);
+            ], $replyMessage);
         }
 
         if ($kind === 'appointments_start') {
@@ -351,14 +357,17 @@ class StatefulBotService
 
     /**
      * @param  array<string, mixed>  $newState
+     * @param  array<string, mixed>|string|null  $replyMessage  Payload interativo ou string de texto.
+     *         Null herda o valor de $replyText (retrocompatibilidade).
      * @return array<string, mixed>
      */
-    private function botStateResult(string $replyText, array $newState): array
+    private function botStateResult(string $replyText, array $newState, array|string|null $replyMessage = null): array
     {
         return [
             'handled' => true,
             'not_handled' => false,
             'reply_text' => $replyText,
+            'reply_message' => $replyMessage ?? $replyText,
             'should_handoff' => false,
             'handoff_target' => null,
             'new_state' => $newState,
@@ -1690,6 +1699,137 @@ class StatefulBotService
         ]);
 
         return $this->botStateResult('✅ Agendamento cancelado com sucesso!', $mainMenuState);
+    }
+
+    /**
+     * Resolve a chave numérica da opção a partir do input recebido.
+     * Prioridade 1: correspondência direta com a chave numérica (ex.: "1", "2").
+     * Prioridade 2: correspondência com o button_id da opção.
+     * Retorna null se nenhuma correspondência for encontrada.
+     *
+     * @param  array<string, mixed>  $step
+     */
+    private function resolveOptionKey(array $step, string $input): ?string
+    {
+        $rawOptions = is_array($step['options'] ?? null) ? $step['options'] : [];
+
+        // Prioridade 1: chave numérica direta
+        foreach ($rawOptions as $key => $optionDef) {
+            if ((string) $key === $input) {
+                return (string) $key;
+            }
+        }
+
+        // Prioridade 2: button_id da opção
+        foreach ($rawOptions as $key => $optionDef) {
+            if (! is_array($optionDef)) {
+                continue;
+            }
+            $buttonId = trim((string) ($optionDef['button_id'] ?? ''));
+            if ($buttonId !== '' && $buttonId === $input) {
+                return (string) $key;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Constrói o payload de resposta para um step de menu numérico.
+     * Determina o modo (button/list/text) com base em interaction_mode e quantidade de opções,
+     * e monta o array estruturado correspondente.
+     * Retorna ['type' => 'text', ...] para o modo texto (retrocompatibilidade).
+     *
+     * @param  array<string, mixed>  $stepDefinition
+     * @return array<string, mixed>
+     */
+    private function buildMenuReplyMessage(array $stepDefinition): array
+    {
+        $replyText  = trim((string) ($stepDefinition['reply_text'] ?? ''));
+        $rawOptions = is_array($stepDefinition['options'] ?? null) ? $stepDefinition['options'] : [];
+
+        $mode = trim((string) ($stepDefinition['interaction_mode'] ?? 'auto'));
+
+        if ($mode === 'auto') {
+            $mode = count($rawOptions) <= 3 ? 'button' : 'list';
+        }
+
+        if ($mode === 'text' || $rawOptions === []) {
+            return ['type' => 'text', 'text' => $replyText];
+        }
+
+        $headerText  = trim((string) ($stepDefinition['button_header_text'] ?? ''));
+        $footerText  = trim((string) ($stepDefinition['button_footer_text'] ?? ''));
+        $actionLabel = trim((string) ($stepDefinition['button_action_label'] ?? ''));
+        if ($actionLabel === '') {
+            $actionLabel = 'Ver opções';
+        }
+
+        if ($mode === 'button') {
+            $buttons = [];
+            foreach ($rawOptions as $optionDef) {
+                if (! is_array($optionDef)) {
+                    continue;
+                }
+                $label    = trim((string) ($optionDef['label'] ?? ''));
+                $buttonId = trim((string) ($optionDef['button_id'] ?? ''));
+                if ($buttonId === '') {
+                    $buttonId = $this->slugifyLabel($label);
+                }
+                $buttons[] = ['id' => $buttonId, 'title' => $label];
+            }
+
+            return [
+                'type'        => 'interactive_buttons',
+                'body_text'   => $replyText,
+                'header_text' => $headerText,
+                'footer_text' => $footerText,
+                'buttons'     => $buttons,
+            ];
+        }
+
+        // mode === 'list'
+        $rows = [];
+        foreach ($rawOptions as $optionDef) {
+            if (! is_array($optionDef)) {
+                continue;
+            }
+            $label    = trim((string) ($optionDef['label'] ?? ''));
+            $buttonId = trim((string) ($optionDef['button_id'] ?? ''));
+            if ($buttonId === '') {
+                $buttonId = $this->slugifyLabel($label);
+            }
+            $rows[] = ['id' => $buttonId, 'title' => $label, 'description' => ''];
+        }
+
+        return [
+            'type'         => 'interactive_list',
+            'body_text'    => $replyText,
+            'header_text'  => $headerText,
+            'footer_text'  => $footerText,
+            'action_label' => $actionLabel,
+            'rows'         => $rows,
+        ];
+    }
+
+    /**
+     * Converte um label legível em slug para uso como button_id.
+     * Ex.: "Suporte Técnico" → "suporte-tecnico"
+     */
+    private function slugifyLabel(string $label): string
+    {
+        $accents = [
+            'á' => 'a', 'à' => 'a', 'â' => 'a', 'ã' => 'a', 'ä' => 'a',
+            'é' => 'e', 'è' => 'e', 'ê' => 'e', 'ë' => 'e',
+            'í' => 'i', 'ì' => 'i', 'î' => 'i', 'ï' => 'i',
+            'ó' => 'o', 'ò' => 'o', 'ô' => 'o', 'õ' => 'o', 'ö' => 'o',
+            'ú' => 'u', 'ù' => 'u', 'û' => 'u', 'ü' => 'u',
+            'ç' => 'c', 'ñ' => 'n',
+        ];
+        $normalized = mb_strtolower(trim(strtr($label, $accents)));
+        $slug = preg_replace('/[^a-z0-9]+/', '-', $normalized) ?? '';
+
+        return trim($slug, '-');
     }
 
     /**

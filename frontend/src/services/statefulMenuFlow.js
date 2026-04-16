@@ -4,6 +4,16 @@ function makeId(prefix = 'id') {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function slugify(text) {
+  return String(text ?? '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 256);
+}
+
 function toActionEditor(action) {
   const rawKind = action?.kind;
   const kind = rawKind === 'handoff' || rawKind === 'appointments_start' || rawKind === 'appointments_cancel' ? rawKind : 'go_to';
@@ -23,6 +33,7 @@ function createEmptyOption(index = 1) {
     id: makeId('opt'),
     key: String(index),
     label: '',
+    button_id: '',
     action: toActionEditor({ kind: 'go_to' }),
   };
 }
@@ -52,6 +63,10 @@ function createEmptyStep(type = 'numeric_menu') {
     on_text: toActionEditor({ kind: 'handoff' }),
     options: [createEmptyOption(1)],
     invalid_option_text: '',
+    interaction_mode: 'auto',
+    button_header_text: '',
+    button_footer_text: '',
+    button_action_label: '',
   };
 }
 
@@ -91,6 +106,7 @@ function toStepEditor(stateKey, stepDefinition) {
     id: makeId('opt'),
     key: String(optionKey ?? ''),
     label: String(optionDefinition?.label ?? ''),
+    button_id: String(optionDefinition?.button_id ?? ''),
     action: toActionEditor(optionDefinition?.action ?? {}),
   }));
 
@@ -104,6 +120,10 @@ function toStepEditor(stateKey, stepDefinition) {
     on_text: toActionEditor({ kind: 'handoff' }),
     options: options.length ? options : [createEmptyOption(1)],
     invalid_option_text: String(stepDefinition?.invalid_option_text ?? ''),
+    interaction_mode: String(stepDefinition?.interaction_mode ?? 'auto'),
+    button_header_text: String(stepDefinition?.button_header_text ?? ''),
+    button_footer_text: String(stepDefinition?.button_footer_text ?? ''),
+    button_action_label: String(stepDefinition?.button_action_label ?? ''),
   };
 }
 
@@ -209,8 +229,13 @@ function editorToStatefulMenuFlow(editor) {
       const optionKey = String(rawOption?.key ?? '').trim();
       if (!optionKey) continue;
 
+      const label = String(rawOption?.label ?? '').trim();
+      const rawButtonId = String(rawOption?.button_id ?? '').trim();
+      const buttonId = rawButtonId || slugify(label);
+
       options[optionKey] = {
-        label: String(rawOption?.label ?? '').trim(),
+        label,
+        button_id: buttonId,
         action: fromActionEditor(rawOption?.action),
       };
     }
@@ -223,6 +248,20 @@ function editorToStatefulMenuFlow(editor) {
     const invalidText = String(rawStep?.invalid_option_text ?? '').trim();
     if (invalidText) {
       stepPayload.invalid_option_text = invalidText;
+    }
+    const interactionMode = String(rawStep?.interaction_mode ?? 'auto').trim();
+    stepPayload.interaction_mode = interactionMode;
+    const headerText = String(rawStep?.button_header_text ?? '').trim();
+    if (headerText) {
+      stepPayload.button_header_text = headerText;
+    }
+    const footerText = String(rawStep?.button_footer_text ?? '').trim();
+    if (footerText) {
+      stepPayload.button_footer_text = footerText;
+    }
+    const actionLabel = String(rawStep?.button_action_label ?? '').trim();
+    if (actionLabel) {
+      stepPayload.button_action_label = actionLabel;
     }
     steps[key] = stepPayload;
   }
@@ -312,7 +351,16 @@ function validateStatefulMenuEditor(editor) {
       continue;
     }
 
+    const interactionMode = String(step?.interaction_mode ?? 'auto').trim();
+    if (interactionMode === 'button' && options.length > 3) {
+      errors.push(`${label}: Modo botão suporta no máximo 3 opções. Use lista ou auto para mais opções.`);
+    }
+    if (interactionMode === 'list' && options.length > 10) {
+      errors.push(`${label}: Modo lista suporta no máximo 10 opções.`);
+    }
+
     const optionKeys = new Set();
+    const buttonIds = new Set();
     for (let optionIndex = 0; optionIndex < options.length; optionIndex += 1) {
       const option = options[optionIndex];
       const optionLabel = `${label} / opção ${optionIndex + 1}`;
@@ -327,6 +375,16 @@ function validateStatefulMenuEditor(editor) {
 
       if (!String(option?.label ?? '').trim()) {
         errors.push(`${optionLabel}: label obrigatória.`);
+      }
+
+      const rawButtonId = String(option?.button_id ?? '').trim();
+      const effectiveButtonId = rawButtonId || slugify(String(option?.label ?? ''));
+      if (effectiveButtonId) {
+        if (buttonIds.has(effectiveButtonId)) {
+          errors.push(`${optionLabel}: button_id "${effectiveButtonId}" duplicado no mesmo passo.`);
+        } else {
+          buttonIds.add(effectiveButtonId);
+        }
       }
 
       errors.push(...validateAction(option?.action, `${optionLabel} (ação)`));

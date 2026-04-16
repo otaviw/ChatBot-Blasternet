@@ -687,6 +687,85 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
                   </label>
                 </div>
 
+                {selectedStep.type === 'numeric_menu' && (
+                  <>
+                    <label className="stateful-field">
+                      <span className="stateful-field-label">Modo de interação</span>
+                      <select
+                        value={selectedStep.interaction_mode || 'auto'}
+                        onChange={(e) =>
+                          updateStep(selectedStep.id, (current) => ({
+                            ...current,
+                            interaction_mode: e.target.value,
+                          }))
+                        }
+                        className="stateful-input"
+                      >
+                        <option value="auto">Automático (até 3 opções: botões | mais de 3: lista)</option>
+                        <option value="button">Botões (máximo 3 opções)</option>
+                        <option value="list">Lista de opções (até 10 opções)</option>
+                        <option value="text">Resposta por texto (comportamento clássico)</option>
+                      </select>
+                    </label>
+
+                    {(selectedStep.interaction_mode || 'auto') !== 'text' && (
+                      <div className="stateful-form-grid">
+                        <label className="stateful-field">
+                          <span className="stateful-field-label">Cabeçalho da mensagem</span>
+                          <input
+                            type="text"
+                            value={selectedStep.button_header_text || ''}
+                            onChange={(e) =>
+                              updateStep(selectedStep.id, (current) => ({
+                                ...current,
+                                button_header_text: e.target.value,
+                              }))
+                            }
+                            placeholder="Ex: Atendimento Blasternet"
+                            className="stateful-input"
+                          />
+                        </label>
+
+                        <label className="stateful-field">
+                          <span className="stateful-field-label">Rodapé da mensagem</span>
+                          <input
+                            type="text"
+                            value={selectedStep.button_footer_text || ''}
+                            onChange={(e) =>
+                              updateStep(selectedStep.id, (current) => ({
+                                ...current,
+                                button_footer_text: e.target.value,
+                              }))
+                            }
+                            placeholder="Ex: Responda clicando em uma opção"
+                            className="stateful-input"
+                          />
+                        </label>
+                      </div>
+                    )}
+
+                    {((selectedStep.interaction_mode || 'auto') === 'list' ||
+                      ((selectedStep.interaction_mode || 'auto') === 'auto' &&
+                        (selectedStep.options?.length ?? 0) > 3)) && (
+                      <label className="stateful-field">
+                        <span className="stateful-field-label">Label do botão de lista</span>
+                        <input
+                          type="text"
+                          value={selectedStep.button_action_label || ''}
+                          onChange={(e) =>
+                            updateStep(selectedStep.id, (current) => ({
+                              ...current,
+                              button_action_label: e.target.value,
+                            }))
+                          }
+                          placeholder="Ver opções"
+                          className="stateful-input"
+                        />
+                      </label>
+                    )}
+                  </>
+                )}
+
                 <label className="stateful-field">
                   <span className="stateful-field-label">Mensagem que o cliente vai receber</span>
                   <textarea
