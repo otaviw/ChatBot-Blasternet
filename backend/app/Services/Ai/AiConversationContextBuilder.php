@@ -199,7 +199,7 @@ class AiConversationContextBuilder
             return '';
         }
 
-        $lines = ['Historico recente:'];
+        $lines = ['Histórico recente:'];
 
         foreach ($history as $item) {
             $role = $this->normalizeRole((string) ($item->role ?? ''));
