@@ -132,8 +132,8 @@ class AppointmentBookingService
                 'payload' => [
                     'status' => $appointment->status,
                     'source' => $appointment->source,
-                    'starts_at' => $appointment->starts_até->toIso8601String(),
-                    'ends_at' => $appointment->ends_até->toIso8601String(),
+                    'starts_at' => $appointment->starts_at->toIso8601String(),
+                    'ends_at' => $appointment->ends_at->toIso8601String(),
                     'timezone' => (string) $slot['timezone'],
                 ],
             ]);

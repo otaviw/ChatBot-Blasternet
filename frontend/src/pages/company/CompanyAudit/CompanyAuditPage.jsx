@@ -13,18 +13,94 @@ const PAGE_SIZE = 20;
 
 function formatDateTime(value) {
   if (!value) return '-';
-  const ts = new Date(value).getTime();
-  if (!Number.isFinite(ts)) return '-';
-  return new Date(ts).toLocaleString('pt-BR');
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) return '-';
+  return new Date(timestamp).toLocaleString('pt-BR');
+}
+
+function isMeaningful(value) {
+  if (value === null || value === undefined) return false;
+
+  if (typeof value === 'string') {
+    return value.trim() !== '';
+  }
+
+  if (Array.isArray(value)) {
+    return value.some((item) => isMeaningful(item));
+  }
+
+  if (typeof value === 'object') {
+    return Object.values(value).some((item) => isMeaningful(item));
+  }
+
+  return true;
+}
+
+function cleanValue(value) {
+  if (!isMeaningful(value)) return null;
+
+  if (Array.isArray(value)) {
+    const cleaned = value.map((item) => cleanValue(item)).filter((item) => item !== null);
+    return cleaned.length ? cleaned : null;
+  }
+
+  if (typeof value === 'object' && value !== null) {
+    const entries = Object.entries(value)
+      .map(([key, item]) => [key, cleanValue(item)])
+      .filter(([, item]) => item !== null);
+
+    return entries.length ? Object.fromEntries(entries) : null;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed === '' ? null : trimmed;
+  }
+
+  return value;
 }
 
 function toPrettyJson(value) {
-  if (!value) return '{}';
+  const cleaned = cleanValue(value);
+  if (!cleaned) return '';
+
   try {
-    return JSON.stringify(value, null, 2);
+    return JSON.stringify(cleaned, null, 2);
   } catch {
-    return '{}';
+    return '';
   }
+}
+
+function humanizeActionCode(action) {
+  const normalized = String(action || '').trim();
+  if (!normalized) return 'AÁ„o n„o informada';
+
+  return normalized
+    .split('.')
+    .filter((part) => part && !['company', 'admin', 'support', 'bot'].includes(part))
+    .map((part) => part.replaceAll('_', ' '))
+    .join(' ')
+    .replace(/^./, (char) => char.toUpperCase()) || 'AÁ„o n„o informada';
+}
+
+function getActionLabel(item) {
+  return String(item?.action_label || '').trim() || humanizeActionCode(item?.action);
+}
+
+function getUserLabel(item) {
+  const userName = String(item?.user_name || '').trim();
+  if (userName) return userName;
+  return item?.user_id ? 'Usu·rio removido' : 'Sistema';
+}
+
+function getEntityLabel(item) {
+  const entityType = String(item?.entity_type || '').trim();
+  const entityId = String(item?.entity_id || '').trim();
+
+  if (!entityType && !entityId) return '-';
+  if (!entityType) return `#${entityId}`;
+  if (!entityId) return entityType;
+  return `${entityType} #${entityId}`;
 }
 
 function buildUrl(filters, page) {
@@ -71,205 +147,228 @@ function CompanyAuditPage() {
     setPage(1);
   };
 
+  const closeDetail = () => {
+    if (detailLoading) return;
+    setDetailItem(null);
+    setDetailError('');
+  };
+
   const openDetail = async (id) => {
     setDetailLoading(true);
     setDetailError('');
     setDetailItem(null);
+
     try {
       const response = await api.get(`/minha-conta/audit-logs/${id}`);
       setDetailItem(response.data?.item ?? null);
     } catch (err) {
-      setDetailError(err.response?.data?.message ?? 'N√£o foi poss√≠vel carregar o detalhe do log.');
+      setDetailError(err.response?.data?.message ?? 'N„o foi possÌvel carregar o detalhe do log.');
     } finally {
       setDetailLoading(false);
     }
   };
+
+  const detailOldData = toPrettyJson(detailItem?.old_data);
+  const detailNewData = toPrettyJson(detailItem?.new_data);
+
+  const detailFields = detailItem
+    ? [
+        ['AÁ„o', getActionLabel(detailItem)],
+        ['Usu·rio', getUserLabel(detailItem)],
+        ['Entidade', getEntityLabel(detailItem)],
+        ['Data', formatDateTime(detailItem.created_at)],
+        ['IP', String(detailItem.ip_address || '').trim()],
+        ['Navegador', String(detailItem.user_agent || '').trim()],
+      ].filter(([, value]) => isMeaningful(value) && value !== '-')
+    : [];
 
   return (
     <Layout role={layoutRole} onLogout={logout}>
       <PageState
         loading={loading}
         error={error}
-        errorMessage="N√£o foi poss√≠vel carregar os logs de auditoria."
+        errorMessage="N„o foi possÌvel carregar os logs de auditoria."
         onRetry={refetch}
       >
-      <PageHeader
-        title="Auditoria"
-        subtitle="Consulte eventos auditados com filtros por a√ß√£n√£o √© data."
-      />
+        <PageHeader
+          title="Auditoria"
+          subtitle="Consulte eventos auditados com filtros por aÁ„o e data."
+        />
 
-      <Card className="mb-4 p-4">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-          <label className="text-sm text-[#334155]">
-            A√ß√£o
-            <input
-              type="text"
-              value={draft.action}
-              onChange={(event) => setDraft((prev) => ({ ...prev, action: event.target.value }))}
-              placeholder="Ex.: send_message"
-              className="mt-1 w-full rounded-lg border border-[#d4d4d4] bg-white px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
-            />
-          </label>
+        <Card className="mb-4 p-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+            <label className="text-sm text-[#334155]">
+              AÁ„o
+              <input
+                type="text"
+                value={draft.action}
+                onChange={(event) => setDraft((prev) => ({ ...prev, action: event.target.value }))}
+                placeholder="Ex.: company.conversation.manual_reply"
+                className="mt-1 w-full rounded-lg border border-[#d4d4d4] bg-white px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
+              />
+            </label>
 
-          <label className="text-sm text-[#334155]">
-            Data inicial
-            <input
-              type="date"
-              value={draft.startDate}
-              onChange={(event) => setDraft((prev) => ({ ...prev, startDate: event.target.value }))}
-              className="mt-1 w-full rounded-lg border border-[#d4d4d4] bg-white px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
-            />
-          </label>
+            <label className="text-sm text-[#334155]">
+              Data inicial
+              <input
+                type="date"
+                value={draft.startDate}
+                onChange={(event) => setDraft((prev) => ({ ...prev, startDate: event.target.value }))}
+                className="mt-1 w-full rounded-lg border border-[#d4d4d4] bg-white px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
+              />
+            </label>
 
-          <label className="text-sm text-[#334155]">
-            Data final
-            <input
-              type="date"
-              value={draft.endDate}
-              onChange={(event) => setDraft((prev) => ({ ...prev, endDate: event.target.value }))}
-              className="mt-1 w-full rounded-lg border border-[#d4d4d4] bg-white px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
-            />
-          </label>
+            <label className="text-sm text-[#334155]">
+              Data final
+              <input
+                type="date"
+                value={draft.endDate}
+                onChange={(event) => setDraft((prev) => ({ ...prev, endDate: event.target.value }))}
+                className="mt-1 w-full rounded-lg border border-[#d4d4d4] bg-white px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
+              />
+            </label>
 
-          <div className="flex items-end gap-2">
-            <Button variant="primary" className="w-full" onClick={applyFilters}>Filtrar</Button>
-            <Button variant="secondary" className="w-full" onClick={clearFilters}>Limpar</Button>
-          </div>
-        </div>
-      </Card>
-
-      <Card className="p-0 overflow-hidden">
-        <div className="overflow-x-auto app-responsive-table-wrap">
-          <table className="min-w-full text-sm app-responsive-table">
-            <thead className="bg-[#f8fafc]">
-              <tr className="border-b border-[#e2e8f0] text-left text-[#64748b]">
-                <th className="px-4 py-3 font-medium">A√ß√£o</th>
-                <th className="px-4 py-3 font-medium">Usu√°rio</th>
-                <th className="px-4 py-3 font-medium">Entidade</th>
-                <th className="px-4 py-3 font-medium">Data</th>
-                <th className="px-4 py-3 font-medium">A√ß√£o</th>
-              </tr>
-            </thead>
-            <tbody>
-              {!rows.length ? (
-                <tr className="border-b border-[#f1f5f9]">
-                  <td data-label="Info" colSpan={5} className="px-4 py-4 text-sm text-[#64748b]">
-                    Nenhum log encontrado.
-                  </td>
-                </tr>
-              ) : null}
-              {rows.map((item) => (
-                <tr key={item.id} className="border-b border-[#f1f5f9] align-top">
-                  <td data-label="A√ß√£o" className="px-4 py-3 text-[#0f172a]">{item.action || '-'}</td>
-                  <td data-label="Usu√°rio" className="px-4 py-3 text-[#334155]">{item.user_name || '-'}</td>
-                  <td data-label="Entidade" className="px-4 py-3 text-[#334155]">
-                    {item.entity_type || '-'}{item.entity_id ? ` #${item.entity_id}` : ''}
-                  </td>
-                  <td data-label="Data" className="px-4 py-3 text-[#334155]">{formatDateTime(item.created_at)}</td>
-                  <td data-label="Detalhes" className="px-4 py-3">
-                    <Button
-                      variant="secondary"
-                      className="px-3 py-1.5 text-xs"
-                      onClick={() => void openDetail(item.id)}
-                    >
-                      Ver detalhes
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="border-t border-[#e2e8f0] px-4 py-3 flex items-center justify-between">
-          <p className="text-xs text-[#64748b]">
-            Mostrando {from}-{to} de {total}
-          </p>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="secondary"
-              className="px-3 py-1.5 text-xs"
-              onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-              disabled={currentPage <= 1}
-            >
-              Anterior
-            </Button>
-            <span className="text-xs text-[#475569] min-w-[96px] text-center">
-              Pagina {currentPage} de {Math.max(1, lastPage)}
-            </span>
-            <Button
-              variant="secondary"
-              className="px-3 py-1.5 text-xs"
-              onClick={() => setPage((prev) => prev + 1)}
-              disabled={currentPage >= lastPage}
-            >
-              Proxima
-            </Button>
-          </div>
-        </div>
-      </Card>
-
-      {(detailLoading || detailError || detailItem) && (
-        <div
-          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 p-4"
-          onClick={() => {
-            if (detailLoading) return;
-            setDetailItem(null);
-            setDetailError('');
-          }}
-          role="dialog"
-          aria-modal="true"
-        >
-          <div
-            className="w-full max-w-4xl rounded-xl border border-[#e5e7eb] bg-white p-5 shadow-lg"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-[#0f172a]">Detalhes do log</h2>
-              <button
-                type="button"
-                className="rounded-md p-1.5 text-[#64748b] hover:bg-[#f1f5f9]"
-                onClick={() => {
-                  if (detailLoading) return;
-                  setDetailItem(null);
-                  setDetailError('');
-                }}
-              >
-                x
-              </button>
+            <div className="flex items-end gap-2">
+              <Button variant="primary" className="w-full" onClick={applyFilters}>Filtrar</Button>
+              <Button variant="secondary" className="w-full" onClick={clearFilters}>Limpar</Button>
             </div>
-
-            {detailLoading ? <p className="text-sm text-[#64748b]">Carregando detalhe...</p> : null}
-            {detailError ? <p className="text-sm text-red-600">{detailError}</p> : null}
-            {detailItem ? (
-              <>
-                <div className="grid grid-cols-1 gap-2 text-sm md:grid-cols-2 mb-4">
-                  <p><strong>A√ß√£o:</strong> {detailItem.action || '-'}</p>
-                  <p><strong>Usu√°rio:</strong> {detailItem.user_name || '-'}</p>
-                  <p><strong>Entidade:</strong> {detailItem.entity_type || '-'}</p>
-                  <p><strong>ID entidade:</strong> {detailItem.entity_id || '-'}</p>
-                  <p><strong>Data:</strong> {formatDateTime(detailItem.created_at)}</p>
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div>
-                    <h3 className="text-sm font-semibold text-[#0f172a] mb-2">old_data</h3>
-                    <pre className="max-h-72 overflow-auto rounded-lg bg-[#0f172a] p-3 text-xs text-[#e2e8f0]">
-                      {toPrettyJson(detailItem.old_data)}
-                    </pre>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-semibold text-[#0f172a] mb-2">new_data</h3>
-                    <pre className="max-h-72 overflow-auto rounded-lg bg-[#0f172a] p-3 text-xs text-[#e2e8f0]">
-                      {toPrettyJson(detailItem.new_data)}
-                    </pre>
-                  </div>
-                </div>
-              </>
-            ) : null}
           </div>
-        </div>
-      )}
+        </Card>
+
+        <Card className="overflow-hidden p-0">
+          <div className="app-responsive-table-wrap overflow-x-auto">
+            <table className="app-responsive-table min-w-full text-sm">
+              <thead className="bg-[#f8fafc]">
+                <tr className="border-b border-[#e2e8f0] text-left text-[#64748b]">
+                  <th className="px-4 py-3 font-medium">AÁ„o</th>
+                  <th className="px-4 py-3 font-medium">Usu·rio</th>
+                  <th className="px-4 py-3 font-medium">Entidade</th>
+                  <th className="px-4 py-3 font-medium">Data</th>
+                  <th className="px-4 py-3 font-medium">Detalhes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {!rows.length ? (
+                  <tr className="border-b border-[#f1f5f9]">
+                    <td data-label="Info" colSpan={5} className="px-4 py-4 text-sm text-[#64748b]">
+                      Nenhum log encontrado.
+                    </td>
+                  </tr>
+                ) : null}
+
+                {rows.map((item) => (
+                  <tr key={item.id} className="align-top border-b border-[#f1f5f9]">
+                    <td data-label="AÁ„o" className="px-4 py-3 text-[#0f172a]">{getActionLabel(item)}</td>
+                    <td data-label="Usu·rio" className="px-4 py-3 text-[#334155]">{getUserLabel(item)}</td>
+                    <td data-label="Entidade" className="px-4 py-3 text-[#334155]">{getEntityLabel(item)}</td>
+                    <td data-label="Data" className="px-4 py-3 text-[#334155]">{formatDateTime(item.created_at)}</td>
+                    <td data-label="Detalhes" className="px-4 py-3">
+                      <Button
+                        variant="secondary"
+                        className="px-3 py-1.5 text-xs"
+                        onClick={() => void openDetail(item.id)}
+                      >
+                        Ver detalhes
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex items-center justify-between border-t border-[#e2e8f0] px-4 py-3">
+            <p className="text-xs text-[#64748b]">
+              Mostrando {from}-{to} de {total}
+            </p>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                className="px-3 py-1.5 text-xs"
+                onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                disabled={currentPage <= 1}
+              >
+                Anterior
+              </Button>
+              <span className="min-w-[96px] text-center text-xs text-[#475569]">
+                P·gina {currentPage} de {Math.max(1, lastPage)}
+              </span>
+              <Button
+                variant="secondary"
+                className="px-3 py-1.5 text-xs"
+                onClick={() => setPage((prev) => prev + 1)}
+                disabled={currentPage >= lastPage}
+              >
+                PrÛxima
+              </Button>
+            </div>
+          </div>
+        </Card>
+
+        {(detailLoading || detailError || detailItem) && (
+          <div
+            className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 p-4"
+            onClick={closeDetail}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div
+              className="w-full max-w-4xl rounded-xl border border-[#e5e7eb] bg-white p-5 shadow-lg"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-[#0f172a]">Detalhes do log</h2>
+                <button
+                  type="button"
+                  className="rounded-md p-1.5 text-[#64748b] hover:bg-[#f1f5f9]"
+                  onClick={closeDetail}
+                >
+                  x
+                </button>
+              </div>
+
+              {detailLoading ? <p className="text-sm text-[#64748b]">Carregando detalhe...</p> : null}
+              {detailError ? <p className="text-sm text-red-600">{detailError}</p> : null}
+
+              {detailItem ? (
+                <>
+                  <div className="mb-4 grid grid-cols-1 gap-2 text-sm md:grid-cols-2">
+                    {detailFields.map(([label, value]) => (
+                      <p key={label}>
+                        <strong>{label}:</strong> {value}
+                      </p>
+                    ))}
+                  </div>
+
+                  {(detailOldData || detailNewData) ? (
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      {detailOldData ? (
+                        <div>
+                          <h3 className="mb-2 text-sm font-semibold text-[#0f172a]">Dados anteriores</h3>
+                          <pre className="max-h-72 overflow-auto rounded-lg bg-[#0f172a] p-3 text-xs text-[#e2e8f0]">
+                            {detailOldData}
+                          </pre>
+                        </div>
+                      ) : null}
+
+                      {detailNewData ? (
+                        <div>
+                          <h3 className="mb-2 text-sm font-semibold text-[#0f172a]">Dados novos</h3>
+                          <pre className="max-h-72 overflow-auto rounded-lg bg-[#0f172a] p-3 text-xs text-[#e2e8f0]">
+                            {detailNewData}
+                          </pre>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-[#64748b]">Sem dados adicionais para este registro.</p>
+                  )}
+                </>
+              ) : null}
+            </div>
+          </div>
+        )}
       </PageState>
     </Layout>
   );

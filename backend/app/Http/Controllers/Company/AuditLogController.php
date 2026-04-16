@@ -8,6 +8,7 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class AuditLogController extends Controller
 {
@@ -48,6 +49,7 @@ class AuditLogController extends Controller
                 'users.name as user_name',
             ])
             ->orderByDesc('audit_logs.id');
+
         $companyId = (int) ($user->company_id ?? 0);
         $resellerId = $this->resolveResellerId($request, $user);
         if (! $this->applyTenantScope($query, $user, $resellerId, $companyId, (int) ($validated['company_id'] ?? 0))) {
@@ -77,6 +79,14 @@ class AuditLogController extends Controller
             columns: ['*'],
             pageName: 'page',
             page: (int) ($validated['page'] ?? 1)
+        );
+
+        $logs->setCollection(
+            $logs->getCollection()->map(function ($item) {
+                $item->user_name = $this->resolveUserName($item->user_name ?? null, $item->user_id ?? null);
+                $item->action_label = $this->humanizeAction((string) ($item->action ?? ''));
+                return $item;
+            })
         );
 
         return response()->json($logs);
@@ -122,8 +132,13 @@ class AuditLogController extends Controller
 
         $item = $query->first();
         if (! $item) {
-            return response()->json(['message' => 'Log de auditoria nÃ£o encontrado.'], 404);
+            return response()->json(['message' => 'Log de auditoria não encontrado.'], 404);
         }
+
+        $item->user_name = $this->resolveUserName($item->user_name ?? null, $item->user_id ?? null);
+        $item->action_label = $this->humanizeAction((string) ($item->action ?? ''));
+        $item->old_data = $this->decodeJsonField($item->old_data ?? null);
+        $item->new_data = $this->decodeJsonField($item->new_data ?? null);
 
         return response()->json(['item' => $item]);
     }
@@ -153,7 +168,6 @@ class AuditLogController extends Controller
         int $requestedCompanyId
     ): bool {
         if ($user->isSystemAdmin()) {
-            // Superadmin: pode ver todos os tenants visÃ­veis e filtrar por empresa.
             if ($requestedCompanyId > 0) {
                 $query->where('audit_logs.company_id', $requestedCompanyId);
             }
@@ -162,7 +176,6 @@ class AuditLogController extends Controller
         }
 
         if ($resellerId > 0) {
-            // Reseller: apenas empresas vinculadas ao seu reseller_id.
             $query->where('audit_logs.reseller_id', $resellerId);
             if ($requestedCompanyId > 0) {
                 $query->where('audit_logs.company_id', $requestedCompanyId);
@@ -172,7 +185,6 @@ class AuditLogController extends Controller
         }
 
         if ($companyId > 0) {
-            // Admin/usuÃ¡rio da empresa: sempre restrito ao prÃ³prio company_id.
             $query->where('audit_logs.company_id', $companyId);
             return true;
         }
@@ -194,5 +206,89 @@ class AuditLogController extends Controller
         }
 
         return $startOfDay ? $parsed->startOfDay() : $parsed->endOfDay();
+    }
+
+    private function resolveUserName(mixed $name, mixed $userId): string
+    {
+        $normalized = trim((string) $name);
+        if ($normalized !== '') {
+            return $normalized;
+        }
+
+        return is_numeric($userId) && (int) $userId > 0 ? 'Usuário removido' : 'Sistema';
+    }
+
+    private function humanizeAction(string $action): string
+    {
+        $known = [
+            'company.conversation.created' => 'Conversa criada',
+            'company.conversation.assumed' => 'Conversa assumida',
+            'company.conversation.released' => 'Conversa liberada',
+            'company.conversation.transferred' => 'Conversa transferida',
+            'company.conversation.closed' => 'Conversa encerrada',
+            'company.conversation.manual_reply' => 'Resposta manual enviada',
+            'company.conversation.send_template' => 'Template enviado',
+            'company.conversation.contact_updated' => 'Contato atualizado',
+            'company.conversation.tags_updated' => 'Tags da conversa atualizadas',
+            'company.conversation.tag_attached' => 'Tag adicionada na conversa',
+            'company.conversation.tag_detached' => 'Tag removida da conversa',
+            'company.tag.created' => 'Tag criada',
+            'company.tag.updated' => 'Tag atualizada',
+            'company.tag.deleted' => 'Tag removida',
+            'company.bot_settings.updated' => 'Configurações do bot atualizadas',
+            'admin.company.bot_settings.updated' => 'Configurações do bot da empresa atualizadas',
+            'admin.company.created' => 'Empresa criada',
+            'admin.company.updated' => 'Empresa atualizada',
+            'admin.company.deleted' => 'Empresa removida',
+            'admin.user.created' => 'Usuário criado',
+            'admin.user.updated' => 'Usuário atualizado',
+            'admin.user.deleted' => 'Usuário removido',
+            'admin.conversation.contact_updated' => 'Contato da conversa atualizado por admin',
+            'support.ticket.created' => 'Ticket de suporte criado',
+            'support.ticket.message.created' => 'Mensagem de ticket enviada',
+            'support.ticket.status_updated' => 'Status do ticket atualizado',
+            'bot.simulation.executed' => 'Simulação do bot executada',
+            'conversation.transferred' => 'Conversa transferida',
+        ];
+
+        $normalized = trim($action);
+        if ($normalized === '') {
+            return 'Ação não informada';
+        }
+
+        if (isset($known[$normalized])) {
+            return $known[$normalized];
+        }
+
+        $parts = collect(explode('.', $normalized))
+            ->filter(fn (string $part): bool => trim($part) !== '')
+            ->reject(fn (string $part): bool => in_array($part, ['company', 'admin', 'support', 'bot'], true))
+            ->map(fn (string $part): string => str_replace('_', ' ', trim($part)))
+            ->values()
+            ->all();
+
+        if ($parts === []) {
+            return 'Ação não informada';
+        }
+
+        return Str::ucfirst(implode(' ', $parts));
+    }
+
+    private function decodeJsonField(mixed $value): mixed
+    {
+        if ($value === null || is_array($value)) {
+            return $value;
+        }
+
+        if (! is_string($value)) {
+            return $value;
+        }
+
+        try {
+            $decoded = json_decode($value, true, flags: JSON_THROW_ON_ERROR);
+            return is_array($decoded) ? $decoded : $value;
+        } catch (\Throwable) {
+            return $value;
+        }
     }
 }
