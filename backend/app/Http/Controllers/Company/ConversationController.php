@@ -361,6 +361,11 @@ class ConversationController extends Controller
         $sendResult = null;
         $wasSent = false;
 
+        $senderName = trim((string) ($user->name ?? ''));
+        $textWithSender = $senderName !== '' && $trimmedText !== ''
+            ? "{$senderName}:\n{$trimmedText}"
+            : $trimmedText;
+
         if ($sendOutbound) {
             if ($contentType === 'text') {
                 // Usa envio inteligente: mensagem normal dentro da janela de 24h,
@@ -368,7 +373,7 @@ class ConversationController extends Controller
                 $sendResult = $this->whatsAppSend->sendSmartMessage(
                     $conversation->company,
                     $conversation->customer_phone,
-                    $trimmedText,
+                    $textWithSender,
                     $conversation
                 );
             } else {

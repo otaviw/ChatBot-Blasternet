@@ -465,19 +465,16 @@ export default function useCompanyInboxActions({
           upsertConversationInList(conversation);
           await refreshConversations();
           setNewConvModalOpen(false);
-          // Abre a conversa recém-criada
-          if (conversation.id) {
-            shouldScrollChatToBottomRef.current = true;
-            setDetail(conversation);
-          }
         }
+        return conversation ?? null;
       } catch (err) {
         setNewConvError(err.response?.data?.message || 'Falha ao criar conversa.');
+        return null;
       } finally {
         setNewConvBusy(false);
       }
     },
-    [refreshConversations, setDetail, shouldScrollChatToBottomRef, upsertConversationInList]
+    [refreshConversations, upsertConversationInList]
   );
 
   const sendTemplateToConversation = useCallback(async (templateName) => {

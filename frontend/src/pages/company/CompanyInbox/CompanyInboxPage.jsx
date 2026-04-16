@@ -227,6 +227,19 @@ function CompanyInboxPage() {
     [openConversationRaw, resetForOpenConversation]
   );
 
+  const handleCreateConversation = useCallback(
+    async (payload) => {
+      const conversation = await createConversation(payload);
+      const conversationId = Number.parseInt(String(conversation?.id ?? ''), 10);
+      if (!conversationId) {
+        return;
+      }
+
+      await openConversation(conversationId);
+    },
+    [createConversation, openConversation]
+  );
+
   useEffect(() => {
     if (!conversationSearchOpen || !selectedId) {
       return undefined;
@@ -529,7 +542,7 @@ function CompanyInboxPage() {
       <NewConversationModal
         open={newConvModalOpen}
         onClose={() => setNewConvModalOpen(false)}
-        onSubmit={createConversation}
+        onSubmit={handleCreateConversation}
         busy={newConvBusy}
         error={newConvError}
       />
