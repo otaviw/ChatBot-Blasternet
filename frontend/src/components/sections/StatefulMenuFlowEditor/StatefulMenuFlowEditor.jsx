@@ -782,12 +782,52 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
                   />
                 </label>
 
-                <div className="stateful-preview-box">
-                  <p className="stateful-preview-label">Prévia</p>
-                  <p className="stateful-preview-content">
-                    {selectedStep.reply_text || 'A mensagem deste bloco aparecerá aqui.'}
-                  </p>
-                </div>
+                {selectedStep.type === 'numeric_menu' ? (() => {
+                  const _mode = selectedStep.interaction_mode || 'auto';
+                  const _optCount = selectedStep.options?.length ?? 0;
+                  const _effectiveMode = _mode === 'auto' ? (_optCount <= 3 ? 'button' : 'list') : _mode;
+                  const _header = (selectedStep.button_header_text || '').trim();
+                  const _footer = (selectedStep.button_footer_text || '').trim();
+                  const _actionLabel = (selectedStep.button_action_label || '').trim() || 'Ver opções';
+                  const _body = (selectedStep.reply_text || '').trim() || 'A mensagem deste bloco aparecerá aqui.';
+                  const _opts = selectedStep.options ?? [];
+
+                  return (
+                    <div className="stateful-preview-box stateful-preview-whatsapp">
+                      <p className="stateful-preview-label">Prévia WhatsApp</p>
+                      <div className="stateful-preview-bubble">
+                        {_header && <p className="stateful-preview-header">{_header}</p>}
+                        <p className="stateful-preview-body">{_body}</p>
+                        {_footer && <p className="stateful-preview-footer">{_footer}</p>}
+                        {_effectiveMode !== 'text' && <hr className="stateful-preview-divider" />}
+                        {_effectiveMode === 'text' ? (
+                          _opts.map((opt, i) => (
+                            <p key={opt.id} className="stateful-preview-text-option">
+                              {(opt.key || String(i + 1)).trim()} - {(opt.label || 'Opção').trim()}
+                            </p>
+                          ))
+                        ) : _effectiveMode === 'button' ? (
+                          _opts.slice(0, 3).map((opt) => (
+                            <div key={opt.id} className="stateful-preview-button">
+                              {(opt.label || 'Opção').trim()}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="stateful-preview-list-btn">
+                            ≡ {_actionLabel} ↓
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })() : (
+                  <div className="stateful-preview-box">
+                    <p className="stateful-preview-label">Prévia</p>
+                    <p className="stateful-preview-content">
+                      {selectedStep.reply_text || 'A mensagem deste bloco aparecerá aqui.'}
+                    </p>
+                  </div>
+                )}
               </section>
 
               {selectedStep.type === 'numeric_menu' ? (
@@ -810,23 +850,25 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
                       </button>
                     </div>
 
-                    <label className="stateful-field">
-                      <span className="stateful-field-label">
-                        Resposta se o cliente digitar uma opção que não existe
-                      </span>
-                      <input
-                        type="text"
-                        value={selectedStep.invalid_option_text || ''}
-                        onChange={(e) =>
-                          updateStep(selectedStep.id, (current) => ({
-                            ...current,
-                            invalid_option_text: e.target.value,
-                          }))
-                        }
-                        placeholder="Se vazio, o sistema gera automaticamente"
-                        className="stateful-input"
-                      />
-                    </label>
+                    {(selectedStep.interaction_mode || 'auto') === 'text' && (
+                      <label className="stateful-field">
+                        <span className="stateful-field-label">
+                          Resposta se o cliente digitar uma opção que não existe
+                        </span>
+                        <input
+                          type="text"
+                          value={selectedStep.invalid_option_text || ''}
+                          onChange={(e) =>
+                            updateStep(selectedStep.id, (current) => ({
+                              ...current,
+                              invalid_option_text: e.target.value,
+                            }))
+                          }
+                          placeholder="Se vazio, o sistema gera automaticamente"
+                          className="stateful-input"
+                        />
+                      </label>
+                    )}
 
                     <div className="stateful-option-list">
                       {(selectedStep.options ?? []).map((option, optionIndex) => (
@@ -910,6 +952,25 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
                           />
                         </label>
                       </div>
+
+                      {(selectedStep.interaction_mode || 'auto') !== 'text' && (
+                        <label className="stateful-field">
+                          <span className="stateful-field-label">ID do botão</span>
+                          <input
+                            type="text"
+                            value={selectedOption.button_id || ''}
+                            onChange={(e) =>
+                              updateOption(selectedStep.id, selectedOption.id, (item) => ({
+                                ...item,
+                                button_id: e.target.value,
+                              }))
+                            }
+                            placeholder="gerado automaticamente"
+                            className="stateful-input stateful-input--small"
+                          />
+                          <span className="stateful-field-hint">Somente letras minúsculas, números e hífens</span>
+                        </label>
+                      )}
 
                       <ActionEditor
                         action={selectedOption.action}

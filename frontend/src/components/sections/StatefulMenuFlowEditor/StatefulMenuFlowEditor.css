@@ -326,6 +326,83 @@
   }
 }
 
+/* Interaction mode fields */
+.stateful-field-hint {
+  font-size: 11px;
+  color: #9ca3af;
+  margin: 0;
+}
+
+.stateful-input--small {
+  font-size: 13px;
+  padding: 8px 10px;
+}
+
+.stateful-preview-whatsapp {
+  padding: 14px;
+}
+
+.stateful-preview-bubble {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stateful-preview-header {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #706f6c;
+}
+
+.stateful-preview-body {
+  margin: 0;
+  font-size: 14px;
+  color: #171717;
+  white-space: pre-wrap;
+}
+
+.stateful-preview-footer {
+  margin: 0;
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.stateful-preview-divider {
+  border: none;
+  border-top: 1px solid #e3e3e0;
+  margin: 2px 0;
+}
+
+.stateful-preview-text-option {
+  margin: 0;
+  font-size: 13px;
+  color: #171717;
+}
+
+.stateful-preview-button {
+  display: block;
+  text-align: center;
+  border: 1px solid #d5d5d2;
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-size: 13px;
+  color: #0a7cff;
+  background: #fff;
+}
+
+.stateful-preview-list-btn {
+  display: block;
+  text-align: center;
+  border: 1px solid #d5d5d2;
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #0a7cff;
+  background: #fff;
+}
+
 /* ── Dark Theme ─────────────────────────────────────────── */
 body.theme-dark .stateful-editor-sidebar,
 body.theme-dark .stateful-editor-card,
@@ -420,3 +497,19 @@ body.theme-dark .stateful-option-list-item--active {
 body.theme-dark .stateful-option-list-title { color: #e8eaf2; }
 body.theme-dark .stateful-option-list-meta { color: #8b8fa8; }
 body.theme-dark .stateful-option-list-summary { color: #5c6078; }
+
+/* Interaction mode fields — dark */
+body.theme-dark .stateful-field-hint { color: #5c6078; }
+
+body.theme-dark .stateful-preview-header { color: #8b8fa8; }
+body.theme-dark .stateful-preview-body { color: #e8eaf2; }
+body.theme-dark .stateful-preview-footer { color: #5c6078; }
+body.theme-dark .stateful-preview-divider { border-color: #343848; }
+body.theme-dark .stateful-preview-text-option { color: #c8cce0; }
+
+body.theme-dark .stateful-preview-button,
+body.theme-dark .stateful-preview-list-btn {
+  background: #1a1d27;
+  border-color: #343848;
+  color: #4f8ef7;
+}
