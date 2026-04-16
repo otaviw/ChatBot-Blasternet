@@ -24,6 +24,24 @@ function toPositiveInt(value, fallback = null) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+function humanizeAiAction(action) {
+  const normalized = String(action || '').trim();
+  if (!normalized) return 'Ação não informada';
+
+  const known = {
+    message_sent: 'Mensagem enviada para IA',
+    tool_executed: 'Ferramenta executada',
+    tool_failed: 'Falha ao executar ferramenta',
+    safety_blocked: 'Bloqueada por segurança',
+  };
+
+  if (known[normalized]) return known[normalized];
+
+  return normalized
+    .replaceAll('_', ' ')
+    .replace(/^./, (char) => char.toUpperCase());
+}
+
 function buildAuditUrl(filters, companyId, page, perPage) {
   const params = new URLSearchParams();
   if (filters.userId) params.set('user_id', String(filters.userId));
@@ -163,7 +181,7 @@ function CompanyAiAuditPage() {
     <Layout role={layoutRole} onLogout={logout}>
       <PageHeader
         title="Auditoria da IA"
-        subtitle="Acompanhe tudo o que a IA fez com logs completos para debug e confiança."
+        subtitle="Acompanhe tudo o que a IA fez com logs completos para depuração e confiança."
         action={isAdmin && companies.length > 0 ? (
           <select
             value={selectedCompanyId}
@@ -211,7 +229,7 @@ function CompanyAiAuditPage() {
             >
               <option value="all">Todos</option>
               <option value="message">Mensagem</option>
-              <option value="tool">Tool</option>
+              <option value="tool">Ferramenta</option>
             </select>
           </label>
 
@@ -262,17 +280,18 @@ function CompanyAiAuditPage() {
                     <th className="px-4 py-3 font-medium">Usuário</th>
                     <th className="px-4 py-3 font-medium">Mensagem enviada</th>
                     <th className="px-4 py-3 font-medium">Resposta da IA</th>
-                    <th className="px-4 py-3 font-medium">Tool</th>
+                    <th className="px-4 py-3 font-medium">Ferramenta</th>
                     <th className="px-4 py-3 font-medium">Tipo</th>
+                    <th className="px-4 py-3 font-medium">Ação</th>
                     <th className="px-4 py-3 font-medium">Status</th>
                     <th className="px-4 py-3 font-medium">Data/hora</th>
-                    <th className="px-4 py-3 font-medium">Ação</th>
+                    <th className="px-4 py-3 font-medium">Detalhes</th>
                   </tr>
                 </thead>
                 <tbody>
                   {!visibleItems.length ? (
                     <tr className="border-b border-[#f1f5f9]">
-                      <td data-label="Info" colSpan={8} className="px-4 py-4 text-sm text-[#64748b]">
+                      <td data-label="Info" colSpan={9} className="px-4 py-4 text-sm text-[#64748b]">
                         Nenhum item nesta página.
                       </td>
                     </tr>
@@ -287,10 +306,11 @@ function CompanyAiAuditPage() {
                       <td data-label="Resposta da IA" className="px-4 py-3 text-[#334155] max-w-[260px]">
                         <p className="line-clamp-3">{item.assistant_response || '-'}</p>
                       </td>
-                      <td data-label="Tool" className="px-4 py-3 text-[#334155]">{item.tool_used || '-'}</td>
+                      <td data-label="Ferramenta" className="px-4 py-3 text-[#334155]">{item.tool_used || '-'}</td>
                       <td data-label="Tipo" className="px-4 py-3 text-[#334155]">
-                        {item.type === 'tool' ? 'Tool' : 'Mensagem'}
+                        {item.type === 'tool' ? 'Ferramenta' : 'Mensagem'}
                       </td>
+                      <td data-label="Ação" className="px-4 py-3 text-[#334155]">{humanizeAiAction(item.action)}</td>
                       <td data-label="Status" className="px-4 py-3">
                         <span
                           className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
@@ -303,7 +323,7 @@ function CompanyAiAuditPage() {
                         </span>
                       </td>
                       <td data-label="Data/hora" className="px-4 py-3 text-[#334155]">{formatDateTime(item.created_at)}</td>
-                      <td data-label="Ação" className="px-4 py-3">
+                      <td data-label="Detalhes" className="px-4 py-3">
                         <Button
                           variant="secondary"
                           className="px-3 py-1.5 text-xs"
@@ -353,7 +373,7 @@ function CompanyAiAuditPage() {
                 </Button>
 
                 <span className="text-xs text-[#475569] min-w-[96px] text-center">
-                  Pagina {currentPage} de {lastPage}
+                  Página {currentPage} de {lastPage}
                 </span>
 
                 <Button
@@ -362,7 +382,7 @@ function CompanyAiAuditPage() {
                   onClick={() => setPage((prev) => prev + 1)}
                   disabled={!canGoNext}
                 >
-                  Proxima
+                  Próxima
                 </Button>
               </div>
             </div>
@@ -400,7 +420,7 @@ function CompanyAiAuditPage() {
                 <div className="grid grid-cols-1 gap-2 text-sm md:grid-cols-2">
                   <p><strong>Usuário:</strong> {detailItem.user_name || '-'}</p>
                   <p><strong>Status:</strong> {detailItem.status === 'erro' ? 'Erro' : 'OK'}</p>
-                  <p><strong>Ação:</strong> {detailItem.action}</p>
+                  <p><strong>Ação:</strong> {humanizeAiAction(detailItem.action)}</p>
                   <p><strong>Data/hora:</strong> {formatDateTime(detailItem.created_at)}</p>
                   <p><strong>Conversa:</strong> {detailItem.conversation_id || '-'}</p>
                 </div>
@@ -436,7 +456,7 @@ function CompanyAiAuditPage() {
                       </table>
                     </div>
                   ) : (
-                    <p className="text-sm text-[#64748b]">Sem contexto de conversa disponivel.</p>
+                    <p className="text-sm text-[#64748b]">Sem contexto de conversa disponível.</p>
                   )}
                 </div>
               </div>
@@ -449,3 +469,4 @@ function CompanyAiAuditPage() {
 }
 
 export default CompanyAiAuditPage;
+

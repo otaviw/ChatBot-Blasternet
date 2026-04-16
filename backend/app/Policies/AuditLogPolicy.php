@@ -25,17 +25,17 @@ class AuditLogPolicy
 
     public function create(User $user): Response
     {
-        return Response::deny('Criacao manual de logs de auditoria não é permitida.');
+        return Response::deny('Criação manual de logs de auditoria não é permitida.');
     }
 
     public function update(User $user, AuditLog $auditLog): Response
     {
-        return Response::deny('Atualizacao de logs de auditoria não é permitida.');
+        return Response::deny('Atualização de logs de auditoria não é permitida.');
     }
 
     public function delete(User $user, AuditLog $auditLog): Response
     {
-        return Response::deny('Exclusao de logs de auditoria não é permitida.');
+        return Response::deny('Exclusão de logs de auditoria não é permitida.');
     }
 
     private function resolveResellerId(User $user): int
@@ -45,3 +45,4 @@ class AuditLogPolicy
         return is_numeric($candidate) ? (int) $candidate : 0;
     }
 }
+

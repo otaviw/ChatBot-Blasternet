@@ -316,15 +316,15 @@ class SearchConversationsAction
         return [
             'company.conversation.created' => 'Conversa criada',
             'company.conversation.assumed' => 'Conversa assumida',
-            'company.conversation.released' => 'Conversa solta',
+            'company.conversation.released' => 'Conversa liberada',
             'company.conversation.transferred' => 'Conversa transferida',
             'company.conversation.closed' => 'Conversa encerrada',
             'company.conversation.manual_reply' => 'Resposta manual enviada',
             'company.conversation.send_template' => 'Template enviado',
             'company.conversation.contact_updated' => 'Contato atualizado',
-            'company.conversation.tags_updated' => 'Tags atualizadas',
-            'company.conversation.tag_attached' => 'Tag adicionada',
-            'company.conversation.tag_detached' => 'Tag removida',
+            'company.conversation.tags_updated' => 'Tags da conversa atualizadas',
+            'company.conversation.tag_attached' => 'Tag adicionada na conversa',
+            'company.conversation.tag_detached' => 'Tag removida da conversa',
             'admin.conversation.contact_updated' => 'Contato atualizado por admin',
         ];
     }

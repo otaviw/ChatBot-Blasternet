@@ -82,12 +82,13 @@ class AiAuditController extends Controller
         $items = $logs->getCollection()->map(function (AiAuditLog $log): array {
             $meta = is_array($log->metadata) ? $log->metadata : [];
             $status = $this->resolveStatus($log, $meta);
-            $type = $this->resolveType($log->action);
+            $action = (string) $log->action;
 
             return [
                 'id' => (int) $log->id,
-                'type' => $type,
-                'action' => (string) $log->action,
+                'type' => $this->resolveType($action),
+                'action' => $action,
+                'action_label' => $this->humanizeAction($action),
                 'user_id' => $log->user_id ? (int) $log->user_id : null,
                 'user_name' => (string) ($log->user?->name ?? 'Sistema'),
                 'conversation_id' => $log->conversation_id ? (int) $log->conversation_id : null,
@@ -178,12 +179,15 @@ class AiAuditController extends Controller
                 ->get(['id', 'role', 'content', 'meta', 'created_at']);
         }
 
+        $action = (string) $log->action;
+
         return response()->json([
             'authenticated' => true,
             'item' => [
                 'id' => (int) $log->id,
-                'type' => $this->resolveType((string) $log->action),
-                'action' => (string) $log->action,
+                'type' => $this->resolveType($action),
+                'action' => $action,
+                'action_label' => $this->humanizeAction($action),
                 'user_id' => $log->user_id ? (int) $log->user_id : null,
                 'user_name' => (string) ($log->user?->name ?? 'Sistema'),
                 'conversation_id' => $log->conversation_id ? (int) $log->conversation_id : null,
@@ -224,6 +228,17 @@ class AiAuditController extends Controller
         return 'tool';
     }
 
+    private function humanizeAction(string $action): string
+    {
+        return match (trim($action)) {
+            AiAuditLog::ACTION_MESSAGE_SENT => 'Mensagem enviada para IA',
+            AiAuditLog::ACTION_TOOL_EXECUTED => 'Ferramenta executada',
+            AiAuditLog::ACTION_TOOL_FAILED => 'Falha ao executar ferramenta',
+            AiAuditLog::ACTION_SAFETY_BLOCKED => 'Bloqueada por segurança',
+            default => 'Ação não informada',
+        };
+    }
+
     private function parseDateOrNull(string $value, bool $start): ?Carbon
     {
         $normalized = trim($value);
@@ -240,3 +255,5 @@ class AiAuditController extends Controller
         return $start ? $date->startOfDay() : $date->endOfDay();
     }
 }
+
+

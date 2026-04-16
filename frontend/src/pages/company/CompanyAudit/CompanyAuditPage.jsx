@@ -73,14 +73,14 @@ function toPrettyJson(value) {
 
 function humanizeActionCode(action) {
   const normalized = String(action || '').trim();
-  if (!normalized) return 'Ação não informada';
+  if (!normalized) return 'AÃ§Ã£o nÃ£o informada';
 
   return normalized
     .split('.')
     .filter((part) => part && !['company', 'admin', 'support', 'bot'].includes(part))
     .map((part) => part.replaceAll('_', ' '))
     .join(' ')
-    .replace(/^./, (char) => char.toUpperCase()) || 'Ação não informada';
+    .replace(/^./, (char) => char.toUpperCase()) || 'AÃ§Ã£o nÃ£o informada';
 }
 
 function getActionLabel(item) {
@@ -90,7 +90,7 @@ function getActionLabel(item) {
 function getUserLabel(item) {
   const userName = String(item?.user_name || '').trim();
   if (userName) return userName;
-  return item?.user_id ? 'Usuário removido' : 'Sistema';
+  return item?.user_id ? 'UsuÃ¡rio removido' : 'Sistema';
 }
 
 function getEntityLabel(item) {
@@ -162,7 +162,7 @@ function CompanyAuditPage() {
       const response = await api.get(`/minha-conta/audit-logs/${id}`);
       setDetailItem(response.data?.item ?? null);
     } catch (err) {
-      setDetailError(err.response?.data?.message ?? 'Não foi possível carregar o detalhe do log.');
+      setDetailError(err.response?.data?.message ?? 'NÃ£o foi possÃ­vel carregar o detalhe do log.');
     } finally {
       setDetailLoading(false);
     }
@@ -173,8 +173,8 @@ function CompanyAuditPage() {
 
   const detailFields = detailItem
     ? [
-        ['Ação', getActionLabel(detailItem)],
-        ['Usuário', getUserLabel(detailItem)],
+        ['AÃ§Ã£o', getActionLabel(detailItem)],
+        ['UsuÃ¡rio', getUserLabel(detailItem)],
         ['Entidade', getEntityLabel(detailItem)],
         ['Data', formatDateTime(detailItem.created_at)],
         ['IP', String(detailItem.ip_address || '').trim()],
@@ -187,18 +187,18 @@ function CompanyAuditPage() {
       <PageState
         loading={loading}
         error={error}
-        errorMessage="Não foi possível carregar os logs de auditoria."
+        errorMessage="NÃ£o foi possÃ­vel carregar os logs de auditoria."
         onRetry={refetch}
       >
         <PageHeader
           title="Auditoria"
-          subtitle="Consulte eventos auditados com filtros por ação e data."
+          subtitle="Consulte eventos auditados com filtros por aÃ§Ã£o e data."
         />
 
         <Card className="mb-4 p-4">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
             <label className="text-sm text-[#334155]">
-              Ação
+              AÃ§Ã£o
               <input
                 type="text"
                 value={draft.action}
@@ -240,8 +240,8 @@ function CompanyAuditPage() {
             <table className="app-responsive-table min-w-full text-sm">
               <thead className="bg-[#f8fafc]">
                 <tr className="border-b border-[#e2e8f0] text-left text-[#64748b]">
-                  <th className="px-4 py-3 font-medium">Ação</th>
-                  <th className="px-4 py-3 font-medium">Usuário</th>
+                  <th className="px-4 py-3 font-medium">AÃ§Ã£o</th>
+                  <th className="px-4 py-3 font-medium">UsuÃ¡rio</th>
                   <th className="px-4 py-3 font-medium">Entidade</th>
                   <th className="px-4 py-3 font-medium">Data</th>
                   <th className="px-4 py-3 font-medium">Detalhes</th>
@@ -258,8 +258,8 @@ function CompanyAuditPage() {
 
                 {rows.map((item) => (
                   <tr key={item.id} className="align-top border-b border-[#f1f5f9]">
-                    <td data-label="Ação" className="px-4 py-3 text-[#0f172a]">{getActionLabel(item)}</td>
-                    <td data-label="Usuário" className="px-4 py-3 text-[#334155]">{getUserLabel(item)}</td>
+                    <td data-label="AÃ§Ã£o" className="px-4 py-3 text-[#0f172a]">{getActionLabel(item)}</td>
+                    <td data-label="UsuÃ¡rio" className="px-4 py-3 text-[#334155]">{getUserLabel(item)}</td>
                     <td data-label="Entidade" className="px-4 py-3 text-[#334155]">{getEntityLabel(item)}</td>
                     <td data-label="Data" className="px-4 py-3 text-[#334155]">{formatDateTime(item.created_at)}</td>
                     <td data-label="Detalhes" className="px-4 py-3">
@@ -292,7 +292,7 @@ function CompanyAuditPage() {
                 Anterior
               </Button>
               <span className="min-w-[96px] text-center text-xs text-[#475569]">
-                Página {currentPage} de {Math.max(1, lastPage)}
+                PÃ¡gina {currentPage} de {Math.max(1, lastPage)}
               </span>
               <Button
                 variant="secondary"
@@ -300,7 +300,7 @@ function CompanyAuditPage() {
                 onClick={() => setPage((prev) => prev + 1)}
                 disabled={currentPage >= lastPage}
               >
-                Próxima
+                PrÃ³xima
               </Button>
             </div>
           </div>
@@ -375,3 +375,4 @@ function CompanyAuditPage() {
 }
 
 export default CompanyAuditPage;
+

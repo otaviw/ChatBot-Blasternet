@@ -132,7 +132,7 @@ class AuditLogController extends Controller
 
         $item = $query->first();
         if (! $item) {
-            return response()->json(['message' => 'Log de auditoria n„o encontrado.'], 404);
+            return response()->json(['message' => 'Log de auditoria n√£o encontrado.'], 404);
         }
 
         $item->user_name = $this->resolveUserName($item->user_name ?? null, $item->user_id ?? null);
@@ -215,7 +215,7 @@ class AuditLogController extends Controller
             return $normalized;
         }
 
-        return is_numeric($userId) && (int) $userId > 0 ? 'Usu·rio removido' : 'Sistema';
+        return is_numeric($userId) && (int) $userId > 0 ? 'Usu√°rio removido' : 'Sistema';
     }
 
     private function humanizeAction(string $action): string
@@ -235,25 +235,30 @@ class AuditLogController extends Controller
             'company.tag.created' => 'Tag criada',
             'company.tag.updated' => 'Tag atualizada',
             'company.tag.deleted' => 'Tag removida',
-            'company.bot_settings.updated' => 'ConfiguraÁıes do bot atualizadas',
-            'admin.company.bot_settings.updated' => 'ConfiguraÁıes do bot da empresa atualizadas',
+            'company.bot_settings.updated' => 'Configura√ß√µes do bot atualizadas',
+            'admin.company.bot_settings.updated' => 'Configura√ß√µes do bot da empresa atualizadas',
             'admin.company.created' => 'Empresa criada',
             'admin.company.updated' => 'Empresa atualizada',
             'admin.company.deleted' => 'Empresa removida',
-            'admin.user.created' => 'Usu·rio criado',
-            'admin.user.updated' => 'Usu·rio atualizado',
-            'admin.user.deleted' => 'Usu·rio removido',
+            'admin.user.created' => 'Usu√°rio criado',
+            'admin.user.updated' => 'Usu√°rio atualizado',
+            'admin.user.deleted' => 'Usu√°rio removido',
             'admin.conversation.contact_updated' => 'Contato da conversa atualizado por admin',
+            'admin.conversation.assume_blocked' => 'A√ß√£o bloqueada: assumir conversa',
+            'admin.conversation.release_blocked' => 'A√ß√£o bloqueada: liberar conversa',
+            'admin.conversation.manual_reply_blocked' => 'A√ß√£o bloqueada: resposta manual',
+            'admin.conversation.close_blocked' => 'A√ß√£o bloqueada: encerrar conversa',
+            'admin.conversation.tags_update_blocked' => 'A√ß√£o bloqueada: atualizar tags',
             'support.ticket.created' => 'Ticket de suporte criado',
             'support.ticket.message.created' => 'Mensagem de ticket enviada',
             'support.ticket.status_updated' => 'Status do ticket atualizado',
-            'bot.simulation.executed' => 'SimulaÁ„o do bot executada',
+            'bot.simulation.executed' => 'Simula√ß√£o do bot executada',
             'conversation.transferred' => 'Conversa transferida',
         ];
 
         $normalized = trim($action);
         if ($normalized === '') {
-            return 'AÁ„o n„o informada';
+            return 'A√ß√£o n√£o informada';
         }
 
         if (isset($known[$normalized])) {
@@ -268,7 +273,7 @@ class AuditLogController extends Controller
             ->all();
 
         if ($parts === []) {
-            return 'AÁ„o n„o informada';
+            return 'A√ß√£o n√£o informada';
         }
 
         return Str::ucfirst(implode(' ', $parts));
@@ -292,3 +297,5 @@ class AuditLogController extends Controller
         }
     }
 }
+
+
