@@ -1720,13 +1720,16 @@ class StatefulBotService
             }
         }
 
-        // Prioridade 2: button_id da opção
+        // Prioridade 2: button_id da opção (explícito ou auto-gerado via slug do label)
         foreach ($rawOptions as $key => $optionDef) {
             if (! is_array($optionDef)) {
                 continue;
             }
-            $buttonId = trim((string) ($optionDef['button_id'] ?? ''));
-            if ($buttonId !== '' && $buttonId === $input) {
+            $storedId    = trim((string) ($optionDef['button_id'] ?? ''));
+            $effectiveId = $storedId !== ''
+                ? $storedId
+                : $this->slugifyLabel((string) ($optionDef['label'] ?? ''));
+            if ($effectiveId !== '' && $effectiveId === $input) {
                 return (string) $key;
             }
         }
