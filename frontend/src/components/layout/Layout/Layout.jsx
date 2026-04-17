@@ -93,6 +93,21 @@ const ICONS = {
       <path d="M16 18h.01" />
     </svg>
   ),
+  contatos: (
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2z" />
+      <path d="M8 10a4 4 0 1 1 8 0" />
+      <path d="M6 20a6 6 0 0 1 12 0" />
+      <line x1="16" y1="8" x2="20" y2="8" />
+    </svg>
+  ),
+  campanhas: (
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 11v3a2 2 0 0 0 2 2h2l6 4V6l-6 4H5a2 2 0 0 0-2 1z" />
+      <path d="M17 8a5 5 0 0 1 0 8" />
+      <path d="M19.5 5.5a8.5 8.5 0 0 1 0 13" />
+    </svg>
+  ),
   /** Assistente de texto (diferente do chat entre pessoas) */
   chatIa: (
     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -146,6 +161,8 @@ const iconKey = (label) => {
     Simulador: 'simulador',
     'Testar bot': 'simulador',
     Bot: 'bot',
+    Contatos: 'contatos',
+    Campanhas: 'campanhas',
     Agendamentos: 'agendamentos',
     Respostas: 'respostas',
     'Respostas rapidas': 'respostas',
@@ -559,6 +576,18 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
         icon: 'inbox',
         ariaLabel: 'Atendimento e conversas com clientes',
         module: NOTIFICATION_MODULE.INBOX,
+      },
+      {
+        href: '/minha-conta/contatos',
+        label: 'Contatos',
+        icon: 'contatos',
+        ariaLabel: 'Gestao de contatos da empresa',
+      },
+      {
+        href: '/minha-conta/campanhas',
+        label: 'Campanhas',
+        icon: 'campanhas',
+        ariaLabel: 'Gestao de campanhas de envio',
       },
       {
         href: '/minha-conta/chat-interno',

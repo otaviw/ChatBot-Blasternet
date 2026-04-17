@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Company;
 use App\Http\Controllers\Controller;
 use App\Models\Contact;
 use App\Services\ContactCsvImportService;
+use App\Support\PhoneNumberNormalizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -45,6 +46,50 @@ class ContactController extends Controller
             'skipped'  => $result['skipped'],
             'errors'   => $result['errors'],
         ]);
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+        $companyId = $this->resolveCompanyId($request);
+        if ($companyId === null) {
+            return response()->json(['message' => 'Empresa nÃ£o identificada.'], 403);
+        }
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:160'],
+            'phone' => ['required', 'string', 'max:40'],
+        ]);
+
+        $phone = PhoneNumberNormalizer::normalizeBrazil((string) $validated['phone']);
+        if ($phone === '') {
+            return response()->json([
+                'message' => 'Telefone invalido.',
+                'errors' => ['phone' => ['Telefone invalido.']],
+            ], 422);
+        }
+
+        $alreadyExists = Contact::where('company_id', $companyId)
+            ->where('phone', $phone)
+            ->exists();
+
+        if ($alreadyExists) {
+            return response()->json([
+                'message' => 'Ja existe um contato com este telefone.',
+                'errors' => ['phone' => ['Ja existe um contato com este telefone.']],
+            ], 422);
+        }
+
+        $contact = Contact::create([
+            'company_id' => $companyId,
+            'name' => trim((string) $validated['name']),
+            'phone' => $phone,
+            'last_interaction_at' => null,
+        ]);
+
+        return response()->json([
+            'ok' => true,
+            'contact' => $contact,
+        ], 201);
     }
 
     public function destroy(Request $request, int $contactId): JsonResponse

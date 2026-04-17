@@ -18,5 +18,6 @@ class RealtimeEventsTest extends TestCase
         $this->assertContains(RealtimeEvents::BOT_UPDATED, $events);
         $this->assertContains(RealtimeEvents::CONVERSATION_TRANSFERRED, $events);
         $this->assertContains(RealtimeEvents::NOTIFICATION_CREATED, $events);
+        $this->assertContains(RealtimeEvents::CAMPAIGN_UPDATED, $events);
     }
 }

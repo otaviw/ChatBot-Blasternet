@@ -1,6 +1,8 @@
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton/LoadingSkeleton.jsx';
+import LoadingSpinner from '@/components/ui/LoadingSpinner/LoadingSpinner.jsx';
 
 function PageLoading({
+  loadingLabel = 'Carregando...',
   titleWidth = 'w-56',
   subtitleWidth = 'w-96 max-w-full',
   rows = 0,
@@ -15,6 +17,7 @@ function PageLoading({
 
   return (
     <div className={['space-y-4', className].filter(Boolean).join(' ')}>
+      <LoadingSpinner label={loadingLabel} />
       <LoadingSkeleton className={`h-6 ${titleWidth}`.trim()} />
       <LoadingSkeleton className={`h-4 ${subtitleWidth}`.trim()} />
 

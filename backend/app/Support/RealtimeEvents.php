@@ -16,6 +16,7 @@ final class RealtimeEvents
     public const CONVERSATION_TAGS_UPDATED = 'conversation.tags.updated';
     public const CUSTOMER_TYPING = 'customer.typing';
     public const CONVERSATION_COUNTERS_UPDATED = 'conversation.counters.updated';
+    public const CAMPAIGN_UPDATED = 'campaign.updated';
 
     /**
      * @return array<int, string>
@@ -35,6 +36,7 @@ final class RealtimeEvents
             self::CONVERSATION_TAGS_UPDATED,
             self::CUSTOMER_TYPING,
             self::CONVERSATION_COUNTERS_UPDATED,
+            self::CAMPAIGN_UPDATED,
         ];
     }
 }

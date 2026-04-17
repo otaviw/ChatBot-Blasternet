@@ -1,6 +1,6 @@
 import EmptyState from '@/components/ui/EmptyState/EmptyState.jsx';
-import ErrorPanel from '@/components/ui/ErrorPanel/ErrorPanel.jsx';
-import { LoadingSkeletonLines } from '@/components/ui/LoadingSkeleton/LoadingSkeleton.jsx';
+import ErrorMessage from '@/components/ui/ErrorMessage/ErrorMessage.jsx';
+import LoadingSpinner from '@/components/ui/LoadingSpinner/LoadingSpinner.jsx';
 import './PageState.css';
 
 /**
@@ -19,11 +19,10 @@ import './PageState.css';
  *
  * Props de loading:
  *   loading      : boolean
- *   loadingLines : number   — nº de linhas skeleton (padrão: 5)
- *   loadingSlot  : ReactNode — substitui o skeleton padrão se fornecido
+ *   loadingSlot  : ReactNode — substitui o loading padrão se fornecido
  *
  * Props de erro:
- *   error        : any — truthy → exibe ErrorPanel
+ *   error        : any — truthy → exibe ErrorMessage
  *   errorMessage : string — mensagem customizada; padrão genérico se omitido
  *   onRetry      : () => void — habilita botão "Tentar novamente"
  *
@@ -41,7 +40,6 @@ import './PageState.css';
 function PageState({
   // loading
   loading = false,
-  loadingLines = 5,
   loadingSlot = null,
   // error
   error = null,
@@ -64,7 +62,7 @@ function PageState({
     }
     return (
       <div className={['page-state-loading', className].filter(Boolean).join(' ')}>
-        <LoadingSkeletonLines lines={loadingLines} lineClassName="h-4 w-full" />
+        <LoadingSpinner label="Carregando..." />
       </div>
     );
   }
@@ -72,7 +70,7 @@ function PageState({
   if (error) {
     const message = errorMessage || (typeof error === 'string' ? error : '');
     return (
-      <ErrorPanel
+      <ErrorMessage
         message={message}
         onRetry={typeof onRetry === 'function' ? onRetry : undefined}
         className={className}

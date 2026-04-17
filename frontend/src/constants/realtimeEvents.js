@@ -11,4 +11,5 @@ export const REALTIME_EVENTS = Object.freeze({
   APPOINTMENT_CREATED: 'appointment.created',
   APPOINTMENT_UPDATED: 'appointment.updated',
   CONVERSATION_TAGS_UPDATED: 'conversation.tags.updated',
+  CAMPAIGN_UPDATED: 'campaign.updated',
 });

@@ -19,6 +19,9 @@ use App\Http\Controllers\Company\UserController as CompanyUserController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['web', 'auth'])->group(function () {
+    Route::post('/contacts/import', [ContactController::class, 'importCsv'])->middleware('throttle:bot-write');
+    Route::post('/campaigns/{campaignId}/start', [CampaignController::class, 'start'])->middleware('throttle:bot-write');
+
     Route::prefix('minha-conta')->group(function () {
         Route::get('/bot', [BotController::class, 'index']);
         Route::put('/bot', [BotController::class, 'update'])->middleware('throttle:bot-write');
@@ -124,12 +127,14 @@ Route::middleware(['web', 'auth'])->group(function () {
 
         // Contatos
         Route::get('/contatos', [ContactController::class, 'index'])->middleware('throttle:inbox-read');
+        Route::post('/contatos', [ContactController::class, 'store'])->middleware('throttle:bot-write');
         Route::post('/contatos/importar-csv', [ContactController::class, 'importCsv'])->middleware('throttle:bot-write');
         Route::delete('/contatos/{contactId}', [ContactController::class, 'destroy'])->middleware('throttle:bot-write');
 
         // Campanhas
         Route::get('/campanhas', [CampaignController::class, 'index'])->middleware('throttle:inbox-read');
         Route::post('/campanhas', [CampaignController::class, 'store'])->middleware('throttle:bot-write');
+        Route::post('/campanhas/validar-contatos', [CampaignController::class, 'validateContacts'])->middleware('throttle:inbox-read');
         Route::get('/campanhas/{campaignId}', [CampaignController::class, 'show'])->middleware('throttle:inbox-read');
         Route::post('/campanhas/{campaignId}/iniciar', [CampaignController::class, 'start'])->middleware('throttle:bot-write');
         Route::delete('/campanhas/{campaignId}', [CampaignController::class, 'destroy'])->middleware('throttle:bot-write');
