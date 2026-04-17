@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\AiUsageLog;
 use App\Models\Company;
+use App\Models\Contact;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Services\Ai\AiMetricsService;
@@ -560,7 +561,27 @@ class InboundMessageService
         $conversation->last_user_message_at = now();
         $conversation->save();
 
+        if ($companyId > 0) {
+            $this->upsertContact($companyId, $normalizedFrom, $normalizedContactName);
+        }
+
         return $conversation;
+    }
+
+    private function upsertContact(int $companyId, string $phone, ?string $name): void
+    {
+        $contact = Contact::firstOrCreate(
+            ['company_id' => $companyId, 'phone' => $phone],
+            ['name' => $name ?? $phone]
+        );
+
+        $contact->last_interaction_at = now();
+
+        if ($name !== null && $contact->name !== $name) {
+            $contact->name = $name;
+        }
+
+        $contact->save();
     }
 
     private function reopenClosedConversation(Conversation $conversation): void

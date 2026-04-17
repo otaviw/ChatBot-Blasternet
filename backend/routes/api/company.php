@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Company\BotController;
+use App\Http\Controllers\Company\CampaignController;
+use App\Http\Controllers\Company\ContactController;
 use App\Http\Controllers\Company\AppointmentController;
 use App\Http\Controllers\Company\AiCompanyKnowledgeController;
 use App\Http\Controllers\Company\AiConversationController;
@@ -119,6 +121,18 @@ Route::middleware(['web', 'auth'])->group(function () {
             ->middleware('throttle:bot-write');
         Route::delete('/agendamentos/{appointment}', [AppointmentController::class, 'deleteAppointment'])
             ->middleware('throttle:bot-write');
+
+        // Contatos
+        Route::get('/contatos', [ContactController::class, 'index'])->middleware('throttle:inbox-read');
+        Route::post('/contatos/importar-csv', [ContactController::class, 'importCsv'])->middleware('throttle:bot-write');
+        Route::delete('/contatos/{contactId}', [ContactController::class, 'destroy'])->middleware('throttle:bot-write');
+
+        // Campanhas
+        Route::get('/campanhas', [CampaignController::class, 'index'])->middleware('throttle:inbox-read');
+        Route::post('/campanhas', [CampaignController::class, 'store'])->middleware('throttle:bot-write');
+        Route::get('/campanhas/{campaignId}', [CampaignController::class, 'show'])->middleware('throttle:inbox-read');
+        Route::post('/campanhas/{campaignId}/iniciar', [CampaignController::class, 'start'])->middleware('throttle:bot-write');
+        Route::delete('/campanhas/{campaignId}', [CampaignController::class, 'destroy'])->middleware('throttle:bot-write');
 
         // Feedback de sugestão de IA — acessível a todos os usuários da empresa
         Route::post('/ia/sugestoes/{suggestionId}/feedback', [AiSuggestionFeedbackController::class, 'store'])

@@ -89,4 +89,14 @@ class Company extends Model
     {
         return $this->hasMany(Appointment::class)->latest('starts_at');
     }
+
+    public function contacts()
+    {
+        return $this->hasMany(Contact::class);
+    }
+
+    public function campaigns()
+    {
+        return $this->hasMany(Campaign::class);
+    }
 }
