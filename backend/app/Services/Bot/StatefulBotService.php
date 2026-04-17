@@ -420,14 +420,16 @@ class StatefulBotService
         }
 
         $context['staff_options'] = $this->enumerateStaff($staffProfiles);
+        $staffText = $this->appointmentStaffMenuText($context['staff_options']);
 
         return $this->botStateResult(
-            $this->appointmentStaffMenuText($context['staff_options']),
+            $staffText,
             [
                 'flow' => 'appointments',
                 'step' => 'staff_select',
                 'context' => ['appointment' => $context],
-            ]
+            ],
+            $this->buildAppointmentStaffListMessage($context['staff_options'], $staffText)
         );
     }
 
@@ -488,13 +490,16 @@ class StatefulBotService
 
         $serviceOptions = $this->enumerateServices($services);
         if (! isset($serviceOptions[$normalizedText])) {
+            $serviceText = $this->appointmentServiceMenuText($serviceOptions, true);
+
             return $this->botStateResult(
-                $this->appointmentServiceMenuText($serviceOptions, true),
+                $serviceText,
                 [
                     'flow' => 'appointments',
                     'step' => 'service_select',
                     'context' => ['appointment' => array_merge($context, ['service_options' => $serviceOptions])],
-                ]
+                ],
+                $this->buildAppointmentServiceListMessage($serviceOptions, $serviceText)
             );
         }
 
@@ -517,14 +522,16 @@ class StatefulBotService
         }
 
         $context['staff_options'] = $this->enumerateStaff($staffProfiles);
+        $staffText = $this->appointmentStaffMenuText($context['staff_options']);
 
         return $this->botStateResult(
-            $this->appointmentStaffMenuText($context['staff_options']),
+            $staffText,
             [
                 'flow' => 'appointments',
                 'step' => 'staff_select',
                 'context' => ['appointment' => $context],
-            ]
+            ],
+            $this->buildAppointmentStaffListMessage($context['staff_options'], $staffText)
         );
     }
 
@@ -552,13 +559,16 @@ class StatefulBotService
         }
 
         if (! isset($staffOptions[$normalizedText])) {
+            $staffText = $this->appointmentStaffMenuText($staffOptions, true);
+
             return $this->botStateResult(
-                $this->appointmentStaffMenuText($staffOptions, true),
+                $staffText,
                 [
                     'flow' => 'appointments',
                     'step' => 'staff_select',
                     'context' => ['appointment' => array_merge($context, ['staff_options' => $staffOptions])],
-                ]
+                ],
+                $this->buildAppointmentStaffListMessage($staffOptions, $staffText)
             );
         }
 
@@ -590,14 +600,16 @@ class StatefulBotService
             $staffProfiles = $this->activeAppointmentStaff($company);
             $context['staff_options'] = $this->enumerateStaff($staffProfiles);
             unset($context['last_day_key'], $context['last_day_date'], $context['selected_date'], $context['slot_page']);
+            $staffText = $this->appointmentStaffMenuText($context['staff_options']);
 
             return $this->botStateResult(
-                $this->appointmentStaffMenuText($context['staff_options']),
+                $staffText,
                 [
                     'flow' => 'appointments',
                     'step' => 'staff_select',
                     'context' => ['appointment' => $context],
-                ]
+                ],
+                $this->buildAppointmentStaffListMessage($context['staff_options'], $staffText)
             );
         }
 
@@ -625,7 +637,7 @@ class StatefulBotService
                     'flow' => 'appointments',
                     'step' => 'day_select',
                     'context' => ['appointment' => $context],
-                ]);
+                ], $this->buildAppointmentDayListMessage($context, $noSlotMsg));
             }
             $context['selected_date'] = $selectedDate;
             $context['slot_page'] = 0;
@@ -655,13 +667,16 @@ class StatefulBotService
         // verifica limite máximo de antecedência
         $maxDate = CarbonImmutable::now($timezone)->addDays($maxDays)->toDateString();
         if ($selectedDate > $maxDate) {
+            $maxDaysText = "Não é possível agendar além de {$maxDays} dias. Escolha um dia mais próximo.\n\n" . $this->appointmentDayPromptText($context);
+
             return $this->botStateResult(
-                "Não é possível agendar além de {$maxDays} dias. Escolha um dia mais próximo.\n\n" . $this->appointmentDayPromptText($context),
+                $maxDaysText,
                 [
                     'flow' => 'appointments',
                     'step' => 'day_select',
                     'context' => ['appointment' => $context],
-                ]
+                ],
+                $this->buildAppointmentDayListMessage($context, $maxDaysText)
             );
         }
 
@@ -682,7 +697,8 @@ class StatefulBotService
                     'flow' => 'appointments',
                     'step' => 'day_select',
                     'context' => ['appointment' => $context],
-                ]
+                ],
+                $this->buildAppointmentDayListMessage($context, $noSlotMsg)
             );
         }
 
@@ -824,8 +840,8 @@ class StatefulBotService
         }
 
         $page = max(0, (int) ($context['slot_page'] ?? 0));
-        $offset = $page * 7;
-        $pageSlots = array_slice($slots, $offset, 7);
+        $offset = $page * 6;
+        $pageSlots = array_slice($slots, $offset, 6);
         $slotOptions = [];
         foreach ($pageSlots as $index => $slot) {
             $slotOptions[(string) ($index + 1)] = $slot;
@@ -877,13 +893,16 @@ class StatefulBotService
             );
         }
 
+        $confirmText = $this->appointmentConfirmText($context, $timezone);
+
         return $this->botStateResult(
-            $this->appointmentConfirmText($context, $timezone),
+            $confirmText,
             [
                 'flow' => 'appointments',
                 'step' => 'confirm',
                 'context' => ['appointment' => $context],
-            ]
+            ],
+            $this->buildAppointmentConfirmButtonMessage($confirmText)
         );
     }
 
@@ -905,13 +924,16 @@ class StatefulBotService
         $timezone = $this->appointmentSettings($companyEntity)?->timezone ?: 'America/Sao_Paulo';
 
         if ($normalizedText !== '1') {
+            $confirmText = "Opção inválida. Responda com 1, 2 ou 9... ou \"menu\" para voltar ao menu principal.\n\n" . $this->appointmentConfirmText($context, $timezone);
+
             return $this->botStateResult(
-                "Opção inválida. Responda com 1, 2 ou 9... ou \"menu\" para voltar ao menu principal.\n\n" . $this->appointmentConfirmText($context, $timezone),
+                $confirmText,
                 [
                     'flow' => 'appointments',
                     'step' => 'confirm',
                     'context' => ['appointment' => $context],
-                ]
+                ],
+                $this->buildAppointmentConfirmButtonMessage($confirmText)
             );
         }
 
@@ -943,14 +965,16 @@ class StatefulBotService
             );
         } catch (ValidationException $exception) {
             $message = collect($exception->errors())->flatten()->first() ?: 'Não consegui confirmar esse horário.';
+            $validationText = "{$message}\n\n" . $this->appointmentDayPromptText($context);
 
             return $this->botStateResult(
-                "{$message}\n\n" . $this->appointmentDayPromptText($context),
+                $validationText,
                 [
                     'flow' => 'appointments',
                     'step' => 'day_select',
                     'context' => ['appointment' => $context],
-                ]
+                ],
+                $this->buildAppointmentDayListMessage($context, $validationText)
             );
         }
 
@@ -993,14 +1017,16 @@ class StatefulBotService
             $parts[] = $extraMessage;
         }
         $parts[] = $this->appointmentDayPromptText($context);
+        $text = implode("\n\n", $parts);
 
         return $this->botStateResult(
-            implode("\n\n", $parts),
+            $text,
             [
                 'flow' => 'appointments',
                 'step' => 'day_select',
                 'context' => ['appointment' => $context],
-            ]
+            ],
+            $this->buildAppointmentDayListMessage($context, $text)
         );
     }
 
@@ -1024,25 +1050,28 @@ class StatefulBotService
         }
 
         $page = max(0, (int) ($context['slot_page'] ?? 0));
-        $offset = $page * 7;
+        $offset = $page * 6;
         if ($offset >= count($slots)) {
             $page = 0;
             $offset = 0;
         }
 
         $context['slot_page'] = $page;
-        $pageSlots = array_slice($slots, $offset, 7);
+        $pageSlots = array_slice($slots, $offset, 6);
         $prefix = $invalidOption ? "Opção inválida. Escolha um número da lista... ou \"menu\" para voltar ao menu principal.\n\n" : '';
         $timezone = $this->appointmentSettings($company)?->timezone ?: 'America/Sao_Paulo';
         $hasStaffChoice = (bool) ($context['has_staff_choice'] ?? false);
+        $hasMore = ($offset + 6) < count($slots);
+        $slotMenuText = $prefix . $this->appointmentSlotMenuText($selectedDate, $pageSlots, $hasMore, $timezone, $hasStaffChoice);
 
         return $this->botStateResult(
-            $prefix . $this->appointmentSlotMenuText($selectedDate, $pageSlots, ($offset + 7) < count($slots), $timezone, $hasStaffChoice),
+            $slotMenuText,
             [
                 'flow' => 'appointments',
                 'step' => 'slot_select',
                 'context' => ['appointment' => $context],
-            ]
+            ],
+            $this->buildAppointmentSlotListMessage($pageSlots, $hasMore, $timezone, $hasStaffChoice, $slotMenuText)
         );
     }
 
@@ -1100,14 +1129,16 @@ class StatefulBotService
         $context['nearest_slots'] = $slots;
         $timezone = (string) ($this->appointmentSettings($company)?->timezone ?: 'America/Sao_Paulo');
         $hasStaffChoice = (bool) ($context['has_staff_choice'] ?? false);
+        $nearestText = $this->appointmentNearestSlotsText($slots, $timezone, $hasStaffChoice);
 
         return $this->botStateResult(
-            $this->appointmentNearestSlotsText($slots, $timezone, $hasStaffChoice),
+            $nearestText,
             [
                 'flow' => 'appointments',
                 'step' => 'nearest_select',
                 'context' => ['appointment' => $context],
-            ]
+            ],
+            $this->buildAppointmentNearestSlotsListMessage($slots, $timezone, $nearestText)
         );
     }
 
@@ -1138,14 +1169,16 @@ class StatefulBotService
         if (! isset($slotOptions[$normalizedText])) {
             $timezone = (string) ($this->appointmentSettings($company)?->timezone ?: 'America/Sao_Paulo');
             $hasStaffChoice = (bool) ($context['has_staff_choice'] ?? false);
+            $nearestInvalidText = "Opção inválida. Escolha um número da lista... ou \"menu\" para voltar ao menu principal.\n\n" . $this->appointmentNearestSlotsText($slots, $timezone, $hasStaffChoice);
 
             return $this->botStateResult(
-                "Opção inválida. Escolha um número da lista... ou \"menu\" para voltar ao menu principal.\n\n" . $this->appointmentNearestSlotsText($slots, $timezone, $hasStaffChoice),
+                $nearestInvalidText,
                 [
                     'flow' => 'appointments',
                     'step' => 'nearest_select',
                     'context' => ['appointment' => $context],
-                ]
+                ],
+                $this->buildAppointmentNearestSlotsListMessage($slots, $timezone, $nearestInvalidText)
             );
         }
 
@@ -1812,6 +1845,193 @@ class StatefulBotService
             'footer_text'  => $footerText,
             'action_label' => $actionLabel,
             'rows'         => $rows,
+        ];
+    }
+
+    // -------------------------------------------------------------------------
+    // Appointment interactive message builders
+    // -------------------------------------------------------------------------
+
+    /** @param array<string, mixed> $context */
+    private function buildAppointmentDayListMessage(array $context, string $bodyText = ''): array
+    {
+        $hasStaffChoice = (bool) ($context['has_staff_choice'] ?? false);
+        $hasLastDay = trim((string) ($context['last_day_date'] ?? '')) !== '';
+        $staffName = trim((string) ($context['staff_name'] ?? ''));
+        $staffLine = $staffName !== '' ? "Atendente: {$staffName}" : 'Atendente: qualquer disponível';
+
+        if ($bodyText === '') {
+            $bodyText = $staffLine . "\n\nQual dia você prefere?";
+        }
+
+        $rows = [
+            ['id' => 'hoje',    'title' => 'Hoje',    'description' => ''],
+            ['id' => 'amanha',  'title' => 'Amanhã',  'description' => ''],
+            ['id' => 'segunda', 'title' => 'Segunda', 'description' => ''],
+            ['id' => 'terca',   'title' => 'Terça',   'description' => ''],
+            ['id' => 'quarta',  'title' => 'Quarta',  'description' => ''],
+            ['id' => 'quinta',  'title' => 'Quinta',  'description' => ''],
+            ['id' => 'sexta',   'title' => 'Sexta',   'description' => ''],
+            ['id' => 'sabado',  'title' => 'Sábado',  'description' => ''],
+        ];
+        if ($hasLastDay) {
+            $rows[] = ['id' => '7', 'title' => 'Próxima semana', 'description' => ''];
+        }
+        $rows[] = ['id' => '8', 'title' => 'Próximos horários', 'description' => ''];
+        $rows[] = ['id' => '9', 'title' => 'Falar com atendente', 'description' => ''];
+        if ($hasStaffChoice) {
+            $rows[] = ['id' => '0', 'title' => 'Trocar atendente', 'description' => ''];
+        }
+
+        return [
+            'type'         => 'interactive_list',
+            'body_text'    => $bodyText,
+            'header_text'  => '',
+            'footer_text'  => '',
+            'action_label' => 'Escolher dia',
+            'rows'         => $rows,
+        ];
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $slots
+     */
+    private function buildAppointmentSlotListMessage(array $slots, bool $hasMore, string $timezone, bool $hasStaffChoice, string $bodyText = ''): array
+    {
+        $tz = $timezone ?: 'America/Sao_Paulo';
+        $rows = [];
+        foreach ($slots as $index => $slot) {
+            $candidate = (string) ($slot['starts_at_local'] ?? $slot['starts_at'] ?? '');
+            $startsAt = CarbonImmutable::parse($candidate)->setTimezone($tz);
+            $timeLabel = $startsAt->format('H:i');
+            $staffName = trim((string) ($slot['staff_name'] ?? ''));
+            $title = $staffName !== '' ? "{$timeLabel} ({$staffName})" : $timeLabel;
+            $rows[] = ['id' => (string) ($index + 1), 'title' => mb_substr($title, 0, 24), 'description' => ''];
+        }
+        $rows[] = ['id' => '7', 'title' => 'Próxima semana', 'description' => ''];
+        if ($hasMore) {
+            $rows[] = ['id' => '8', 'title' => 'Ver mais horários', 'description' => ''];
+        }
+        $rows[] = ['id' => '0', 'title' => 'Voltar', 'description' => ''];
+        $rows[] = ['id' => '9', 'title' => 'Falar com atendente', 'description' => ''];
+
+        return [
+            'type'         => 'interactive_list',
+            'body_text'    => $bodyText,
+            'header_text'  => '',
+            'footer_text'  => '',
+            'action_label' => 'Escolher horário',
+            'rows'         => $rows,
+        ];
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $slots
+     */
+    private function buildAppointmentNearestSlotsListMessage(array $slots, string $timezone, string $bodyText = ''): array
+    {
+        $tz = $timezone ?: 'America/Sao_Paulo';
+        $rows = [];
+        foreach (array_slice($slots, 0, 7) as $index => $slot) {
+            $candidate = (string) ($slot['starts_at_local'] ?? $slot['starts_at'] ?? '');
+            $startsAt = CarbonImmutable::parse($candidate)->setTimezone($tz);
+            $dateLabel = $startsAt->translatedFormat('D d/m');
+            $timeLabel = $startsAt->format('H:i');
+            $staffName = trim((string) ($slot['staff_name'] ?? ''));
+            $suffix = $staffName !== '' ? " ({$staffName})" : '';
+            $title = mb_substr("{$dateLabel} {$timeLabel}{$suffix}", 0, 24);
+            $rows[] = ['id' => (string) ($index + 1), 'title' => $title, 'description' => ''];
+        }
+        $rows[] = ['id' => '0', 'title' => 'Voltar', 'description' => ''];
+        $rows[] = ['id' => '9', 'title' => 'Falar com atendente', 'description' => ''];
+
+        return [
+            'type'         => 'interactive_list',
+            'body_text'    => $bodyText !== '' ? $bodyText : 'Próximos horários disponíveis:',
+            'header_text'  => '',
+            'footer_text'  => '',
+            'action_label' => 'Escolher horário',
+            'rows'         => $rows,
+        ];
+    }
+
+    /**
+     * @param array<string, array{id:int,name:string}> $serviceOptions
+     */
+    private function buildAppointmentServiceListMessage(array $serviceOptions, string $bodyText = ''): array
+    {
+        $body = $bodyText !== '' ? $bodyText : 'Agendamento: escolha o serviço:';
+        $rows = [];
+        foreach ($serviceOptions as $key => $service) {
+            $rows[] = ['id' => (string) $key, 'title' => mb_substr((string) $service['name'], 0, 24), 'description' => ''];
+        }
+        $rows[] = ['id' => '9', 'title' => 'Falar com atendente', 'description' => ''];
+
+        if (count($rows) <= 3) {
+            return [
+                'type'        => 'interactive_buttons',
+                'body_text'   => $body,
+                'header_text' => '',
+                'footer_text' => '',
+                'buttons'     => array_map(fn ($r) => ['id' => $r['id'], 'title' => $r['title']], $rows),
+            ];
+        }
+
+        return [
+            'type'         => 'interactive_list',
+            'body_text'    => $body,
+            'header_text'  => '',
+            'footer_text'  => '',
+            'action_label' => 'Escolher serviço',
+            'rows'         => $rows,
+        ];
+    }
+
+    /**
+     * @param array<string, array{id:int,name:string}> $staffOptions
+     */
+    private function buildAppointmentStaffListMessage(array $staffOptions, string $bodyText = ''): array
+    {
+        $body = $bodyText !== '' ? $bodyText : 'Escolha o atendente:';
+        $rows = [];
+        foreach ($staffOptions as $key => $staff) {
+            $rows[] = ['id' => (string) $key, 'title' => mb_substr((string) $staff['name'], 0, 24), 'description' => ''];
+        }
+        $rows[] = ['id' => '8', 'title' => 'Qualquer atendente', 'description' => ''];
+        $rows[] = ['id' => '9', 'title' => 'Falar com atendente', 'description' => ''];
+
+        if (count($rows) <= 3) {
+            return [
+                'type'        => 'interactive_buttons',
+                'body_text'   => $body,
+                'header_text' => '',
+                'footer_text' => '',
+                'buttons'     => array_map(fn ($r) => ['id' => $r['id'], 'title' => $r['title']], $rows),
+            ];
+        }
+
+        return [
+            'type'         => 'interactive_list',
+            'body_text'    => $body,
+            'header_text'  => '',
+            'footer_text'  => '',
+            'action_label' => 'Escolher atendente',
+            'rows'         => $rows,
+        ];
+    }
+
+    private function buildAppointmentConfirmButtonMessage(string $bodyText): array
+    {
+        return [
+            'type'        => 'interactive_buttons',
+            'body_text'   => $bodyText,
+            'header_text' => '',
+            'footer_text' => '',
+            'buttons'     => [
+                ['id' => '1', 'title' => 'Confirmar'],
+                ['id' => '2', 'title' => 'Outro horário'],
+                ['id' => '9', 'title' => 'Falar com atendente'],
+            ],
         ];
     }
 
