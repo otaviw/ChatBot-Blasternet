@@ -254,6 +254,10 @@ class AuditLogController extends Controller
             'support.ticket.status_updated' => 'Status do ticket atualizado',
             'bot.simulation.executed' => 'Simulação do bot executada',
             'conversation.transferred' => 'Conversa transferida',
+            'create_entity' => 'Registro criado',
+            'update_entity' => 'Registro atualizado',
+            'delete_entity' => 'Registro removido',
+            'send_message' => 'Mensagem enviada',
         ];
 
         $normalized = trim($action);

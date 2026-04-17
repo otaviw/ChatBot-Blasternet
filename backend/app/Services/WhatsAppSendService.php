@@ -668,7 +668,7 @@ class WhatsAppSendService
             'company_id'             => $company?->id,
             'to'                     => $toPhone,
             'template'               => $templateName,
-            'last_user_message_at'   => $conversation?->last_user_message_até->toIso8601String(),
+            'last_user_message_at'   => $conversation?->last_user_message_at?->toIso8601String(),
         ]);
 
         return $this->sendTemplateMessage($company, $toPhone, $templateName, $templateVariables);
