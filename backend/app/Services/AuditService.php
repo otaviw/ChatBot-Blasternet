@@ -145,16 +145,14 @@ class AuditService
         return $normalized === '' ? null : $normalized;
     }
 
-    /**
-     * @param  array<string, mixed>|null  $payload
-     * @return array<string, mixed>|null
-     */
-    private static function normalizePayload(?array $payload): ?array
+    private static function normalizePayload(?array $payload): ?string
     {
         if ($payload === null || $payload === []) {
             return null;
         }
 
-        return $payload;
+        $encoded = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        return $encoded !== false ? $encoded : null;
     }
 }

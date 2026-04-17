@@ -361,7 +361,11 @@ class ConversationController extends Controller
         $sendResult = null;
         $wasSent = false;
 
-        $staffDisplayName = trim((string) ($user->appointmentStaffProfile?->display_name ?? ''));
+        try {
+            $staffDisplayName = trim((string) ($user->appointmentStaffProfile?->display_name ?? ''));
+        } catch (\Throwable) {
+            $staffDisplayName = '';
+        }
         $senderName = $staffDisplayName !== '' ? $staffDisplayName : trim((string) ($user->name ?? ''));
         $senderNameForWhatsApp = str_replace('*', '', $senderName);
         $textWithSender = $senderNameForWhatsApp !== '' && $trimmedText !== ''

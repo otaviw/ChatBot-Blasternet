@@ -4,8 +4,10 @@ namespace App\Services;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Throwable;
 
 class AuditLogService
 {
@@ -59,20 +61,25 @@ class AuditLogService
             $payload['entity_type'] = 'audit';
         }
 
-        DB::table('audit_logs')->insert($payload);
+        try {
+            DB::table('audit_logs')->insert($payload);
+        } catch (Throwable $exception) {
+            Log::warning('audit_log.record_failed', [
+                'action' => $action,
+                'error'  => $exception->getMessage(),
+            ]);
+        }
     }
 
-    /**
-     * @param  array<string, mixed>|null  $payload
-     * @return array<string, mixed>|null
-     */
-    private function normalizePayload(?array $payload): ?array
+    private function normalizePayload(?array $payload): ?string
     {
         if (! is_array($payload) || $payload === []) {
             return null;
         }
 
-        return $payload;
+        $encoded = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        return $encoded !== false ? $encoded : null;
     }
 
     private function resolveResellerId(Request $request, mixed $user): ?int
