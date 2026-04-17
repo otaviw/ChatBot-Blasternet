@@ -309,6 +309,35 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
     setNotifPermission(result);
   };
 
+  // Observa mudanças de permissão de notificação via API de Permissions do browser.
+  // Necessário porque o useNotifications dispara requestPermission() automaticamente
+  // e a resposta do usuário no diálogo não atualiza o estado local de outra forma.
+  useEffect(() => {
+    if (!browserNotificationService.isSupported() || !navigator.permissions) {
+      return undefined;
+    }
+
+    let permissionStatus = null;
+    let canceled = false;
+
+    navigator.permissions.query({ name: 'notifications' }).then((status) => {
+      if (canceled) return;
+      permissionStatus = status;
+
+      const onChange = () => {
+        if (!canceled) {
+          setNotifPermission(browserNotificationService.getPermission());
+        }
+      };
+
+      permissionStatus.addEventListener('change', onChange);
+    }).catch(() => {});
+
+    return () => {
+      canceled = true;
+    };
+  }, []);
+
   useEffect(() => {
     if (!notificationsPanelOpen) {
       setClearAllConfirmOpen(false);

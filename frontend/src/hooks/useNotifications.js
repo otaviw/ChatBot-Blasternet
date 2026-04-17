@@ -140,6 +140,8 @@ export default function useNotifications(options = {}) {
   const [clearedUntilId, setClearedUntilId] = useState(0);
 
   const activeConversationIdRef = useRef(0);
+  // Ref para uso dentro do handler de realtime sem re-subscrever a cada mudança
+  const clearedUntilIdRef = useRef(0);
   const setActiveConversationId = useCallback((id) => {
     activeConversationIdRef.current = Number(id) > 0 ? Number(id) : 0;
   }, []);
@@ -373,6 +375,11 @@ export default function useNotifications(options = {}) {
     }
   }, [applyUnreadCounters, clearedUntilId, enabled]);
 
+  // Mantém a ref sincronizada para uso no handler de realtime
+  useEffect(() => {
+    clearedUntilIdRef.current = clearedUntilId;
+  }, [clearedUntilId]);
+
   useEffect(() => {
     if (!enabled) {
       setClearedUntilId(0);
@@ -416,7 +423,11 @@ export default function useNotifications(options = {}) {
         return;
       }
 
-      if (shouldHideNotification(normalized, clearedUntilId)) {
+      // Usa ref para não precisar re-subscrever quando clearedUntilId muda,
+      // evitando que o WebSocket desconecte/reconecte a cada limpeza de notificações
+      const currentClearedUntilId = clearedUntilIdRef.current;
+
+      if (shouldHideNotification(normalized, currentClearedUntilId)) {
         return;
       }
 
@@ -439,7 +450,7 @@ export default function useNotifications(options = {}) {
       }
 
       setNotifications((prev) => mergeNotification(prev, normalized));
-      if (clearedUntilId <= 0) {
+      if (currentClearedUntilId <= 0) {
         applyUnreadCounters(payload.unreadByModule, payload.totalUnread);
       }
 
@@ -449,7 +460,7 @@ export default function useNotifications(options = {}) {
     return () => {
       unsubscribe();
     };
-  }, [applyUnreadCounters, clearedUntilId, enabled]);
+  }, [applyUnreadCounters, enabled]);
 
   useEffect(() => {
     if (clearedUntilId <= 0) {

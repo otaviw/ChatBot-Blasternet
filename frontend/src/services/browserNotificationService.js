@@ -56,12 +56,26 @@ const browserNotificationService = {
     const body = String(appNotification.text || '');
     const url = resolveNavigationUrl(appNotification);
 
+    // Constrói URL absoluta do ícone para evitar falha de resolução de caminho relativo
+    const iconUrl = (() => {
+      try {
+        return new URL('/favicon.ico', window.location.origin).href;
+      } catch {
+        return '/favicon.ico';
+      }
+    })();
+
     try {
       const notification = new Notification(title, {
         body,
-        icon: '/favicon.ico',
+        icon: iconUrl,
         tag: `app-notification-${appNotification.id}`,
+        renotify: false,
       });
+
+      notification.onerror = (event) => {
+        console.error('[BrowserNotification] Erro ao exibir notificação do Windows:', event);
+      };
 
       notification.onclick = (event) => {
         event.preventDefault();
@@ -73,7 +87,8 @@ const browserNotificationService = {
       };
 
       return notification;
-    } catch {
+    } catch (error) {
+      console.error('[BrowserNotification] Falha ao criar notificação do Windows:', error);
       return null;
     }
   },
