@@ -46,9 +46,15 @@ class UserController extends Controller
         $users = User::query()
             ->where('company_id', $companyId)
             ->whereIn('role', User::companyRoleValues())
-            ->with(['company:id,name', 'areas:id,name,company_id', 'appointmentStaffProfile'])
+            ->with(['company:id,name', 'areas:id,name,company_id'])
             ->orderBy('name')
             ->get(['id', 'name', 'email', 'role', 'company_id', 'is_active', 'can_use_ai', 'disabled_at', 'created_at']);
+
+        try {
+            $users->loadMissing('appointmentStaffProfile');
+        } catch (\Throwable) {
+            // Tabela pode não existir ainda em produção
+        }
 
         $companyName = $actor->isSystemAdmin()
             ? ($users->first()?->company?->name ?? null)
@@ -125,7 +131,12 @@ class UserController extends Controller
 
         $user->areas()->sync($areaIds);
         $this->syncAppointmentProfile($companyId, $user, $validated);
-        $user->load(['company:id,name', 'areas:id,name,company_id', 'appointmentStaffProfile']);
+        $user->load(['company:id,name', 'areas:id,name,company_id']);
+        try {
+            $user->load('appointmentStaffProfile');
+        } catch (\Throwable) {
+            // Tabela pode não existir ainda em produção
+        }
 
         return response()->json([
             'ok'            => true,
@@ -193,7 +204,12 @@ class UserController extends Controller
 
         $user->areas()->sync($areaIds);
         $this->syncAppointmentProfile($companyId, $user, $validated);
-        $user->load(['company:id,name', 'areas:id,name,company_id', 'appointmentStaffProfile']);
+        $user->load(['company:id,name', 'areas:id,name,company_id']);
+        try {
+            $user->load('appointmentStaffProfile');
+        } catch (\Throwable) {
+            // Tabela pode não existir ainda em produção
+        }
 
         return response()->json([
             'ok' => true,
@@ -313,7 +329,13 @@ class UserController extends Controller
      */
     private function serializeUser(User $user): array
     {
-        $staffProfile = $user->appointmentStaffProfile;
+        try {
+            $staffProfile = $user->relationLoaded('appointmentStaffProfile')
+                ? $user->appointmentStaffProfile
+                : $user->appointmentStaffProfile()->first();
+        } catch (\Throwable) {
+            $staffProfile = null;
+        }
 
         return [
             'id' => $user->id,
@@ -350,25 +372,29 @@ class UserController extends Controller
             return;
         }
 
-        $profile = AppointmentStaffProfile::query()->firstOrCreate(
-            [
-                'company_id' => $companyId,
-                'user_id' => (int) $user->id,
-            ],
-            [
-                'display_name' => $user->name,
-                'is_bookable' => true,
-            ]
-        );
+        try {
+            $profile = AppointmentStaffProfile::query()->firstOrCreate(
+                [
+                    'company_id' => $companyId,
+                    'user_id' => (int) $user->id,
+                ],
+                [
+                    'display_name' => $user->name,
+                    'is_bookable' => true,
+                ]
+            );
 
-        if (array_key_exists('appointment_is_staff', $validated)) {
-            $profile->is_bookable = (bool) $validated['appointment_is_staff'];
-        }
-        if (array_key_exists('appointment_display_name', $validated)) {
-            $text = trim((string) ($validated['appointment_display_name'] ?? ''));
-            $profile->display_name = $text !== '' ? $text : null;
-        }
+            if (array_key_exists('appointment_is_staff', $validated)) {
+                $profile->is_bookable = (bool) $validated['appointment_is_staff'];
+            }
+            if (array_key_exists('appointment_display_name', $validated)) {
+                $text = trim((string) ($validated['appointment_display_name'] ?? ''));
+                $profile->display_name = $text !== '' ? $text : null;
+            }
 
-        $profile->save();
+            $profile->save();
+        } catch (\Throwable) {
+            // Tabela pode não existir ainda em produção
+        }
     }
 }
