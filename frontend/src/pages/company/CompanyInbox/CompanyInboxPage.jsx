@@ -41,12 +41,14 @@ function CompanyInboxPage() {
   const { data, loading, error } = usePageData(
     `/minha-conta/conversas?page=1&per_page=${CONV_PER_PAGE}`
   );
-  const { data: botData } = usePageData('/minha-conta/bot');
+  const { data: areasData } = usePageData('/areas');
   const serviceAreaNames = useMemo(() => {
-    const list = botData?.settings?.service_areas;
+    const list = areasData?.areas;
     if (!Array.isArray(list)) return [];
-    return list.map((a) => String(a ?? '').trim()).filter(Boolean);
-  }, [botData]);
+    return list
+      .map((area) => String(area?.name ?? '').trim())
+      .filter(Boolean);
+  }, [areasData]);
   const { logout } = useLogout();
   const { markReadByReference, unreadConversationIds, setActiveConversationId } = useNotificationsContext();
 

@@ -13,6 +13,7 @@ use App\Models\Conversation;
 use App\Services\Appointments\AppointmentAvailabilityService;
 use App\Services\Appointments\AppointmentBookingService;
 use App\Support\AppointmentStatus;
+use App\Support\Enums\BotFlow;
 use Carbon\CarbonImmutable;
 use Illuminate\Validation\ValidationException;
 
@@ -49,11 +50,11 @@ class StatefulBotService
             return $this->buildInitialMenuResponse($definition);
         }
 
-        if ($flow === 'appointments') {
+        if ($flow === BotFlow::APPOINTMENTS->value) {
             return $this->handleAppointmentsFlow($company, $conversation, $step, $normalizedText);
         }
 
-        if ($flow === 'cancel_appointment') {
+        if ($flow === BotFlow::CANCEL_APPOINTMENT->value) {
             return $this->handleAppointmentCancellationFlow($company, $conversation, $step, $normalizedText);
         }
 
@@ -425,7 +426,7 @@ class StatefulBotService
         return $this->botStateResult(
             $staffText,
             [
-                'flow' => 'appointments',
+                'flow' => BotFlow::APPOINTMENTS->value,
                 'step' => 'staff_select',
                 'context' => ['appointment' => $context],
             ],
@@ -495,7 +496,7 @@ class StatefulBotService
             return $this->botStateResult(
                 $serviceText,
                 [
-                    'flow' => 'appointments',
+                    'flow' => BotFlow::APPOINTMENTS->value,
                     'step' => 'service_select',
                     'context' => ['appointment' => array_merge($context, ['service_options' => $serviceOptions])],
                 ],
@@ -527,7 +528,7 @@ class StatefulBotService
         return $this->botStateResult(
             $staffText,
             [
-                'flow' => 'appointments',
+                'flow' => BotFlow::APPOINTMENTS->value,
                 'step' => 'staff_select',
                 'context' => ['appointment' => $context],
             ],
@@ -564,7 +565,7 @@ class StatefulBotService
             return $this->botStateResult(
                 $staffText,
                 [
-                    'flow' => 'appointments',
+                    'flow' => BotFlow::APPOINTMENTS->value,
                     'step' => 'staff_select',
                     'context' => ['appointment' => array_merge($context, ['staff_options' => $staffOptions])],
                 ],
@@ -605,7 +606,7 @@ class StatefulBotService
             return $this->botStateResult(
                 $staffText,
                 [
-                    'flow' => 'appointments',
+                    'flow' => BotFlow::APPOINTMENTS->value,
                     'step' => 'staff_select',
                     'context' => ['appointment' => $context],
                 ],
@@ -634,7 +635,7 @@ class StatefulBotService
                 $noSlotMsg .= "\n\n" . $this->appointmentDayPromptText($context);
 
                 return $this->botStateResult($noSlotMsg, [
-                    'flow' => 'appointments',
+                    'flow' => BotFlow::APPOINTMENTS->value,
                     'step' => 'day_select',
                     'context' => ['appointment' => $context],
                 ], $this->buildAppointmentDayListMessage($context, $noSlotMsg));
@@ -672,7 +673,7 @@ class StatefulBotService
             return $this->botStateResult(
                 $maxDaysText,
                 [
-                    'flow' => 'appointments',
+                    'flow' => BotFlow::APPOINTMENTS->value,
                     'step' => 'day_select',
                     'context' => ['appointment' => $context],
                 ],
@@ -694,7 +695,7 @@ class StatefulBotService
             return $this->botStateResult(
                 $noSlotMsg,
                 [
-                    'flow' => 'appointments',
+                    'flow' => BotFlow::APPOINTMENTS->value,
                     'step' => 'day_select',
                     'context' => ['appointment' => $context],
                 ],
@@ -861,7 +862,7 @@ class StatefulBotService
         return $this->botStateResult(
             "Para enviarmos a confirmação por e-mail, informe seu endereço de e-mail ou responda *pular* para continuar sem.",
             [
-                'flow' => 'appointments',
+                'flow' => BotFlow::APPOINTMENTS->value,
                 'step' => 'collect_email',
                 'context' => ['appointment' => $context],
             ]
@@ -886,7 +887,7 @@ class StatefulBotService
             return $this->botStateResult(
                 "E-mail inválido. Por favor, informe um e-mail válido ou responda *pular* para continuar sem.",
                 [
-                    'flow' => 'appointments',
+                    'flow' => BotFlow::APPOINTMENTS->value,
                     'step' => 'collect_email',
                     'context' => ['appointment' => $context],
                 ]
@@ -898,7 +899,7 @@ class StatefulBotService
         return $this->botStateResult(
             $confirmText,
             [
-                'flow' => 'appointments',
+                'flow' => BotFlow::APPOINTMENTS->value,
                 'step' => 'confirm',
                 'context' => ['appointment' => $context],
             ],
@@ -929,7 +930,7 @@ class StatefulBotService
             return $this->botStateResult(
                 $confirmText,
                 [
-                    'flow' => 'appointments',
+                    'flow' => BotFlow::APPOINTMENTS->value,
                     'step' => 'confirm',
                     'context' => ['appointment' => $context],
                 ],
@@ -970,7 +971,7 @@ class StatefulBotService
             return $this->botStateResult(
                 $validationText,
                 [
-                    'flow' => 'appointments',
+                    'flow' => BotFlow::APPOINTMENTS->value,
                     'step' => 'day_select',
                     'context' => ['appointment' => $context],
                 ],
@@ -992,7 +993,7 @@ class StatefulBotService
         return $this->botStateResult(
             $replyText,
             $menu['new_state'] ?? [
-                'flow' => 'main',
+                'flow' => BotFlow::MAIN->value,
                 'step' => 'menu',
                 'context' => ['last_menu_keys' => ['1', '2', '3']],
             ]
@@ -1022,7 +1023,7 @@ class StatefulBotService
         return $this->botStateResult(
             $text,
             [
-                'flow' => 'appointments',
+                'flow' => BotFlow::APPOINTMENTS->value,
                 'step' => 'day_select',
                 'context' => ['appointment' => $context],
             ],
@@ -1067,7 +1068,7 @@ class StatefulBotService
         return $this->botStateResult(
             $slotMenuText,
             [
-                'flow' => 'appointments',
+                'flow' => BotFlow::APPOINTMENTS->value,
                 'step' => 'slot_select',
                 'context' => ['appointment' => $context],
             ],
@@ -1134,7 +1135,7 @@ class StatefulBotService
         return $this->botStateResult(
             $nearestText,
             [
-                'flow' => 'appointments',
+                'flow' => BotFlow::APPOINTMENTS->value,
                 'step' => 'nearest_select',
                 'context' => ['appointment' => $context],
             ],
@@ -1174,7 +1175,7 @@ class StatefulBotService
             return $this->botStateResult(
                 $nearestInvalidText,
                 [
-                    'flow' => 'appointments',
+                    'flow' => BotFlow::APPOINTMENTS->value,
                     'step' => 'nearest_select',
                     'context' => ['appointment' => $context],
                 ],
@@ -1193,7 +1194,7 @@ class StatefulBotService
         return $this->botStateResult(
             "Para enviarmos a confirmação por e-mail, informe seu endereço de e-mail ou responda *pular* para continuar sem.",
             [
-                'flow' => 'appointments',
+                'flow' => BotFlow::APPOINTMENTS->value,
                 'step' => 'collect_email',
                 'context' => ['appointment' => $context],
             ]
@@ -1621,7 +1622,7 @@ class StatefulBotService
             ->first();
 
         $menuState = $this->buildInitialMenuResponse($this->registry->definitionForCompany($companyEntity));
-        $mainMenuState = $menuState['new_state'] ?? ['flow' => 'main', 'step' => 'menu', 'context' => []];
+        $mainMenuState = $menuState['new_state'] ?? ['flow' => BotFlow::MAIN->value, 'step' => 'menu', 'context' => []];
 
         if (! $appointment) {
             return $this->botStateResult(
@@ -1651,7 +1652,7 @@ class StatefulBotService
         return $this->botStateResult(
             "Seu agendamento:\nData: {$startsAt->translatedFormat('l')}, {$startsAt->format('d/m/Y')}\nHorário: {$startsAt->format('H:i')}{$staffLine}\n\nDeseja cancelar?\n1 - Sim, cancelar\n2 - Não, manter",
             [
-                'flow' => 'cancel_appointment',
+                'flow' => BotFlow::CANCEL_APPOINTMENT->value,
                 'step' => 'confirm',
                 'context' => ['cancel_appointment' => ['appointment_id' => (int) $appointment->id]],
             ]
@@ -1670,7 +1671,7 @@ class StatefulBotService
         unset($step);
         $companyEntity = $this->resolveCompany($company, $conversation);
         $menuState = $this->buildInitialMenuResponse($this->registry->definitionForCompany($companyEntity));
-        $mainMenuState = $menuState['new_state'] ?? ['flow' => 'main', 'step' => 'menu', 'context' => []];
+        $mainMenuState = $menuState['new_state'] ?? ['flow' => BotFlow::MAIN->value, 'step' => 'menu', 'context' => []];
 
         $rawContext = is_array($conversation->bot_context ?? null) ? $conversation->bot_context : [];
         $cancelContext = is_array($rawContext['cancel_appointment'] ?? null) ? $rawContext['cancel_appointment'] : [];
@@ -1691,7 +1692,7 @@ class StatefulBotService
                 return $this->botStateResult(
                     "Opção inválida. Responda com 1 ou 2.\n\nSeu agendamento:\nData: {$startsAt->format('d/m/Y')}\nHorário: {$startsAt->format('H:i')}{$staffLine}\n\n1 - Sim, cancelar\n2 - Não, manter",
                     [
-                        'flow' => 'cancel_appointment',
+                        'flow' => BotFlow::CANCEL_APPOINTMENT->value,
                         'step' => 'confirm',
                         'context' => ['cancel_appointment' => $cancelContext],
                     ]

@@ -50,12 +50,6 @@ class ConversationController extends Controller
     public function index(Request $request, ListCompanyConversationsAction $action): JsonResponse
     {
         $user = $request->user();
-        if (! $user || ! $user->isCompanyUser()) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
-        }
 
         return response()->json($action->handle($user, $request));
     }
@@ -63,12 +57,6 @@ class ConversationController extends Controller
     public function search(Request $request, SearchConversationsAction $action): JsonResponse
     {
         $user = $request->user();
-        if (! $user || ! $user->isCompanyUser()) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
-        }
 
         $validated = $request->validate([
             'q' => ['nullable', 'string', 'max:120'],
@@ -83,12 +71,6 @@ class ConversationController extends Controller
     public function counters(Request $request): JsonResponse
     {
         $user = $request->user();
-        if (! $user || ! $user->isCompanyUser()) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
-        }
 
         return response()->json($this->countersService->buildForCompany((int) $user->company_id));
     }
@@ -99,12 +81,6 @@ class ConversationController extends Controller
         SearchCompanyConversationMessagesAction $action
     ): JsonResponse {
         $user = $request->user();
-        if (! $user || ! $user->isCompanyUser()) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
-        }
 
         $validated = $request->validate([
             'q' => ['required', 'string', 'max:120'],
@@ -125,12 +101,6 @@ class ConversationController extends Controller
     public function show(Request $request, int $conversationId, ShowCompanyConversationAction $action): JsonResponse
     {
         $user = $request->user();
-        if (! $user || ! $user->isCompanyUser()) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
-        }
 
         $payload = $action->handle($user, $conversationId, $request);
         if (! $payload) {
@@ -145,12 +115,6 @@ class ConversationController extends Controller
     public function media(Request $request, int $messageId, ServeCompanyConversationMediaAction $action)
     {
         $user = $request->user();
-        if (! $user || ! $user->isCompanyUser()) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
-        }
 
         return $action->handle($user, $messageId);
     }
@@ -161,12 +125,6 @@ class ConversationController extends Controller
         GenerateAiSuggestionForConversationAction $action
     ): JsonResponse {
         $user = $request->user();
-        if (! $user || ! $user->isCompanyUser()) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
-        }
 
         try {
             $payload = $action->handle($user, $conversationId);
@@ -192,12 +150,6 @@ class ConversationController extends Controller
     public function assume(Request $request, int $conversationId, AssumeCompanyConversationAction $action): JsonResponse
     {
         $user = $request->user();
-        if (! $user || ! $user->isCompanyUser()) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
-        }
 
         $conversation = $action->handle($request, $user, $conversationId);
         if (! $conversation) {
@@ -213,12 +165,6 @@ class ConversationController extends Controller
     public function release(Request $request, int $conversationId): JsonResponse
     {
         $user = $request->user();
-        if (! $user || ! $user->isCompanyUser()) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
-        }
 
         $conversation = Conversation::query()
             ->where('company_id', (int) $user->company_id)
@@ -252,12 +198,6 @@ class ConversationController extends Controller
     public function manualReply(Request $request, int $conversationId): JsonResponse
     {
         $user = $request->user();
-        if (! $user || ! $user->isCompanyUser()) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
-        }
 
         $validated = $request->validate([
             'text' => ['nullable', 'string', 'max:2000'],
@@ -430,12 +370,6 @@ class ConversationController extends Controller
     public function close(Request $request, int $conversationId): JsonResponse
     {
         $user = $request->user();
-        if (! $user || ! $user->isCompanyUser()) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
-        }
 
         $conversation = Conversation::query()
             ->where('company_id', (int) $user->company_id)
@@ -481,12 +415,6 @@ class ConversationController extends Controller
     public function updateTags(Request $request, int $conversationId): JsonResponse
     {
         $user = $request->user();
-        if (! $user || ! $user->isCompanyUser()) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
-        }
 
         $validated = $request->validate([
             'tags' => ['present', 'array'],
@@ -526,12 +454,6 @@ class ConversationController extends Controller
     public function updateContact(Request $request, int $conversationId): JsonResponse
     {
         $user = $request->user();
-        if (! $user || ! $user->isCompanyUser()) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
-        }
 
         $validated = $request->validate([
             'customer_name' => ['nullable', 'string', 'max:160'],
@@ -568,12 +490,6 @@ class ConversationController extends Controller
     public function transfer(Request $request, int $conversationId, TransferCompanyConversationAction $action): JsonResponse
     {
         $user = $request->user();
-        if (! $user || ! $user->isCompanyUser()) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
-        }
 
         $validated = $request->validate([
             'type' => ['nullable', 'string', 'in:user,area'],
@@ -607,9 +523,6 @@ class ConversationController extends Controller
     public function listTemplates(Request $request): JsonResponse
     {
         $user = $request->user();
-        if (! $user || ! $user->isCompanyUser()) {
-            return response()->json(['authenticated' => false, 'redirect' => '/entrar'], 403);
-        }
 
         $company = \App\Models\Company::find($user->company_id);
         $result  = $this->whatsAppSend->fetchTemplates($company);
@@ -632,9 +545,6 @@ class ConversationController extends Controller
     public function createConversation(Request $request): JsonResponse
     {
         $user = $request->user();
-        if (! $user || ! $user->isCompanyUser()) {
-            return response()->json(['authenticated' => false, 'redirect' => '/entrar'], 403);
-        }
 
         $validated = $request->validate([
             'customer_phone' => ['required', 'string', 'max:30'],
@@ -758,9 +668,6 @@ class ConversationController extends Controller
     public function sendTemplate(Request $request, int $conversationId): JsonResponse
     {
         $user = $request->user();
-        if (! $user || ! $user->isCompanyUser()) {
-            return response()->json(['authenticated' => false, 'redirect' => '/entrar'], 403);
-        }
 
         $validated = $request->validate([
             'template_name' => ['sometimes', 'string', 'max:100'],
@@ -862,9 +769,6 @@ class ConversationController extends Controller
     public function downloadMessageMedia(Request $request, int $conversation, int $message)
     {
         $user = $request->user();
-        if (!$user || !$user->isCompanyUser()) {
-            return response()->json(['error' => 'Não autorizado'], 403);
-        }
 
         $conv = Conversation::query()
             ->where('company_id', (int) $user->company_id)

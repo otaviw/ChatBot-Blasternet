@@ -4,14 +4,15 @@ namespace App\Services\Bot;
 
 use App\Models\AppointmentService;
 use App\Models\Company;
+use App\Support\Enums\BotFlow;
 
 class BotFlowRegistry
 {
-    public const FLOW_MAIN = 'main';
-    public const FLOW_SUPPORT = 'support';
+    public const FLOW_MAIN    = BotFlow::MAIN->value;
+    public const FLOW_SUPPORT = BotFlow::SUPPORT->value;
 
-    public const STEP_MENU = 'menu';
-    public const STEP_ISSUE_MENU = 'issue_menu';
+    public const STEP_MENU            = 'menu';
+    public const STEP_ISSUE_MENU      = 'issue_menu';
     public const STEP_FREE_TEXT_ISSUE = 'free_text_issue';
 
     public const AREA_SUPPORT = 'Suporte';

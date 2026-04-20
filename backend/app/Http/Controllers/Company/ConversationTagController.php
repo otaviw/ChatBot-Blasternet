@@ -29,9 +29,6 @@ class ConversationTagController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
-        if (! $user || ! $user->isCompanyUser()) {
-            return $this->unauthorized();
-        }
 
         $tags = Tag::query()
             ->where('company_id', (int) $user->company_id)
@@ -45,9 +42,6 @@ class ConversationTagController extends Controller
     public function store(Request $request): JsonResponse
     {
         $user = $request->user();
-        if (! $user || ! $user->isCompanyUser()) {
-            return $this->unauthorized();
-        }
 
         $validated = $request->validate([
             'name'  => ['required', 'string', 'max:50'],
@@ -88,9 +82,6 @@ class ConversationTagController extends Controller
     public function update(Request $request, Tag $tag): JsonResponse
     {
         $user = $request->user();
-        if (! $user || ! $user->isCompanyUser()) {
-            return $this->unauthorized();
-        }
 
         if ((int) $tag->company_id !== (int) $user->company_id) {
             return response()->json(['message' => 'Tag não encontrada.'], 404);
@@ -132,9 +123,6 @@ class ConversationTagController extends Controller
     public function destroy(Request $request, Tag $tag): JsonResponse
     {
         $user = $request->user();
-        if (! $user || ! $user->isCompanyUser()) {
-            return $this->unauthorized();
-        }
 
         if ((int) $tag->company_id !== (int) $user->company_id) {
             return response()->json(['message' => 'Tag não encontrada.'], 404);
@@ -161,9 +149,6 @@ class ConversationTagController extends Controller
     public function attach(Request $request, int $conversationId): JsonResponse
     {
         $user = $request->user();
-        if (! $user || ! $user->isCompanyUser()) {
-            return $this->unauthorized();
-        }
 
         $validated = $request->validate([
             'tag_id' => ['required', 'integer'],
@@ -202,9 +187,6 @@ class ConversationTagController extends Controller
     public function detach(Request $request, int $conversationId, int $tagId): JsonResponse
     {
         $user = $request->user();
-        if (! $user || ! $user->isCompanyUser()) {
-            return $this->unauthorized();
-        }
 
         $conversation = Conversation::query()
             ->where('company_id', (int) $user->company_id)
@@ -277,8 +259,4 @@ class ConversationTagController extends Controller
         );
     }
 
-    private function unauthorized(): JsonResponse
-    {
-        return response()->json(['authenticated' => false, 'redirect' => '/entrar'], 403);
-    }
 }

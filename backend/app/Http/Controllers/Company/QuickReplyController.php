@@ -12,9 +12,6 @@ class QuickReplyController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
-        if (!$user || !$user->isCompanyUser()) {
-            return response()->json(['authenticated' => false, 'redirect' => '/entrar'], 403);
-        }
 
         $replies = QuickReply::where('company_id', $user->company_id)
             ->orderBy('title')
@@ -29,9 +26,6 @@ class QuickReplyController extends Controller
     public function store(Request $request): JsonResponse
     {
         $user = $request->user();
-        if (!$user || !$user->isCompanyUser()) {
-            return response()->json(['authenticated' => false, 'redirect' => '/entrar'], 403);
-        }
 
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:100'],
@@ -53,9 +47,6 @@ class QuickReplyController extends Controller
     public function update(Request $request, QuickReply $quickReply): JsonResponse
     {
         $user = $request->user();
-        if (!$user || !$user->isCompanyUser()) {
-            return response()->json(['authenticated' => false, 'redirect' => '/entrar'], 403);
-        }
 
         if ((int) $quickReply->company_id !== (int) $user->company_id) {
             return response()->json(['message' => 'Não autorizado.'], 403);
@@ -77,9 +68,6 @@ class QuickReplyController extends Controller
     public function destroy(Request $request, QuickReply $quickReply): JsonResponse
     {
         $user = $request->user();
-        if (!$user || !$user->isCompanyUser()) {
-            return response()->json(['authenticated' => false, 'redirect' => '/entrar'], 403);
-        }
 
         if ((int) $quickReply->company_id !== (int) $user->company_id) {
             return response()->json(['message' => 'Não autorizado.'], 403);

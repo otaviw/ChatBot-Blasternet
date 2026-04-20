@@ -6,6 +6,7 @@ use App\Mail\UnattendedConversationsAlertMail;
 use App\Models\Company;
 use App\Models\Conversation;
 use App\Models\User;
+use App\Support\Enums\ConversationStatus;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\SerializesModels;
@@ -57,7 +58,7 @@ class AlertUnattendedConversationsJob implements ShouldQueue
         // and business hasn't replied since (or hasn't replied at all)
         $unattended = Conversation::query()
             ->where('company_id', $company->id)
-            ->where('status', 'open')
+            ->where('status', ConversationStatus::OPEN->value)
             ->whereNotNull('last_user_message_at')
             ->where('last_user_message_at', '<=', $threshold)
             ->where(function ($q) {

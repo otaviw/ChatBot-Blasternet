@@ -5,6 +5,8 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use App\Exceptions\ApiExceptionHandler;
 use App\Http\Middleware\EnsureAdmin;
+use App\Http\Middleware\EnsureCompanyUser;
+use App\Http\Middleware\EnsureSystemAdmin;
 use App\Http\Middleware\RequestMetricsMiddleware;
 use App\Http\Middleware\SecurityHeadersMiddleware;
 use App\Http\Middleware\ValidateWhatsAppWebhookSignature;
@@ -29,6 +31,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'admin'              => EnsureAdmin::class,
+            'company.user'       => EnsureCompanyUser::class,
+            'system.admin'       => EnsureSystemAdmin::class,
             'webhook.signature'  => ValidateWhatsAppWebhookSignature::class,
         ]);
     })

@@ -18,14 +18,6 @@ class SupportTicketController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $user = $request->user();
-        if (! $user || ! $user->isSystemAdmin()) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
-        }
-
         $validated = $request->validate([
             'company_id' => ['nullable', 'string', 'max:30'],
             'status' => ['nullable', Rule::in(['open', 'closed'])],
@@ -89,14 +81,6 @@ class SupportTicketController extends Controller
 
     public function show(Request $request, SupportTicket $ticket): JsonResponse
     {
-        $user = $request->user();
-        if (! $user || ! $user->isSystemAdmin()) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
-        }
-
         $ticket->load(['company:id,name', 'requester:id,name,email', 'managedBy:id,name,email', 'attachments']);
 
         return response()->json([
@@ -108,12 +92,6 @@ class SupportTicketController extends Controller
     public function updateStatus(Request $request, SupportTicket $ticket): JsonResponse
     {
         $user = $request->user();
-        if (! $user || ! $user->isSystemAdmin()) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
-        }
 
         $validated = $request->validate([
             'status' => ['required', Rule::in([SupportTicket::STATUS_OPEN, SupportTicket::STATUS_CLOSED])],

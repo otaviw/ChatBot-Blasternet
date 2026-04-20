@@ -2,21 +2,19 @@
 
 namespace App\Support;
 
+use App\Support\Enums\ConversationStatus as ConversationStatusEnum;
+
 final class ConversationStatus
 {
-    public const OPEN = 'open';
-    public const IN_PROGRESS = 'in_progress';
-    public const CLOSED = 'closed';
+    public const OPEN        = ConversationStatusEnum::OPEN->value;
+    public const IN_PROGRESS = ConversationStatusEnum::IN_PROGRESS->value;
+    public const CLOSED      = ConversationStatusEnum::CLOSED->value;
 
     /**
      * @return array<int, string>
      */
     public static function all(): array
     {
-        return [
-            self::OPEN,
-            self::IN_PROGRESS,
-            self::CLOSED,
-        ];
+        return ConversationStatusEnum::values();
     }
 }

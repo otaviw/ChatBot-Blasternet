@@ -23,14 +23,6 @@ class UserController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $actor = $request->user();
-        if (! $actor || ! $actor->isSystemAdmin()) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
-        }
-
         $users = User::query()
             ->with(['company:id,name', 'areas:id,name,company_id'])
             ->orderByRaw('CASE WHEN company_id IS NULL THEN 0 ELSE 1 END')
@@ -64,14 +56,6 @@ class UserController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $actor = $request->user();
-        if (! $actor || ! $actor->isSystemAdmin()) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
-        }
-
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email', 'max:190', 'unique:users,email'],
@@ -127,14 +111,6 @@ class UserController extends Controller
 
     public function update(Request $request, User $user): JsonResponse
     {
-        $actor = $request->user();
-        if (! $actor || ! $actor->isSystemAdmin()) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
-        }
-
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email', 'max:190', Rule::unique('users', 'email')->ignore($user->id)],
@@ -205,12 +181,6 @@ class UserController extends Controller
     public function destroy(Request $request, User $user): JsonResponse
     {
         $actor = $request->user();
-        if (! $actor || ! $actor->isSystemAdmin()) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
-        }
 
         if ((int) $actor->id === (int) $user->id) {
             return response()->json([

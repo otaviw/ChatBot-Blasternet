@@ -18,7 +18,7 @@ use App\Http\Controllers\Company\QuickReplyController;
 use App\Http\Controllers\Company\UserController as CompanyUserController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['web', 'auth'])->group(function () {
+Route::middleware(['web', 'auth', 'company.user'])->group(function () {
     Route::post('/contacts/import', [ContactController::class, 'importCsv'])->middleware('throttle:bot-write');
     Route::post('/campaigns/{campaignId}/start', [CampaignController::class, 'start'])->middleware('throttle:bot-write');
 

@@ -3,16 +3,17 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Support\Enums\UserRole;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
-    public const ROLE_SYSTEM_ADMIN = 'system_admin';
-    public const ROLE_COMPANY_ADMIN = 'company_admin';
-    public const ROLE_AGENT = 'agent';
-    public const ROLE_LEGACY_ADMIN = 'admin';
+    public const ROLE_SYSTEM_ADMIN  = UserRole::SYSTEM_ADMIN->value;
+    public const ROLE_COMPANY_ADMIN = UserRole::COMPANY_ADMIN->value;
+    public const ROLE_AGENT         = UserRole::AGENT->value;
+    public const ROLE_LEGACY_ADMIN  = 'admin';
     public const ROLE_LEGACY_COMPANY = 'company';
 
     /** @use HasFactory<\Database\Factories\UserFactory> */
@@ -127,41 +128,27 @@ class User extends Authenticatable
 
     public static function normalizeRole(?string $role): string
     {
-        $value = mb_strtolower(trim((string) $role));
-        if ($value === self::ROLE_LEGACY_ADMIN) {
-            return self::ROLE_SYSTEM_ADMIN;
-        }
-        if ($value === self::ROLE_LEGACY_COMPANY) {
-            return self::ROLE_COMPANY_ADMIN;
-        }
-
-        return $value;
+        return UserRole::normalize((string) $role);
     }
 
     public function isSystemAdmin(): bool
     {
-        $normalizedRole = self::normalizeRole($this->role);
-
         return (bool) $this->is_active
-            && $normalizedRole === self::ROLE_SYSTEM_ADMIN;
+            && self::normalizeRole($this->role) === UserRole::SYSTEM_ADMIN->value;
     }
 
     public function isCompanyAdmin(): bool
     {
-        $normalizedRole = self::normalizeRole($this->role);
-
         return (bool) $this->is_active
             && ! empty($this->company_id)
-            && $normalizedRole === self::ROLE_COMPANY_ADMIN;
+            && self::normalizeRole($this->role) === UserRole::COMPANY_ADMIN->value;
     }
 
     public function isAgent(): bool
     {
-        $normalizedRole = self::normalizeRole($this->role);
-
         return (bool) $this->is_active
             && ! empty($this->company_id)
-            && $normalizedRole === self::ROLE_AGENT;
+            && self::normalizeRole($this->role) === UserRole::AGENT->value;
     }
 
     public function isAdmin(): bool
@@ -175,7 +162,7 @@ class User extends Authenticatable
 
         return (bool) $this->is_active
             && ! empty($this->company_id)
-            && in_array($normalizedRole, [self::ROLE_COMPANY_ADMIN, self::ROLE_AGENT], true);
+            && in_array($normalizedRole, [UserRole::COMPANY_ADMIN->value, UserRole::AGENT->value], true);
     }
 
     public function canManageCompanyUsers(): bool

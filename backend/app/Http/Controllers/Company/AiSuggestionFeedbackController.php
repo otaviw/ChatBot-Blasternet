@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Company;
 use App\Http\Controllers\Controller;
 use App\Models\AiSuggestionFeedback;
 use App\Models\AiUsageLog;
-use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -14,9 +13,6 @@ class AiSuggestionFeedbackController extends Controller
     public function store(Request $request, int $suggestionId): JsonResponse
     {
         $user = $request->user();
-        if (! $user instanceof User || ! $user->isCompanyUser()) {
-            return response()->json(['authenticated' => false, 'redirect' => '/entrar'], 403);
-        }
 
         $validated = $request->validate([
             'helpful' => ['required', 'boolean'],

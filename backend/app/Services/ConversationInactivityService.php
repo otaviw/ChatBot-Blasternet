@@ -4,6 +4,9 @@ namespace App\Services;
 
 use App\Models\Company;
 use App\Models\Conversation;
+use App\Support\ConversationHandlingMode;
+use App\Support\Enums\ConversationStatus;
+use App\Support\ConversationAssignedType;
 
 class ConversationInactivityService
 {
@@ -27,15 +30,15 @@ class ConversationInactivityService
 
             $closedCount = Conversation::query()
                 ->where('company_id', $target['company_id'])
-                ->whereIn('status', ['open', 'in_progress'])
+                ->whereIn('status', [ConversationStatus::OPEN->value, ConversationStatus::IN_PROGRESS->value])
                 ->whereRaw(
                     'COALESCE((SELECT created_at FROM messages WHERE messages.conversation_id = conversations.id ORDER BY id DESC LIMIT 1), conversations.created_at) < ?',
                     [$cutoff]
                 )
                 ->update([
-                    'status' => 'closed',
-                    'handling_mode' => 'bot',
-                    'assigned_type' => 'unassigned',
+                    'status'        => ConversationStatus::CLOSED->value,
+                    'handling_mode' => ConversationHandlingMode::BOT,
+                    'assigned_type' => ConversationAssignedType::UNASSIGNED,
                     'assigned_id' => null,
                     'current_area_id' => null,
                     'assigned_user_id' => null,

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Company;
 use App\Models\Conversation;
+use App\Support\Enums\MessageType;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -54,11 +55,11 @@ class WhatsAppSendService
         $body = [
             'messaging_product' => 'whatsapp',
             'to' => $normalizedTo,
-            'type' => 'text',
+            'type' => MessageType::TEXT->value,
             'text' => ['body' => $text],
         ];
 
-        $this->logRequestDiagnostics($company, 'text', $url, $phoneNumberId, $normalizedTo);
+        $this->logRequestDiagnostics($company, MessageType::TEXT->value, $url, $phoneNumberId, $normalizedTo);
 
         /** @var Response $response */
         $response = Http::withToken($accessToken)
@@ -66,7 +67,7 @@ class WhatsAppSendService
             ->asJson()
             ->post($url, $body);
 
-        $this->logResponseDiagnostics('text', $response);
+        $this->logResponseDiagnostics(MessageType::TEXT->value, $response);
         $responseJson = $this->responseJson($response);
         $graphMessageId = $this->normalizeGraphMessageId($response->json('messages.0.id'));
 
@@ -145,18 +146,18 @@ class WhatsAppSendService
         $body = [
             'messaging_product' => 'whatsapp',
             'to' => $normalizedTo,
-            'type' => 'image',
+            'type' => MessageType::IMAGE->value,
             'image' => $image,
         ];
 
-        $this->logRequestDiagnostics($company, 'image', $url, $phoneNumberId, $normalizedTo);
+        $this->logRequestDiagnostics($company, MessageType::IMAGE->value, $url, $phoneNumberId, $normalizedTo);
 
         $response = Http::withToken($accessToken)
             ->withHeaders(['Content-Type' => 'application/json'])
             ->asJson()
             ->post($url, $body);
 
-        $this->logResponseDiagnostics('image', $response);
+        $this->logResponseDiagnostics(MessageType::IMAGE->value, $response);
         $responseJson = $this->responseJson($response);
         $graphMessageId = $this->normalizeGraphMessageId($response->json('messages.0.id'));
 
@@ -401,7 +402,7 @@ class WhatsAppSendService
             'messaging_product' => 'whatsapp',
             'recipient_type'    => 'individual',
             'to'                => $normalizedTo,
-            'type'              => 'interactive',
+            'type'              => MessageType::INTERACTIVE->value,
             'interactive'       => $interactive,
         ];
 
@@ -505,7 +506,7 @@ class WhatsAppSendService
             'messaging_product' => 'whatsapp',
             'recipient_type'    => 'individual',
             'to'                => $normalizedTo,
-            'type'              => 'interactive',
+            'type'              => MessageType::INTERACTIVE->value,
             'interactive'       => $interactive,
         ];
 
@@ -592,7 +593,7 @@ class WhatsAppSendService
         $body = [
             'messaging_product' => 'whatsapp',
             'to'                => $normalizedTo,
-            'type'              => 'template',
+            'type'              => MessageType::TEMPLATE->value,
             'template'          => [
                 'name'       => $templateName,
                 'language'   => ['code' => $languageCode],

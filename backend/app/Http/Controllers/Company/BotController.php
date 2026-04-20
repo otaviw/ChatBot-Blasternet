@@ -462,9 +462,6 @@ class BotController extends Controller
     public function usageSnapshot(Request $request): JsonResponse
     {
         $user = $request->user();
-        if (! $user || ! $user->isCompanyUser()) {
-            return response()->json(['authenticated' => false, 'redirect' => '/entrar'], 403);
-        }
 
         $companyId = $user->isSystemAdmin()
             ? (int) $request->integer('company_id', (int) ($user->company_id ?? 0))
