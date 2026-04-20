@@ -424,7 +424,6 @@ body.theme-dark .inbox-message-out .inbox-message-label {
 }
 
 .inbox-message-status {
-  margin-top: 0.35rem;
   font-size: 0.68rem;
   font-weight: 600;
   opacity: 0.85;
@@ -450,13 +449,24 @@ body.theme-dark .inbox-message-out .inbox-message-label {
   color: #b91c1c;
 }
 
+.inbox-message-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+  width: 100%;
+}
+
+.inbox-message-footer:empty {
+  display: none;
+}
+
 .inbox-message-time {
-  display: block;
-  align-self: flex-end;
   font-size: 0.62rem;
   opacity: 0.55;
-  margin-top: 0.2rem;
   white-space: nowrap;
+  margin-left: auto;
 }
 
 .inbox-message-reactions {

@@ -347,12 +347,6 @@ function MessagesPanel({
           <span className="inbox-message-text">{message.text}</span>
         )}
 
-        {outboundStatus ? (
-          <span className={`inbox-message-status inbox-message-status-${outboundStatus}`}>
-            {OUTBOUND_STATUS_LABELS[outboundStatus]}
-          </span>
-        ) : null}
-
         {reactionGroups.length > 0 ? (
           <div className="inbox-message-reactions">
             {reactionGroups.map((item) => (
@@ -368,9 +362,16 @@ function MessagesPanel({
           </div>
         ) : null}
 
-        {formatMessageTime(message.created_at) ? (
-          <span className="inbox-message-time">{formatMessageTime(message.created_at)}</span>
-        ) : null}
+        <div className="inbox-message-footer">
+          {outboundStatus ? (
+            <span className={`inbox-message-status inbox-message-status-${outboundStatus}`}>
+              {OUTBOUND_STATUS_LABELS[outboundStatus]}
+            </span>
+          ) : null}
+          {formatMessageTime(message.created_at) ? (
+            <span className="inbox-message-time">{formatMessageTime(message.created_at)}</span>
+          ) : null}
+        </div>
       </div>
     );
   };
