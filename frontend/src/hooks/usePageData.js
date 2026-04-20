@@ -29,7 +29,10 @@ function usePageData(url, initial = null) {
       .catch((err) => {
         if (canceled) return;
         const redirect = err.response?.data?.redirect;
-        if (redirect) {
+        const status = Number(err?.status ?? err?.response?.status ?? 0);
+        const shouldRedirectToAuth = status === 401 || status === 419;
+
+        if (redirect && shouldRedirectToAuth) {
           window.location.href = redirect;
           return;
         }

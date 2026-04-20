@@ -1,0 +1,22 @@
+<?php
+
+namespace App\Http\Requests\Company;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class ValidateBotWhatsAppRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    /** @return array<string, mixed> */
+    public function rules(): array
+    {
+        return [
+            'phone_number_id' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'access_token'    => ['sometimes', 'nullable', 'string', 'max:1000'],
+        ];
+    }
+}

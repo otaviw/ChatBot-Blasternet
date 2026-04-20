@@ -2,9 +2,24 @@
 
 namespace App\Http\Controllers\Company;
 
+use App\Actions\Appointment\BookAppointmentAction;
+use App\Actions\Appointment\CancelAppointmentAction;
+use App\Actions\Appointment\CheckAppointmentAvailabilityAction;
+use App\Actions\Appointment\RescheduleAppointmentAction;
+use App\Exceptions\AppointmentBusinessException;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Company\AppointmentAvailabilityRequest;
+use App\Http\Requests\Company\ListAppointmentTimeOffsRequest;
+use App\Http\Requests\Company\ListAppointmentsRequest;
+use App\Http\Requests\Company\ReplaceAppointmentWorkingHoursRequest;
+use App\Http\Requests\Company\StoreAppointmentRequest;
+use App\Http\Requests\Company\StoreAppointmentServiceRequest;
+use App\Http\Requests\Company\StoreAppointmentTimeOffRequest;
+use App\Http\Requests\Company\UpdateAppointmentServiceRequest;
+use App\Http\Requests\Company\UpdateAppointmentSettingsRequest;
+use App\Http\Requests\Company\UpdateAppointmentStaffRequest;
+use App\Http\Requests\Company\UpdateAppointmentStatusRequest;
 use App\Models\Appointment;
-use App\Models\AppointmentEvent;
 use App\Models\AppointmentService;
 use App\Models\AppointmentSetting;
 use App\Models\AppointmentStaffProfile;
@@ -12,24 +27,22 @@ use App\Models\AppointmentTimeOff;
 use App\Models\AppointmentWorkingHour;
 use App\Models\Company;
 use App\Models\User;
-use App\Services\Appointments\AppointmentAvailabilityService;
-use App\Services\Appointments\AppointmentBookingService;
-use App\Services\WhatsAppSendService;
 use App\Support\AppointmentSource;
 use App\Support\AppointmentStatus;
 use App\Support\PhoneNumberNormalizer;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+
 
 class AppointmentController extends Controller
 {
     public function __construct(
-        private AppointmentAvailabilityService $availabilityService,
-        private AppointmentBookingService $bookingService,
-        private WhatsAppSendService $whatsAppSend
+        private CheckAppointmentAvailabilityAction $checkAvailabilityAction,
+        private BookAppointmentAction $bookAppointmentAction,
+        private CancelAppointmentAction $cancelAppointmentAction,
+        private RescheduleAppointmentAction $rescheduleAppointmentAction
     ) {}
 
     public function settings(Request $request): JsonResponse
@@ -60,22 +73,14 @@ class AppointmentController extends Controller
         ]);
     }
 
-    public function updateSettings(Request $request): JsonResponse
+    public function updateSettings(UpdateAppointmentSettingsRequest $request): JsonResponse
     {
         [, $company, $errorResponse] = $this->resolveActorAndCompany($request, true);
         if ($errorResponse) {
             return $errorResponse;
         }
 
-        $validated = $request->validate([
-            'timezone' => ['required', 'string', 'max:64'],
-            'slot_interval_minutes' => ['required', 'integer', 'min:5', 'max:120'],
-            'booking_min_notice_minutes' => ['required', 'integer', 'min:0', 'max:10080'],
-            'booking_max_advance_days' => ['required', 'integer', 'min:0', 'max:365'],
-            'cancellation_min_notice_minutes' => ['required', 'integer', 'min:0', 'max:10080'],
-            'reschedule_min_notice_minutes' => ['required', 'integer', 'min:0', 'max:10080'],
-            'allow_customer_choose_staff' => ['required', 'boolean'],
-        ]);
+        $validated = $request->validated();
 
         $settings = AppointmentSetting::query()->firstOrCreate(['company_id' => (int) $company->id]);
         $settings->fill($validated);
@@ -104,7 +109,7 @@ class AppointmentController extends Controller
         ]);
     }
 
-    public function createService(Request $request): JsonResponse
+    public function createService(StoreAppointmentServiceRequest $request): JsonResponse
     {
         [, $company, $errorResponse] = $this->resolveActorAndCompany($request, true);
         if ($errorResponse) {
@@ -120,15 +125,7 @@ class AppointmentController extends Controller
             ], 422);
         }
 
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:120'],
-            'description' => ['nullable', 'string', 'max:1000'],
-            'duration_minutes' => ['required', 'integer', 'min:5', 'max:600'],
-            'buffer_before_minutes' => ['sometimes', 'integer', 'min:0', 'max:240'],
-            'buffer_after_minutes' => ['sometimes', 'integer', 'min:0', 'max:240'],
-            'max_bookings_per_slot' => ['sometimes', 'integer', 'min:1', 'max:10'],
-            'is_active' => ['sometimes', 'boolean'],
-        ]);
+        $validated = $request->validated();
 
         $service = AppointmentService::create([
             'company_id' => (int) $company->id,
@@ -147,7 +144,7 @@ class AppointmentController extends Controller
         ], 201);
     }
 
-    public function updateService(Request $request, AppointmentService $service): JsonResponse
+    public function updateService(UpdateAppointmentServiceRequest $request, AppointmentService $service): JsonResponse
     {
         [, $company, $errorResponse] = $this->resolveActorAndCompany($request, true);
         if ($errorResponse) {
@@ -158,15 +155,7 @@ class AppointmentController extends Controller
             return response()->json(['message' => 'Serviço não pertence a empresa.'], 404);
         }
 
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:120'],
-            'description' => ['nullable', 'string', 'max:1000'],
-            'duration_minutes' => ['required', 'integer', 'min:5', 'max:600'],
-            'buffer_before_minutes' => ['required', 'integer', 'min:0', 'max:240'],
-            'buffer_after_minutes' => ['required', 'integer', 'min:0', 'max:240'],
-            'max_bookings_per_slot' => ['required', 'integer', 'min:1', 'max:10'],
-            'is_active' => ['required', 'boolean'],
-        ]);
+        $validated = $request->validated();
 
         $service->fill([
             'name' => trim((string) $validated['name']),
@@ -237,7 +226,7 @@ class AppointmentController extends Controller
         ]);
     }
 
-    public function updateStaff(Request $request, AppointmentStaffProfile $staffProfile): JsonResponse
+    public function updateStaff(UpdateAppointmentStaffRequest $request, AppointmentStaffProfile $staffProfile): JsonResponse
     {
         [, $company, $errorResponse] = $this->resolveActorAndCompany($request, true);
         if ($errorResponse) {
@@ -248,13 +237,7 @@ class AppointmentController extends Controller
             return response()->json(['message' => 'Atendente não pertence a empresa.'], 404);
         }
 
-        $validated = $request->validate([
-            'display_name' => ['nullable', 'string', 'max:120'],
-            'is_bookable' => ['required', 'boolean'],
-            'slot_interval_minutes' => ['nullable', 'integer', 'min:5', 'max:120'],
-            'booking_min_notice_minutes' => ['nullable', 'integer', 'min:0', 'max:10080'],
-            'booking_max_advance_days' => ['nullable', 'integer', 'min:0', 'max:365'],
-        ]);
+        $validated = $request->validated();
 
         $staffProfile->fill([
             'display_name' => $this->nullableTrim($validated['display_name'] ?? null),
@@ -272,7 +255,7 @@ class AppointmentController extends Controller
         ]);
     }
 
-    public function replaceWorkingHours(Request $request, AppointmentStaffProfile $staffProfile): JsonResponse
+    public function replaceWorkingHours(ReplaceAppointmentWorkingHoursRequest $request, AppointmentStaffProfile $staffProfile): JsonResponse
     {
         [, $company, $errorResponse] = $this->resolveActorAndCompany($request, true);
         if ($errorResponse) {
@@ -283,16 +266,7 @@ class AppointmentController extends Controller
             return response()->json(['message' => 'Atendente não pertence a empresa.'], 404);
         }
 
-        $validated = $request->validate([
-            'hours' => ['required', 'array', 'max:70'],
-            'hours.*.day_of_week' => ['required', 'integer', 'min:0', 'max:6'],
-            'hours.*.start_time' => ['required', 'date_format:H:i'],
-            'hours.*.break_start_time' => ['nullable', 'date_format:H:i'],
-            'hours.*.break_end_time' => ['nullable', 'date_format:H:i'],
-            'hours.*.end_time' => ['required', 'date_format:H:i'],
-            'hours.*.slot_interval_minutes' => ['nullable', 'integer', 'min:5', 'max:120'],
-            'hours.*.is_active' => ['sometimes', 'boolean'],
-        ]);
+        $validated = $request->validated();
 
         AppointmentWorkingHour::query()
             ->where('company_id', (int) $company->id)
@@ -349,18 +323,14 @@ class AppointmentController extends Controller
         ]);
     }
 
-    public function listTimeOffs(Request $request): JsonResponse
+    public function listTimeOffs(ListAppointmentTimeOffsRequest $request): JsonResponse
     {
         [, $company, $errorResponse] = $this->resolveActorAndCompany($request);
         if ($errorResponse) {
             return $errorResponse;
         }
 
-        $validated = $request->validate([
-            'date_from' => ['nullable', 'date'],
-            'date_to' => ['nullable', 'date'],
-            'staff_profile_id' => ['nullable', 'integer', 'min:1'],
-        ]);
+        $validated = $request->validated();
 
         $dateFrom = isset($validated['date_from'])
             ? CarbonImmutable::parse((string) $validated['date_from'])->startOfDay()
@@ -390,21 +360,14 @@ class AppointmentController extends Controller
         ]);
     }
 
-    public function createTimeOff(Request $request): JsonResponse
+    public function createTimeOff(StoreAppointmentTimeOffRequest $request): JsonResponse
     {
         [$actor, $company, $errorResponse] = $this->resolveActorAndCompany($request, true);
         if ($errorResponse) {
             return $errorResponse;
         }
 
-        $validated = $request->validate([
-            'staff_profile_id' => ['nullable', 'integer', 'min:1'],
-            'starts_at' => ['required', 'date'],
-            'ends_at' => ['required', 'date', 'after:starts_at'],
-            'is_all_day' => ['sometimes', 'boolean'],
-            'reason' => ['nullable', 'string', 'max:191'],
-            'source' => ['sometimes', 'string', Rule::in(['manual', 'system'])],
-        ]);
+        $validated = $request->validated();
 
         if (! empty($validated['staff_profile_id'])) {
             $staffExists = AppointmentStaffProfile::query()
@@ -451,20 +414,16 @@ class AppointmentController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    public function availability(Request $request): JsonResponse
+    public function availability(AppointmentAvailabilityRequest $request): JsonResponse
     {
         [, $company, $errorResponse] = $this->resolveActorAndCompany($request);
         if ($errorResponse) {
             return $errorResponse;
         }
 
-        $validated = $request->validate([
-            'service_id' => ['required', 'integer', 'min:1'],
-            'date' => ['required', 'date'],
-            'staff_profile_id' => ['nullable', 'integer', 'min:1'],
-        ]);
+        $validated = $request->validated();
 
-        $payload = $this->availabilityService->listAvailableSlots(
+        $payload = $this->checkAvailabilityAction->handle(
             $company,
             (int) $validated['service_id'],
             (string) $validated['date'],
@@ -474,21 +433,14 @@ class AppointmentController extends Controller
         return response()->json($payload);
     }
 
-    public function listAppointments(Request $request): JsonResponse
+    public function listAppointments(ListAppointmentsRequest $request): JsonResponse
     {
         [, $company, $errorResponse] = $this->resolveActorAndCompany($request);
         if ($errorResponse) {
             return $errorResponse;
         }
 
-        $validated = $request->validate([
-            'date_from' => ['nullable', 'date'],
-            'date_to' => ['nullable', 'date'],
-            'staff_profile_id' => ['nullable', 'integer', 'min:1'],
-            'status' => ['nullable', Rule::in(AppointmentStatus::all())],
-            'customer_phone' => ['nullable', 'string', 'max:40'],
-            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
-        ]);
+        $validated = $request->validated();
 
         $from = isset($validated['date_from'])
             ? CarbonImmutable::parse((string) $validated['date_from'])->startOfDay()
@@ -534,26 +486,16 @@ class AppointmentController extends Controller
         ]);
     }
 
-    public function createAppointment(Request $request): JsonResponse
+    public function createAppointment(StoreAppointmentRequest $request): JsonResponse
     {
         [$actor, $company, $errorResponse] = $this->resolveActorAndCompany($request, true);
         if ($errorResponse) {
             return $errorResponse;
         }
 
-        $validated = $request->validate([
-            'service_id' => ['required', 'integer', 'min:1'],
-            'staff_profile_id' => ['required', 'integer', 'min:1'],
-            'starts_at' => ['required', 'date'],
-            'customer_name' => ['nullable', 'string', 'max:191'],
-            'customer_phone' => ['required', 'string', 'max:40'],
-            'customer_email' => ['nullable', 'email', 'max:191'],
-            'notes' => ['nullable', 'string', 'max:1000'],
-            'source' => ['sometimes', Rule::in(AppointmentSource::all())],
-            'meta' => ['sometimes', 'array'],
-        ]);
+        $validated = $request->validated();
 
-        $appointment = $this->bookingService->createAppointment($company, $validated, $actor);
+        $appointment = $this->bookAppointmentAction->handle($company, $validated, $actor);
 
         return response()->json([
             'ok' => true,
@@ -561,70 +503,36 @@ class AppointmentController extends Controller
         ], 201);
     }
 
-    public function updateStatus(Request $request, Appointment $appointment): JsonResponse
+    public function updateStatus(UpdateAppointmentStatusRequest $request, Appointment $appointment): JsonResponse
     {
         [$actor, $company, $errorResponse] = $this->resolveActorAndCompany($request, true);
         if ($errorResponse) {
             return $errorResponse;
         }
 
-        if ((int) $appointment->company_id !== (int) $company->id) {
-            return response()->json(['message' => 'Agendamento não pertence a empresa.'], 404);
-        }
-
-        $allowed = [
-            AppointmentStatus::CONFIRMED,
-            AppointmentStatus::CANCELLED,
-            AppointmentStatus::COMPLETED,
-            AppointmentStatus::NO_SHOW,
-        ];
-
-        $validated = $request->validate([
-            'status' => ['required', Rule::in($allowed)],
-            'reason' => ['nullable', 'string', 'max:500'],
-            'notify_customer' => ['sometimes', 'boolean'],
-        ]);
-
+        $validated = $request->validated();
         $newStatus = (string) $validated['status'];
-        $oldStatus = (string) $appointment->status;
 
-        if ($oldStatus === $newStatus) {
-            return response()->json(['ok' => true, 'appointment' => $this->serializeAppointment($appointment)]);
-        }
-
-        $appointment->status = $newStatus;
-
-        if ($newStatus === AppointmentStatus::CANCELLED) {
-            $appointment->cancelled_at = now();
-            $appointment->cancelled_reason = $this->nullableTrim($validated['reason'] ?? null);
-        }
-
-        $appointment->save();
-
-        AppointmentEvent::create([
-            'company_id' => (int) $company->id,
-            'appointment_id' => (int) $appointment->id,
-            'event_type' => 'status_changed',
-            'performed_by_user_id' => $actor->id ? (int) $actor->id : null,
-            'payload' => [
-                'from' => $oldStatus,
-                'to' => $newStatus,
-                'reason' => $this->nullableTrim($validated['reason'] ?? null),
-                'channel' => 'dashboard',
-            ],
-        ]);
-
-        // Notifica cliente via WhatsApp quando a empresa cancela
-        if ($newStatus === AppointmentStatus::CANCELLED && (bool) ($validated['notify_customer'] ?? true)) {
-            $settings = AppointmentSetting::query()->where('company_id', (int) $company->id)->first();
-            $timezone = (string) ($settings?->timezone ?: 'America/Sao_Paulo');
-            $startsAt = $appointment->starts_at->setTimezone($timezone);
-            $dateStr = $startsAt->format('d/m/Y') ?? '';
-            $timeStr = $startsAt->format('H:i') ?? '';
-            $reason = $this->nullableTrim($validated['reason'] ?? null);
-            $reasonLine = $reason ? "\nMotivo: {$reason}" : '';
-            $text = "Olá! Informamos que seu agendamento do dia {$dateStr} às {$timeStr} foi cancelado pela nossa equipe.{$reasonLine}\nPor favor, entre em contato para reagendar se desejar.";
-            $this->whatsAppSend->sendText($company, (string) $appointment->customer_phone, $text);
+        try {
+            if ($newStatus === AppointmentStatus::CANCELLED) {
+                $appointment = $this->cancelAppointmentAction->handle(
+                    $company,
+                    $appointment,
+                    $actor,
+                    isset($validated['reason']) ? (string) $validated['reason'] : null,
+                    (bool) ($validated['notify_customer'] ?? true)
+                );
+            } else {
+                $appointment = $this->rescheduleAppointmentAction->handle(
+                    $company,
+                    $appointment,
+                    $actor,
+                    $newStatus,
+                    isset($validated['reason']) ? (string) $validated['reason'] : null
+                );
+            }
+        } catch (AppointmentBusinessException $exception) {
+            return response()->json(['message' => $exception->getMessage()], $exception->status());
         }
 
         $appointment->load(['service:id,name', 'staffProfile.user:id,name,email']);
@@ -815,3 +723,4 @@ class AppointmentController extends Controller
         return $text === '' ? null : $text;
     }
 }
+

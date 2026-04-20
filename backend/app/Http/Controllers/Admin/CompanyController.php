@@ -3,6 +3,10 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\StoreCompanyRequest;
+use App\Http\Requests\Admin\UpdateCompanyBotSettingsRequest;
+use App\Http\Requests\Admin\UpdateCompanyRequest;
+use App\Http\Requests\Admin\ValidateCompanyWhatsAppRequest;
 use App\Models\Area;
 use App\Models\Company;
 use App\Models\CompanyBotSetting;
@@ -13,7 +17,6 @@ use App\Services\WhatsAppCredentialsValidatorService;
 use App\Support\ConversationHandlingMode;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class CompanyController extends Controller
 {
@@ -50,36 +53,9 @@ class CompanyController extends Controller
         ]);
     }
 
-    public function updateBotSettings(Request $request, Company $company): JsonResponse
+    public function updateBotSettings(UpdateCompanyBotSettingsRequest $request, Company $company): JsonResponse
     {
-        $validated = $request->validate([
-            'is_active' => ['required', 'boolean'],
-            'ai_enabled' => ['sometimes', 'boolean'],
-            'ai_internal_chat_enabled' => ['sometimes', 'boolean'],
-            'ai_chatbot_enabled' => ['sometimes', 'boolean'],
-            'ai_chatbot_auto_reply_enabled' => ['sometimes', 'boolean'],
-            'ai_chatbot_rules' => ['nullable', 'array'],
-            'ai_usage_enabled' => ['sometimes', 'boolean'],
-            'ai_usage_limit_monthly' => ['nullable', 'integer', 'min:1'],
-            'max_users' => ['nullable', 'integer', 'min:1'],
-            'max_conversation_messages_monthly' => ['nullable', 'integer', 'min:1'],
-            'max_template_messages_monthly' => ['nullable', 'integer', 'min:1'],
-            'timezone' => ['required', 'string', Rule::in(timezone_identifiers_list())],
-            'welcome_message' => ['nullable', 'string', 'max:2000'],
-            'fallback_message' => ['nullable', 'string', 'max:2000'],
-            'out_of_hours_message' => ['nullable', 'string', 'max:2000'],
-            'business_hours' => ['required', 'array'],
-            'business_hours.*.enabled' => ['required', 'boolean'],
-            'business_hours.*.start' => ['nullable', 'date_format:H:i'],
-            'business_hours.*.end' => ['nullable', 'date_format:H:i'],
-            'keyword_replies' => ['nullable', 'array', 'max:200'],
-            'keyword_replies.*.keyword' => ['required_with:keyword_replies', 'string', 'max:120'],
-            'keyword_replies.*.reply' => ['required_with:keyword_replies', 'string', 'max:2000'],
-            'service_areas' => ['nullable', 'array', 'max:50'],
-            'service_areas.*' => ['string', 'max:120'],
-            'stateful_menu_flow' => ['nullable', 'array'],
-            'inactivity_close_hours' => ['nullable', 'integer', 'min:1', 'max:720'],
-        ]);
+        $validated = $request->validated();
 
         $settingsPayload = [
             'is_active' => (bool) $validated['is_active'],
@@ -158,23 +134,9 @@ class CompanyController extends Controller
         ]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(StoreCompanyRequest $request): JsonResponse
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:120', 'unique:companies,name'],
-            'meta_phone_number_id' => ['nullable', 'string', 'max:255', 'unique:companies,meta_phone_number_id'],
-            'meta_waba_id' => ['nullable', 'string', 'max:255'],
-            'ai_enabled' => ['sometimes', 'boolean'],
-            'ai_internal_chat_enabled' => ['sometimes', 'boolean'],
-            'ai_chatbot_enabled' => ['sometimes', 'boolean'],
-            'ai_chatbot_auto_reply_enabled' => ['sometimes', 'boolean'],
-            'ai_chatbot_rules' => ['nullable', 'array'],
-            'ai_usage_enabled' => ['sometimes', 'boolean'],
-            'ai_usage_limit_monthly' => ['nullable', 'integer', 'min:1'],
-            'max_users' => ['nullable', 'integer', 'min:1'],
-            'max_conversation_messages_monthly' => ['nullable', 'integer', 'min:1'],
-            'max_template_messages_monthly' => ['nullable', 'integer', 'min:1'],
-        ]);
+        $validated = $request->validated();
 
         $company = Company::create([
             'name' => $validated['name'],
@@ -224,26 +186,9 @@ class CompanyController extends Controller
         ], 201);
     }
 
-    public function update(Request $request, Company $company): JsonResponse
+    public function update(UpdateCompanyRequest $request, Company $company): JsonResponse
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:120', Rule::unique('companies', 'name')->ignore($company->id)],
-            'meta_phone_number_id' => [
-                'nullable',
-                'string',
-                'max:255',
-                Rule::unique('companies', 'meta_phone_number_id')->ignore($company->id),
-            ],
-            'meta_access_token' => ['sometimes', 'nullable', 'string', 'max:1000'],
-            'meta_waba_id' => ['nullable', 'string', 'max:255'],
-            'ai_enabled' => ['sometimes', 'boolean'],
-            'ai_internal_chat_enabled' => ['sometimes', 'boolean'],
-            'ai_chatbot_enabled' => ['sometimes', 'boolean'],
-            'ai_chatbot_auto_reply_enabled' => ['sometimes', 'boolean'],
-            'ai_chatbot_rules' => ['nullable', 'array'],
-            'ai_usage_enabled' => ['sometimes', 'boolean'],
-            'ai_usage_limit_monthly' => ['nullable', 'integer', 'min:1'],
-        ]);
+        $validated = $request->validated();
 
         $before = [
             'name' => $company->name,
@@ -506,12 +451,8 @@ class CompanyController extends Controller
     }
 
     /** Testa as credenciais do WhatsApp da empresa contra a API da Meta. */
-    public function validateWhatsApp(Request $request, Company $company): JsonResponse
+    public function validateWhatsApp(ValidateCompanyWhatsAppRequest $request, Company $company): JsonResponse
     {
-        $request->validate([
-            'phone_number_id' => ['sometimes', 'nullable', 'string', 'max:255'],
-            'access_token'    => ['sometimes', 'nullable', 'string', 'max:1000'],
-        ]);
 
         $phoneNumberId = trim((string) ($request->input('phone_number_id') ?? $company->meta_phone_number_id ?? config('whatsapp.phone_number_id', '')));
         $accessToken   = trim((string) ($request->input('access_token')    ?? $company->meta_access_token    ?? config('whatsapp.access_token', '')));

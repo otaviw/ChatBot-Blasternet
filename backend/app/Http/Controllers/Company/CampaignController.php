@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Company;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Company\StoreCampaignRequest;
+use App\Http\Requests\Company\ValidateCampaignContactsRequest;
 use App\Jobs\ProcessCampaignJob;
 use App\Models\Campaign;
 use App\Models\CampaignContact;
@@ -12,7 +14,6 @@ use App\Support\RealtimeEvents;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 
 class CampaignController extends Controller
 {
@@ -37,24 +38,14 @@ class CampaignController extends Controller
         return response()->json(['campaigns' => $campaigns]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(StoreCampaignRequest $request): JsonResponse
     {
         $companyId = $this->resolveCompanyId($request);
         if ($companyId === null) {
             return response()->json(['message' => 'Empresa não identificada.'], 403);
         }
 
-        $validated = $request->validate([
-            'name'        => ['required', 'string', 'max:255'],
-            'type'        => ['required', Rule::in(['free', 'template', 'open'])],
-            'message'     => ['nullable', 'string', 'max:4096'],
-            'template_id' => ['nullable', 'string', 'max:255'],
-            'contact_ids' => ['sometimes', 'array'],
-            'contact_ids.*' => [
-                'integer',
-                Rule::exists('contacts', 'id')->where(fn ($query) => $query->where('company_id', $companyId)),
-            ],
-        ]);
+        $validated = $request->validated();
 
         $campaign = Campaign::create([
             'company_id'  => $companyId,
@@ -87,18 +78,14 @@ class CampaignController extends Controller
         return response()->json(['campaign' => $campaign], 201);
     }
 
-    public function validateContacts(Request $request): JsonResponse
+    public function validateContacts(ValidateCampaignContactsRequest $request): JsonResponse
     {
         $companyId = $this->resolveCompanyId($request);
         if ($companyId === null) {
             return response()->json(['message' => 'Empresa nÃ£o identificada.'], 403);
         }
 
-        $validated = $request->validate([
-            'type' => ['required', Rule::in(['free', 'template', 'open'])],
-            'contact_ids' => ['required', 'array', 'min:1'],
-            'contact_ids.*' => ['integer'],
-        ]);
+        $validated = $request->validated();
 
         $requestedIds = collect($validated['contact_ids'])
             ->map(fn ($id) => (int) $id)

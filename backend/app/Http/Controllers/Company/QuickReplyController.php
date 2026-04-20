@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Company;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Company\StoreQuickReplyRequest;
+use App\Http\Requests\Company\UpdateQuickReplyRequest;
 use App\Models\QuickReply;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,14 +25,11 @@ class QuickReplyController extends Controller
         ]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(StoreQuickReplyRequest $request): JsonResponse
     {
         $user = $request->user();
 
-        $validated = $request->validate([
-            'title' => ['required', 'string', 'max:100'],
-            'text'  => ['required', 'string', 'max:2000'],
-        ]);
+        $validated = $request->validated();
 
         $reply = QuickReply::create([
             'company_id' => $user->company_id,
@@ -44,7 +43,7 @@ class QuickReplyController extends Controller
         ], 201);
     }
 
-    public function update(Request $request, QuickReply $quickReply): JsonResponse
+    public function update(UpdateQuickReplyRequest $request, QuickReply $quickReply): JsonResponse
     {
         $user = $request->user();
 
@@ -52,10 +51,7 @@ class QuickReplyController extends Controller
             return response()->json(['message' => 'Não autorizado.'], 403);
         }
 
-        $validated = $request->validate([
-            'title' => ['required', 'string', 'max:100'],
-            'text'  => ['required', 'string', 'max:2000'],
-        ]);
+        $validated = $request->validated();
 
         $quickReply->update($validated);
 

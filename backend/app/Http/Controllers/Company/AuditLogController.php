@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Company;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Company\ListAuditLogsRequest;
 use App\Models\AuditLog;
 use App\Models\User;
 use Carbon\Carbon;
@@ -12,19 +13,11 @@ use Illuminate\Support\Str;
 
 class AuditLogController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(ListAuditLogsRequest $request): JsonResponse
     {
         $this->authorize('viewAny', AuditLog::class);
 
-        $validated = $request->validate([
-            'user_id' => ['nullable', 'integer', 'min:1'],
-            'action' => ['nullable', 'string', 'max:120'],
-            'start_date' => ['nullable', 'date'],
-            'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
-            'company_id' => ['nullable', 'integer', 'min:1'],
-            'per_page' => ['required', 'integer', 'min:1', 'max:100'],
-            'page' => ['sometimes', 'integer', 'min:1'],
-        ]);
+        $validated = $request->validated();
 
         /** @var User|null $user */
         $user = $request->user();

@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Company;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Company\StoreKnowledgeItemRequest;
+use App\Http\Requests\Company\UpdateKnowledgeItemRequest;
 use App\Models\AiCompanyKnowledge;
 use App\Models\Company;
 use App\Services\Ai\AiAccessService;
@@ -77,7 +79,7 @@ class AiCompanyKnowledgeController extends Controller
         ]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(StoreKnowledgeItemRequest $request): JsonResponse
     {
         $actor = $request->user();
         if (! $actor) {
@@ -109,11 +111,7 @@ class AiCompanyKnowledgeController extends Controller
             ], 422);
         }
 
-        $validated = $request->validate([
-            'title' => ['required', 'string', 'max:190'],
-            'content' => ['required', 'string', 'max:20000'],
-            'is_active' => ['required', 'boolean'],
-        ]);
+        $validated = $request->validated();
 
         $item = AiCompanyKnowledge::query()->create([
             'company_id' => $companyId,
@@ -128,7 +126,7 @@ class AiCompanyKnowledgeController extends Controller
         ], 201);
     }
 
-    public function update(Request $request, AiCompanyKnowledge $knowledgeItem): JsonResponse
+    public function update(UpdateKnowledgeItemRequest $request, AiCompanyKnowledge $knowledgeItem): JsonResponse
     {
         $actor = $request->user();
         if (! $actor) {
@@ -151,11 +149,7 @@ class AiCompanyKnowledgeController extends Controller
             ], 404);
         }
 
-        $validated = $request->validate([
-            'title' => ['required', 'string', 'max:190'],
-            'content' => ['required', 'string', 'max:20000'],
-            'is_active' => ['required', 'boolean'],
-        ]);
+        $validated = $request->validated();
 
         $knowledgeItem->update([
             'title' => trim((string) $validated['title']),

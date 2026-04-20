@@ -4,13 +4,13 @@ namespace App\Http\Controllers\Admin;
 
 use App\Actions\Conversation\SearchConversationsAction;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\SearchConversationsRequest;
+use App\Http\Requests\Admin\UpdateConversationContactRequest;
 use App\Models\Conversation;
 use App\Services\AuditLogService;
 use App\Support\AdminPrivacySanitizer;
-use App\Support\ConversationStatus;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class ConversationController extends Controller
 {
@@ -71,15 +71,9 @@ class ConversationController extends Controller
         ]);
     }
 
-    public function search(Request $request, SearchConversationsAction $action): JsonResponse
+    public function search(SearchConversationsRequest $request, SearchConversationsAction $action): JsonResponse
     {
-        $validated = $request->validate([
-            'q' => ['nullable', 'string', 'max:120'],
-            'empresa_id' => ['required', 'integer', 'exists:companies,id'],
-            'data_inicio' => ['nullable', 'date'],
-            'data_fim' => ['nullable', 'date', 'after_or_equal:data_inicio'],
-            'status' => ['nullable', 'string', Rule::in(ConversationStatus::all())],
-        ]);
+        $validated = $request->validated();
 
         return response()->json($action->handleForAdmin((int) $validated['empresa_id'], $validated));
     }
@@ -109,11 +103,9 @@ class ConversationController extends Controller
         return $this->blockedByPrivacyMode($request, 'admin.conversation.tags_update_blocked', $conversationId);
     }
 
-    public function updateContact(Request $request, int $conversationId): JsonResponse
+    public function updateContact(UpdateConversationContactRequest $request, int $conversationId): JsonResponse
     {
-        $validated = $request->validate([
-            'customer_name' => ['nullable', 'string', 'max:160'],
-        ]);
+        $validated = $request->validated();
 
         $conversation = Conversation::query()
             ->with(['company:id,name'])

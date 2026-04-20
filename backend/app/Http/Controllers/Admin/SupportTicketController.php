@@ -3,12 +3,13 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\ListSupportTicketsRequest;
+use App\Http\Requests\Admin\UpdateSupportTicketStatusRequest;
 use App\Models\Company;
 use App\Models\SupportTicket;
 use App\Services\AuditLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class SupportTicketController extends Controller
 {
@@ -16,12 +17,9 @@ class SupportTicketController extends Controller
         private AuditLogService $auditLog
     ) {}
 
-    public function index(Request $request): JsonResponse
+    public function index(ListSupportTicketsRequest $request): JsonResponse
     {
-        $validated = $request->validate([
-            'company_id' => ['nullable', 'string', 'max:30'],
-            'status' => ['nullable', Rule::in(['open', 'closed'])],
-        ]);
+        $validated = $request->validated();
 
         $companyFilter = trim((string) ($validated['company_id'] ?? ''));
         $statusFilter = trim((string) ($validated['status'] ?? ''));
@@ -89,13 +87,11 @@ class SupportTicketController extends Controller
         ]);
     }
 
-    public function updateStatus(Request $request, SupportTicket $ticket): JsonResponse
+    public function updateStatus(UpdateSupportTicketStatusRequest $request, SupportTicket $ticket): JsonResponse
     {
         $user = $request->user();
 
-        $validated = $request->validate([
-            'status' => ['required', Rule::in([SupportTicket::STATUS_OPEN, SupportTicket::STATUS_CLOSED])],
-        ]);
+        $validated = $request->validated();
 
         $nextStatus = (string) $validated['status'];
         $previousStatus = (string) $ticket->status;

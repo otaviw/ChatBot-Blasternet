@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers\Company;
 
+use App\Actions\Conversation\AssignConversationAgentAction;
 use App\Actions\Conversation\SearchConversationsAction;
-use App\Actions\Company\Conversation\AssumeCompanyConversationAction;
+use App\Actions\Conversation\SyncConversationTagsAction;
+use App\Actions\Conversation\ToggleConversationPrivacyAction;
+use App\Actions\Conversation\UpdateConversationStatusAction;
 use App\Actions\Company\Conversation\GenerateAiSuggestionForConversationAction;
 use App\Actions\Company\Conversation\ListCompanyConversationsAction;
 use App\Actions\Company\Conversation\SearchCompanyConversationMessagesAction;
@@ -11,6 +14,14 @@ use App\Actions\Company\Conversation\ServeCompanyConversationMediaAction;
 use App\Actions\Company\Conversation\ShowCompanyConversationAction;
 use App\Actions\Company\Conversation\TransferCompanyConversationAction;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Company\CreateConversationRequest;
+use App\Http\Requests\Company\ManualReplyRequest;
+use App\Http\Requests\Company\SearchConversationMessagesRequest;
+use App\Http\Requests\Company\SearchConversationsRequest;
+use App\Http\Requests\Company\SendConversationTemplateRequest;
+use App\Http\Requests\Company\TransferConversationRequest;
+use App\Http\Requests\Company\UpdateConversationContactRequest;
+use App\Http\Requests\Company\UpdateConversationTagsRequest;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Services\AuditLogService;
@@ -20,7 +31,6 @@ use App\Services\Company\CompanyConversationCountersService;
 use App\Services\Company\CompanyUsageLimitsService;
 use App\Services\MessageDeliveryStatusService;
 use App\Services\MessageMediaStorageService;
-use App\Services\NotificationDispatchService;
 use App\Services\WhatsAppSendService;
 use Illuminate\Support\Facades\Storage;
 use App\Support\ConversationAssignedType;
@@ -30,8 +40,6 @@ use App\Support\MessageDeliveryStatus;
 use App\Support\PhoneNumberNormalizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class ConversationController extends Controller
@@ -43,7 +51,6 @@ class ConversationController extends Controller
         private AuditLogService $auditLog,
         private CompanyConversationSupportService $conversationSupport,
         private CompanyConversationCountersService $countersService,
-        private NotificationDispatchService $dispatchService,
         private CompanyUsageLimitsService $usageLimits
     ) {}
 
@@ -54,16 +61,11 @@ class ConversationController extends Controller
         return response()->json($action->handle($user, $request));
     }
 
-    public function search(Request $request, SearchConversationsAction $action): JsonResponse
+    public function search(SearchConversationsRequest $request, SearchConversationsAction $action): JsonResponse
     {
         $user = $request->user();
 
-        $validated = $request->validate([
-            'q' => ['nullable', 'string', 'max:120'],
-            'data_inicio' => ['nullable', 'date'],
-            'data_fim' => ['nullable', 'date', 'after_or_equal:data_inicio'],
-            'status' => ['nullable', 'string', Rule::in(ConversationStatus::all())],
-        ]);
+        $validated = $request->validated();
 
         return response()->json($action->handleForCompanyUser($user, $validated));
     }
@@ -76,16 +78,13 @@ class ConversationController extends Controller
     }
 
     public function searchMessages(
-        Request $request,
+        SearchConversationMessagesRequest $request,
         int $conversationId,
         SearchCompanyConversationMessagesAction $action
     ): JsonResponse {
         $user = $request->user();
 
-        $validated = $request->validate([
-            'q' => ['required', 'string', 'max:120'],
-            'messages_per_page' => ['nullable', 'integer', 'min:10', 'max:50'],
-        ]);
+        $validated = $request->validated();
 
         $messagesPerPage = (int) ($validated['messages_per_page'] ?? 25);
         $payload = $action->handle($user, $conversationId, (string) $validated['q'], $messagesPerPage);
@@ -147,11 +146,11 @@ class ConversationController extends Controller
         return response()->json($payload);
     }
 
-    public function assume(Request $request, int $conversationId, AssumeCompanyConversationAction $action): JsonResponse
+    public function assume(Request $request, int $conversationId, AssignConversationAgentAction $action): JsonResponse
     {
         $user = $request->user();
 
-        $conversation = $action->handle($request, $user, $conversationId);
+        $conversation = $action->handle($request, $user, $conversationId, 'assume');
         if (! $conversation) {
             return response()->json(['message' => 'Conversa não encontrada para esta empresa.'], 404);
         }
@@ -162,32 +161,14 @@ class ConversationController extends Controller
         ]);
     }
 
-    public function release(Request $request, int $conversationId): JsonResponse
+    public function release(Request $request, int $conversationId, AssignConversationAgentAction $action): JsonResponse
     {
         $user = $request->user();
 
-        $conversation = Conversation::query()
-            ->where('company_id', (int) $user->company_id)
-            ->whereKey($conversationId)
-            ->first();
-
+        $conversation = $action->handle($request, $user, $conversationId, 'release');
         if (! $conversation) {
             return response()->json(['message' => 'Conversa não encontrada para esta empresa.'], 404);
         }
-
-        $conversation->handling_mode = ConversationHandlingMode::BOT;
-        $conversation->assigned_type = ConversationAssignedType::BOT;
-        $conversation->assigned_id = null;
-        $conversation->current_area_id = null;
-        $conversation->assigned_user_id = null;
-        $conversation->assigned_area = null;
-        $conversation->assumed_at = null;
-        $conversation->status = ConversationStatus::OPEN;
-        $conversation->save();
-
-        $this->auditLog->record($request, 'company.conversation.released', $conversation->company_id, [
-            'conversation_id' => $conversation->id,
-        ]);
 
         return response()->json([
             'ok' => true,
@@ -195,15 +176,11 @@ class ConversationController extends Controller
         ]);
     }
 
-    public function manualReply(Request $request, int $conversationId): JsonResponse
+    public function manualReply(ManualReplyRequest $request, int $conversationId): JsonResponse
     {
         $user = $request->user();
 
-        $validated = $request->validate([
-            'text' => ['nullable', 'string', 'max:2000'],
-            'file' => ['nullable', 'file', 'max:' . config('whatsapp.media_max_size_kb', 5120)],
-            'send_outbound' => ['sometimes', 'boolean'],
-        ]);
+        $validated = $request->validated();
 
         $conversation = Conversation::query()
             ->where('company_id', (int) $user->company_id)
@@ -367,44 +344,14 @@ class ConversationController extends Controller
         ]);
     }
 
-    public function close(Request $request, int $conversationId): JsonResponse
+    public function close(Request $request, int $conversationId, UpdateConversationStatusAction $action): JsonResponse
     {
         $user = $request->user();
 
-        $conversation = Conversation::query()
-            ->where('company_id', (int) $user->company_id)
-            ->whereKey($conversationId)
-            ->first();
-
+        $conversation = $action->handle($request, $user, $conversationId, 'close');
         if (! $conversation) {
             return response()->json(['message' => 'Conversa não encontrada para esta empresa.'], 404);
         }
-
-        $prevAssignedType = (string) $conversation->assigned_type;
-        $prevAssignedId = $conversation->assigned_id ? (int) $conversation->assigned_id : null;
-
-        $conversation->status = ConversationStatus::CLOSED;
-        $conversation->handling_mode = ConversationHandlingMode::BOT;
-        $conversation->assigned_type = ConversationAssignedType::UNASSIGNED;
-        $conversation->assigned_id = null;
-        $conversation->current_area_id = null;
-        $conversation->assigned_user_id = null;
-        $conversation->assigned_area = null;
-        $conversation->assumed_at = null;
-        $conversation->closed_at = now();
-        $conversation->save();
-
-        $this->dispatchService->dispatchConversationClosedNotification(
-            $conversation,
-            $prevAssignedType,
-            $prevAssignedId,
-            (int) $user->id
-        );
-
-        $this->auditLog->record($request, 'company.conversation.closed', $conversation->company_id, [
-            'conversation_id' => $conversation->id,
-            'closed_by' => $user->id,
-        ]);
 
         return response()->json([
             'ok' => true,
@@ -412,52 +359,32 @@ class ConversationController extends Controller
         ]);
     }
 
-    public function updateTags(Request $request, int $conversationId): JsonResponse
+    public function updateTags(
+        UpdateConversationTagsRequest $request,
+        int $conversationId,
+        SyncConversationTagsAction $action
+    ): JsonResponse
     {
         $user = $request->user();
 
-        $validated = $request->validate([
-            'tags' => ['present', 'array'],
-            'tags.*' => ['string', 'max:50'],
-        ]);
+        $validated = $request->validated();
 
-        $conversation = Conversation::query()
-            ->where('company_id', (int) $user->company_id)
-            ->whereKey($conversationId)
-            ->first();
-
-        if (! $conversation) {
+        $result = $action->handle($request, $user, $conversationId, $validated);
+        if (! $result) {
             return response()->json(['message' => 'Conversa não encontrada para esta empresa.'], 404);
         }
 
-        $tags = collect($validated['tags'])
-            ->map(fn($tag) => strtolower(trim((string) $tag)))
-            ->filter()
-            ->unique()
-            ->values()
-            ->toArray();
-
-        $conversation->tags = $tags;
-        $conversation->save();
-
-        $this->auditLog->record($request, 'company.conversation.tags_updated', $conversation->company_id, [
-            'conversation_id' => $conversation->id,
-            'tags' => $tags,
-        ]);
-
         return response()->json([
             'ok' => true,
-            'tags' => $tags,
+            'tags' => $result['tags'],
         ]);
     }
 
-    public function updateContact(Request $request, int $conversationId): JsonResponse
+    public function updateContact(UpdateConversationContactRequest $request, int $conversationId): JsonResponse
     {
         $user = $request->user();
 
-        $validated = $request->validate([
-            'customer_name' => ['nullable', 'string', 'max:160'],
-        ]);
+        $validated = $request->validated();
 
         $conversation = Conversation::query()
             ->where('company_id', (int) $user->company_id)
@@ -487,17 +414,11 @@ class ConversationController extends Controller
         ]);
     }
 
-    public function transfer(Request $request, int $conversationId, TransferCompanyConversationAction $action): JsonResponse
+    public function transfer(TransferConversationRequest $request, int $conversationId, TransferCompanyConversationAction $action): JsonResponse
     {
         $user = $request->user();
 
-        $validated = $request->validate([
-            'type' => ['nullable', 'string', 'in:user,area'],
-            'id' => ['nullable', 'integer', 'min:1'],
-            'to_user_id' => ['nullable', 'integer', 'min:1'],
-            'to_area' => ['nullable', 'string', 'max:120'],
-            'send_outbound' => ['sometimes', 'boolean'],
-        ]);
+        $validated = $request->validated();
 
         try {
             $payload = $action->handle($request, $user, $conversationId, $validated);
@@ -542,16 +463,14 @@ class ConversationController extends Controller
     /**
      * Cria uma nova conversa (ou reabre existente) e, opcionalmente, envia template de abertura.
      */
-    public function createConversation(Request $request): JsonResponse
+    public function createConversation(
+        CreateConversationRequest $request,
+        UpdateConversationStatusAction $statusAction
+    ): JsonResponse
     {
         $user = $request->user();
 
-        $validated = $request->validate([
-            'customer_phone' => ['required', 'string', 'max:30'],
-            'customer_name'  => ['nullable', 'string', 'max:160'],
-            'send_template'  => ['sometimes', 'boolean'],
-            'template_name'  => ['sometimes', 'string', 'max:100'],
-        ]);
+        $validated = $request->validated();
 
         $normalizedPhone = PhoneNumberNormalizer::normalizeBrazil((string) $validated['customer_phone']);
         if ($normalizedPhone === '') {
@@ -587,11 +506,7 @@ class ConversationController extends Controller
         }
 
         if ($conversation->status === ConversationStatus::CLOSED) {
-            $conversation->status        = ConversationStatus::OPEN;
-            $conversation->closed_at     = null;
-            $conversation->handling_mode = ConversationHandlingMode::BOT;
-            $conversation->assigned_type = ConversationAssignedType::UNASSIGNED;
-            $conversation->assigned_id   = null;
+            $statusAction->reopen($conversation, true);
         }
 
         $conversation->save();
@@ -665,13 +580,15 @@ class ConversationController extends Controller
     /**
      * Envia template para uma conversa existente (reabre janela de atendimento).
      */
-    public function sendTemplate(Request $request, int $conversationId): JsonResponse
+    public function sendTemplate(
+        SendConversationTemplateRequest $request,
+        int $conversationId,
+        UpdateConversationStatusAction $statusAction
+    ): JsonResponse
     {
         $user = $request->user();
 
-        $validated = $request->validate([
-            'template_name' => ['sometimes', 'string', 'max:100'],
-        ]);
+        $validated = $request->validated();
 
         $conversation = Conversation::query()
             ->where('company_id', (int) $user->company_id)
@@ -734,8 +651,7 @@ class ConversationController extends Controller
             $conversation->last_business_message_at = now();
 
             if ($conversation->status === ConversationStatus::CLOSED) {
-                $conversation->status    = ConversationStatus::OPEN;
-                $conversation->closed_at = null;
+                $statusAction->reopen($conversation);
             }
 
             $conversation->save();
@@ -766,38 +682,21 @@ class ConversationController extends Controller
     /**
      * Download de mídia de mensagem (document/image/video/audio).
      */
-    public function downloadMessageMedia(Request $request, int $conversation, int $message)
+    public function downloadMessageMedia(
+        Request $request,
+        int $conversation,
+        int $message,
+        ToggleConversationPrivacyAction $action
+    )
     {
         $user = $request->user();
 
-        $conv = Conversation::query()
-            ->where('company_id', (int) $user->company_id)
-            ->findOrFail($conversation);
-
-        $msg = Message::query()
-            ->findOrFail($message);
-
-        if ($msg->conversation_id !== $conv->id) {
-            abort(404);
+        $result = $action->handle($user, $conversation, $message);
+        if (isset($result['error'], $result['status'])) {
+            return response()->json(['error' => $result['error']], (int) $result['status']);
         }
 
-        if (!$msg->media_key) {
-            return response()->json(['error' => 'Sem arquivo'], 404);
-        }
-
-        $disk = Storage::disk('public');
-        $basePath = rtrim($disk->path(''), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
-        $filePath = $disk->path($msg->media_key);
-
-        if (!str_starts_with($filePath, $basePath)) {
-            abort(404);
-        }
-
-        if (!file_exists($filePath)) {
-            return response()->json(['error' => 'Arquivo não encontrado'], 404);
-        }
-
-        return response()->download($filePath, basename($msg->media_filename ?? 'arquivo'));
+        return response()->download($result['path'], $result['download_name']);
     }
 
     /**

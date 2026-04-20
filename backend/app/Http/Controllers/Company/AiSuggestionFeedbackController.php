@@ -3,21 +3,18 @@
 namespace App\Http\Controllers\Company;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Company\StoreAiFeedbackRequest;
 use App\Models\AiSuggestionFeedback;
 use App\Models\AiUsageLog;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 class AiSuggestionFeedbackController extends Controller
 {
-    public function store(Request $request, int $suggestionId): JsonResponse
+    public function store(StoreAiFeedbackRequest $request, int $suggestionId): JsonResponse
     {
         $user = $request->user();
 
-        $validated = $request->validate([
-            'helpful' => ['required', 'boolean'],
-            'reason'  => ['sometimes', 'nullable', 'string', 'max:500'],
-        ]);
+        $validated = $request->validated();
 
         // Verify the suggestion log belongs to the user's company
         $log = AiUsageLog::query()

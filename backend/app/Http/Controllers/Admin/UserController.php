@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\StoreUserRequest;
+use App\Http\Requests\Admin\UpdateUserRequest;
 use App\Mail\WelcomeUserMail;
 use App\Models\Area;
 use App\Models\Company;
@@ -12,7 +14,6 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class UserController extends Controller
@@ -54,21 +55,9 @@ class UserController extends Controller
         ]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(StoreUserRequest $request): JsonResponse
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:120'],
-            'email' => ['required', 'email', 'max:190', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:8', 'max:100'],
-            'role' => ['required', Rule::in(User::assignableRoleValuesForSystemAdmin())],
-            'company_id' => ['nullable', 'integer', 'exists:companies,id'],
-            'is_active' => ['sometimes', 'boolean'],
-            'can_use_ai' => ['sometimes', 'boolean'],
-            'area_ids' => ['sometimes', 'array', 'max:50'],
-            'area_ids.*' => ['integer', 'exists:areas,id'],
-            'areas' => ['sometimes', 'array', 'max:50'],
-            'areas.*' => ['string', 'max:120'],
-        ]);
+        $validated = $request->validated();
 
         $normalizedRole = User::normalizeRole((string) $validated['role']);
         $companyId = $this->resolveCompanyIdForRole($normalizedRole, $validated['company_id'] ?? null);
@@ -109,21 +98,9 @@ class UserController extends Controller
         ], 201);
     }
 
-    public function update(Request $request, User $user): JsonResponse
+    public function update(UpdateUserRequest $request, User $user): JsonResponse
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:120'],
-            'email' => ['required', 'email', 'max:190', Rule::unique('users', 'email')->ignore($user->id)],
-            'role' => ['required', Rule::in(User::assignableRoleValuesForSystemAdmin())],
-            'company_id' => ['nullable', 'integer', 'exists:companies,id'],
-            'is_active' => ['required', 'boolean'],
-            'can_use_ai' => ['sometimes', 'boolean'],
-            'password' => ['nullable', 'string', 'min:8', 'max:100'],
-            'area_ids' => ['sometimes', 'array', 'max:50'],
-            'area_ids.*' => ['integer', 'exists:areas,id'],
-            'areas' => ['sometimes', 'array', 'max:50'],
-            'areas.*' => ['string', 'max:120'],
-        ]);
+        $validated = $request->validated();
 
         $normalizedRole = User::normalizeRole((string) $validated['role']);
         $companyId = $this->resolveCompanyIdForRole($normalizedRole, $validated['company_id'] ?? null);

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Company;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Company\TestAiSandboxRequest;
 use App\Models\AiMessage;
 use App\Models\CompanyBotSetting;
 use App\Models\User;
@@ -11,7 +12,6 @@ use App\Services\Ai\AiMetricsService;
 use App\Services\Ai\AiProviderResolver;
 use App\Services\Ai\Rag\AiKnowledgeRetrieverService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 /**
  * Sandbox endpoint — lets company admins test the configured AI provider
@@ -28,7 +28,7 @@ class AiSandboxController extends Controller
         private readonly AiMetricsService $metricsService,
     ) {}
 
-    public function test(Request $request): JsonResponse
+    public function test(TestAiSandboxRequest $request): JsonResponse
     {
         $user = $request->user();
         if (! $user instanceof User || ! (bool) $user->is_active) {
@@ -47,10 +47,7 @@ class AiSandboxController extends Controller
             return response()->json(['message' => 'IA não está configurada para esta empresa.'], 422);
         }
 
-        $validated = $request->validate([
-            'message'     => ['required', 'string', 'max:2000'],
-            'include_rag' => ['sometimes', 'boolean'],
-        ]);
+        $validated = $request->validated();
 
         $message    = trim((string) $validated['message']);
         $includeRag = (bool) ($validated['include_rag'] ?? false);

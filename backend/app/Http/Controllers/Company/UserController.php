@@ -3,13 +3,14 @@
 namespace App\Http\Controllers\Company;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Company\StoreUserRequest;
+use App\Http\Requests\Company\UpdateUserRequest;
 use App\Models\Area;
 use App\Models\AppointmentStaffProfile;
 use App\Models\User;
 use App\Services\Company\CompanyUsageLimitsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class UserController extends Controller
@@ -70,7 +71,7 @@ class UserController extends Controller
         ]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(StoreUserRequest $request): JsonResponse
     {
         $actor = $request->user();
         if (! $actor) {
@@ -86,20 +87,7 @@ class UserController extends Controller
             ], 403);
         }
 
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:120'],
-            'email' => ['required', 'email', 'max:190', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:8', 'max:100'],
-            'role' => ['required', Rule::in(User::assignableRoleValuesForCompanyAdmin())],
-            'is_active' => ['sometimes', 'boolean'],
-            'can_use_ai' => ['sometimes', 'boolean'],
-            'area_ids' => ['sometimes', 'array', 'max:50'],
-            'area_ids.*' => ['integer', 'exists:areas,id'],
-            'areas' => ['sometimes', 'array', 'max:50'],
-            'areas.*' => ['string', 'max:120'],
-            'appointment_is_staff' => ['sometimes', 'boolean'],
-            'appointment_display_name' => ['nullable', 'string', 'max:120'],
-        ]);
+        $validated = $request->validated();
 
         $companyId = (int) $actor->company_id;
 
@@ -148,7 +136,7 @@ class UserController extends Controller
         ], 201);
     }
 
-    public function update(Request $request, User $user): JsonResponse
+    public function update(UpdateUserRequest $request, User $user): JsonResponse
     {
         $actor = $request->user();
         if (! $actor) {
@@ -171,20 +159,7 @@ class UserController extends Controller
             ], 404);
         }
 
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:120'],
-            'email' => ['required', 'email', 'max:190', Rule::unique('users', 'email')->ignore($user->id)],
-            'role' => ['required', Rule::in(User::assignableRoleValuesForCompanyAdmin())],
-            'is_active' => ['required', 'boolean'],
-            'can_use_ai' => ['sometimes', 'boolean'],
-            'password' => ['nullable', 'string', 'min:8', 'max:100'],
-            'area_ids' => ['sometimes', 'array', 'max:50'],
-            'area_ids.*' => ['integer', 'exists:areas,id'],
-            'areas' => ['sometimes', 'array', 'max:50'],
-            'areas.*' => ['string', 'max:120'],
-            'appointment_is_staff' => ['sometimes', 'boolean'],
-            'appointment_display_name' => ['nullable', 'string', 'max:120'],
-        ]);
+        $validated = $request->validated();
 
         $normalizedRole = User::normalizeRole((string) $validated['role']);
         $areaIds = $this->resolveAreaIds($companyId, $validated);

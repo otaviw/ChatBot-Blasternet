@@ -1,0 +1,27 @@
+<?php
+
+namespace App\Http\Requests\Admin;
+
+use App\Support\ConversationStatus;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+
+class SearchConversationsRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    /** @return array<string, mixed> */
+    public function rules(): array
+    {
+        return [
+            'q'           => ['nullable', 'string', 'max:120'],
+            'empresa_id'  => ['required', 'integer', 'exists:companies,id'],
+            'data_inicio' => ['nullable', 'date'],
+            'data_fim'    => ['nullable', 'date', 'after_or_equal:data_inicio'],
+            'status'      => ['nullable', 'string', Rule::in(ConversationStatus::all())],
+        ];
+    }
+}

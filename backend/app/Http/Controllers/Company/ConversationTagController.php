@@ -3,6 +3,9 @@
 namespace App\Http\Controllers\Company;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Company\AttachConversationTagRequest;
+use App\Http\Requests\Company\StoreConversationTagRequest;
+use App\Http\Requests\Company\UpdateConversationTagRequest;
 use App\Models\Conversation;
 use App\Models\Tag;
 use App\Services\AuditLogService;
@@ -39,14 +42,11 @@ class ConversationTagController extends Controller
     }
 
     /** POST /minha-conta/tags */
-    public function store(Request $request): JsonResponse
+    public function store(StoreConversationTagRequest $request): JsonResponse
     {
         $user = $request->user();
 
-        $validated = $request->validate([
-            'name'  => ['required', 'string', 'max:50'],
-            'color' => ['required', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
-        ]);
+        $validated = $request->validated();
 
         $name = mb_strtolower(trim($validated['name']));
 
@@ -79,7 +79,7 @@ class ConversationTagController extends Controller
     }
 
     /** PUT /minha-conta/tags/{tag} */
-    public function update(Request $request, Tag $tag): JsonResponse
+    public function update(UpdateConversationTagRequest $request, Tag $tag): JsonResponse
     {
         $user = $request->user();
 
@@ -87,10 +87,7 @@ class ConversationTagController extends Controller
             return response()->json(['message' => 'Tag não encontrada.'], 404);
         }
 
-        $validated = $request->validate([
-            'name'  => ['required', 'string', 'max:50'],
-            'color' => ['required', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
-        ]);
+        $validated = $request->validated();
 
         $name = mb_strtolower(trim($validated['name']));
 
@@ -146,13 +143,11 @@ class ConversationTagController extends Controller
     // -------------------------------------------------------------------------
 
     /** POST /minha-conta/conversas/{conversationId}/tags */
-    public function attach(Request $request, int $conversationId): JsonResponse
+    public function attach(AttachConversationTagRequest $request, int $conversationId): JsonResponse
     {
         $user = $request->user();
 
-        $validated = $request->validate([
-            'tag_id' => ['required', 'integer'],
-        ]);
+        $validated = $request->validated();
 
         $conversation = Conversation::query()
             ->where('company_id', (int) $user->company_id)

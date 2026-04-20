@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Company;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Company\ImportContactsCsvRequest;
+use App\Http\Requests\Company\StoreContactRequest;
 use App\Models\Contact;
 use App\Services\ContactCsvImportService;
 use App\Support\PhoneNumberNormalizer;
@@ -27,16 +29,12 @@ class ContactController extends Controller
         return response()->json($contacts);
     }
 
-    public function importCsv(Request $request): JsonResponse
+    public function importCsv(ImportContactsCsvRequest $request): JsonResponse
     {
         $companyId = $this->resolveCompanyId($request);
         if ($companyId === null) {
             return response()->json(['message' => 'Empresa não identificada.'], 403);
         }
-
-        $request->validate([
-            'file' => ['required', 'file', 'mimes:csv,txt', 'max:5120'], // 5 MB
-        ]);
 
         $result = $this->csvImport->import($request->file('file'), $companyId);
 
@@ -48,17 +46,14 @@ class ContactController extends Controller
         ]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(StoreContactRequest $request): JsonResponse
     {
         $companyId = $this->resolveCompanyId($request);
         if ($companyId === null) {
             return response()->json(['message' => 'Empresa nÃ£o identificada.'], 403);
         }
 
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:160'],
-            'phone' => ['required', 'string', 'max:40'],
-        ]);
+        $validated = $request->validated();
 
         $phone = PhoneNumberNormalizer::normalizeBrazil((string) $validated['phone']);
         if ($phone === '') {

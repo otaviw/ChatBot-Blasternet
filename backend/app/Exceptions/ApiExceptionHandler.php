@@ -89,17 +89,19 @@ class ApiExceptionHandler
         }
 
         $status = static::statusFor($e);
+        $details = null;
+
+        if ($e instanceof ValidationException) {
+            $details = $e->errors();
+        }
 
         $body = [
-            'message' => static::messageFor($e, $status),
-            'error'   => static::errorCodeFor($e, $status),
-            'code'    => $status,
+            'error' => [
+                'code' => static::errorCodeFor($e, $status),
+                'message' => static::messageFor($e, $status),
+                'details' => $details,
+            ],
         ];
-
-        // Erros de validação incluem o mapa campo → mensagens para o frontend
-        if ($e instanceof ValidationException) {
-            $body['errors'] = $e->errors();
-        }
 
         $response = response()->json($body, $status);
 
@@ -139,16 +141,16 @@ class ApiExceptionHandler
     private static function errorCodeFor(Throwable $e, int $status): string
     {
         return match (true) {
-            $e instanceof ValidationException         => 'validation_error',
-            $e instanceof AuthenticationException     => 'unauthenticated',
-            $e instanceof AuthorizationException      => 'forbidden',
+            $e instanceof ValidationException         => 'VALIDATION_ERROR',
+            $e instanceof AuthenticationException     => 'UNAUTHENTICATED',
+            $e instanceof AuthorizationException      => 'FORBIDDEN',
             $e instanceof ModelNotFoundException,
-            $e instanceof NotFoundHttpException       => 'not_found',
-            $e instanceof MethodNotAllowedHttpException => 'method_not_allowed',
-            $e instanceof ThrottleRequestsException   => 'too_many_requests',
-            $e instanceof PostTooLargeException       => 'payload_too_large',
-            $status >= 500                            => 'server_error',
-            default                                   => 'http_error',
+            $e instanceof NotFoundHttpException       => 'NOT_FOUND',
+            $e instanceof MethodNotAllowedHttpException => 'METHOD_NOT_ALLOWED',
+            $e instanceof ThrottleRequestsException   => 'TOO_MANY_REQUESTS',
+            $e instanceof PostTooLargeException       => 'PAYLOAD_TOO_LARGE',
+            $status >= 500                            => 'SERVER_ERROR',
+            default                                   => 'HTTP_ERROR',
         };
     }
 
@@ -157,7 +159,7 @@ class ApiExceptionHandler
         // Nunca expõe internals para erros de servidor — mensagem do PHP pode
         // conter nomes de tabelas, colunas, queries, paths do sistema, etc.
         if ($status >= 500) {
-            return 'Erro interno do servidor. Tente novamente em instantes.';
+            return 'Erro interno do servidor.';
         }
 
         return match (true) {
