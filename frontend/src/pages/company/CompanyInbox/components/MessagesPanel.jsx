@@ -11,6 +11,31 @@ const OUTBOUND_STATUS_LABELS = {
   [MESSAGE_DELIVERY_STATUS.FAILED]: 'Falhou',
 };
 
+function formatMessageTime(dateStr) {
+  if (!dateStr) return null;
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const now = new Date();
+  const isToday =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate();
+
+  const time = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+  if (isToday) return time;
+
+  const isThisYear = date.getFullYear() === now.getFullYear();
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+
+  if (isThisYear) return `${day}/${month} ${time}`;
+
+  const year = String(date.getFullYear()).slice(2);
+  return `${day}/${month}/${year} ${time}`;
+}
+
 function normalizeOutboundStatus(message) {
   const raw = String(message?.delivery_status ?? '').trim().toLowerCase();
   if (raw && OUTBOUND_STATUS_LABELS[raw]) {
@@ -341,6 +366,10 @@ function MessagesPanel({
               </span>
             ))}
           </div>
+        ) : null}
+
+        {formatMessageTime(message.created_at) ? (
+          <span className="inbox-message-time">{formatMessageTime(message.created_at)}</span>
         ) : null}
       </div>
     );

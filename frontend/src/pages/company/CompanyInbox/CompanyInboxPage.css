@@ -450,6 +450,15 @@ body.theme-dark .inbox-message-out .inbox-message-label {
   color: #b91c1c;
 }
 
+.inbox-message-time {
+  display: block;
+  align-self: flex-end;
+  font-size: 0.62rem;
+  opacity: 0.55;
+  margin-top: 0.2rem;
+  white-space: nowrap;
+}
+
 .inbox-message-reactions {
   margin-top: 0.35rem;
   display: flex;

@@ -146,20 +146,42 @@ function CampaignForm({
 
   return (
     <form onSubmit={handleSubmit} className="campaign-form">
-      <div>
-        <label htmlFor="campaign-form-name" className="campaign-form__label">
-          Nome
-        </label>
-        <input
-          id="campaign-form-name"
-          className="app-input"
-          type="text"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          disabled={busy}
-          required
-        />
-        {errors.name ? <p className="campaign-form__error">{errors.name}</p> : null}
+      <div className="campaign-form__row">
+        <div>
+          <label htmlFor="campaign-form-name" className="campaign-form__label">
+            Nome
+          </label>
+          <input
+            id="campaign-form-name"
+            className="app-input"
+            type="text"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            disabled={busy}
+            required
+          />
+          {errors.name ? <p className="campaign-form__error">{errors.name}</p> : null}
+        </div>
+
+        <div>
+          <label htmlFor="campaign-form-type" className="campaign-form__label">
+            Tipo
+          </label>
+          <select
+            id="campaign-form-type"
+            className="app-input"
+            value={type}
+            onChange={(event) => setType(event.target.value)}
+            disabled={busy}
+            required
+          >
+            <option value="">Selecione o tipo</option>
+            <option value="template">template</option>
+            <option value="open">open (abrir conversa)</option>
+            <option value="free">free (24h)</option>
+          </select>
+          {errors.type ? <p className="campaign-form__error">{errors.type}</p> : null}
+        </div>
       </div>
 
       <ContactSelector
@@ -191,26 +213,6 @@ function CampaignForm({
           ) : null}
         </div>
       ) : null}
-
-      <div>
-        <label htmlFor="campaign-form-type" className="campaign-form__label">
-          Tipo
-        </label>
-        <select
-          id="campaign-form-type"
-          className="app-input"
-          value={type}
-          onChange={(event) => setType(event.target.value)}
-          disabled={busy}
-          required
-        >
-          <option value="">Selecione o tipo</option>
-          <option value="template">template</option>
-          <option value="open">open (abrir conversa)</option>
-          <option value="free">free (24h)</option>
-        </select>
-        {errors.type ? <p className="campaign-form__error">{errors.type}</p> : null}
-      </div>
 
       <div className="campaign-form__templates-info" role="note" aria-live="polite">
         <p className="campaign-form__templates-info-text">
