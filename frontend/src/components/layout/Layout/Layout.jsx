@@ -1268,7 +1268,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
                     <path d="M13.73 21a2 2 0 0 1-3.46 0" />
                   </svg>
                 </div>
-                <p className="layout-notifications__permission-text">Ative as notificações do Windows para receber alertas mesmo em outras abas.</p>
+                <p className="layout-notifications__permission-text">Ative as notificações do navegador para receber alertas mesmo em outras abas.</p>
                 <button
                   type="button"
                   className="layout-notifications__permission-btn"

@@ -25,6 +25,15 @@ function resolveNavigationUrl(notification) {
   return null;
 }
 
+async function getSwRegistration() {
+  if (!('serviceWorker' in navigator)) return null;
+  try {
+    return await navigator.serviceWorker.ready;
+  } catch {
+    return null;
+  }
+}
+
 const browserNotificationService = {
   isSupported() {
     return typeof window !== 'undefined' && 'Notification' in window;
@@ -49,14 +58,13 @@ const browserNotificationService = {
     return this.isSupported() && Notification.permission === 'granted';
   },
 
-  notifyFromAppNotification(appNotification) {
+  async notifyFromAppNotification(appNotification) {
     if (!this.canNotify() || !appNotification) return null;
 
     const title = String(appNotification.title || 'Nova notificacao');
     const body = String(appNotification.text || '');
     const url = resolveNavigationUrl(appNotification);
 
-    // Constrói URL absoluta do ícone para evitar falha de resolução de caminho relativo
     const iconUrl = (() => {
       try {
         return new URL('/favicon.ico', window.location.origin).href;
@@ -65,16 +73,31 @@ const browserNotificationService = {
       }
     })();
 
+    const options = {
+      body,
+      icon: iconUrl,
+      tag: `app-notification-${appNotification.id}`,
+      renotify: false,
+      data: url ? { url } : undefined,
+    };
+
+    // Tenta via Service Worker primeiro — compatível com macOS Safari 16.4+, iOS, Chrome, Firefox
+    const registration = await getSwRegistration();
+    if (registration) {
+      try {
+        await registration.showNotification(title, options);
+        return true;
+      } catch (err) {
+        console.error('[BrowserNotification] SW showNotification falhou, tentando fallback:', err);
+      }
+    }
+
+    // Fallback direto via Notification API (Chrome/Firefox sem SW)
     try {
-      const notification = new Notification(title, {
-        body,
-        icon: iconUrl,
-        tag: `app-notification-${appNotification.id}`,
-        renotify: false,
-      });
+      const notification = new Notification(title, options);
 
       notification.onerror = (event) => {
-        console.error('[BrowserNotification] Erro ao exibir notificação do Windows:', event);
+        console.error('[BrowserNotification] Erro ao exibir notificação:', event);
       };
 
       notification.onclick = (event) => {
@@ -88,7 +111,7 @@ const browserNotificationService = {
 
       return notification;
     } catch (error) {
-      console.error('[BrowserNotification] Falha ao criar notificação do Windows:', error);
+      console.error('[BrowserNotification] Falha ao criar notificação:', error);
       return null;
     }
   },
