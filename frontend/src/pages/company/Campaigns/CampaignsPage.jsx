@@ -1,14 +1,16 @@
-import './CampaignsPage.css';
+﻿import './CampaignsPage.css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import CampaignForm from '@/components/sections/campaigns/CampaignForm/CampaignForm.jsx';
 import Layout from '@/components/layout/Layout/Layout.jsx';
 import { REALTIME_EVENTS } from '@/constants/realtimeEvents';
+import AsyncState from '@/components/ui/AsyncState/AsyncState.jsx';
 import EmptyState from '@/components/ui/EmptyState/EmptyState.jsx';
 import ErrorMessage from '@/components/ui/ErrorMessage/ErrorMessage.jsx';
 import LoadingSpinner from '@/components/ui/LoadingSpinner/LoadingSpinner.jsx';
+import useAsync from '@/hooks/useAsync';
 import useLogout from '@/hooks/useLogout';
 import usePageData from '@/hooks/usePageData';
-import useWhatsAppTemplates from '@/pages/company/CompanyInbox/hooks/useWhatsAppTemplates';
+import useWhatsAppTemplates from '@/hooks/useWhatsAppTemplates';
 import api from '@/services/api';
 import realtimeClient from '@/services/realtimeClient';
 import { showError, showSuccess } from '@/services/toastService';
@@ -115,8 +117,6 @@ function CampaignsPage() {
   const { templates, templatesLoading, templatesError, loadTemplates } = useWhatsAppTemplates();
 
   const [campaigns, setCampaigns] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [createBusy, setCreateBusy] = useState(false);
   const [startingId, setStartingId] = useState(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -128,31 +128,38 @@ function CampaignsPage() {
   const [contactsImportError, setContactsImportError] = useState('');
   const campaignsRef = useRef([]);
   const lastRealtimeUpdateAtRef = useRef(0);
+  const {
+    loading: campaignsLoading,
+    error: campaignsError,
+    run: runCampaignsRequest,
+  } = useAsync();
 
   const loadCampaigns = useCallback(async ({ silent = false } = {}) => {
-    if (!silent) {
-      setLoading(true);
-      setError('');
+    if (silent) {
+      try {
+        const response = await api.get('/minha-conta/campanhas');
+        const items = Array.isArray(response?.data?.campaigns) ? response.data.campaigns : [];
+        setCampaigns(items);
+        return true;
+      } catch (_err) {
+        return false;
+      }
     }
 
-    try {
-      const response = await api.get('/minha-conta/campanhas');
-      const items = Array.isArray(response?.data?.campaigns) ? response.data.campaigns : [];
-      setCampaigns(items);
-      setError('');
-      return true;
-    } catch (err) {
-      if (!silent) {
-        setCampaigns([]);
-        setError(err?.response?.data?.message ?? 'Não foi possível carregar campanhas.');
-      }
+    const { data: response, error: loadError } = await runCampaignsRequest(
+      () => api.get('/minha-conta/campanhas'),
+      { mapError: (err) => err?.response?.data?.message ?? 'Não foi possível carregar campanhas.' }
+    );
+
+    if (loadError || !response) {
+      setCampaigns([]);
       return false;
-    } finally {
-      if (!silent) {
-        setLoading(false);
-      }
     }
-  }, []);
+
+    const items = Array.isArray(response?.data?.campaigns) ? response.data.campaigns : [];
+    setCampaigns(items);
+    return true;
+  }, [runCampaignsRequest]);
 
   useEffect(() => {
     void loadCampaigns();
@@ -382,90 +389,91 @@ function CampaignsPage() {
           </button>
         </header>
 
-        {loading ? (
-          <div className="app-panel">
-            <LoadingSpinner label="Carregando campanhas..." />
-          </div>
-        ) : null}
+        <AsyncState
+          loading={campaignsLoading}
+          error={campaignsError}
+          loadingSlot={(
+            <div className="app-panel">
+              <LoadingSpinner label="Carregando campanhas..." />
+            </div>
+          )}
+          errorSlot={(
+            <div className="app-panel campaigns-page__state">
+              <ErrorMessage message={campaignsError} onRetry={() => void loadCampaigns()} />
+            </div>
+          )}
+        >
+          {orderedCampaigns.length === 0 ? (
+            <div className="app-panel campaigns-page__state">
+              <EmptyState title="Nenhuma campanha encontrada." />
+            </div>
+          ) : (
+            <div className="app-panel campaigns-table-wrap">
+              <table className="campaigns-table">
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th>Tipo</th>
+                    <th>Status</th>
+                    <th>Data</th>
+                    <th>Enviados</th>
+                    <th>Falhas</th>
+                    <th>Ignorados</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orderedCampaigns.map((campaign) => {
+                    const status = String(campaign?.status ?? 'draft');
+                    const isStartingThis = startingId === campaign.id;
+                    const isDraft = status === 'draft';
 
-        {!loading && error ? (
-          <div className="app-panel campaigns-page__state">
-            <ErrorMessage message={error} onRetry={() => void loadCampaigns()} />
-          </div>
-        ) : null}
+                    const statusLabels = {
+                      draft: 'Rascunho',
+                      sending: 'Enviando',
+                      finished: 'Finalizado',
+                    };
+                    const typeLabels = {
+                      free: 'Livre',
+                      template: 'Template',
+                      open: 'Aberta',
+                    };
+                    const statusLabel = statusLabels[status] ?? status;
+                    const typeLabel = typeLabels[String(campaign?.type ?? '')] ?? String(campaign?.type ?? '-');
 
-        {!loading && !error && orderedCampaigns.length === 0 ? (
-          <div className="app-panel campaigns-page__state">
-            <EmptyState title="Nenhuma campanha encontrada." />
-          </div>
-        ) : null}
-
-        {!loading && !error && orderedCampaigns.length > 0 ? (
-          <div className="app-panel campaigns-table-wrap">
-            <table className="campaigns-table">
-              <thead>
-                <tr>
-                  <th>Nome</th>
-                  <th>Tipo</th>
-                  <th>Status</th>
-                  <th>Data</th>
-                  <th>Enviados</th>
-                  <th>Falhas</th>
-                  <th>Ignorados</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {orderedCampaigns.map((campaign) => {
-                  const status = String(campaign?.status ?? 'draft');
-                  const isStartingThis = startingId === campaign.id;
-                  const isDraft = status === 'draft';
-
-                  const statusLabels = {
-                    draft: 'Rascunho',
-                    sending: 'Enviando',
-                    finished: 'Finalizado',
-                  };
-                  const typeLabels = {
-                    free: 'Livre',
-                    template: 'Template',
-                    open: 'Aberta',
-                  };
-                  const statusLabel = statusLabels[status] ?? status;
-                  const typeLabel = typeLabels[String(campaign?.type ?? '')] ?? String(campaign?.type ?? '-');
-
-                  return (
-                    <tr key={campaign.id}>
-                      <td>{campaign?.name || '-'}</td>
-                      <td>{typeLabel}</td>
-                      <td>
-                        <span className={`campaign-status-badge campaign-status-badge--${status}`}>
-                          {statusLabel}
-                        </span>
-                      </td>
-                      <td>{formatDate(campaign?.created_at)}</td>
-                      <td>{toDisplayCount(campaign?.sent_count)}</td>
-                      <td>{toDisplayCount(campaign?.failed_count)}</td>
-                      <td>{toDisplayCount(campaign?.skipped_count)}</td>
-                      <td>
-                        {isDraft ? (
-                          <button
-                            type="button"
-                            className="app-btn-secondary campaigns-start-btn"
-                            disabled={isStartingThis}
-                            onClick={() => void handleStartCampaign(campaign.id)}
-                          >
-                            {isStartingThis ? 'Iniciando...' : 'Iniciar campanha'}
-                          </button>
-                        ) : null}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : null}
+                    return (
+                      <tr key={campaign.id}>
+                        <td>{campaign?.name || '-'}</td>
+                        <td>{typeLabel}</td>
+                        <td>
+                          <span className={`campaign-status-badge campaign-status-badge--${status}`}>
+                            {statusLabel}
+                          </span>
+                        </td>
+                        <td>{formatDate(campaign?.created_at)}</td>
+                        <td>{toDisplayCount(campaign?.sent_count)}</td>
+                        <td>{toDisplayCount(campaign?.failed_count)}</td>
+                        <td>{toDisplayCount(campaign?.skipped_count)}</td>
+                        <td>
+                          {isDraft ? (
+                            <button
+                              type="button"
+                              className="app-btn-secondary campaigns-start-btn"
+                              disabled={isStartingThis}
+                              onClick={() => void handleStartCampaign(campaign.id)}
+                            >
+                              {isStartingThis ? 'Iniciando...' : 'Iniciar campanha'}
+                            </button>
+                          ) : null}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </AsyncState>
       </section>
 
       {isCreateModalOpen ? (
@@ -524,3 +532,4 @@ function CampaignsPage() {
 }
 
 export default CampaignsPage;
+

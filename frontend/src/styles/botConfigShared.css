@@ -1,0 +1,131 @@
+/* Config do bot */
+
+.bot-config-header {
+  margin-bottom: 1.25rem;
+}
+
+.bot-config-toc {
+  margin-bottom: 2rem;
+  max-width: 56rem;
+}
+
+.bot-config-toc-list {
+  margin: 0;
+  padding-left: 1.5rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: #525252;
+}
+
+.bot-config-toc-list li::marker {
+  font-weight: 600;
+  color: #2563eb;
+}
+
+.bot-config-hint--flush {
+  margin: 0;
+  flex: 1;
+  min-width: 12rem;
+}
+
+.bot-config-form {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+  max-width: 56rem;
+}
+
+.bot-config-section {
+  background: #fafafa;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  padding: 1.5rem 1.75rem;
+}
+
+.bot-config-section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #171717;
+  margin: 0 0 1rem;
+}
+
+.bot-config-section-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.bot-config-section-header .bot-config-section-title {
+  margin-bottom: 0;
+}
+
+.bot-config-hint {
+  font-size: 0.875rem;
+  color: #737373;
+  margin: -0.5rem 0 1rem;
+}
+
+.bot-config-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+@media (max-width: 640px) {
+  .bot-config-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bot-config-messages-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.bot-config-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.bot-config-field--inline {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.bot-config-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #525252;
+}
+
+.bot-config-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.bot-config-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding-top: 0.5rem;
+}
+
+/* ── Dark Theme ─────────────────────────────────────────── */
+body.theme-dark .bot-config-toc-list { color: #8b8fa8; }
+body.theme-dark .bot-config-toc-list li::marker { color: #4f8ef7; }
+body.theme-dark .bot-config-section {
+  background: #1a1d27;
+  border-color: #252836;
+}
+body.theme-dark .bot-config-section-title { color: #e8eaf2; }
+body.theme-dark .bot-config-hint { color: #8b8fa8; }
+body.theme-dark .bot-config-label { color: #9095b0; }
+

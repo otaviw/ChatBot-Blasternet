@@ -1,5 +1,5 @@
 import './AdminCompanyShowPage.css';
-import '@/pages/company/CompanyBot/CompanyBotPage.css';
+import '@/styles/botConfigShared.css';
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import Layout from '@/components/layout/Layout/Layout.jsx';

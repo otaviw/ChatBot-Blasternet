@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import Layout from '@/components/layout/Layout/Layout.jsx';
 import PageLoading from '@/components/ui/PageLoading/PageLoading.jsx';
+import SupportTicketChatTab from '@/components/sections/support/SupportTicketChatTab.jsx';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
-import SupportTicketChatTab from '@/pages/shared/SupportTicketChat/SupportTicketChatTab.jsx';
 
 function formatTicketNumber(value) {
   const number = Number.parseInt(String(value ?? ''), 10);

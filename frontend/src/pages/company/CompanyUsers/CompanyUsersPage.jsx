@@ -1,5 +1,5 @@
 import './CompanyUsersPage.css';
-import UsersPage from "@/pages/Users/UsersPage.jsx";
+import UsersPage from "@/components/pages/UsersPage/UsersPage.jsx";
 import Layout from "@/components/layout/Layout/Layout.jsx";
 import usePageData from "@/hooks/usePageData";
 import useLogout from "@/hooks/useLogout";

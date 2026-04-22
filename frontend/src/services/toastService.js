@@ -2,7 +2,7 @@ import {
   showErrorToast,
   showInfoToast,
   showSuccessToast,
-} from '@/components/ui/Toast/toastHelpers.js';
+} from '@/services/toastHelpers.js';
 import { toast } from 'react-hot-toast';
 
 export function showSuccess(message, options = {}) {

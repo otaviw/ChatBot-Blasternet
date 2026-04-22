@@ -1,4 +1,4 @@
-import UsersPage from '@/pages/Users/UsersPage.jsx';
+import UsersPage from '@/components/pages/UsersPage/UsersPage.jsx';
 
 function AdminUsersPage() {
   return <UsersPage scope="admin" />;

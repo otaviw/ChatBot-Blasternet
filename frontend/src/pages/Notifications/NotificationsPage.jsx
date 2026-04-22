@@ -6,7 +6,7 @@ import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
 import { useNotificationsContext } from '@/hooks/useNotificationsContext';
 import { NOTIFICATION_MODULE, NOTIFICATION_REFERENCE_TYPE } from '@/constants/notifications';
-import NotificationPreferencesPanel from './NotificationPreferencesPanel.jsx';
+import NotificationPreferencesPanel from '@/components/layout/NotificationsTray/NotificationPreferencesPanel.jsx';
 
 function resolveUiRole(userRole) {
   return String(userRole ?? '') === 'system_admin' ? 'admin' : 'company';
