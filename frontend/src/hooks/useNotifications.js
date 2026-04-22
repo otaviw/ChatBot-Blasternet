@@ -21,14 +21,15 @@ function normalizeNotification(input) {
   }
 
   const id = Number.parseInt(String(input.id ?? ''), 10);
-  const userId = Number.parseInt(String(input.user_id ?? ''), 10);
-  if (!id || !userId) {
+  if (!id) {
     return null;
   }
 
+  const userId = Number.parseInt(String(input.user_id ?? ''), 10);
+
   return {
     id,
-    user_id: userId,
+    user_id: userId > 0 ? userId : null,
     type: String(input.type ?? 'generic'),
     module: String(input.module ?? 'general'),
     title: String(input.title ?? ''),
@@ -140,8 +141,30 @@ export default function useNotifications(options = {}) {
   const [clearedUntilId, setClearedUntilId] = useState(0);
 
   const activeConversationIdRef = useRef(0);
-  // Ref para uso dentro do handler de realtime sem re-subscrever a cada mudança
   const clearedUntilIdRef = useRef(0);
+  const hasPrimedDesktopRef = useRef(false);
+  const desktopNotifiedIdsRef = useRef(new Set());
+
+  const rememberDesktopNotified = useCallback((notificationId) => {
+    const id = parseNotificationId(notificationId);
+    if (!id) {
+      return false;
+    }
+
+    if (desktopNotifiedIdsRef.current.has(id)) {
+      return false;
+    }
+
+    desktopNotifiedIdsRef.current.add(id);
+
+    if (desktopNotifiedIdsRef.current.size > 500) {
+      const values = [...desktopNotifiedIdsRef.current];
+      desktopNotifiedIdsRef.current = new Set(values.slice(values.length - 300));
+    }
+
+    return true;
+  }, []);
+
   const setActiveConversationId = useCallback((id) => {
     activeConversationIdRef.current = Number(id) > 0 ? Number(id) : 0;
   }, []);
@@ -162,12 +185,17 @@ export default function useNotifications(options = {}) {
       return [];
     }
 
-    setLoading(true);
-    setError('');
+    const { silent = false, ...queryOptions } = listOptions;
+
+    if (!silent) {
+      setLoading(true);
+      setError('');
+    }
+
     try {
       const response = await notificationService.list({
         limit,
-        ...listOptions,
+        ...queryOptions,
       });
 
       const normalized = (response.notifications ?? [])
@@ -180,14 +208,33 @@ export default function useNotifications(options = {}) {
       setNotifications(visible);
       setLoadedAt(new Date().toISOString());
 
+      if (!hasPrimedDesktopRef.current) {
+        for (const item of visible) {
+          if (!item?.is_read) {
+            rememberDesktopNotified(item.id);
+          }
+        }
+        hasPrimedDesktopRef.current = true;
+      } else {
+        for (const item of visible) {
+          if (!item?.is_read && rememberDesktopNotified(item.id)) {
+            void browserNotificationService.notifyFromAppNotification(item);
+          }
+        }
+      }
+
       return visible;
     } catch (err) {
-      setError(err?.response?.data?.message || 'Falha ao carregar notificações.');
+      if (!silent) {
+        setError(err?.response?.data?.message || 'Falha ao carregar notificacoes.');
+      }
       return [];
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
-  }, [clearedUntilId, enabled, limit]);
+  }, [clearedUntilId, enabled, limit, rememberDesktopNotified]);
 
   const loadUnreadCounts = useCallback(async () => {
     if (!enabled || clearedUntilId > 0) {
@@ -199,22 +246,24 @@ export default function useNotifications(options = {}) {
       applyUnreadCounters(response.unread_by_module, response.total_unread);
       return response;
     } catch (err) {
-      setError((prev) => prev || err?.response?.data?.message || 'Falha ao carregar contadores de notificações.');
+      setError((prev) => prev || err?.response?.data?.message || 'Falha ao carregar contadores de notificacoes.');
       return { unread_by_module: {}, total_unread: 0 };
     }
   }, [applyUnreadCounters, clearedUntilId, enabled]);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (options = {}) => {
     if (!enabled) {
       return;
     }
 
+    const { silent = false } = options;
+
     if (clearedUntilId > 0) {
-      await loadNotifications();
+      await loadNotifications({ silent });
       return;
     }
 
-    await Promise.all([loadNotifications(), loadUnreadCounts()]);
+    await Promise.all([loadNotifications({ silent }), loadUnreadCounts()]);
   }, [clearedUntilId, enabled, loadNotifications, loadUnreadCounts]);
 
   const markAsRead = useCallback(async (notificationId) => {
@@ -237,7 +286,7 @@ export default function useNotifications(options = {}) {
 
       return response;
     } catch (err) {
-      setError(err?.response?.data?.message || 'Falha ao marcar notificação como lida.');
+      setError(err?.response?.data?.message || 'Falha ao marcar notificacao como lida.');
       return null;
     }
   }, [applyUnreadCounters, clearedUntilId, enabled]);
@@ -269,7 +318,7 @@ export default function useNotifications(options = {}) {
 
       return response;
     } catch (err) {
-      setError(err?.response?.data?.message || 'Falha ao marcar todas as notificações como lidas.');
+      setError(err?.response?.data?.message || 'Falha ao marcar todas as notificacoes como lidas.');
       return null;
     }
   }, [applyUnreadCounters, clearedUntilId, enabled]);
@@ -280,7 +329,14 @@ export default function useNotifications(options = {}) {
         return null;
       }
 
-      const normalizedIds = [...new Set((ids ?? []).map((value) => Number.parseInt(String(value ?? ''), 10)).filter((id) => id > 0))];
+      const normalizedIds = [
+        ...new Set(
+          (ids ?? [])
+            .map((value) => Number.parseInt(String(value ?? ''), 10))
+            .filter((id) => id > 0)
+        ),
+      ];
+
       if (!normalizedIds.length) {
         return null;
       }
@@ -296,7 +352,7 @@ export default function useNotifications(options = {}) {
 
         return response;
       } catch (err) {
-        setError(err?.response?.data?.message || 'Falha ao apagar notificações.');
+        setError(err?.response?.data?.message || 'Falha ao apagar notificacoes.');
         return null;
       }
     },
@@ -370,12 +426,11 @@ export default function useNotifications(options = {}) {
 
       return response;
     } catch (err) {
-      setError(err?.response?.data?.message || 'Falha ao marcar notificações por referência.');
+      setError(err?.response?.data?.message || 'Falha ao marcar notificacoes por referencia.');
       return null;
     }
   }, [applyUnreadCounters, clearedUntilId, enabled]);
 
-  // Mantém a ref sincronizada para uso no handler de realtime
   useEffect(() => {
     clearedUntilIdRef.current = clearedUntilId;
   }, [clearedUntilId]);
@@ -383,10 +438,12 @@ export default function useNotifications(options = {}) {
   useEffect(() => {
     if (!enabled) {
       setClearedUntilId(0);
+      hasPrimedDesktopRef.current = false;
+      desktopNotifiedIdsRef.current = new Set();
       return;
     }
 
-    browserNotificationService.requestPermission();
+    void browserNotificationService.requestPermission();
   }, [enabled]);
 
   useEffect(() => {
@@ -400,6 +457,18 @@ export default function useNotifications(options = {}) {
 
     return () => clearInterval(intervalId);
   }, [enabled]);
+
+  useEffect(() => {
+    if (!enabled) {
+      return undefined;
+    }
+
+    const intervalId = setInterval(() => {
+      void refresh({ silent: true });
+    }, 30000);
+
+    return () => clearInterval(intervalId);
+  }, [enabled, refresh]);
 
   useEffect(() => {
     if (!enabled || !autoLoad) {
@@ -423,10 +492,7 @@ export default function useNotifications(options = {}) {
         return;
       }
 
-      // Usa ref para não precisar re-subscrever quando clearedUntilId muda,
-      // evitando que o WebSocket desconecte/reconecte a cada limpeza de notificações
       const currentClearedUntilId = clearedUntilIdRef.current;
-
       if (shouldHideNotification(normalized, currentClearedUntilId)) {
         return;
       }
@@ -450,17 +516,20 @@ export default function useNotifications(options = {}) {
       }
 
       setNotifications((prev) => mergeNotification(prev, normalized));
+
       if (currentClearedUntilId <= 0) {
         applyUnreadCounters(payload.unreadByModule, payload.totalUnread);
       }
 
-      browserNotificationService.notifyFromAppNotification(normalized);
+      if (rememberDesktopNotified(normalized.id)) {
+        void browserNotificationService.notifyFromAppNotification(normalized);
+      }
     });
 
     return () => {
       unsubscribe();
     };
-  }, [applyUnreadCounters, enabled]);
+  }, [applyUnreadCounters, enabled, rememberDesktopNotified]);
 
   useEffect(() => {
     if (clearedUntilId <= 0) {
@@ -473,13 +542,15 @@ export default function useNotifications(options = {}) {
   }, [clearedUntilId, notifications]);
 
   const unreadModules = useMemo(() => Object.keys(unreadByModule), [unreadByModule]);
+
   const unreadConversationIds = useMemo(() => {
     const ids = notifications
-      .filter((item) =>
-        !item.is_read &&
-        item.module === NOTIFICATION_MODULE.INBOX &&
-        item.reference_type === NOTIFICATION_REFERENCE_TYPE.CONVERSATION &&
-        Number(item.reference_id) > 0
+      .filter(
+        (item) =>
+          !item.is_read &&
+          item.module === NOTIFICATION_MODULE.INBOX &&
+          item.reference_type === NOTIFICATION_REFERENCE_TYPE.CONVERSATION &&
+          Number(item.reference_id) > 0
       )
       .map((item) => Number(item.reference_id));
 

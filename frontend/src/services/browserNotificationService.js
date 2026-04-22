@@ -1,24 +1,33 @@
 function resolveNavigationUrl(notification) {
   const isAdmin = window.location.pathname.startsWith('/admin');
   const refType = notification?.reference_type ?? '';
-  const refId = notification?.reference_id ?? null;
+  const refId = Number.parseInt(String(notification?.reference_id ?? ''), 10);
   const meta = notification?.reference_meta ?? {};
 
   if (refType === 'conversation') {
+    if (refId > 0) {
+      return isAdmin ? '/admin/conversas' : `/minha-conta/conversas?conversationId=${refId}`;
+    }
     return isAdmin ? '/admin/conversas' : '/minha-conta/conversas';
   }
 
   if (refType === 'chat_conversation') {
+    if (refId > 0) {
+      return isAdmin
+        ? `/admin/chat-interno?conversationId=${refId}`
+        : `/minha-conta/chat-interno?conversationId=${refId}`;
+    }
     return isAdmin ? '/admin/chat-interno' : '/minha-conta/chat-interno';
   }
 
   if (refType === 'support_ticket') {
-    const ticketId = meta?.ticket_id ?? refId;
-    if (ticketId) {
+    const ticketId = Number.parseInt(String(meta?.ticket_id ?? refId ?? ''), 10);
+    if (ticketId > 0) {
       return isAdmin
         ? `/admin/suporte/solicitacoes/${ticketId}`
         : `/minha-conta/suporte/solicitacoes/${ticketId}`;
     }
+
     return isAdmin ? '/admin/suporte' : '/minha-conta/suporte/solicitacoes';
   }
 
@@ -26,9 +35,26 @@ function resolveNavigationUrl(notification) {
 }
 
 async function getSwRegistration() {
-  if (!('serviceWorker' in navigator)) return null;
+  if (!('serviceWorker' in navigator)) {
+    return null;
+  }
+
   try {
-    return await navigator.serviceWorker.ready;
+    const existing = await navigator.serviceWorker.getRegistration();
+    if (existing) {
+      return existing;
+    }
+  } catch {
+    // ignore
+  }
+
+  try {
+    return await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((resolve) => {
+        setTimeout(() => resolve(null), 1200);
+      }),
+    ]);
   } catch {
     return null;
   }
@@ -40,13 +66,22 @@ const browserNotificationService = {
   },
 
   getPermission() {
-    if (!this.isSupported()) return 'unsupported';
+    if (!this.isSupported()) {
+      return 'unsupported';
+    }
+
     return Notification.permission;
   },
 
   async requestPermission() {
-    if (!this.isSupported()) return 'unsupported';
-    if (Notification.permission !== 'default') return Notification.permission;
+    if (!this.isSupported()) {
+      return 'unsupported';
+    }
+
+    if (Notification.permission !== 'default') {
+      return Notification.permission;
+    }
+
     try {
       return await Notification.requestPermission();
     } catch {
@@ -59,7 +94,9 @@ const browserNotificationService = {
   },
 
   async notifyFromAppNotification(appNotification) {
-    if (!this.canNotify() || !appNotification) return null;
+    if (!this.canNotify() || !appNotification) {
+      return null;
+    }
 
     const title = String(appNotification.title || 'Nova notificacao');
     const body = String(appNotification.text || '');
@@ -76,29 +113,24 @@ const browserNotificationService = {
     const options = {
       body,
       icon: iconUrl,
+      badge: iconUrl,
       tag: `app-notification-${appNotification.id}`,
       renotify: false,
       data: url ? { url } : undefined,
     };
 
-    // Tenta via Service Worker primeiro — compatível com macOS Safari 16.4+, iOS, Chrome, Firefox
     const registration = await getSwRegistration();
     if (registration) {
       try {
         await registration.showNotification(title, options);
         return true;
-      } catch (err) {
-        console.error('[BrowserNotification] SW showNotification falhou, tentando fallback:', err);
+      } catch {
+        // fallback below
       }
     }
 
-    // Fallback direto via Notification API (Chrome/Firefox sem SW)
     try {
       const notification = new Notification(title, options);
-
-      notification.onerror = (event) => {
-        console.error('[BrowserNotification] Erro ao exibir notificação:', event);
-      };
 
       notification.onclick = (event) => {
         event.preventDefault();
@@ -110,8 +142,7 @@ const browserNotificationService = {
       };
 
       return notification;
-    } catch (error) {
-      console.error('[BrowserNotification] Falha ao criar notificação:', error);
+    } catch {
       return null;
     }
   },
