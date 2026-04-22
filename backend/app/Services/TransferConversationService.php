@@ -12,6 +12,7 @@ use App\Support\ConversationHandlingMode;
 use App\Support\ConversationStatus;
 use App\Support\MessageDeliveryStatus;
 use Illuminate\Support\Facades\DB;
+use App\Services\WhatsApp\WhatsAppSendService;
 use Illuminate\Validation\ValidationException;
 
 class TransferConversationService

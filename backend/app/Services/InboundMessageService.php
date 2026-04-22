@@ -12,6 +12,7 @@ use App\Services\Ai\AiSafetyPipelineService;
 use App\Services\Ai\ChatbotAiDecisionService;
 use App\Services\Ai\ConversationAiSuggestionService;
 use App\Services\Bot\StatefulBotService;
+use App\Services\WhatsApp\WhatsAppSendService;
 use App\Support\ConversationAssignedType;
 use App\Support\ConversationHandlingMode;
 use App\Support\ConversationStatus;

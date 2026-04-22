@@ -6,7 +6,7 @@ use App\Models\Campaign;
 use App\Models\CampaignContact;
 use App\Models\Contact;
 use App\Services\RealtimePublisher;
-use App\Services\WhatsAppSendService;
+use App\Services\WhatsApp\WhatsAppSendService;
 use App\Support\RealtimeEvents;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;

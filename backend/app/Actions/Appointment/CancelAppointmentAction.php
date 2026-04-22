@@ -8,7 +8,7 @@ use App\Models\AppointmentEvent;
 use App\Models\AppointmentSetting;
 use App\Models\Company;
 use App\Models\User;
-use App\Services\WhatsAppSendService;
+use App\Services\WhatsApp\WhatsAppSendService;
 use App\Support\AppointmentStatus;
 
 class CancelAppointmentAction

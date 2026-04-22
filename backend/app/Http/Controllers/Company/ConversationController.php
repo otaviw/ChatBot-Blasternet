@@ -31,7 +31,7 @@ use App\Services\Company\CompanyConversationCountersService;
 use App\Services\Company\CompanyUsageLimitsService;
 use App\Services\MessageDeliveryStatusService;
 use App\Services\MessageMediaStorageService;
-use App\Services\WhatsAppSendService;
+use App\Services\WhatsApp\WhatsAppSendService;
 use Illuminate\Support\Facades\Storage;
 use App\Support\ConversationAssignedType;
 use App\Support\ConversationHandlingMode;
