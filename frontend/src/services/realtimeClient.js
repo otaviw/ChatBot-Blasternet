@@ -1,6 +1,6 @@
 import { io } from 'socket.io-client';
 import { REALTIME_EVENTS } from '@/constants/realtimeEvents';
-import api from './api';
+import { post } from './apiClient';
 import { isSupportedRealtimeEvent } from './realtime/isSupportedRealtimeEvent';
 import { readPositiveInt } from './realtime/readPositiveInt';
 import { readMessagePayload } from './realtime/readMessagePayload';
@@ -432,13 +432,13 @@ class RealtimeClient {
   }
 
   async fetchSocketToken() {
-    const response = await api.post('/realtime/token');
+    const response = await post('/realtime/token');
     return response.data ?? null;
   }
 
   async fetchJoinToken(conversationId) {
     try {
-      const response = await api.post(`/realtime/conversations/${conversationId}/join-token`);
+      const response = await post(`/realtime/conversations/${conversationId}/join-token`);
       return response.data?.token ?? null;
     } catch (_error) {
       return null;
@@ -447,7 +447,7 @@ class RealtimeClient {
 
   async fetchChatJoinToken(conversationId) {
     try {
-      const response = await api.post(`/realtime/chat-conversations/${conversationId}/join-token`);
+      const response = await post(`/realtime/chat-conversations/${conversationId}/join-token`);
       return response.data?.token ?? null;
     } catch (_error) {
       return null;

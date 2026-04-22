@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import api from '@/services/api';
+import { get, post } from '@/services/apiClient';
 import {
   createInternalAiConversation,
   getInternalAiConversation,
@@ -7,12 +7,19 @@ import {
   sendInternalAiConversationMessage,
 } from './internalAiChatService';
 
-vi.mock('@/services/api', () => ({
-  default: {
-    get: vi.fn(),
-    post: vi.fn(),
-  },
-}));
+vi.mock('@/services/apiClient', () => {
+  const getMock = vi.fn();
+  const postMock = vi.fn();
+
+  return {
+    get: getMock,
+    post: postMock,
+    default: {
+      get: getMock,
+      post: postMock,
+    },
+  };
+});
 
 describe('internalAiChatService', () => {
   beforeEach(() => {
@@ -21,7 +28,7 @@ describe('internalAiChatService', () => {
 
   describe('listInternalAiConversations', () => {
     it('carrega conversas e normaliza paginação', async () => {
-      api.get.mockResolvedValue({
+      get.mockResolvedValue({
         data: {
           conversations: [
             {
@@ -50,7 +57,7 @@ describe('internalAiChatService', () => {
         perPage: 200,
       });
 
-      expect(api.get).toHaveBeenCalledWith('/minha-conta/ia/conversas', {
+      expect(get).toHaveBeenCalledWith('/minha-conta/ia/conversas', {
         params: {
           search: 'financeiro',
           page: 2,
@@ -67,7 +74,7 @@ describe('internalAiChatService', () => {
     });
 
     it('retorna lista vazia quando API não trouxer conversas', async () => {
-      api.get.mockResolvedValue({ data: {} });
+      get.mockResolvedValue({ data: {} });
 
       const response = await listInternalAiConversations();
 
@@ -78,7 +85,7 @@ describe('internalAiChatService', () => {
 
   describe('createInternalAiConversation', () => {
     it('cria conversa usando titulo normalizado', async () => {
-      api.post.mockResolvedValue({
+      post.mockResolvedValue({
         data: {
           conversation: {
             id: 15,
@@ -90,7 +97,7 @@ describe('internalAiChatService', () => {
 
       const response = await createInternalAiConversation({ title: '  Conversa comercial ' });
 
-      expect(api.post).toHaveBeenCalledWith('/minha-conta/ia/conversas', {
+      expect(post).toHaveBeenCalledWith('/minha-conta/ia/conversas', {
         title: 'Conversa comercial',
       });
       expect(response.conversation?.id).toBe(15);
@@ -100,7 +107,7 @@ describe('internalAiChatService', () => {
 
   describe('getInternalAiConversation', () => {
     it('abre conversa e ordena mensagens cronologicamente', async () => {
-      api.get.mockResolvedValue({
+      get.mockResolvedValue({
         data: {
           conversation: {
             id: 9,
@@ -135,7 +142,7 @@ describe('internalAiChatService', () => {
         messagesPerPage: 999,
       });
 
-      expect(api.get).toHaveBeenCalledWith('/minha-conta/ia/conversas/9', {
+      expect(get).toHaveBeenCalledWith('/minha-conta/ia/conversas/9', {
         params: {
           messages_page: 2,
           messages_per_page: 100,
@@ -161,7 +168,7 @@ describe('internalAiChatService', () => {
 
   describe('sendInternalAiConversationMessage', () => {
     it('envia mensagem e retorna resposta da API normalizada', async () => {
-      api.post.mockResolvedValue({
+      post.mockResolvedValue({
         data: {
           conversation: {
             id: 19,
@@ -187,7 +194,7 @@ describe('internalAiChatService', () => {
         content: '  Como funciona o ponto?  ',
       });
 
-      expect(api.post).toHaveBeenCalledWith('/minha-conta/ia/conversas/19/mensagens', {
+      expect(post).toHaveBeenCalledWith('/minha-conta/ia/conversas/19/mensagens', {
         content: 'Como funciona o ponto?',
         text: 'Como funciona o ponto?',
       });
@@ -210,3 +217,4 @@ describe('internalAiChatService', () => {
     });
   });
 });
+

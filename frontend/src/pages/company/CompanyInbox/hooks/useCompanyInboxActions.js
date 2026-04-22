@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { CONVERSATION_ASSIGNED_TYPE } from '@/constants/conversation';
 import api from '@/services/api';
 import { appendUniqueMessage } from '../inboxRealtimeUtils';
+import useConversationSearch from './useConversationSearch';
+import useMessageComposer from './useMessageComposer';
 
 export default function useCompanyInboxActions({
   contactNameInput,
@@ -15,27 +17,12 @@ export default function useCompanyInboxActions({
   upsertConversationInList,
   wasChatNearBottomRef,
 }) {
-  const [manualText, setManualText] = useState('');
-  const [manualImageFile, setManualImageFile] = useState(null);
-  const [manualImagePreviewUrl, setManualImagePreviewUrl] = useState('');
-  const [manualBusy, setManualBusy] = useState(false);
-  const [manualError, setManualError] = useState('');
-  const [aiSuggestionBusy, setAiSuggestionBusy] = useState(false);
-  const [aiSuggestionError, setAiSuggestionError] = useState('');
-  const [aiSuggestionStatus, setAiSuggestionStatus] = useState('');
-  const [aiConfidenceScore, setAiConfidenceScore] = useState(null);
-  const [aiSuggestionId, setAiSuggestionId] = useState(null);
-  const [aiSuggestionFeedbackState, setAiSuggestionFeedbackState] = useState(null); // null | 'pending' | 'submitted'
   const [contactBusy, setContactBusy] = useState(false);
   const [contactError, setContactError] = useState('');
   const [contactSuccess, setContactSuccess] = useState('');
   const [actionBusy, setActionBusy] = useState(false);
-  const [showTemplates, setShowTemplates] = useState(false);
   const [tagsModalOpen, setTagsModalOpen] = useState(false);
   const [transferModalOpen, setTransferModalOpen] = useState(false);
-  const [quickReplies, setQuickReplies] = useState([]);
-  const [transferArea, setTransferArea] = useState('');
-  const [transferUserId, setTransferUserId] = useState('');
   const [transferBusy, setTransferBusy] = useState(false);
   const [transferError, setTransferError] = useState('');
   const [transferSuccess, setTransferSuccess] = useState('');
@@ -46,72 +33,38 @@ export default function useCompanyInboxActions({
   const [sendTemplateBusy, setSendTemplateBusy] = useState(false);
   const [sendTemplateError, setSendTemplateError] = useState('');
   const [sendTemplateSuccess, setSendTemplateSuccess] = useState('');
-  const [usageWarning, setUsageWarning] = useState('');
 
-  useEffect(() => {
-    return () => {
-      if (manualImagePreviewUrl) {
-        URL.revokeObjectURL(manualImagePreviewUrl);
-      }
-    };
-  }, [manualImagePreviewUrl]);
+  const messageComposer = useMessageComposer({
+    detail,
+    refreshConversations,
+    setDetail,
+    shouldScrollChatToBottomRef,
+    upsertConversationInList,
+    wasChatNearBottomRef,
+  });
 
-  useEffect(() => {
-    api
-      .get('/minha-conta/respostas-rapidas')
-      .then((response) => {
-        setQuickReplies(response.data?.quick_replies ?? []);
-      })
-      .catch(() => {
-        setQuickReplies([]);
-      });
-  }, []);
-
-  useEffect(() => {
-    if (!detail?.id) {
-      return;
-    }
-
-    setTransferArea(
-      detail.assigned_type === CONVERSATION_ASSIGNED_TYPE.AREA ? String(detail.assigned_id ?? '') : ''
-    );
-  }, [detail?.assigned_id, detail?.assigned_type, detail?.id]);
-
-  const availableUsers = useMemo(() => {
-    const users = transferOptions.users ?? [];
-    if (!transferArea) {
-      return users;
-    }
-
-    return users.filter((user) =>
-      (user.areas ?? []).some((area) => String(area.id) === String(transferArea))
-    );
-  }, [transferOptions, transferArea]);
-
-  useEffect(() => {
-    if (!transferUserId) return;
-    const exists = availableUsers.some((user) => String(user.id) === String(transferUserId));
-    if (!exists) {
-      setTransferUserId('');
-    }
-  }, [availableUsers, transferUserId]);
+  const conversationSearch = useConversationSearch({
+    detail,
+    transferOptionsUsers: transferOptions?.users ?? [],
+    onTransferStateReset: () => {
+      setTransferSuccess('');
+      setTransferError('');
+    },
+  });
 
   const resetForOpenConversation = useCallback(() => {
     setTransferModalOpen(false);
-    setTransferArea('');
-    setTransferUserId('');
+    conversationSearch.resetSearchFilters();
     setTransferError('');
     setTransferSuccess('');
-    setShowTemplates(false);
+    conversationSearch.setShowTemplates(false);
     setContactError('');
     setContactSuccess('');
-    setAiSuggestionBusy(false);
-    setAiSuggestionError('');
-    setAiSuggestionStatus('');
+    messageComposer.resetAiSuggestionState();
     setSendTemplateModalOpen(false);
     setSendTemplateError('');
     setSendTemplateSuccess('');
-  }, []);
+  }, [conversationSearch, messageComposer]);
 
   const assumeConversation = useCallback(async () => {
     if (!detail?.id) return;
@@ -163,7 +116,7 @@ export default function useCompanyInboxActions({
 
   const transferConversation = useCallback(async () => {
     if (!detail?.id) return;
-    if (!transferArea && !transferUserId) {
+    if (!conversationSearch.transferArea && !conversationSearch.transferUserId) {
       setTransferError('Selecione uma area ou um usuário destino.');
       setTransferSuccess('');
       return;
@@ -173,9 +126,17 @@ export default function useCompanyInboxActions({
     setTransferError('');
     setTransferSuccess('');
     try {
-      const payload = transferUserId
-        ? { type: CONVERSATION_ASSIGNED_TYPE.USER, id: Number(transferUserId), send_outbound: true }
-        : { type: CONVERSATION_ASSIGNED_TYPE.AREA, id: Number(transferArea), send_outbound: true };
+      const payload = conversationSearch.transferUserId
+        ? {
+            type: CONVERSATION_ASSIGNED_TYPE.USER,
+            id: Number(conversationSearch.transferUserId),
+            send_outbound: true,
+          }
+        : {
+            type: CONVERSATION_ASSIGNED_TYPE.AREA,
+            id: Number(conversationSearch.transferArea),
+            send_outbound: true,
+          };
 
       const response = await api.post(`/minha-conta/conversas/${detail.id}/transferir`, {
         ...payload,
@@ -201,12 +162,12 @@ export default function useCompanyInboxActions({
       setTransferBusy(false);
     }
   }, [
+    conversationSearch.transferArea,
+    conversationSearch.transferUserId,
     detail?.id,
     refreshConversations,
     setDetail,
     shouldScrollChatToBottomRef,
-    transferArea,
-    transferUserId,
     upsertConversationInList,
     wasChatNearBottomRef,
   ]);
@@ -236,141 +197,6 @@ export default function useCompanyInboxActions({
     },
     [detail, setDetail, setDetailError]
   );
-
-  const sendManualReply = useCallback(
-    async (event) => {
-      event.preventDefault();
-      const trimmedText = manualText.trim();
-      if (!detail?.id || (!trimmedText && !manualImageFile)) return;
-
-      setManualBusy(true);
-      setManualError('');
-      setUsageWarning('');
-      setAiSuggestionError('');
-      setAiSuggestionStatus('');
-      try {
-        let response;
-        if (manualImageFile) {
-          const payload = new FormData();
-          if (trimmedText) {
-            payload.append('text', trimmedText);
-          }
-          payload.append('send_outbound', '1');
-          if (manualImageFile) payload.append('file', manualImageFile);
-          response = await api.post(`/minha-conta/conversas/${detail.id}/responder-manual`, payload);
-        } else {
-          response = await api.post(`/minha-conta/conversas/${detail.id}/responder-manual`, {
-            text: trimmedText,
-            send_outbound: true,
-          });
-        }
-
-        const message = response.data?.message;
-        shouldScrollChatToBottomRef.current = true;
-        wasChatNearBottomRef.current = true;
-        setDetail((prev) => ({
-          ...(prev ?? {}),
-          ...response.data?.conversation,
-          messages: appendUniqueMessage(prev?.messages ?? [], message),
-        }));
-        upsertConversationInList(response.data?.conversation);
-        if (response.data?.usage_warning && response.data?.usage_message) {
-          setUsageWarning(response.data.usage_message);
-        }
-        setManualText('');
-        if (manualImagePreviewUrl) {
-          URL.revokeObjectURL(manualImagePreviewUrl);
-        }
-        setManualImageFile(null);
-        setManualImagePreviewUrl('');
-        await refreshConversations();
-      } catch (err) {
-        setManualError(err.response?.data?.message || 'Falha ao enviar resposta manual.');
-      } finally {
-        setManualBusy(false);
-      }
-    },
-    [
-      detail?.id,
-      manualImageFile,
-      manualImagePreviewUrl,
-      manualText,
-      refreshConversations,
-      setDetail,
-      shouldScrollChatToBottomRef,
-      upsertConversationInList,
-      wasChatNearBottomRef,
-    ]
-  );
-
-  const requestAiSuggestion = useCallback(async () => {
-    if (!detail?.id) return;
-
-    setAiSuggestionBusy(true);
-    setAiSuggestionError('');
-    setAiSuggestionStatus('');
-    setAiConfidenceScore(null);
-    setAiSuggestionId(null);
-    setAiSuggestionFeedbackState(null);
-    try {
-      const response = await api.post(`/minha-conta/conversas/${detail.id}/ia/sugestao`);
-      const suggestion = String(response.data?.suggestion ?? '').trim();
-      if (!suggestion) {
-        throw new Error('empty_suggestion');
-      }
-
-      setManualText(suggestion);
-      setAiConfidenceScore(typeof response.data?.confidence_score === 'number' ? response.data.confidence_score : null);
-      setAiSuggestionId(response.data?.suggestion_id ?? null);
-      setAiSuggestionFeedbackState('pending');
-      setAiSuggestionStatus('Sugestão aplicada no campo de resposta.');
-    } catch (err) {
-      setAiSuggestionError(
-        err.response?.data?.message || 'Não foi possível gerar sugestão de IA agora.'
-      );
-    } finally {
-      setAiSuggestionBusy(false);
-    }
-  }, [detail?.id]);
-
-  const submitAiSuggestionFeedback = useCallback(async (helpful) => {
-    if (!aiSuggestionId) {
-      setAiSuggestionFeedbackState('submitted');
-      return;
-    }
-    setAiSuggestionFeedbackState('submitted');
-    try {
-      await api.post(`/minha-conta/ia/sugestoes/${aiSuggestionId}/feedback`, { helpful });
-    } catch (_err) {
-      // Feedback is best-effort — no error surfaced to user
-    }
-  }, [aiSuggestionId]);
-
-  const handleManualImageChange = useCallback(
-    (event) => {
-      const file = event.target.files?.[0];
-      if (!file) {
-        return;
-      }
-
-      if (manualImagePreviewUrl) {
-        URL.revokeObjectURL(manualImagePreviewUrl);
-      }
-
-      setManualImageFile(file);
-      setManualImagePreviewUrl(URL.createObjectURL(file));
-      setManualError('');
-    },
-    [manualImagePreviewUrl]
-  );
-
-  const removeManualImage = useCallback(() => {
-    if (manualImagePreviewUrl) {
-      URL.revokeObjectURL(manualImagePreviewUrl);
-    }
-    setManualImageFile(null);
-    setManualImagePreviewUrl('');
-  }, [manualImagePreviewUrl]);
 
   const saveContactName = useCallback(async () => {
     if (!detail?.id) return;
@@ -413,39 +239,10 @@ export default function useCompanyInboxActions({
     [setContactNameInput]
   );
 
-  const handleTransferAreaChange = useCallback((value) => {
-    setTransferArea(value);
-    setTransferSuccess('');
-    setTransferError('');
-  }, []);
-
-  const handleTransferUserChange = useCallback(
-    (value) => {
-      setTransferUserId(value);
-      setTransferSuccess('');
-      setTransferError('');
-
-      if (value) {
-        const selectedUser = (transferOptions.users ?? []).find(
-          (user) => String(user.id) === String(value)
-        );
-        if (selectedUser?.areas?.length && !transferArea) {
-          setTransferArea(String(selectedUser.areas[0].id));
-        }
-      }
-    },
-    [transferArea, transferOptions.users]
-  );
-
   const handleApplyQuickReply = useCallback((text) => {
-    setManualText(text);
-    setShowTemplates(false);
-  }, []);
-
-  const getMessageImageUrl = useCallback((msg) => {
-    if (!msg?.id) return '';
-    return `/api/minha-conta/mensagens/${msg.id}/media`;
-  }, []);
+    messageComposer.handleApplyQuickReply(text);
+    conversationSearch.setShowTemplates(false);
+  }, [conversationSearch, messageComposer]);
 
   const createConversation = useCallback(
     async ({ phone, name, sendTemplate, templateName }) => {
@@ -500,7 +297,7 @@ export default function useCompanyInboxActions({
       upsertConversationInList(response.data?.conversation);
       setSendTemplateSuccess('Template enviado com sucesso.');
       if (response.data?.usage_warning && response.data?.usage_message) {
-        setUsageWarning(response.data.usage_message);
+        messageComposer.setUsageWarning(response.data.usage_message);
       }
       await refreshConversations();
     } catch (err) {
@@ -510,6 +307,7 @@ export default function useCompanyInboxActions({
     }
   }, [
     detail?.id,
+    messageComposer,
     refreshConversations,
     setDetail,
     shouldScrollChatToBottomRef,
@@ -521,48 +319,48 @@ export default function useCompanyInboxActions({
     actionBusy,
     attachTag,
     detachTag,
-    aiSuggestionBusy,
-    aiSuggestionError,
-    aiSuggestionStatus,
-    aiConfidenceScore,
-    aiSuggestionFeedbackState,
-    submitAiSuggestionFeedback,
+    aiSuggestionBusy: messageComposer.aiSuggestionBusy,
+    aiSuggestionError: messageComposer.aiSuggestionError,
+    aiSuggestionStatus: messageComposer.aiSuggestionStatus,
+    aiConfidenceScore: messageComposer.aiConfidenceScore,
+    aiSuggestionFeedbackState: messageComposer.aiSuggestionFeedbackState,
+    submitAiSuggestionFeedback: messageComposer.submitAiSuggestionFeedback,
     assumeConversation,
-    availableUsers,
+    availableUsers: conversationSearch.availableUsers,
     closeConversation,
     contactBusy,
     contactError,
     contactSuccess,
-    getMessageImageUrl,
+    getMessageImageUrl: messageComposer.getMessageImageUrl,
     handleApplyQuickReply,
     handleContactNameInputChange,
-    handleManualImageChange,
-    handleTransferAreaChange,
-    handleTransferUserChange,
-    manualBusy,
-    manualError,
-    manualImageFile,
-    manualImagePreviewUrl,
-    manualText,
-    quickReplies,
-    requestAiSuggestion,
+    handleManualImageChange: messageComposer.handleManualImageChange,
+    handleTransferAreaChange: conversationSearch.handleTransferAreaChange,
+    handleTransferUserChange: conversationSearch.handleTransferUserChange,
+    manualBusy: messageComposer.manualBusy,
+    manualError: messageComposer.manualError,
+    manualImageFile: messageComposer.manualImageFile,
+    manualImagePreviewUrl: messageComposer.manualImagePreviewUrl,
+    manualText: messageComposer.manualText,
+    quickReplies: messageComposer.quickReplies,
+    requestAiSuggestion: messageComposer.requestAiSuggestion,
     releaseConversation,
-    removeManualImage,
+    removeManualImage: messageComposer.removeManualImage,
     resetForOpenConversation,
     saveContactName,
-    sendManualReply,
-    setManualText,
-    setShowTemplates,
+    sendManualReply: messageComposer.sendManualReply,
+    setManualText: messageComposer.setManualText,
+    setShowTemplates: conversationSearch.setShowTemplates,
     setTagsModalOpen,
     setTransferModalOpen,
-    showTemplates,
+    showTemplates: conversationSearch.showTemplates,
     tagsModalOpen,
-    transferArea,
+    transferArea: conversationSearch.transferArea,
     transferBusy,
     transferError,
     transferModalOpen,
     transferSuccess,
-    transferUserId,
+    transferUserId: conversationSearch.transferUserId,
     transferConversation,
     createConversation,
     newConvModalOpen,
@@ -575,7 +373,7 @@ export default function useCompanyInboxActions({
     sendTemplateError,
     sendTemplateSuccess,
     setSendTemplateModalOpen,
-    usageWarning,
-    setUsageWarning,
+    usageWarning: messageComposer.usageWarning,
+    setUsageWarning: messageComposer.setUsageWarning,
   };
 }

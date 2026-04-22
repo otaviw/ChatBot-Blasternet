@@ -1,4 +1,4 @@
-import api from '@/services/api';
+import { get, post } from '@/services/apiClient';
 
 function normalizeTicketId(ticketId) {
   const normalized = Number.parseInt(String(ticketId ?? ''), 10);
@@ -88,7 +88,7 @@ function buildMessageFormData({ message, images }) {
 }
 
 async function list(endpoint) {
-  const response = await api.get(endpoint);
+  const response = await get(endpoint);
   const data = response.data ?? {};
 
   return {
@@ -99,7 +99,7 @@ async function list(endpoint) {
 
 async function send(endpoint, payload) {
   const formData = buildMessageFormData(payload);
-  const response = await api.post(endpoint, formData, {
+  const response = await post(endpoint, formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
     },

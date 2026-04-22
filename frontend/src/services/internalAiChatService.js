@@ -1,4 +1,4 @@
-import api from '@/services/api';
+import { get, post } from '@/services/apiClient';
 
 const toPositiveInt = (...values) => {
   for (const value of values) {
@@ -205,7 +205,7 @@ export async function listInternalAiConversations({ search = '', page = 1, perPa
     query.company_id = normalizedCompanyId;
   }
 
-  const response = await api.get('/minha-conta/ia/conversas', {
+  const response = await get('/minha-conta/ia/conversas', {
     params: query,
   });
   const payload = response.data ?? {};
@@ -232,7 +232,7 @@ export async function createInternalAiConversation({ title = '', companyId = nul
     payload.company_id = normalizedCompanyId;
   }
 
-  const response = await api.post('/minha-conta/ia/conversas', payload);
+  const response = await post('/minha-conta/ia/conversas', payload);
   const body = response.data ?? {};
 
   return {
@@ -269,7 +269,7 @@ export async function getInternalAiConversation({
     query.company_id = normalizedCompanyId;
   }
 
-  const response = await api.get(`/minha-conta/ia/conversas/${normalizedConversationId}`, {
+  const response = await get(`/minha-conta/ia/conversas/${normalizedConversationId}`, {
     params: query,
   });
   const payload = response.data ?? {};
@@ -318,7 +318,7 @@ export async function streamInternalAiConversationMessage({
     return;
   }
 
-  const baseUrl = import.meta.env.VITE_API_BASE ?? '/api';
+  const baseUrl = import.meta.env.VITE_API_URL ?? import.meta.env.VITE_API_BASE ?? '/api';
   const url = `${baseUrl}/minha-conta/ia/conversas/${normalizedConversationId}/mensagens/stream`;
 
   const requestBody = { content: normalizedContent, text: normalizedContent };
@@ -448,7 +448,7 @@ export async function sendInternalAiConversationMessage({ conversationId, conten
     requestBody.company_id = normalizedCompanyId;
   }
 
-  const response = await api.post(`/minha-conta/ia/conversas/${normalizedConversationId}/mensagens`, requestBody);
+  const response = await post(`/minha-conta/ia/conversas/${normalizedConversationId}/mensagens`, requestBody);
 
   const payload = response.data ?? {};
   const conversation = normalizeInternalAiConversation(

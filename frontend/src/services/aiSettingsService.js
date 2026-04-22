@@ -1,4 +1,4 @@
-import api from '@/services/api';
+import { get, put } from '@/services/apiClient';
 
 const DEFAULT_BUSINESS_HOURS = {
   monday: { enabled: true, start: '08:00', end: '18:00' },
@@ -112,7 +112,7 @@ const normalizeUser = (raw) => {
 
 export async function getSettings(companyId) {
   const url = companyId ? `/minha-conta/bot?company_id=${companyId}` : '/minha-conta/bot';
-  const response = await api.get(url);
+  const response = await get(url);
   const payload = response.data ?? {};
 
   return {
@@ -125,7 +125,7 @@ export async function getSettings(companyId) {
 export async function updateSettings(data, companyId) {
   const payload = normalizeAiSettings(data);
   const url = companyId ? `/minha-conta/bot?company_id=${companyId}` : '/minha-conta/bot';
-  const response = await api.put(url, payload);
+  const response = await put(url, payload);
 
   return {
     settings: normalizeAiSettings(response.data?.settings ?? payload),
@@ -134,7 +134,7 @@ export async function updateSettings(data, companyId) {
 
 export async function getUsers(companyId) {
   const url = companyId ? `/minha-conta/users?company_id=${companyId}` : '/minha-conta/users';
-  const response = await api.get(url);
+  const response = await get(url);
   const users = Array.isArray(response.data?.users) ? response.data.users : [];
 
   return {
@@ -164,7 +164,7 @@ export async function updateUserPermission(userId, canUseAi, companyId) {
     areas: Array.isArray(currentUser.areas) ? currentUser.areas : [],
   };
 
-  const response = await api.put(`/minha-conta/users/${normalizedUserId}`, payload);
+  const response = await put(`/minha-conta/users/${normalizedUserId}`, payload);
 
   return {
     user: normalizeUser(response.data?.user ?? { ...currentUser, can_use_ai: canUseAi }),

@@ -1,4 +1,4 @@
-import api from './api';
+import { delete as remove, get, patch, post, put } from './apiClient';
 import { applyParams, buildActionTemplates, buildCanonicalActionTemplates } from './internalChatRoutes';
 import {
   normalizeConversation,
@@ -13,6 +13,35 @@ import {
 
 const RETRYABLE_STATUSES = new Set([401, 403, 404, 405]);
 const resolvedTemplateCache = new Map();
+
+const METHOD_HANDLERS = {
+  get: (url, { query, headers }) =>
+    get(url, {
+      params: query,
+      headers,
+    }),
+  post: (url, { query, data, headers }) =>
+    post(url, data, {
+      params: query,
+      headers,
+    }),
+  put: (url, { query, data, headers }) =>
+    put(url, data, {
+      params: query,
+      headers,
+    }),
+  patch: (url, { query, data, headers }) =>
+    patch(url, data, {
+      params: query,
+      headers,
+    }),
+  delete: (url, { query, data, headers }) =>
+    remove(url, {
+      params: query,
+      data,
+      headers,
+    }),
+};
 
 const shouldRetryWithNextTemplate = (error) => {
   const status = Number(error?.response?.status ?? 0);
@@ -55,15 +84,15 @@ const requestWithFallback = async ({
 
   for (const template of templates) {
     const url = applyParams(template, params);
+    const normalizedMethod = String(method ?? 'get').toLowerCase();
+    const requestHandler = METHOD_HANDLERS[normalizedMethod];
+
+    if (!requestHandler) {
+      throw new Error(`Metodo HTTP nao suportado: ${normalizedMethod}`);
+    }
 
     try {
-      const response = await api.request({
-        method,
-        url,
-        params: query,
-        data,
-        headers,
-      });
+      const response = await requestHandler(url, { query, data, headers });
       resolvedTemplateCache.set(cacheKey, template);
       return response;
     } catch (error) {
