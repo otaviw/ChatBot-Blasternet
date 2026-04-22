@@ -9,6 +9,7 @@ use App\Models\Area;
 use App\Models\AppointmentStaffProfile;
 use App\Models\User;
 use App\Services\Company\CompanyUsageLimitsService;
+use App\Support\UserPermissions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -105,6 +106,7 @@ class UserController extends Controller
         $areaIds = $this->resolveAreaIds($companyId, $validated);
         $isActive = (bool) ($validated['is_active'] ?? true);
         $canUseAi = $this->resolveCanUseAi($normalizedRole, $validated);
+        $permissions = $this->resolvePermissions($normalizedRole, $validated);
 
         $user = User::create([
             'name' => $validated['name'],
@@ -115,6 +117,7 @@ class UserController extends Controller
             'is_active' => $isActive,
             'can_use_ai' => $canUseAi,
             'disabled_at' => $isActive ? null : now(),
+            'permissions' => $permissions,
         ]);
 
         $user->areas()->sync($areaIds);
@@ -165,12 +168,14 @@ class UserController extends Controller
         $areaIds = $this->resolveAreaIds($companyId, $validated);
         $isActive = (bool) $validated['is_active'];
         $canUseAi = $this->resolveCanUseAi($normalizedRole, $validated, $user);
+        $permissions = $this->resolvePermissions($normalizedRole, $validated, $user);
 
         $user->name = $validated['name'];
         $user->email = $validated['email'];
         $user->role = $normalizedRole;
         $user->is_active = $isActive;
         $user->can_use_ai = $canUseAi;
+        $user->permissions = $permissions;
         $user->disabled_at = $isActive ? null : ($user->disabled_at ?? now());
         if (! empty($validated['password'])) {
             $user->password = $validated['password'];
@@ -285,6 +290,23 @@ class UserController extends Controller
 
     /**
      * @param  array<string, mixed>  $validated
+     * @return list<string>|null
+     */
+    private function resolvePermissions(string $normalizedRole, array $validated, ?User $currentUser = null): ?array
+    {
+        if ($normalizedRole !== User::ROLE_AGENT) {
+            return null;
+        }
+
+        if (array_key_exists('permissions', $validated)) {
+            return UserPermissions::sanitize($validated['permissions']);
+        }
+
+        return $currentUser?->permissions;
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
      */
     private function resolveCanUseAi(string $normalizedRole, array $validated, ?User $currentUser = null): bool
     {
@@ -335,6 +357,8 @@ class UserController extends Controller
             'created_at' => $user->created_at,
             'appointment_is_staff' => $staffProfile ? (bool) $staffProfile->is_bookable : true,
             'appointment_display_name' => $staffProfile?->display_name,
+            'permissions' => $user->permissions,
+            'resolved_permissions' => $user->resolvedPermissions(),
         ];
     }
 

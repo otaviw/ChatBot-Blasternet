@@ -1,5 +1,6 @@
 import './UserFormFields.css';
 import AreasSelector from '@/components/sections/users/AreasSelector/AreasSelector.jsx';
+import UserPermissionsFields from '@/components/sections/users/UserPermissionsFields/UserPermissionsFields.jsx';
 import { CheckboxField, Field, SelectInput, TextInput } from '@/components/ui/FormControls/FormControls.jsx';
 
 function UserFormFields({
@@ -17,6 +18,7 @@ function UserFormFields({
   areaEmptyMessage = 'Nenhuma area disponível.',
   showAiPermissionField: _showAiPermissionField = false,
   showAppointmentFields = false,
+  showPermissionsField = false,
 }) {
   const updateForm = (patch) => {
     setForm((prev) => ({ ...prev, ...patch }));
@@ -120,14 +122,19 @@ function UserFormFields({
         />
       )}
 
-      {/* {showAiPermissionField && (
-        <CheckboxField
-          checked={Boolean(form.can_use_ai)}
-          onChange={(event) => updateForm({ can_use_ai: event.target.checked })}
-        >
-          Permitir usar IA interna
-        </CheckboxField>
-      )} */}
+      <CheckboxField
+        checked={Boolean(form.can_use_ai)}
+        onChange={(event) => updateForm({ can_use_ai: event.target.checked })}
+      >
+        Permitir usar IA interna
+      </CheckboxField>
+
+      {showPermissionsField && (
+        <UserPermissionsFields
+          permissions={form.permissions ?? null}
+          onChange={(next) => updateForm({ permissions: next })}
+        />
+      )}
 
       <CheckboxField
         checked={Boolean(form.is_active)}

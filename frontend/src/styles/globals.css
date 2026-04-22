@@ -803,3 +803,151 @@ body.theme-dark button:not([class*="bg-"]):not([class*="app-btn"]) {
   color: inherit;
 }
 
+/* ================================================================
+   DARK THEME — Complementos e correções
+   ================================================================ */
+
+/* --- Border color faltando ---------------------------------- */
+body.theme-dark .border-\[\#d7dce6\],
+body.theme-dark .border-\[\#d9dde6\],
+body.theme-dark .border-\[\#dce1ea\] {
+  border-color: #343848;
+}
+
+/* --- Hover bg faltando -------------------------------------- */
+body.theme-dark .hover\:bg-\[\#f5f5f5\]:hover { background-color: #22263a; }
+body.theme-dark .hover\:bg-\[\#f3f4f6\]:hover { background-color: #22263a; }
+
+/* --- Text colors faltando ----------------------------------- */
+body.theme-dark .text-blue-900,
+body.theme-dark .text-blue-800  { color: #93c5fd; }
+body.theme-dark .text-blue-700  { color: #60a5fa; }
+
+body.theme-dark .text-emerald-800,
+body.theme-dark .text-emerald-900 { color: #6ee7b7; }
+body.theme-dark .text-green-800,
+body.theme-dark .text-green-900  { color: #86efac; }
+
+body.theme-dark .text-red-800,
+body.theme-dark .text-red-900    { color: #fca5a5; }
+
+body.theme-dark .text-amber-700,
+body.theme-dark .text-amber-800,
+body.theme-dark .text-yellow-700,
+body.theme-dark .text-yellow-800 { color: #fcd34d; }
+
+body.theme-dark .text-orange-700,
+body.theme-dark .text-orange-800 { color: #fb923c; }
+
+body.theme-dark .text-purple-700,
+body.theme-dark .text-purple-800 { color: #c4b5fd; }
+
+body.theme-dark .text-slate-700,
+body.theme-dark .text-slate-800  { color: #94a3b8; }
+
+body.theme-dark .text-\[\#374151\],
+body.theme-dark .text-\[\#374151\] { color: #9095b0; }
+
+body.theme-dark .text-zinc-700,
+body.theme-dark .text-zinc-800   { color: #a1a1aa; }
+
+/* --- Background opacity variants (bg-X/80, bg-X/90 etc) ---- */
+body.theme-dark .bg-blue-50\/80,
+body.theme-dark .bg-blue-50\/90     { background-color: rgba(59, 130, 246, 0.12); }
+body.theme-dark .bg-emerald-50\/80,
+body.theme-dark .bg-emerald-50\/90  { background-color: rgba(16, 185, 129, 0.1); }
+body.theme-dark .bg-red-50\/80,
+body.theme-dark .bg-red-50\/90      { background-color: rgba(248, 113, 113, 0.1); }
+body.theme-dark .bg-yellow-50\/80,
+body.theme-dark .bg-amber-50\/80    { background-color: rgba(234, 179, 8, 0.1); }
+body.theme-dark .bg-orange-50\/80   { background-color: rgba(249, 115, 22, 0.1); }
+body.theme-dark .bg-purple-50\/80   { background-color: rgba(168, 85, 247, 0.1); }
+body.theme-dark .bg-white\/80,
+body.theme-dark .bg-white\/90       { background-color: rgba(26, 29, 39, 0.9); }
+
+/* --- Border named Tailwind colors (Notice, etc.) ------------ */
+body.theme-dark .border-blue-200,
+body.theme-dark .border-blue-300    { border-color: rgba(59, 130, 246, 0.35); }
+body.theme-dark .border-red-200,
+body.theme-dark .border-red-300     { border-color: rgba(248, 113, 113, 0.35); }
+body.theme-dark .border-amber-200,
+body.theme-dark .border-yellow-200  { border-color: rgba(234, 179, 8, 0.35); }
+body.theme-dark .border-orange-200  { border-color: rgba(249, 115, 22, 0.35); }
+body.theme-dark .border-purple-200  { border-color: rgba(168, 85, 247, 0.35); }
+
+/* --- Backgrounds named Tailwind (amber, orange, purple) ----- */
+body.theme-dark .bg-amber-50  { background-color: rgba(234, 179, 8, 0.1); }
+body.theme-dark .bg-orange-50 { background-color: rgba(249, 115, 22, 0.1); }
+body.theme-dark .bg-purple-50 { background-color: rgba(168, 85, 247, 0.1); }
+body.theme-dark .bg-yellow-50 { background-color: rgba(234, 179, 8, 0.1); }
+body.theme-dark .bg-slate-50  { background-color: #161921; }
+body.theme-dark .bg-slate-100 { background-color: #1e2130; }
+body.theme-dark .bg-zinc-50   { background-color: #161921; }
+body.theme-dark .bg-zinc-100  { background-color: #1e2130; }
+body.theme-dark .bg-neutral-50  { background-color: #161921; }
+body.theme-dark .bg-neutral-100 { background-color: #1e2130; }
+
+/* --- hover bg named Tailwind -------------------------------- */
+body.theme-dark .hover\:bg-emerald-100:hover { background-color: rgba(16, 185, 129, 0.2); }
+body.theme-dark .hover\:bg-red-100:hover     { background-color: rgba(248, 113, 113, 0.2); }
+body.theme-dark .hover\:bg-amber-100:hover   { background-color: rgba(234, 179, 8, 0.2); }
+body.theme-dark .hover\:bg-orange-100:hover  { background-color: rgba(249, 115, 22, 0.2); }
+body.theme-dark .hover\:bg-purple-100:hover  { background-color: rgba(168, 85, 247, 0.2); }
+body.theme-dark .hover\:bg-blue-100:hover    { background-color: rgba(59, 130, 246, 0.2); }
+body.theme-dark .hover\:bg-slate-100:hover   { background-color: #22263a; }
+body.theme-dark .hover\:bg-gray-100:hover    { background-color: #22263a; }
+
+/* --- Tailwind ring colors ----------------------------------- */
+body.theme-dark .focus\:ring-blue-200,
+body.theme-dark .focus\:ring-\[\#2563eb\]\/20 {
+  --tw-ring-color: rgba(79, 142, 247, 0.25);
+}
+body.theme-dark .focus\:ring-red-200 {
+  --tw-ring-color: rgba(248, 113, 113, 0.25);
+}
+
+/* --- Shadow ------------------------------------------------- */
+body.theme-dark .shadow,
+body.theme-dark .shadow-sm { box-shadow: var(--ui-shadow-sm); }
+body.theme-dark .shadow-md { box-shadow: var(--ui-shadow); }
+body.theme-dark .shadow-lg { box-shadow: var(--ui-shadow-lg); }
+
+/* --- Divisores internos ------------------------------------- */
+body.theme-dark .divide-gray-100 > * + * { border-color: #1e2130; }
+body.theme-dark .divide-gray-200 > * + * { border-color: #252836; }
+body.theme-dark .divide-slate-100 > * + * { border-color: #1e2130; }
+
+/* --- Ring color base no dark -------------------------------- */
+body.theme-dark *:focus-visible {
+  --tw-ring-color: var(--ui-ring);
+}
+
+/* --- Button ghost/secondary no hover explicit --------------- */
+body.theme-dark .hover\:border-\[\#d4d4d4\]:hover { border-color: #343848; }
+body.theme-dark .hover\:border-\[\#d4d4d8\]:hover { border-color: #343848; }
+body.theme-dark .hover\:border-\[\#e5e5e5\]:hover { border-color: #343848; }
+
+/* --- Texto em placeholders ---------------------------------- */
+body.theme-dark .placeholder\:text-\[\#a3a3a3\]::placeholder,
+body.theme-dark .placeholder\:text-\[\#9ca3af\]::placeholder { color: #5c6078; }
+
+/* --- Textarea / input explícito bg-[#fafafa] ---------------- */
+body.theme-dark textarea.bg-\[\#fafafa\],
+body.theme-dark input.bg-\[\#fafafa\]   { background-color: #13151f; }
+
+/* --- Cor herdada em strong/b dentro de parágrafos ----------- */
+body.theme-dark strong,
+body.theme-dark b { color: var(--ui-text); }
+
+/* --- Cor de ícones SVG herdados ----------------------------- */
+body.theme-dark svg { color: inherit; }
+
+/* --- Scroll bars (webkit) ----------------------------------- */
+body.theme-dark ::-webkit-scrollbar { width: 6px; height: 6px; }
+body.theme-dark ::-webkit-scrollbar-track { background: #13151f; }
+body.theme-dark ::-webkit-scrollbar-thumb {
+  background: #343848;
+  border-radius: 3px;
+}
+body.theme-dark ::-webkit-scrollbar-thumb:hover { background: #4a4f66; }
+

@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Company;
 
 use App\Models\User;
+use App\Support\UserPermissions;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -29,6 +30,8 @@ class UpdateUserRequest extends FormRequest
             'areas.*'                  => ['string', 'max:120'],
             'appointment_is_staff'     => ['sometimes', 'boolean'],
             'appointment_display_name' => ['nullable', 'string', 'max:120'],
+            'permissions'              => ['sometimes', 'nullable', 'array'],
+            'permissions.*'            => ['string', Rule::in(UserPermissions::ALL)],
         ];
     }
 }

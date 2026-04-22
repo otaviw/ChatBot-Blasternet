@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { Link } from 'react-router-dom';
 
 function TagsModal({
   open,
@@ -105,9 +106,9 @@ function TagsModal({
         {companyTags.length === 0 && (
           <p className="text-xs text-[#737373] mt-2">
             Crie tags em{' '}
-            <a href="/minha-conta/tags" className="text-[#2563eb] underline">
+            <Link to="/minha-conta/tags" className="text-[#2563eb] underline">
               Configurações → Tags
-            </a>
+            </Link>
             .
           </p>
         )}

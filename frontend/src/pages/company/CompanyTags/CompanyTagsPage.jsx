@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import Layout from '@/components/layout/Layout/Layout.jsx';
 import usePageData from '@/hooks/usePageData';
+import useLogout from '@/hooks/useLogout';
 import api from '@/services/api';
 
 const PRESET_COLORS = [
@@ -46,8 +47,37 @@ function ColorPicker({ value, onChange }) {
   );
 }
 
+function normalizeTag(rawTag) {
+  const id = Number(rawTag?.id ?? 0);
+  const name = String(rawTag?.name ?? '').trim();
+  const color = String(rawTag?.color ?? '').trim();
+  if (!id || !name) return null;
+  return {
+    id,
+    name,
+    color: /^#[0-9a-fA-F]{6}$/.test(color) ? color : '#3b82f6',
+  };
+}
+
+function extractTags(payload) {
+  const candidates = [
+    payload?.tags,
+    payload?.data?.tags,
+    payload?.tags?.data,
+    payload?.data,
+  ];
+
+  const firstArray = candidates.find((value) => Array.isArray(value));
+  if (!firstArray) return [];
+
+  return firstArray
+    .map(normalizeTag)
+    .filter(Boolean);
+}
+
 export default function CompanyTagsPage() {
   const { data, loading, error, setData } = usePageData('/minha-conta/tags');
+  const { logout } = useLogout();
 
   const [newName, setNewName] = useState('');
   const [newColor, setNewColor] = useState('#3b82f6');
@@ -62,20 +92,64 @@ export default function CompanyTagsPage() {
 
   const [deletingId, setDeletingId] = useState(null);
 
-  const tags = data?.tags ?? [];
+  const tags = useMemo(() => extractTags(data), [data]);
+
+  const syncTags = useCallback(async () => {
+    const response = await api.get('/minha-conta/tags');
+    const payload = response?.data ?? {};
+    setData(payload);
+    return extractTags(payload);
+  }, [setData]);
 
   async function handleCreate(e) {
     e.preventDefault();
-    if (!newName.trim()) return;
+    if (createBusy || !newName.trim()) return;
     setCreateBusy(true);
     setCreateError('');
+
+    const normalizedNewName = newName.trim().toLowerCase();
+
     try {
       const res = await api.post('/minha-conta/tags', { name: newName.trim(), color: newColor });
-      setData((prev) => ({ ...prev, tags: [...(prev?.tags ?? []), res.data.tag] }));
+
+      const createdTag = normalizeTag(res?.data?.tag ?? res?.data?.data?.tag ?? res?.data?.data);
+      if (createdTag) {
+        setData((prev) => {
+          const currentTags = extractTags(prev);
+          const exists = currentTags.some((tag) => tag.id === createdTag.id);
+          const nextTags = exists
+            ? currentTags.map((tag) => (tag.id === createdTag.id ? createdTag : tag))
+            : [...currentTags, createdTag];
+          return { ...(prev ?? {}), tags: nextTags };
+        });
+      } else {
+        await syncTags();
+      }
+
       setNewName('');
       setNewColor('#3b82f6');
     } catch (err) {
-      setCreateError(err?.response?.data?.errors?.name?.[0] ?? 'Erro ao criar tag.');
+      if (Number(err?.status ?? err?.response?.status ?? 0) === 422) {
+        try {
+          const refreshedTags = await syncTags();
+          const foundByName = refreshedTags.some((tag) => tag.name.toLowerCase() === normalizedNewName);
+          if (foundByName) {
+            setNewName('');
+            setNewColor('#3b82f6');
+            setCreateError('');
+            return;
+          }
+        } catch {
+          // ignore refresh failure and show validation error below
+        }
+      }
+
+      setCreateError(
+        err?.response?.data?.errors?.name?.[0]
+          ?? err?.response?.data?.message
+          ?? err?.message
+          ?? 'Erro ao criar tag.'
+      );
     } finally {
       setCreateBusy(false);
     }
@@ -94,38 +168,92 @@ export default function CompanyTagsPage() {
   }
 
   async function handleUpdate(tagId) {
-    if (!editName.trim()) return;
+    if (editBusy || !editName.trim()) return;
     setEditBusy(true);
     setEditError('');
+
+    const targetId = Number(tagId);
+    const desiredName = editName.trim().toLowerCase();
+    const desiredColor = editColor.toLowerCase();
+
     try {
       const res = await api.put(`/minha-conta/tags/${tagId}`, { name: editName.trim(), color: editColor });
-      setData((prev) => ({
-        ...prev,
-        tags: (prev?.tags ?? []).map((t) => (t.id === tagId ? res.data.tag : t)),
-      }));
+
+      const updatedTag = normalizeTag(res?.data?.tag ?? res?.data?.data?.tag ?? res?.data?.data);
+      if (updatedTag) {
+        setData((prev) => ({
+          ...(prev ?? {}),
+          tags: extractTags(prev).map((t) => (Number(t.id) === targetId ? updatedTag : t)),
+        }));
+      } else {
+        await syncTags();
+      }
+
       setEditingId(null);
     } catch (err) {
-      setEditError(err?.response?.data?.errors?.name?.[0] ?? 'Erro ao salvar.');
+      if (Number(err?.status ?? err?.response?.status ?? 0) === 422) {
+        try {
+          const refreshedTags = await syncTags();
+          const persisted = refreshedTags.find((tag) => Number(tag.id) === targetId);
+          if (
+            persisted
+            && persisted.name.toLowerCase() === desiredName
+            && persisted.color.toLowerCase() === desiredColor
+          ) {
+            setEditingId(null);
+            setEditError('');
+            return;
+          }
+        } catch {
+          // ignore refresh failure and show validation error below
+        }
+      }
+
+      setEditError(
+        err?.response?.data?.errors?.name?.[0]
+          ?? err?.response?.data?.message
+          ?? err?.message
+          ?? 'Erro ao salvar.'
+      );
     } finally {
       setEditBusy(false);
     }
   }
 
   async function handleDelete(tagId) {
+    if (deletingId) return;
     if (!window.confirm('Remover esta tag de todas as conversas?')) return;
+
+    const targetId = Number(tagId);
     setDeletingId(tagId);
+
     try {
       await api.delete(`/minha-conta/tags/${tagId}`);
-      setData((prev) => ({ ...prev, tags: (prev?.tags ?? []).filter((t) => t.id !== tagId) }));
-    } catch {
-      // ignore
+      setData((prev) => ({
+        ...(prev ?? {}),
+        tags: extractTags(prev).filter((t) => Number(t.id) !== targetId),
+      }));
+    } catch (err) {
+      const status = Number(err?.status ?? err?.response?.status ?? 0);
+      if (status === 404) {
+        setData((prev) => ({
+          ...(prev ?? {}),
+          tags: extractTags(prev).filter((t) => Number(t.id) !== targetId),
+        }));
+      } else {
+        try {
+          await syncTags();
+        } catch {
+          // ignore if refresh fails
+        }
+      }
     } finally {
       setDeletingId(null);
     }
   }
 
   return (
-    <Layout>
+    <Layout role="company" companyName={data?.company?.name} onLogout={logout}>
       <div className="max-w-xl mx-auto px-4 py-8">
         <h1 className="text-xl font-semibold text-[#171717] mb-6">Tags</h1>
 

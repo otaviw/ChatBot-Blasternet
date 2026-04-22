@@ -134,6 +134,7 @@ class AuthController extends Controller
             'can_use_ai' => $canUseInternalAi,
             'can_access_internal_ai_chat' => $canUseInternalAi,
             'can_manage_ai' => $this->aiAccessService->canManageAi($user),
+            'permissions' => $user->resolvedPermissions(),
         ];
     }
 }

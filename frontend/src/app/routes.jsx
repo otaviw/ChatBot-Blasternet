@@ -2,6 +2,7 @@ import './routes.css';
 import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 import useAuth from '@/hooks/useAuth';
+import { PERM, hasPermission } from '@/constants/permissions';
 
 const EntrarPage = lazy(() => import('@/pages/Entrar/EntrarPage.jsx'));
 const EsqueceuSenhaPage = lazy(() => import('@/pages/EsqueceuSenha/EsqueceuSenhaPage.jsx'));
@@ -67,6 +68,16 @@ function AiManagementRoute({ children }) {
   return children;
 }
 
+function PermissionRoute({ permission, children }) {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/entrar" replace />;
+  if (!hasPermission(user.permissions ?? null, user.role, permission)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return children;
+}
+
 function AdminCompanyShowRoute() {
   const { companyId = '' } = useParams();
   return <AdminCompanyShowPage companyId={companyId} />;
@@ -105,22 +116,22 @@ function AppRoutes() {
           element={<AdminSupportTicketRoute />}
         />
 
-        <Route path="/minha-conta/simulador" element={<CompanySimulatorPage />} />
-        <Route path="/minha-conta/conversas" element={<CompanyInboxPage />} />
-        <Route path="/minha-conta/chat-interno" element={<InternalChatPage />} />
+        <Route path="/minha-conta/simulador" element={<PermissionRoute permission={PERM.PAGE_SIMULATOR}><CompanySimulatorPage /></PermissionRoute>} />
+        <Route path="/minha-conta/conversas" element={<PermissionRoute permission={PERM.PAGE_INBOX}><CompanyInboxPage /></PermissionRoute>} />
+        <Route path="/minha-conta/chat-interno" element={<PermissionRoute permission={PERM.PAGE_INTERNAL_CHAT}><InternalChatPage /></PermissionRoute>} />
         <Route path="/minha-conta/chat-ia" element={<SuperAdminRoute><InternalAiChatPage /></SuperAdminRoute>} />
         <Route path="/minha-conta/ia/analytics" element={<AiManagementRoute><CompanyAiAnalyticsPage /></AiManagementRoute>} />
         <Route path="/minha-conta/ia/auditoria" element={<AiManagementRoute><CompanyAiAuditPage /></AiManagementRoute>} />
-        <Route path="/minha-conta/auditoria" element={<CompanyAuditPage />} />
+        <Route path="/minha-conta/auditoria" element={<PermissionRoute permission={PERM.PAGE_AUDIT}><CompanyAuditPage /></PermissionRoute>} />
         <Route path="/minha-conta/ia/configuracoes" element={<AiManagementRoute><AiSettingsPage /></AiManagementRoute>} />
         <Route path="/minha-conta/bot" element={<CompanyBotPage />} />
         <Route path="/minha-conta/base-conhecimento" element={<AiManagementRoute><CompanyKnowledgeBasePage /></AiManagementRoute>} />
-        <Route path="/minha-conta/respostas-rapidas" element={<CompanyQuickRepliesPage />} />
+        <Route path="/minha-conta/respostas-rapidas" element={<PermissionRoute permission={PERM.PAGE_QUICK_REPLIES}><CompanyQuickRepliesPage /></PermissionRoute>} />
         <Route path="/minha-conta/usuarios" element={<CompanyUsersPage />} />
-        <Route path="/minha-conta/contatos" element={<CompanyContactsPage />} />
-        <Route path="/minha-conta/campanhas" element={<CampaignsPage />} />
-        <Route path="/minha-conta/agendamentos" element={<CompanyAppointmentsPage />} />
-        <Route path="/minha-conta/tags" element={<CompanyTagsPage />} />
+        <Route path="/minha-conta/contatos" element={<PermissionRoute permission={PERM.PAGE_CONTACTS}><CompanyContactsPage /></PermissionRoute>} />
+        <Route path="/minha-conta/campanhas" element={<PermissionRoute permission={PERM.PAGE_CAMPAIGNS}><CampaignsPage /></PermissionRoute>} />
+        <Route path="/minha-conta/agendamentos" element={<PermissionRoute permission={PERM.PAGE_APPOINTMENTS}><CompanyAppointmentsPage /></PermissionRoute>} />
+        <Route path="/minha-conta/tags" element={<PermissionRoute permission={PERM.PAGE_TAGS}><CompanyTagsPage /></PermissionRoute>} />
         <Route path="/minha-conta/suporte/solicitacoes" element={<CompanySupportTicketPage />} />
         <Route
           path="/minha-conta/suporte/solicitacoes/:ticketId"

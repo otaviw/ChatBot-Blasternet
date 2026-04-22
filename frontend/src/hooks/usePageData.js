@@ -49,7 +49,7 @@ function usePageData(url, initial = null) {
     };
   }, [url, refreshToken]);
 
-  return { data, loading, error, refetch };
+  return { data, setData, loading, error, refetch };
 }
 
 export default usePageData;

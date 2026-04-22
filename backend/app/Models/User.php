@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Support\Enums\UserRole;
+use App\Support\UserPermissions;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -33,6 +34,7 @@ class User extends Authenticatable
         'is_active',
         'can_use_ai',
         'disabled_at',
+        'permissions',
     ];
 
     /**
@@ -65,7 +67,28 @@ class User extends Authenticatable
             'is_active' => 'boolean',
             'can_use_ai' => 'boolean',
             'disabled_at' => 'datetime',
+            'permissions' => 'array',
         ];
+    }
+
+    /**
+     * Returns the effective permission list for this user.
+     * Company/system admins always receive the full set; agents use their stored list
+     * or the default set when nothing is explicitly configured.
+     *
+     * @return list<string>
+     */
+    public function resolvedPermissions(): array
+    {
+        return UserPermissions::resolve(
+            self::normalizeRole($this->role),
+            $this->permissions
+        );
+    }
+
+    public function hasPermission(string $permission): bool
+    {
+        return in_array($permission, $this->resolvedPermissions(), true);
     }
 
     public function company()

@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import api from '@/services/api';
 import { useNotificationsContext } from '@/hooks/useNotificationsContext';
 import { NOTIFICATION_MODULE, NOTIFICATION_REFERENCE_TYPE } from '@/constants/notifications';
+import { PERM, hasPermission } from '@/constants/permissions';
 import browserNotificationService from '@/services/browserNotificationService';
 import NotificationPreferencesPanel from '@/pages/Notifications/NotificationPreferencesPanel.jsx';
 
@@ -127,6 +128,12 @@ const ICONS = {
       <path d="M12 8v8M8 12h8" />
     </svg>
   ),
+  tags: (
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+      <line x1="7" y1="7" x2="7.01" y2="7" />
+    </svg>
+  ),
 };
 
 const iconKey = (label) => {
@@ -167,6 +174,7 @@ const iconKey = (label) => {
     Respostas: 'respostas',
     'Respostas rapidas': 'respostas',
     'Base de conhecimento': 'respostas',
+    Tags: 'tags',
     Inicio: 'dashboard',
     Conversas: 'inbox',
   };
@@ -556,11 +564,18 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
   ];
   
   const companyMainLinks = useMemo(() => {
+    const userRole = userData?.role ?? null;
+    const userPerms = userData?.permissions ?? null;
+
+    function perm(key) {
+      return hasPermission(userPerms, userRole, key);
+    }
+
     const links = [
       { href: '/dashboard', label: 'Início', icon: 'dashboard', ariaLabel: 'Ir para o painel inicial' },
     ];
 
-    if (userData?.role !== 'agent') {
+    if (userRole !== 'agent') {
       links.push({
         href: '/minha-conta/bot',
         label: 'Bot',
@@ -569,56 +584,90 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
       });
     }
 
-    links.push(
-      {
+    if (perm(PERM.PAGE_INBOX)) {
+      links.push({
         href: '/minha-conta/conversas',
         label: 'Conversas',
         icon: 'inbox',
         ariaLabel: 'Atendimento e conversas com clientes',
         module: NOTIFICATION_MODULE.INBOX,
-      },
-      {
+      });
+    }
+
+    if (perm(PERM.PAGE_CONTACTS)) {
+      links.push({
         href: '/minha-conta/contatos',
         label: 'Contatos',
         icon: 'contatos',
         ariaLabel: 'Gestao de contatos da empresa',
-      },
-      {
+      });
+    }
+
+    if (perm(PERM.PAGE_CAMPAIGNS)) {
+      links.push({
         href: '/minha-conta/campanhas',
         label: 'Campanhas',
         icon: 'campanhas',
         ariaLabel: 'Gestao de campanhas de envio',
-      },
-      {
+      });
+    }
+
+    if (perm(PERM.PAGE_INTERNAL_CHAT)) {
+      links.push({
         href: '/minha-conta/chat-interno',
         label: 'Equipe interna',
         icon: 'chatInterno',
         ariaLabel: 'Mensagens entre membros da equipe',
         module: NOTIFICATION_MODULE.INTERNAL_CHAT,
-      },
-      {
+      });
+    }
+
+    if (perm(PERM.PAGE_APPOINTMENTS)) {
+      links.push({
         href: '/minha-conta/agendamentos',
         label: 'Agendamentos',
         icon: 'agendamentos',
         ariaLabel: 'Gestao de agenda e horários dos atendentes',
-      },
-    );
+      });
+    }
 
-    links.push({
-      href: '/minha-conta/respostas-rapidas',
-      label: 'Respostas rápidas',
-      icon: 'respostas',
-      ariaLabel: 'Mensagens prontas para resposta rápida',
-    });
+    if (perm(PERM.PAGE_QUICK_REPLIES)) {
+      links.push({
+        href: '/minha-conta/respostas-rapidas',
+        label: 'Respostas rápidas',
+        icon: 'respostas',
+        ariaLabel: 'Mensagens prontas para resposta rápida',
+      });
+    }
 
-    links.push({
-      href: '/minha-conta/auditoria',
-      label: 'Auditoria',
-      icon: 'chatIa',
-      ariaLabel: 'Auditoria geral do sistema',
-    });
+    if (perm(PERM.PAGE_TAGS)) {
+      links.push({
+        href: '/minha-conta/tags',
+        label: 'Tags',
+        icon: 'tags',
+        ariaLabel: 'Gerenciar tags de conversas',
+      });
+    }
 
-    if (userData?.role === 'system_admin') {
+    if (perm(PERM.PAGE_AUDIT)) {
+      links.push({
+        href: '/minha-conta/auditoria',
+        label: 'Auditoria',
+        icon: 'chatIa',
+        ariaLabel: 'Auditoria geral do sistema',
+      });
+    }
+
+    if (perm(PERM.PAGE_SIMULATOR)) {
+      links.push({
+        href: '/minha-conta/simulador',
+        label: 'Testar bot',
+        icon: 'simulador',
+        ariaLabel: 'Simular mensagens do bot',
+      });
+    }
+
+    if (userRole === 'system_admin') {
       links.push(
         {
           href: '/minha-conta/chat-ia',
@@ -663,7 +712,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
     }
 
     return links;
-  }, [canManageUsers, userData?.role]);
+  }, [canManageUsers, userData?.role, userData?.permissions]);
 
   const companySupportLinks = [
     { href: '/suporte', label: 'Pedir ajuda', icon: 'suporte', ariaLabel: 'Registrar chamado de suporte' },

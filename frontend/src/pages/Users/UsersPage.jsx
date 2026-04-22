@@ -26,6 +26,7 @@ function initialForm(isAdminScope) {
       areas: [],
       appointment_is_staff: true,
       appointment_display_name: "",
+      permissions: null,
     };
   }
 
@@ -39,6 +40,7 @@ function initialForm(isAdminScope) {
     areas: [],
     appointment_is_staff: true,
     appointment_display_name: "",
+    permissions: null,
   };
 }
 
@@ -192,10 +194,13 @@ export default function UsersPage({ scope = "company" }) {
   }
 
   function buildPayload(form) {
+    const isAgent = form.role === "agent";
+
     if (!isAdminScope) {
       const payload = {
         ...form,
         areas: Array.isArray(form.areas) ? form.areas : [],
+        permissions: isAgent ? (form.permissions ?? null) : null,
       };
       delete payload.company_id;
       return payload;
@@ -207,6 +212,7 @@ export default function UsersPage({ scope = "company" }) {
       ...form,
       company_id: needsCompany && form.company_id ? Number(form.company_id) : null,
       areas: needsCompany ? form.areas ?? [] : [],
+      permissions: isAgent ? (form.permissions ?? null) : null,
     };
   }
 
@@ -247,6 +253,7 @@ export default function UsersPage({ scope = "company" }) {
         areas: Array.isArray(user.areas) ? user.areas : [],
         appointment_is_staff: Boolean(user.appointment_is_staff),
         appointment_display_name: user.appointment_display_name || "",
+        permissions: user.permissions ?? null,
       });
       return;
     }
@@ -262,6 +269,7 @@ export default function UsersPage({ scope = "company" }) {
       areas: Array.isArray(user.areas) ? user.areas : [],
       appointment_is_staff: Boolean(user.appointment_is_staff),
       appointment_display_name: user.appointment_display_name || "",
+      permissions: user.permissions ?? null,
     });
   }
 
@@ -404,6 +412,7 @@ export default function UsersPage({ scope = "company" }) {
               areaEmptyMessage={createAreaMessage}
               showAiPermissionField={createForm.role === "agent"}
               showAppointmentFields={!isAdminScope}
+              showPermissionsField={createForm.role === "agent"}
             />
 
             <Button type="submit" variant="primary" disabled={createBusy}>
@@ -455,6 +464,7 @@ export default function UsersPage({ scope = "company" }) {
                 areaEmptyMessage={editAreaMessage}
                 showAiPermissionField={editForm.role === "agent"}
                 showAppointmentFields={!isAdminScope}
+                showPermissionsField={editForm.role === "agent"}
               />
 
               <Button type="submit" variant="primary" disabled={editBusy}>
