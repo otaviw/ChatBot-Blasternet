@@ -144,7 +144,7 @@ function CampaignsPage() {
     } catch (err) {
       if (!silent) {
         setCampaigns([]);
-        setError(err?.response?.data?.message ?? 'Nao foi possivel carregar campanhas.');
+        setError(err?.response?.data?.message ?? 'Não foi possível carregar campanhas.');
       }
       return false;
     } finally {
@@ -238,7 +238,7 @@ function CampaignsPage() {
       })
       .catch((err) => {
         setContacts([]);
-        setContactsError(err?.response?.data?.message ?? 'Nao foi possivel carregar contatos.');
+        setContactsError(err?.response?.data?.message ?? 'Não foi possível carregar contatos.');
       })
       .finally(() => {
         setContactsLoading(false);
@@ -266,9 +266,9 @@ function CampaignsPage() {
       const skipped = Number(response?.data?.skipped ?? 0);
       const refreshedContacts = await fetchAllCompanyContacts();
       setContacts(refreshedContacts);
-      showSuccess(`Importacao concluida: ${imported} importados, ${skipped} ignorados.`);
+      showSuccess(`Importação concluída: ${imported} importados, ${skipped} ignorados.`);
     } catch (err) {
-      const message = err?.response?.data?.message ?? 'Nao foi possivel importar CSV de contatos.';
+      const message = err?.response?.data?.message ?? 'Não foi possível importar CSV de contatos.';
       setContactsImportError(message);
       showError(message);
     } finally {
@@ -318,7 +318,7 @@ function CampaignsPage() {
         err?.response?.data?.errors?.name?.[0] ??
         err?.response?.data?.errors?.type?.[0] ??
         err?.response?.data?.message ??
-        'Nao foi possivel criar campanha.';
+        'Não foi possível criar campanha.';
       setModalError(message);
     } finally {
       setCreateBusy(false);
@@ -337,7 +337,7 @@ function CampaignsPage() {
       await loadCampaigns({ silent: true });
       showSuccess('Envio da campanha iniciado.');
     } catch (err) {
-      showError(err?.response?.data?.message ?? 'Nao foi possivel iniciar o envio.');
+      showError(err?.response?.data?.message ?? 'Não foi possível iniciar o envio.');
     } finally {
       setStartingId(null);
     }
@@ -362,7 +362,7 @@ function CampaignsPage() {
         <section className="campaigns-page">
           <h1 className="app-page-title">Campanhas</h1>
           <div className="app-panel">
-            <ErrorMessage message="Nao foi possivel carregar a pagina." />
+            <ErrorMessage message="Não foi possível carregar a página." />
           </div>
         </section>
       </Layout>
@@ -375,7 +375,7 @@ function CampaignsPage() {
         <header className="campaigns-page__header">
           <div>
             <h1 className="app-page-title">Campanhas</h1>
-            <p className="app-page-subtitle">Envios em massa por template, open ou free.</p>
+            <p className="app-page-subtitle">Envios em massa por template, aberta ou livre.</p>
           </div>
           <button type="button" className="app-btn-primary" onClick={openCreateModal}>
             Nova campanha
@@ -410,24 +410,37 @@ function CampaignsPage() {
                   <th>Status</th>
                   <th>Data</th>
                   <th>Enviados</th>
-                  <th>Falhados</th>
+                  <th>Falhas</th>
                   <th>Ignorados</th>
-                  <th>Acoes</th>
+                  <th>Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {orderedCampaigns.map((campaign) => {
                   const status = String(campaign?.status ?? 'draft');
                   const isStartingThis = startingId === campaign.id;
-                  const isStartDisabled = status !== 'draft' || isStartingThis;
+                  const isDraft = status === 'draft';
+
+                  const statusLabels = {
+                    draft: 'Rascunho',
+                    sending: 'Enviando',
+                    finished: 'Finalizado',
+                  };
+                  const typeLabels = {
+                    free: 'Livre',
+                    template: 'Template',
+                    open: 'Aberta',
+                  };
+                  const statusLabel = statusLabels[status] ?? status;
+                  const typeLabel = typeLabels[String(campaign?.type ?? '')] ?? String(campaign?.type ?? '-');
 
                   return (
                     <tr key={campaign.id}>
                       <td>{campaign?.name || '-'}</td>
-                      <td>{String(campaign?.type ?? '-')}</td>
+                      <td>{typeLabel}</td>
                       <td>
                         <span className={`campaign-status-badge campaign-status-badge--${status}`}>
-                          {status}
+                          {statusLabel}
                         </span>
                       </td>
                       <td>{formatDate(campaign?.created_at)}</td>
@@ -435,14 +448,16 @@ function CampaignsPage() {
                       <td>{toDisplayCount(campaign?.failed_count)}</td>
                       <td>{toDisplayCount(campaign?.skipped_count)}</td>
                       <td>
-                        <button
-                          type="button"
-                          className="app-btn-secondary campaigns-start-btn"
-                          disabled={isStartDisabled}
-                          onClick={() => void handleStartCampaign(campaign.id)}
-                        >
-                          {isStartingThis ? 'Iniciando...' : 'Iniciar campanha'}
-                        </button>
+                        {isDraft ? (
+                          <button
+                            type="button"
+                            className="app-btn-secondary campaigns-start-btn"
+                            disabled={isStartingThis}
+                            onClick={() => void handleStartCampaign(campaign.id)}
+                          >
+                            {isStartingThis ? 'Iniciando...' : 'Iniciar campanha'}
+                          </button>
+                        ) : null}
                       </td>
                     </tr>
                   );

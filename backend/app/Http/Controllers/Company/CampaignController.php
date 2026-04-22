@@ -216,7 +216,7 @@ class CampaignController extends Controller
             $campaign->save();
         });
 
-        ProcessCampaignJob::dispatch($campaign->id);
+        dispatch(new ProcessCampaignJob($campaign->id))->afterResponse();
 
         $campaignWithCounts = $this->loadCampaignWithCounts($companyId, (int) $campaign->id);
         if ($campaignWithCounts instanceof Campaign) {

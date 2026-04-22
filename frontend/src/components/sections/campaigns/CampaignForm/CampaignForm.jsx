@@ -107,7 +107,7 @@ function CampaignForm({
       });
     } catch (err) {
       if (validationRequestIdRef.current !== currentRequestId) return;
-      setValidationError(err?.response?.data?.message ?? 'Nao foi possivel validar os contatos.');
+      setValidationError(err?.response?.data?.message ?? 'Não foi possível validar os contatos.');
       setValidationSummary({ eligible: 0, outsideWindow: 0, invalid: 0 });
     } finally {
       if (validationRequestIdRef.current === currentRequestId) {
@@ -176,9 +176,9 @@ function CampaignForm({
             required
           >
             <option value="">Selecione o tipo</option>
-            <option value="template">template</option>
-            <option value="open">open (abrir conversa)</option>
-            <option value="free">free (24h)</option>
+            <option value="template">Template</option>
+            <option value="open">Aberta (abrir conversa)</option>
+            <option value="free">Livre (janela 24h)</option>
           </select>
           {errors.type ? <p className="campaign-form__error">{errors.type}</p> : null}
         </div>
@@ -196,7 +196,7 @@ function CampaignForm({
 
       {selectionMode === 'csv' ? (
         <p className="campaign-form__hint">
-          Apos importar, troque para "todos contatos" ou "selecionar manualmente".
+          Após importar, troque para "todos os contatos" ou "selecionar manualmente".
         </p>
       ) : null}
 
@@ -252,14 +252,14 @@ function CampaignForm({
 
           <div className="campaign-form__variables">
             <div className="campaign-form__variables-header">
-              <p className="campaign-form__label campaign-form__label--inline">Variaveis</p>
+              <p className="campaign-form__label campaign-form__label--inline">Variáveis</p>
               <button
                 type="button"
                 className="app-btn-secondary campaign-form__small-btn"
                 onClick={addTemplateVariable}
                 disabled={busy}
               >
-                + Variavel
+                + Variável
               </button>
             </div>
 
@@ -270,7 +270,7 @@ function CampaignForm({
                   type="text"
                   value={variable}
                   onChange={(event) => handleTemplateVariableChange(index, event.target.value)}
-                  placeholder={`Variavel ${index + 1}`}
+                  placeholder={`Variável ${index + 1}`}
                   disabled={busy}
                 />
                 {templateVariables.length > 1 ? (
