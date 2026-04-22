@@ -64,6 +64,8 @@ Route::middleware(['web', 'auth', 'company.user'])->group(function () {
             ->middleware('throttle:bot-write');
         Route::delete('/tags/{tag}', [ConversationTagController::class, 'destroy'])
             ->middleware('throttle:bot-write');
+        Route::put('/conversas/{conversationId}/tags', [CompanyConversationController::class, 'updateTags'])
+            ->middleware('throttle:bot-write');
         Route::post('/conversas/{conversationId}/tags', [ConversationTagController::class, 'attach'])
             ->middleware('throttle:bot-write');
         Route::delete('/conversas/{conversationId}/tags/{tagId}', [ConversationTagController::class, 'detach'])

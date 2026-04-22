@@ -3,6 +3,7 @@ import {
   CONVERSATION_STATUS,
 } from '@/constants/conversation';
 import ServiceAreaBadge from '@/components/company/ServiceAreaBadge/ServiceAreaBadge.jsx';
+import AssignedUserBadge from '@/components/company/AssignedUserBadge/AssignedUserBadge.jsx';
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton/LoadingSkeleton.jsx';
 import EmptyState from '@/components/ui/EmptyState/EmptyState.jsx';
 import ConversationsFilter from './ConversationsFilter.jsx';
@@ -248,6 +249,9 @@ function ConversationsSidebar({
                   ) : null}
                   {conv.current_area?.name ? (
                     <ServiceAreaBadge areaName={conv.current_area.name} serviceAreaNames={serviceAreaNames} />
+                  ) : null}
+                  {conv.assigned_user?.name ? (
+                    <AssignedUserBadge userName={conv.assigned_user.name} />
                   ) : null}
                   {convTags.map((tag) => (
                     <InlineTagBadge key={tag.id} name={tag.name} color={tag.color} />
