@@ -1,17 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import './StatefulMenuFlowEditor.css';
 import { createEmptyOption, createEmptyStep } from '@/services/statefulMenuFlow';
-
-function normalizeStepKey(flow, step) {
-  const safeFlow = String(flow ?? '').trim();
-  const safeStep = String(step ?? '').trim();
-
-  if (!safeFlow || !safeStep) {
-    return '';
-  }
-
-  return `${safeFlow}.${safeStep}`;
-}
+import FlowCanvas from './FlowCanvas';
+import { getDisconnectedStepIds, normalizeStepKey } from './flowValidator';
 
 function getStepDisplayName(step, fallbackIndex = null) {
   const customName = String(step?.display_name ?? '').trim();
@@ -26,255 +17,6 @@ function getStepDisplayName(step, fallbackIndex = null) {
   return 'Bloco sem nome';
 }
 
-function getActionSummary(action, stepOptions = []) {
-  if (!action) {
-    return 'Ação não configurada';
-  }
-
-  if (action.kind === 'appointments_start') {
-    return 'Iniciar agendamento automático';
-  }
-
-  if (action.kind === 'appointments_cancel') {
-    return 'Iniciar cancelamento de agendamento';
-  }
-
-  if (action.kind === 'handoff') {
-    return `Transferir para: ${action.target_area_name || 'área não definida'}`;
-  }
-
-  const targetKey = normalizeStepKey(action.flow, action.step);
-  const targetStep = stepOptions.find((item) => item.value === targetKey);
-
-  if (targetStep) {
-    return `Abrir bloco: ${targetStep.label}`;
-  }
-
-  if (targetKey) {
-    return `Abrir bloco: ${targetKey}`;
-  }
-
-  return 'Destino não configurado';
-}
-
-function ActionEditor({
-  action,
-  onChange,
-  serviceAreas = [],
-  stepOptions = [],
-  onGoToTarget,
-}) {
-  const safeAction = action ?? {
-    kind: 'go_to',
-    reply_text: '',
-    flow: '',
-    step: '',
-    target_area_name: '',
-  };
-
-  const currentTargetValue = normalizeStepKey(safeAction.flow, safeAction.step);
-  const currentTargetStep = stepOptions.find((item) => item.value === currentTargetValue);
-
-  const changeKind = (value) => {
-    if (value === 'handoff') {
-      onChange({
-        ...safeAction,
-        kind: 'handoff',
-        target_area_name: safeAction.target_area_name || '',
-      });
-      return;
-    }
-
-    if (value === 'appointments_start') {
-      onChange({
-        ...safeAction,
-        kind: 'appointments_start',
-        target_area_name: safeAction.target_area_name || 'Atendimento',
-      });
-      return;
-    }
-
-    if (value === 'appointments_cancel') {
-      onChange({
-        ...safeAction,
-        kind: 'appointments_cancel',
-      });
-      return;
-    }
-
-    onChange({
-      ...safeAction,
-      kind: 'go_to',
-      flow: safeAction.flow || '',
-      step: safeAction.step || '',
-    });
-  };
-
-  const changeTargetStep = (value) => {
-    const [flow, ...rest] = String(value ?? '').split('.');
-    onChange({
-      ...safeAction,
-      flow: flow ?? '',
-      step: rest.join('.'),
-    });
-  };
-
-  return (
-    <div className="stateful-editor-card stateful-editor-card--soft">
-      <div className="stateful-editor-card-header">
-        <div>
-          <h5 className="stateful-editor-card-title">O que esta opção vai fazer</h5>
-          <p className="stateful-editor-card-subtitle">
-            {getActionSummary(safeAction, stepOptions)}
-          </p>
-        </div>
-      </div>
-
-      <div className="stateful-form-grid">
-        <label className="stateful-field">
-          <span className="stateful-field-label">O que deve acontecer</span>
-          <select
-            value={safeAction.kind}
-            onChange={(e) => changeKind(e.target.value)}
-            className="stateful-input"
-          >
-            <option value="go_to">Abrir outro bloco</option>
-            <option value="handoff">Transferir para uma área</option>
-            <option value="appointments_start">Iniciar agendamento automático</option>
-            <option value="appointments_cancel">Cancelar agendamento</option>
-          </select>
-        </label>
-
-        <label className="stateful-field">
-          <span className="stateful-field-label">Mensagem de confirmação (opcional)</span>
-          <input
-            type="text"
-            value={safeAction.reply_text || ''}
-            onChange={(e) => onChange({ ...safeAction, reply_text: e.target.value })}
-            placeholder="Ex.: Certo, vou te encaminhar."
-            className="stateful-input"
-          />
-        </label>
-      </div>
-
-      {safeAction.kind === 'appointments_cancel' ? (
-        <div className="space-y-3">
-          <p className="stateful-editor-card-subtitle">
-            O cliente será encaminhado para o fluxo de cancelamento de agendamento. O tempo mínimo de antecedência é configurado em <strong>Agendamentos</strong>.
-          </p>
-        </div>
-      ) : safeAction.kind === 'appointments_start' ? (
-        <div className="space-y-3">
-          <p className="stateful-editor-card-subtitle">
-            O cliente será encaminhado para o fluxo de agendamento automático. Configure o serviço e os horários em <strong>Agendamentos</strong>.
-          </p>
-          <label className="stateful-field">
-            <span className="stateful-field-label">Área de fallback (se não houver horários disponíveis)</span>
-            <select
-              value={safeAction.target_area_name || 'Atendimento'}
-              onChange={(e) => onChange({ ...safeAction, target_area_name: e.target.value })}
-              className="stateful-input"
-            >
-              <option value="Atendimento">Atendimento (padrão)</option>
-              {(serviceAreas ?? []).map((area) => (
-                <option key={String(area)} value={String(area)}>
-                  {String(area)}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-      ) : safeAction.kind === 'handoff' ? (
-        <label className="stateful-field">
-          <span className="stateful-field-label">Área de atendimento</span>
-          <select
-            value={safeAction.target_area_name || ''}
-            onChange={(e) => onChange({ ...safeAction, target_area_name: e.target.value })}
-            className="stateful-input"
-          >
-            <option value="">
-              {(serviceAreas ?? []).length ? 'Selecione uma área' : 'Nenhuma área cadastrada'}
-            </option>
-            {(serviceAreas ?? []).map((area) => (
-              <option key={String(area)} value={String(area)}>
-                {String(area)}
-              </option>
-            ))}
-          </select>
-        </label>
-      ) : (
-        <div className="space-y-3">
-          <label className="stateful-field">
-            <span className="stateful-field-label">Bloco de destino</span>
-            <select
-              value={currentTargetValue}
-              onChange={(e) => changeTargetStep(e.target.value)}
-              className="stateful-input"
-            >
-              <option value="">Selecione um bloco</option>
-              {stepOptions.map((stepItem) => (
-                <option key={stepItem.id} value={stepItem.value}>
-                  {stepItem.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          {currentTargetStep && (
-            <button
-              type="button"
-              onClick={() => onGoToTarget?.(currentTargetStep.id)}
-              className="stateful-btn stateful-btn-secondary"
-            >
-              Abrir bloco de destino
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function StepListItem({
-  step,
-  index,
-  isActive,
-  isInitial,
-  isDisconnected,
-  onSelect,
-}) {
-  const name = getStepDisplayName(step, index);
-  const typeLabel = step.type === 'numeric_menu' ? 'Menu' : 'Pergunta aberta';
-  const meta =
-    step.type === 'numeric_menu'
-      ? `${step.options?.length ?? 0} opção(ões)`
-      : 'Texto livre';
-
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={`stateful-step-list-item ${isActive ? 'stateful-step-list-item--active' : ''}`}
-    >
-      <div className="stateful-step-list-item-top">
-        <div>
-          <p className="stateful-step-list-item-title">
-            <span className="stateful-step-list-item-index">{index + 1}.</span> {name}
-          </p>
-          <p className="stateful-step-list-item-meta">
-            {typeLabel} • {meta}
-          </p>
-        </div>
-
-        <div className="stateful-step-list-badges">
-          {isInitial && <span className="stateful-badge stateful-badge--success">Inicial</span>}
-          {isDisconnected && <span className="stateful-badge">Desconectado</span>}
-        </div>
-      </div>
-    </button>
-  );
-}
-
 function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
   const editor = value ?? {
     commands: ['#', 'menu'],
@@ -282,6 +24,9 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
     initial_step: 'menu',
     steps: [],
   };
+
+  const [selectedStepId, setSelectedStepId] = useState(editor.steps[0]?.id ?? null);
+  const [selectedOptionId, setSelectedOptionId] = useState(null);
 
   const stepOptions = useMemo(
     () =>
@@ -303,17 +48,31 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
     [editor.steps]
   );
 
-  const stepByKey = useMemo(
+  const initialStepKey = normalizeStepKey(editor.initial_flow, editor.initial_step);
+
+  const disconnectedStepIds = useMemo(
     () =>
-      new Map(
-        editor.steps
-          .map((step) => [normalizeStepKey(step.flow, step.step), step])
-          .filter(([key]) => Boolean(key))
-      ),
-    [editor.steps]
+      getDisconnectedStepIds({
+        steps: editor.steps,
+        initialFlow: editor.initial_flow,
+        initialStep: editor.initial_step,
+      }),
+    [editor.initial_flow, editor.initial_step, editor.steps]
   );
 
-  const initialStepKey = normalizeStepKey(editor.initial_flow, editor.initial_step);
+  useEffect(() => {
+    if (!editor.steps.length) {
+      setSelectedStepId(null);
+      setSelectedOptionId(null);
+      return;
+    }
+
+    const exists = editor.steps.some((step) => step.id === selectedStepId);
+    if (!exists) {
+      setSelectedStepId(editor.steps[0].id);
+      setSelectedOptionId(null);
+    }
+  }, [editor.steps, selectedStepId]);
 
   const setEditor = (next) => {
     onChange(next);
@@ -335,8 +94,8 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
 
     const hasInitial = nextSteps.some(
       (step) =>
-        String(step.flow ?? '').trim() === String(editor.initial_flow ?? '').trim()
-        && String(step.step ?? '').trim() === String(editor.initial_step ?? '').trim()
+        String(step.flow ?? '').trim() === String(editor.initial_flow ?? '').trim() &&
+        String(step.step ?? '').trim() === String(editor.initial_step ?? '').trim()
     );
 
     setEditor({
@@ -372,8 +131,8 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
     updateCommands((editor.commands ?? []).filter((_, i) => i !== index));
   };
 
-  const updateCommand = (index, value) => {
-    updateCommands((editor.commands ?? []).map((item, i) => (i === index ? value : item)));
+  const updateCommand = (index, commandValue) => {
+    updateCommands((editor.commands ?? []).map((item, i) => (i === index ? commandValue : item)));
   };
 
   const addOption = (stepId) => {
@@ -404,78 +163,6 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
     setSelectedOptionId((currentSelected) => (currentSelected === optionId ? null : currentSelected));
   };
 
-  const collectReachableKeys = () => {
-    const visited = new Set();
-
-    const visit = (stepKey, path = new Set()) => {
-      if (!stepKey || visited.has(stepKey) || path.has(stepKey)) {
-        return;
-      }
-
-      visited.add(stepKey);
-      const step = stepByKey.get(stepKey);
-
-      if (!step) {
-        return;
-      }
-
-      const nextPath = new Set(path);
-      nextPath.add(stepKey);
-
-      if (step.type === 'numeric_menu') {
-        for (const option of step.options ?? []) {
-          if (option?.action?.kind !== 'go_to') {
-            continue;
-          }
-
-          visit(normalizeStepKey(option?.action?.flow, option?.action?.step), nextPath);
-        }
-
-        return;
-      }
-
-      if (step?.on_text?.kind === 'go_to') {
-        visit(normalizeStepKey(step?.on_text?.flow, step?.on_text?.step), nextPath);
-      }
-    };
-
-    visit(initialStepKey);
-    return visited;
-  };
-
-  const reachableKeys = collectReachableKeys();
-
-  const disconnectedStepIds = useMemo(() => {
-    return new Set(
-      editor.steps
-        .filter((step) => {
-          const stepKey = normalizeStepKey(step.flow, step.step);
-          if (!stepKey) {
-            return true;
-          }
-          return !reachableKeys.has(stepKey);
-        })
-        .map((step) => step.id)
-    );
-  }, [editor.steps, reachableKeys]);
-
-  const [selectedStepId, setSelectedStepId] = useState(editor.steps[0]?.id ?? null);
-  const [selectedOptionId, setSelectedOptionId] = useState(null);
-
-  useEffect(() => {
-    if (!editor.steps.length) {
-      setSelectedStepId(null);
-      setSelectedOptionId(null);
-      return;
-    }
-
-    const exists = editor.steps.some((step) => step.id === selectedStepId);
-    if (!exists) {
-      setSelectedStepId(editor.steps[0].id);
-      setSelectedOptionId(null);
-    }
-  }, [editor.steps, selectedStepId]);
-
   const selectedStep = editor.steps.find((step) => step.id === selectedStepId) ?? null;
   const selectedStepIndex = selectedStep ? stepIndexById.get(selectedStep.id) ?? null : null;
   const selectedOption =
@@ -491,7 +178,7 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
             <div>
               <h4 className="stateful-editor-card-title">Palavras-chave para reiniciar</h4>
               <p className="stateful-editor-card-subtitle">
-                O cliente envia uma dessas palavras para voltar ao início do atendimento.
+                O cliente envia uma dessas palavras para voltar ao inicio do atendimento.
               </p>
             </div>
           </div>
@@ -531,7 +218,7 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
             <div>
               <h4 className="stateful-editor-card-title">Bloco inicial</h4>
               <p className="stateful-editor-card-subtitle">
-                Escolha qual bloco será enviado primeiro para o cliente.
+                Escolha qual bloco sera enviado primeiro para o cliente.
               </p>
             </div>
           </div>
@@ -558,483 +245,27 @@ function StatefulMenuFlowEditor({ value, onChange, serviceAreas = [] }) {
         </div>
       </section>
 
-      <section className="stateful-editor-main-grid">
-        <aside className="stateful-editor-sidebar">
-          <div className="stateful-editor-sidebar-header">
-            <div>
-              <h4 className="stateful-editor-card-title">Blocos do atendimento</h4>
-              <p className="stateful-editor-card-subtitle">
-                Selecione um bloco para editar.
-              </p>
-            </div>
-
-            <div className="stateful-sidebar-actions">
-              <button
-                type="button"
-                onClick={() => addStep('numeric_menu')}
-                className="stateful-btn stateful-btn-secondary"
-              >
-                + Menu
-              </button>
-              <button
-                type="button"
-                onClick={() => addStep('free_text')}
-                className="stateful-btn stateful-btn-secondary"
-              >
-                + Pergunta
-              </button>
-            </div>
-          </div>
-
-          {!editor.steps.length && (
-            <p className="text-sm text-[#706f6c]">Nenhum bloco adicionado ainda.</p>
-          )}
-
-          <div className="stateful-step-list">
-            {editor.steps.map((step, index) => {
-              const stepKey = normalizeStepKey(step.flow, step.step);
-              const isInitial = stepKey && stepKey === initialStepKey;
-
-              return (
-                <StepListItem
-                  key={step.id}
-                  step={step}
-                  index={index}
-                  isActive={selectedStepId === step.id}
-                  isInitial={Boolean(isInitial)}
-                  isDisconnected={disconnectedStepIds.has(step.id) && !isInitial}
-                  onSelect={() => {
-                    setSelectedStepId(step.id);
-                    setSelectedOptionId(null);
-                  }}
-                />
-              );
-            })}
-          </div>
-        </aside>
-
-        <div className="stateful-editor-content">
-          {!selectedStep && (
-            <div className="stateful-editor-empty">
-              <p>Selecione um bloco para começar a editar.</p>
-            </div>
-          )}
-
-          {selectedStep && (
-            <div className="space-y-4">
-              <section className="stateful-editor-card">
-                <div className="stateful-editor-card-header">
-                  <div>
-                    <h4 className="stateful-editor-card-title">
-                      {getStepDisplayName(selectedStep, selectedStepIndex)}
-                    </h4>
-                    <p className="stateful-editor-card-subtitle">
-                      Edite o conteúdo principal deste bloco.
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => removeStep(selectedStep.id)}
-                    className="stateful-btn stateful-btn-danger"
-                  >
-                    Excluir bloco
-                  </button>
-                </div>
-
-                <div className="stateful-form-grid">
-                  <label className="stateful-field">
-                    <span className="stateful-field-label">Nome do bloco</span>
-                    <input
-                      type="text"
-                      value={selectedStep.display_name || ''}
-                      onChange={(e) =>
-                        updateStep(selectedStep.id, (current) => ({
-                          ...current,
-                          display_name: e.target.value,
-                        }))
-                      }
-                      placeholder="Ex.: Menu principal"
-                      className="stateful-input"
-                    />
-                  </label>
-
-                  <label className="stateful-field">
-                    <span className="stateful-field-label">Tipo do bloco</span>
-                    <select
-                      value={selectedStep.type}
-                      onChange={(e) =>
-                        updateStep(selectedStep.id, (current) => {
-                          if (e.target.value === current.type) {
-                            return current;
-                          }
-
-                          return {
-                            ...createEmptyStep(e.target.value === 'free_text' ? 'free_text' : 'numeric_menu'),
-                            id: current.id,
-                            display_name: current.display_name,
-                            flow: current.flow,
-                            step: current.step,
-                            reply_text: current.reply_text,
-                          };
-                        })
-                      }
-                      className="stateful-input"
-                    >
-                      <option value="numeric_menu">Menu com opções</option>
-                      <option value="free_text">Pergunta aberta</option>
-                    </select>
-                  </label>
-                </div>
-
-                {selectedStep.type === 'numeric_menu' && (
-                  <>
-                    <label className="stateful-field">
-                      <span className="stateful-field-label">Modo de interação</span>
-                      <select
-                        value={selectedStep.interaction_mode || 'auto'}
-                        onChange={(e) =>
-                          updateStep(selectedStep.id, (current) => ({
-                            ...current,
-                            interaction_mode: e.target.value,
-                          }))
-                        }
-                        className="stateful-input"
-                      >
-                        <option value="auto">Automático (até 3 opções: botões | mais de 3: lista)</option>
-                        <option value="button">Botões (máximo 3 opções)</option>
-                        <option value="list">Lista de opções (até 10 opções)</option>
-                        <option value="text">Resposta por texto (comportamento clássico)</option>
-                      </select>
-                    </label>
-
-                    {(selectedStep.interaction_mode || 'auto') !== 'text' && (
-                      <div className="stateful-form-grid">
-                        <label className="stateful-field">
-                          <span className="stateful-field-label">Cabeçalho da mensagem</span>
-                          <input
-                            type="text"
-                            value={selectedStep.button_header_text || ''}
-                            onChange={(e) =>
-                              updateStep(selectedStep.id, (current) => ({
-                                ...current,
-                                button_header_text: e.target.value,
-                              }))
-                            }
-                            placeholder="Ex: Atendimento Blasternet"
-                            className="stateful-input"
-                          />
-                        </label>
-
-                        <label className="stateful-field">
-                          <span className="stateful-field-label">Rodapé da mensagem</span>
-                          <input
-                            type="text"
-                            value={selectedStep.button_footer_text || ''}
-                            onChange={(e) =>
-                              updateStep(selectedStep.id, (current) => ({
-                                ...current,
-                                button_footer_text: e.target.value,
-                              }))
-                            }
-                            placeholder="Ex: Responda clicando em uma opção"
-                            className="stateful-input"
-                          />
-                        </label>
-                      </div>
-                    )}
-
-                    {((selectedStep.interaction_mode || 'auto') === 'list' ||
-                      ((selectedStep.interaction_mode || 'auto') === 'auto' &&
-                        (selectedStep.options?.length ?? 0) > 3)) && (
-                      <label className="stateful-field">
-                        <span className="stateful-field-label">Label do botão de lista</span>
-                        <input
-                          type="text"
-                          value={selectedStep.button_action_label || ''}
-                          onChange={(e) =>
-                            updateStep(selectedStep.id, (current) => ({
-                              ...current,
-                              button_action_label: e.target.value,
-                            }))
-                          }
-                          placeholder="Ver opções"
-                          className="stateful-input"
-                        />
-                      </label>
-                    )}
-                  </>
-                )}
-
-                <label className="stateful-field">
-                  <span className="stateful-field-label">Mensagem que o cliente vai receber</span>
-                  <textarea
-                    value={selectedStep.reply_text || ''}
-                    onChange={(e) =>
-                      updateStep(selectedStep.id, (current) => ({
-                        ...current,
-                        reply_text: e.target.value,
-                      }))
-                    }
-                    rows={5}
-                    placeholder="Ex.: Olá! Escolha uma das opções abaixo."
-                    className="stateful-input stateful-input-textarea"
-                  />
-                </label>
-
-                {selectedStep.type === 'numeric_menu' ? (() => {
-                  const _mode = selectedStep.interaction_mode || 'auto';
-                  const _optCount = selectedStep.options?.length ?? 0;
-                  const _effectiveMode = _mode === 'auto' ? (_optCount <= 3 ? 'button' : 'list') : _mode;
-                  const _header = (selectedStep.button_header_text || '').trim();
-                  const _footer = (selectedStep.button_footer_text || '').trim();
-                  const _actionLabel = (selectedStep.button_action_label || '').trim() || 'Ver opções';
-                  const _body = (selectedStep.reply_text || '').trim() || 'A mensagem deste bloco aparecerá aqui.';
-                  const _opts = selectedStep.options ?? [];
-
-                  return (
-                    <div className="stateful-preview-box stateful-preview-whatsapp">
-                      <p className="stateful-preview-label">Prévia WhatsApp</p>
-                      <div className="stateful-preview-bubble">
-                        {_header && <p className="stateful-preview-header">{_header}</p>}
-                        <p className="stateful-preview-body">{_body}</p>
-                        {_footer && <p className="stateful-preview-footer">{_footer}</p>}
-                        {_effectiveMode !== 'text' && <hr className="stateful-preview-divider" />}
-                        {_effectiveMode === 'text' ? (
-                          _opts.map((opt, i) => (
-                            <p key={opt.id} className="stateful-preview-text-option">
-                              {(opt.key || String(i + 1)).trim()} - {(opt.label || 'Opção').trim()}
-                            </p>
-                          ))
-                        ) : _effectiveMode === 'button' ? (
-                          _opts.slice(0, 3).map((opt) => (
-                            <div key={opt.id} className="stateful-preview-button">
-                              {(opt.label || 'Opção').trim()}
-                            </div>
-                          ))
-                        ) : (
-                          <div className="stateful-preview-list-btn">
-                            ≡ {_actionLabel} ↓
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })() : (
-                  <div className="stateful-preview-box">
-                    <p className="stateful-preview-label">Prévia</p>
-                    <p className="stateful-preview-content">
-                      {selectedStep.reply_text || 'A mensagem deste bloco aparecerá aqui.'}
-                    </p>
-                  </div>
-                )}
-              </section>
-
-              {selectedStep.type === 'numeric_menu' ? (
-                <>
-                  <section className="stateful-editor-card">
-                    <div className="stateful-editor-card-header">
-                      <div>
-                        <h4 className="stateful-editor-card-title">Opções do menu</h4>
-                        <p className="stateful-editor-card-subtitle">
-                          Clique em uma opção para configurar o que ela faz.
-                        </p>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => addOption(selectedStep.id)}
-                        className="stateful-btn stateful-btn-secondary"
-                      >
-                        Nova opção
-                      </button>
-                    </div>
-
-                    {(selectedStep.interaction_mode || 'auto') === 'text' && (
-                      <label className="stateful-field">
-                        <span className="stateful-field-label">
-                          Resposta se o cliente digitar uma opção que não existe
-                        </span>
-                        <input
-                          type="text"
-                          value={selectedStep.invalid_option_text || ''}
-                          onChange={(e) =>
-                            updateStep(selectedStep.id, (current) => ({
-                              ...current,
-                              invalid_option_text: e.target.value,
-                            }))
-                          }
-                          placeholder="Se vazio, o sistema gera automaticamente"
-                          className="stateful-input"
-                        />
-                      </label>
-                    )}
-
-                    <div className="stateful-option-list">
-                      {(selectedStep.options ?? []).map((option, optionIndex) => (
-                        <button
-                          key={option.id}
-                          type="button"
-                          onClick={() => setSelectedOptionId(option.id)}
-                          className={`stateful-option-list-item ${selectedOptionId === option.id ? 'stateful-option-list-item--active' : ''
-                            }`}
-                        >
-                          <div>
-                            <p className="stateful-option-list-title">Opção {optionIndex + 1}</p>
-                            <p className="stateful-option-list-meta">
-                              {(option.key || '?').trim()} • {(option.label || 'Sem texto').trim()}
-                            </p>
-                          </div>
-
-                          <span className="stateful-option-list-summary">
-                            {getActionSummary(option.action, stepOptions)}
-                          </span>
-                        </button>
-                      ))}
-
-                      {!selectedStep.options?.length && (
-                        <p className="text-sm text-[#706f6c]">Nenhuma opção criada ainda.</p>
-                      )}
-                    </div>
-                  </section>
-
-                  {selectedOption && (
-                    <section className="stateful-editor-card">
-                      <div className="stateful-editor-card-header">
-                        <div>
-                          <h4 className="stateful-editor-card-title">
-                            Editando opção {(selectedStep.options ?? []).findIndex((item) => item.id === selectedOption.id) + 1}
-                          </h4>
-                          <p className="stateful-editor-card-subtitle">
-                            Defina o texto mostrado e o destino desta opção.
-                          </p>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => removeOption(selectedStep.id, selectedOption.id)}
-                          className="stateful-btn stateful-btn-danger"
-                        >
-                          Excluir opção
-                        </button>
-                      </div>
-
-                      <div className="stateful-form-grid">
-                        <label className="stateful-field">
-                          <span className="stateful-field-label">Número que o cliente vai digitar</span>
-                          <input
-                            type="text"
-                            value={selectedOption.key || ''}
-                            onChange={(e) =>
-                              updateOption(selectedStep.id, selectedOption.id, (item) => ({
-                                ...item,
-                                key: e.target.value,
-                              }))
-                            }
-                            placeholder="Ex.: 1"
-                            className="stateful-input"
-                          />
-                        </label>
-
-                        <label className="stateful-field">
-                          <span className="stateful-field-label">Texto que aparece no menu</span>
-                          <input
-                            type="text"
-                            value={selectedOption.label || ''}
-                            onChange={(e) =>
-                              updateOption(selectedStep.id, selectedOption.id, (item) => ({
-                                ...item,
-                                label: e.target.value,
-                              }))
-                            }
-                            placeholder="Ex.: Financeiro"
-                            className="stateful-input"
-                          />
-                        </label>
-                      </div>
-
-                      {(selectedStep.interaction_mode || 'auto') !== 'text' && (
-                        <label className="stateful-field">
-                          <span className="stateful-field-label">ID do botão</span>
-                          <input
-                            type="text"
-                            value={selectedOption.button_id || ''}
-                            onChange={(e) =>
-                              updateOption(selectedStep.id, selectedOption.id, (item) => ({
-                                ...item,
-                                button_id: e.target.value,
-                              }))
-                            }
-                            placeholder="gerado automaticamente"
-                            className="stateful-input stateful-input--small"
-                          />
-                          <span className="stateful-field-hint">Somente letras minúsculas, números e hífens</span>
-                        </label>
-                      )}
-
-                      <ActionEditor
-                        action={selectedOption.action}
-                        serviceAreas={serviceAreas}
-                        stepOptions={stepOptions.filter((item) => item.id !== selectedStep.id)}
-                        onGoToTarget={setSelectedStepId}
-                        onChange={(nextAction) =>
-                          updateOption(selectedStep.id, selectedOption.id, (item) => ({
-                            ...item,
-                            action: nextAction,
-                          }))
-                        }
-                      />
-                    </section>
-                  )}
-                </>
-              ) : (
-                <section className="stateful-editor-card">
-                  <div className="stateful-editor-card-header">
-                    <div>
-                      <h4 className="stateful-editor-card-title">O que acontece após a resposta</h4>
-                      <p className="stateful-editor-card-subtitle">
-                        Defina o que o bot faz depois que o cliente enviar a resposta.
-                      </p>
-                    </div>
-                  </div>
-
-                  <label className="stateful-field">
-                    <span className="stateful-field-label">
-                      Resposta se o cliente não digitar nada (opcional)
-                    </span>
-                    <input
-                      type="text"
-                      value={selectedStep.empty_input_reply_text || ''}
-                      onChange={(e) =>
-                        updateStep(selectedStep.id, (current) => ({
-                          ...current,
-                          empty_input_reply_text: e.target.value,
-                        }))
-                      }
-                      placeholder="Se vazio, usa a mensagem principal do bloco"
-                      className="stateful-input"
-                    />
-                  </label>
-
-                  <ActionEditor
-                    action={selectedStep.on_text}
-                    serviceAreas={serviceAreas}
-                    stepOptions={stepOptions.filter((item) => item.id !== selectedStep.id)}
-                    onGoToTarget={setSelectedStepId}
-                    onChange={(nextAction) =>
-                      updateStep(selectedStep.id, (current) => ({
-                        ...current,
-                        on_text: nextAction,
-                      }))
-                    }
-                  />
-                </section>
-              )}
-
-            </div>
-          )}
-        </div>
-      </section>
+      <FlowCanvas
+        steps={editor.steps}
+        selectedStep={selectedStep}
+        selectedStepId={selectedStepId}
+        selectedStepIndex={selectedStepIndex}
+        selectedOption={selectedOption}
+        selectedOptionId={selectedOptionId}
+        initialStepKey={initialStepKey}
+        disconnectedStepIds={disconnectedStepIds}
+        stepOptions={stepOptions}
+        serviceAreas={serviceAreas}
+        onSelectStep={setSelectedStepId}
+        onAddMenuStep={() => addStep('numeric_menu')}
+        onAddFreeTextStep={() => addStep('free_text')}
+        onRemoveStep={removeStep}
+        onUpdateStep={updateStep}
+        onAddOption={addOption}
+        onSelectOption={setSelectedOptionId}
+        onRemoveOption={removeOption}
+        onUpdateOption={updateOption}
+      />
     </div>
   );
 }

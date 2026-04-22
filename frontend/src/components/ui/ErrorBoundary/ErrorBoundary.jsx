@@ -14,8 +14,8 @@ class ErrorBoundary extends Component {
     return { hasError: true };
   }
 
-  componentDidCatch(error, info) {
-    console.error('ErrorBoundary capturou um erro:', error, info);
+  componentDidCatch(error, errorInfo) {
+    console.error('ErrorBoundary capturou um erro:', error, errorInfo);
   }
 
   componentDidUpdate(prevProps) {
@@ -34,10 +34,8 @@ class ErrorBoundary extends Component {
       return (
         <div className="error-boundary">
           <div className="error-boundary__panel">
-            <h1 className="error-boundary__title">Algo deu errado nesta pagina</h1>
-            <p className="error-boundary__subtitle">
-              O sistema encontrou um erro inesperado de interface. Tente novamente ou recarregue.
-            </p>
+            <h1 className="error-boundary__title">Algo deu errado. Recarregue a pagina.</h1>
+            <p className="error-boundary__subtitle">O sistema encontrou um erro inesperado de interface.</p>
             <div className="error-boundary__actions">
               <Button type="button" variant="secondary" onClick={this.handleTryAgain}>
                 Tentar novamente
