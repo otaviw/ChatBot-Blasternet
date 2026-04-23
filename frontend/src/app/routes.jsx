@@ -84,6 +84,14 @@ function AiManagementRoute({ children }) {
   return children;
 }
 
+function ResellerAdminRoute({ children }) {
+  const { user, loading } = useAuth();
+  const { dashboardPath } = useScopedAuthPaths();
+  if (loading) return null;
+  if (user?.role !== 'reseller_admin') return <Navigate to={dashboardPath} replace />;
+  return children;
+}
+
 function PermissionRoute({ permission, children }) {
   const { user, loading } = useAuth();
   const { loginPath, dashboardPath } = useScopedAuthPaths();
@@ -117,7 +125,7 @@ function CompanyEditRoute() {
   if (loading) return null;
   if (!user) return <Navigate to={loginPath} replace />;
 
-  const canAccess = user.role === 'system_admin' || user.role === 'reseller_admin';
+  const canAccess = user.role === 'reseller_admin';
   if (!canAccess) return <Navigate to={dashboardPath} replace />;
 
   return <CompanyEditPage />;
@@ -137,7 +145,8 @@ function AppRoutes() {
         <Route path="/admin/empresas/:companyId" element={<AdminCompanyShowRoute />} />
         <Route path="/companies/:id/edit" element={<CompanyEditRoute />} />
         <Route path="/admin/simulador" element={<AdminSimulatorPage />} />
-        <Route path="/admin/conversas" element={<AdminInboxPage />} />
+        <Route path="/admin/conversas" element={<ResellerAdminRoute><AdminInboxPage /></ResellerAdminRoute>} />
+        <Route path="/admin/auditoria" element={<ResellerAdminRoute><CompanyAuditPage /></ResellerAdminRoute>} />
         <Route path="/admin/chat-interno" element={<InternalChatPage />} />
         <Route path="/admin/chat-ia" element={<InternalAiChatPage />} />
         <Route path="/admin/usuarios" element={<AdminUsersPage />} />

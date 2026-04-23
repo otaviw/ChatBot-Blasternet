@@ -26,12 +26,24 @@ function EntrarPage() {
     const slug = getSlugFromUrl(location.pathname);
     return slug ? `/${slug}/dashboard` : '/dashboard';
   }, [location.pathname]);
+  const buildDashboardPath = (resellerSlug) => {
+    const fromPath = getSlugFromUrl(location.pathname);
+    const slug = String(fromPath || resellerSlug || '').trim();
+    return slug ? `/${slug}/dashboard` : '/dashboard';
+  };
 
   useEffect(() => {
     if (data?.authenticated) {
-      window.location.href = dashboardPath;
+      api.get('/me', { skipAuthRedirect: true })
+        .then((response) => {
+          const resellerSlug = response?.data?.reseller?.slug;
+          window.location.href = buildDashboardPath(resellerSlug);
+        })
+        .catch(() => {
+          window.location.href = dashboardPath;
+        });
     }
-  }, [dashboardPath, data]);
+  }, [dashboardPath, data, location.pathname]);
 
   const handleLogin = async (event) => {
     event.preventDefault();
@@ -39,8 +51,9 @@ function EntrarPage() {
 
     try {
       await api.get('/sanctum/csrf-cookie');
-      await api.post('/login', { email, password });
-      window.location.href = dashboardPath;
+      const loginResponse = await api.post('/login', { email, password });
+      const resellerSlug = loginResponse?.data?.reseller?.slug;
+      window.location.href = buildDashboardPath(resellerSlug);
     } catch (err) {
       showError(err.response?.data?.message || 'Falha no login.');
     } finally {

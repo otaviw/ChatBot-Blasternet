@@ -45,7 +45,7 @@ class AuthController extends Controller
             ], 403);
         }
 
-        $user->loadMissing('company.reseller');
+        $user->loadMissing('company.reseller', 'reseller');
 
         return response()->json([
             'authenticated' => true,
@@ -64,7 +64,7 @@ class AuthController extends Controller
             ], 403);
         }
 
-        $user->loadMissing('company.reseller');
+        $user->loadMissing('company.reseller', 'reseller');
 
         return response()->json([
             'authenticated' => true,
@@ -83,7 +83,7 @@ class AuthController extends Controller
         $user->name = $request->validated('name');
         $user->save();
 
-        $user->loadMissing('company.reseller');
+        $user->loadMissing('company.reseller', 'reseller');
 
         return response()->json([
             'user' => $this->userPayload($user),
@@ -129,7 +129,7 @@ class AuthController extends Controller
 
     private function resellerPayload($user): ?array
     {
-        $reseller = $user->company?->reseller;
+        $reseller = $user->company?->reseller ?? $user->reseller;
 
         if (! $reseller) {
             return null;
@@ -137,6 +137,7 @@ class AuthController extends Controller
 
         return [
             'id'            => $reseller->id,
+            'slug'          => $reseller->slug,
             'name'          => $reseller->name,
             'logo_url'      => $reseller->logo_url,
             'primary_color' => $reseller->primary_color,
@@ -155,6 +156,8 @@ class AuthController extends Controller
             'role' => User::normalizeRole($user->role),
             'company_id' => $user->company_id,
             'company_name' => $user->company?->name,
+            'reseller_id' => $user->reseller_id ?? $user->company?->reseller_id,
+            'reseller_name' => $user->reseller?->name ?? $user->company?->reseller?->name,
             'can_manage_users' => $user->canManageCompanyUsers(),
             'can_use_ai' => $canUseInternalAi,
             'can_access_internal_ai_chat' => $canUseInternalAi,

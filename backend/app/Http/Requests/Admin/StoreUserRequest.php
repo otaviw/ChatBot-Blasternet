@@ -22,6 +22,7 @@ class StoreUserRequest extends FormRequest
             'password'   => ['required', 'string', 'min:8', 'max:100'],
             'role'       => ['required', Rule::in(User::assignableRoleValuesForSystemAdmin())],
             'company_id' => ['nullable', 'integer', 'exists:companies,id'],
+            'reseller_id' => ['nullable', 'integer', 'exists:resellers,id'],
             'is_active'  => ['sometimes', 'boolean'],
             'can_use_ai' => ['sometimes', 'boolean'],
             'area_ids'   => ['sometimes', 'array', 'max:50'],

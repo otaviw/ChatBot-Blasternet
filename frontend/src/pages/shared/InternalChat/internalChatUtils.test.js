@@ -31,9 +31,11 @@ describe('internalChatUtils', () => {
   });
 
   describe('parseRoleFromUser', () => {
-    it('normaliza system_admin para admin', () => {
+    it('normaliza papeis admin para admin', () => {
       expect(parseRoleFromUser({ role: 'system_admin' })).toBe('admin');
       expect(parseRoleFromUser({ role: '  SYSTEM_ADMIN ' })).toBe('admin');
+      expect(parseRoleFromUser({ role: 'reseller_admin' })).toBe('admin');
+      expect(parseRoleFromUser({ role: 'admin' })).toBe('admin');
     });
 
     it('retorna company como padrão', () => {
@@ -53,4 +55,3 @@ describe('internalChatUtils', () => {
     });
   });
 });
-

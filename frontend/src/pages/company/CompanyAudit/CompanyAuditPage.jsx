@@ -8,6 +8,7 @@ import usePageData from '@/hooks/usePageData';
 import useAuth from '@/hooks/useAuth';
 import useLogout from '@/hooks/useLogout';
 import api from '@/services/api';
+import { useLocation } from 'react-router-dom';
 
 const PAGE_SIZE = 20;
 
@@ -103,20 +104,23 @@ function getEntityLabel(item) {
   return `${entityType} #${entityId}`;
 }
 
-function buildUrl(filters, page) {
+function buildUrl(basePath, filters, page) {
   const params = new URLSearchParams();
   if (filters.action) params.set('action', filters.action);
   if (filters.startDate) params.set('start_date', filters.startDate);
   if (filters.endDate) params.set('end_date', filters.endDate);
   params.set('page', String(page));
   params.set('per_page', String(PAGE_SIZE));
-  return `/minha-conta/audit-logs?${params.toString()}`;
+  return `${basePath}?${params.toString()}`;
 }
 
 function CompanyAuditPage() {
   const { user } = useAuth();
   const { logout } = useLogout();
-  const layoutRole = user?.role === 'system_admin' ? 'admin' : 'company';
+  const location = useLocation();
+  const isAdminView = location.pathname.startsWith('/admin/');
+  const layoutRole = isAdminView ? 'admin' : 'company';
+  const auditBasePath = isAdminView ? '/admin/audit-logs' : '/minha-conta/audit-logs';
 
   const [filters, setFilters] = useState({ action: '', startDate: '', endDate: '' });
   const [draft, setDraft] = useState({ action: '', startDate: '', endDate: '' });
@@ -125,7 +129,7 @@ function CompanyAuditPage() {
   const [detailError, setDetailError] = useState('');
   const [detailItem, setDetailItem] = useState(null);
 
-  const dataUrl = useMemo(() => buildUrl(filters, page), [filters, page]);
+  const dataUrl = useMemo(() => buildUrl(auditBasePath, filters, page), [auditBasePath, filters, page]);
   const { data, loading, error, refetch } = usePageData(dataUrl);
 
   const rows = Array.isArray(data?.data) ? data.data : [];
@@ -159,7 +163,7 @@ function CompanyAuditPage() {
     setDetailItem(null);
 
     try {
-      const response = await api.get(`/minha-conta/audit-logs/${id}`);
+      const response = await api.get(`${auditBasePath}/${id}`);
       setDetailItem(response.data?.item ?? null);
     } catch (err) {
       setDetailError(err.response?.data?.message ?? 'Não foi possível carregar o detalhe do log.');

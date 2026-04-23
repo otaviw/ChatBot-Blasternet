@@ -24,17 +24,37 @@ class UserController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $users = User::query()
-            ->with(['company:id,name', 'areas:id,name,company_id'])
+        $actor = $request->user();
+        $actorIsSystemAdmin = (bool) $actor?->isSystemAdmin();
+        $actorResellerId = $this->resolveActorResellerId($request);
+
+        $usersQuery = User::query()
+            ->with(['company:id,name,reseller_id', 'reseller:id,name', 'areas:id,name,company_id'])
             ->orderByRaw('CASE WHEN company_id IS NULL THEN 0 ELSE 1 END')
             ->orderBy('company_id')
-            ->orderBy('name')
-            ->get(['id', 'name', 'email', 'role', 'company_id', 'is_active', 'can_use_ai', 'disabled_at', 'created_at']);
+            ->orderBy('name');
+        $this->applyActorScopeToUsersQuery($usersQuery, $actorResellerId);
+        if ($actorIsSystemAdmin) {
+            $usersQuery->whereIn('role', [
+                User::ROLE_SYSTEM_ADMIN,
+                User::ROLE_RESELLER_ADMIN,
+                User::ROLE_LEGACY_ADMIN,
+            ]);
+        }
+        $users = $usersQuery->get(['id', 'name', 'email', 'role', 'company_id', 'reseller_id', 'is_active', 'can_use_ai', 'disabled_at', 'created_at']);
 
-        $summaryRows = User::query()
+        $summaryQuery = User::query()
             ->selectRaw('COALESCE(company_id, 0) as company_scope, role, is_active, COUNT(*) as total')
-            ->groupBy('company_scope', 'role', 'is_active')
-            ->get();
+            ->groupBy('company_scope', 'role', 'is_active');
+        $this->applyActorScopeToUsersQuery($summaryQuery, $actorResellerId);
+        if ($actorIsSystemAdmin) {
+            $summaryQuery->whereIn('role', [
+                User::ROLE_SYSTEM_ADMIN,
+                User::ROLE_RESELLER_ADMIN,
+                User::ROLE_LEGACY_ADMIN,
+            ]);
+        }
+        $summaryRows = $summaryQuery->get();
 
         $companyIds = $summaryRows
             ->pluck('company_scope')
@@ -58,9 +78,38 @@ class UserController extends Controller
     public function store(StoreUserRequest $request): JsonResponse
     {
         $validated = $request->validated();
+        $actor = $request->user();
+        $actorIsSystemAdmin = (bool) $actor?->isSystemAdmin();
+        $actorResellerId = $this->resolveActorResellerId($request);
 
         $normalizedRole = User::normalizeRole((string) $validated['role']);
-        $companyId = $this->resolveCompanyIdForRole($normalizedRole, $validated['company_id'] ?? null);
+        if ($actorIsSystemAdmin && ! $this->isRoleManagedBySystemAdmin($normalizedRole)) {
+            return response()->json(['message' => 'Superadmin pode gerenciar apenas superadmins e admins de revenda.'], 403);
+        }
+        $tenantScope = $this->resolveTenantScopeForRole(
+            $normalizedRole,
+            $validated['company_id'] ?? null,
+            $validated['reseller_id'] ?? null
+        );
+        $companyId = $tenantScope['company_id'];
+        $resellerId = $tenantScope['reseller_id'];
+
+        if ($actorResellerId !== null) {
+            if ($normalizedRole === User::ROLE_SYSTEM_ADMIN) {
+                return response()->json(['message' => 'Acesso negado para criar superadmin.'], 403);
+            }
+
+            if ($companyId !== null) {
+                $companyResellerId = (int) (Company::query()->where('id', $companyId)->value('reseller_id') ?? 0);
+                if ($companyResellerId !== $actorResellerId) {
+                    return response()->json(['message' => 'Acesso negado para esta empresa.'], 403);
+                }
+            }
+
+            if ($normalizedRole === User::ROLE_RESELLER_ADMIN && (int) ($resellerId ?? 0) !== $actorResellerId) {
+                return response()->json(['message' => 'Acesso negado para este reseller.'], 403);
+            }
+        }
         $areaIds = $companyId !== null ? $this->resolveAreaIdsForCompany($companyId, $validated) : [];
         $isActive = (bool) ($validated['is_active'] ?? true);
         $canUseAi = $this->resolveCanUseAi($normalizedRole, $validated);
@@ -71,13 +120,14 @@ class UserController extends Controller
             'password' => $validated['password'],
             'role' => $normalizedRole,
             'company_id' => $companyId,
+            'reseller_id' => $resellerId,
             'is_active' => $isActive,
             'can_use_ai' => $canUseAi,
             'disabled_at' => $isActive ? null : now(),
         ]);
 
         $user->areas()->sync($areaIds);
-        $user->load(['company:id,name', 'areas:id,name,company_id']);
+        $user->load(['company:id,name,reseller_id', 'reseller:id,name', 'areas:id,name,company_id']);
 
         if ($isActive) {
             Mail::to($user->email)->queue(new WelcomeUserMail($user, (string) $validated['password']));
@@ -87,6 +137,7 @@ class UserController extends Controller
             'user_id' => $user->id,
             'role' => $user->role,
             'company_id' => $user->company_id,
+            'reseller_id' => $user->reseller_id,
             'is_active' => $user->is_active,
             'can_use_ai' => $user->can_use_ai,
             'area_ids' => $areaIds,
@@ -101,9 +152,45 @@ class UserController extends Controller
     public function update(UpdateUserRequest $request, User $user): JsonResponse
     {
         $validated = $request->validated();
+        $actor = $request->user();
+        $actorIsSystemAdmin = (bool) $actor?->isSystemAdmin();
+        $actorResellerId = $this->resolveActorResellerId($request);
+        if ($actorIsSystemAdmin && ! $this->isRoleManagedBySystemAdmin(User::normalizeRole($user->role))) {
+            return response()->json(['message' => 'Superadmin pode editar apenas superadmins e admins de revenda.'], 403);
+        }
+
+        if ($actorResellerId !== null && ! $this->userBelongsToResellerScope($user, $actorResellerId)) {
+            return response()->json(['message' => 'Acesso negado para este usuário.'], 403);
+        }
 
         $normalizedRole = User::normalizeRole((string) $validated['role']);
-        $companyId = $this->resolveCompanyIdForRole($normalizedRole, $validated['company_id'] ?? null);
+        if ($actorIsSystemAdmin && ! $this->isRoleManagedBySystemAdmin($normalizedRole)) {
+            return response()->json(['message' => 'Superadmin pode gerenciar apenas superadmins e admins de revenda.'], 403);
+        }
+        $tenantScope = $this->resolveTenantScopeForRole(
+            $normalizedRole,
+            $validated['company_id'] ?? null,
+            $validated['reseller_id'] ?? null
+        );
+        $companyId = $tenantScope['company_id'];
+        $resellerId = $tenantScope['reseller_id'];
+
+        if ($actorResellerId !== null) {
+            if ($normalizedRole === User::ROLE_SYSTEM_ADMIN) {
+                return response()->json(['message' => 'Acesso negado para promover a superadmin.'], 403);
+            }
+
+            if ($companyId !== null) {
+                $companyResellerId = (int) (Company::query()->where('id', $companyId)->value('reseller_id') ?? 0);
+                if ($companyResellerId !== $actorResellerId) {
+                    return response()->json(['message' => 'Acesso negado para esta empresa.'], 403);
+                }
+            }
+
+            if ($normalizedRole === User::ROLE_RESELLER_ADMIN && (int) ($resellerId ?? 0) !== $actorResellerId) {
+                return response()->json(['message' => 'Acesso negado para este reseller.'], 403);
+            }
+        }
         $areaIds = $companyId !== null ? $this->resolveAreaIdsForCompany($companyId, $validated) : [];
         $isActive = (bool) $validated['is_active'];
         $canUseAi = $this->resolveCanUseAi($normalizedRole, $validated, $user);
@@ -113,6 +200,7 @@ class UserController extends Controller
             'email' => $user->email,
             'role' => $user->role,
             'company_id' => $user->company_id,
+            'reseller_id' => $user->reseller_id,
             'is_active' => $user->is_active,
             'can_use_ai' => (bool) $user->can_use_ai,
             'disabled_at' => $user->disabled_at,
@@ -123,6 +211,7 @@ class UserController extends Controller
         $user->email = $validated['email'];
         $user->role = $normalizedRole;
         $user->company_id = $companyId;
+        $user->reseller_id = $resellerId;
         $user->is_active = $isActive;
         $user->can_use_ai = $canUseAi;
         $user->disabled_at = $isActive ? null : ($user->disabled_at ?? now());
@@ -132,7 +221,7 @@ class UserController extends Controller
         $user->save();
 
         $user->areas()->sync($areaIds);
-        $user->load(['company:id,name', 'areas:id,name,company_id']);
+        $user->load(['company:id,name,reseller_id', 'reseller:id,name', 'areas:id,name,company_id']);
 
         $this->auditLog->record($request, 'admin.user.updated', $companyId, [
             'target_user_id' => $user->id,
@@ -142,6 +231,7 @@ class UserController extends Controller
                 'email' => $user->email,
                 'role' => $user->role,
                 'company_id' => $user->company_id,
+                'reseller_id' => $user->reseller_id,
                 'is_active' => $user->is_active,
                 'can_use_ai' => (bool) $user->can_use_ai,
                 'disabled_at' => $user->disabled_at,
@@ -158,11 +248,21 @@ class UserController extends Controller
     public function destroy(Request $request, User $user): JsonResponse
     {
         $actor = $request->user();
+        $actorIsSystemAdmin = (bool) $actor?->isSystemAdmin();
+        $actorResellerId = $this->resolveActorResellerId($request);
 
         if ((int) $actor->id === (int) $user->id) {
             return response()->json([
                 'message' => 'Você não pode excluir o próprio usuário.',
             ], 422);
+        }
+
+        if ($actorResellerId !== null && ! $this->userBelongsToResellerScope($user, $actorResellerId)) {
+            return response()->json(['message' => 'Acesso negado para este usuário.'], 403);
+        }
+
+        if ($actorIsSystemAdmin && ! $this->isRoleManagedBySystemAdmin(User::normalizeRole($user->role))) {
+            return response()->json(['message' => 'Superadmin pode excluir apenas superadmins e admins de revenda.'], 403);
         }
 
         $companyId = $user->company_id ? (int) $user->company_id : null;
@@ -179,23 +279,102 @@ class UserController extends Controller
         ]);
     }
 
-    /**
-     * @param  mixed  $rawCompanyId
-     */
-    private function resolveCompanyIdForRole(string $normalizedRole, mixed $rawCompanyId): ?int
+    private function resolveActorResellerId(Request $request): ?int
     {
-        if ($normalizedRole === User::ROLE_SYSTEM_ADMIN) {
+        $actor = $request->user();
+        if (! $actor || $actor->isSystemAdmin()) {
             return null;
         }
 
+        $resellerId = (int) ($actor->reseller_id ?? $actor->company?->reseller_id ?? 0);
+        return $resellerId > 0 ? $resellerId : -1;
+    }
+
+    private function applyActorScopeToUsersQuery($query, ?int $actorResellerId): void
+    {
+        if ($actorResellerId === null) {
+            return;
+        }
+
+        $query->where(function ($scope) use ($actorResellerId) {
+            $scope->where('users.reseller_id', $actorResellerId)
+                ->orWhereHas('company', fn ($companyQuery) => $companyQuery->where('reseller_id', $actorResellerId));
+        });
+    }
+
+    private function userBelongsToResellerScope(User $user, int $actorResellerId): bool
+    {
+        $directResellerId = (int) ($user->reseller_id ?? 0);
+        if ($directResellerId > 0) {
+            return $directResellerId === $actorResellerId;
+        }
+
+        $companyResellerId = (int) ($user->company?->reseller_id
+            ?? Company::query()->where('id', (int) ($user->company_id ?? 0))->value('reseller_id')
+            ?? 0);
+
+        return $companyResellerId > 0 && $companyResellerId === $actorResellerId;
+    }
+
+    private function isRoleManagedBySystemAdmin(string $normalizedRole): bool
+    {
+        return in_array($normalizedRole, [
+            User::ROLE_SYSTEM_ADMIN,
+            User::ROLE_RESELLER_ADMIN,
+        ], true);
+    }
+
+    private function resolveTenantScopeForRole(string $normalizedRole, mixed $rawCompanyId, mixed $rawResellerId): array
+    {
+        if ($normalizedRole === User::ROLE_SYSTEM_ADMIN) {
+            return [
+                'company_id' => null,
+                'reseller_id' => null,
+            ];
+        }
+
         $companyId = (int) $rawCompanyId;
+
+        if ($normalizedRole === User::ROLE_RESELLER_ADMIN) {
+            $resellerId = (int) $rawResellerId;
+
+            if ($resellerId <= 0 && $companyId > 0) {
+                $resellerId = (int) (Company::query()->where('id', $companyId)->value('reseller_id') ?? 0);
+            }
+
+            if ($resellerId <= 0) {
+                throw ValidationException::withMessages([
+                    'reseller_id' => ['reseller_id obrigatorio para admin de revenda.'],
+                ]);
+            }
+
+            if ($companyId > 0) {
+                $companyResellerId = (int) (Company::query()->where('id', $companyId)->value('reseller_id') ?? 0);
+                if ($companyResellerId !== $resellerId) {
+                    throw ValidationException::withMessages([
+                        'company_id' => ['company_id nao pertence ao reseller informado.'],
+                    ]);
+                }
+            } else {
+                $companyId = null;
+            }
+
+            return [
+                'company_id' => $companyId,
+                'reseller_id' => $resellerId,
+            ];
+        }
+
         if ($companyId <= 0) {
             throw ValidationException::withMessages([
                 'company_id' => ['company_id obrigatório para esse perfil.'],
             ]);
         }
 
-        return $companyId;
+        return [
+            'company_id' => $companyId,
+            'reseller_id' => null,
+        ];
     }
 
     /**
@@ -280,12 +459,17 @@ class UserController extends Controller
             'email' => $user->email,
             'role' => User::normalizeRole($user->role),
             'company_id' => $user->company_id,
+            'reseller_id' => $user->reseller_id,
             'is_active' => (bool) $user->is_active,
             'can_use_ai' => (bool) $user->can_use_ai,
             'disabled_at' => $user->disabled_at,
             'company' => $user->company ? [
                 'id' => $user->company->id,
                 'name' => $user->company->name,
+            ] : null,
+            'reseller' => $user->reseller ? [
+                'id' => $user->reseller->id,
+                'name' => $user->reseller->name,
             ] : null,
             'area_ids' => $user->areas->pluck('id')->map(fn($id) => (int) $id)->values()->all(),
             'areas' => $user->areas->pluck('name')->values()->all(),
@@ -353,3 +537,4 @@ class UserController extends Controller
         ];
     }
 }
+

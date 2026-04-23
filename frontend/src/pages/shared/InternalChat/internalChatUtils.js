@@ -18,7 +18,9 @@ const formatDateTime = (value) => {
 
 const parseRoleFromUser = (user) => {
   const normalized = String(user?.role ?? '').trim().toLowerCase();
-  return normalized === 'system_admin' ? 'admin' : 'company';
+  return normalized === 'system_admin' || normalized === 'reseller_admin' || normalized === 'admin'
+    ? 'admin'
+    : 'company';
 };
 
 const parseErrorMessage = (error, fallbackText) =>

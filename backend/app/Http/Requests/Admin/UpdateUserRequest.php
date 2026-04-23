@@ -21,6 +21,7 @@ class UpdateUserRequest extends FormRequest
             'email'      => ['required', 'email', 'max:190', Rule::unique('users', 'email')->ignore($this->route('user'))],
             'role'       => ['required', Rule::in(User::assignableRoleValuesForSystemAdmin())],
             'company_id' => ['nullable', 'integer', 'exists:companies,id'],
+            'reseller_id' => ['nullable', 'integer', 'exists:resellers,id'],
             'is_active'  => ['required', 'boolean'],
             'can_use_ai' => ['sometimes', 'boolean'],
             'password'   => ['nullable', 'string', 'min:8', 'max:100'],

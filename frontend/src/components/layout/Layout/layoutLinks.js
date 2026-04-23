@@ -44,7 +44,7 @@ export const ADMIN_MAIN_LINKS = [
     ariaLabel: 'Auditoria de ações da IA',
   },
   {
-    href: '/minha-conta/auditoria',
+    href: '/admin/auditoria',
     label: 'Auditoria',
     icon: 'chatIa',
     ariaLabel: 'Auditoria geral do sistema',

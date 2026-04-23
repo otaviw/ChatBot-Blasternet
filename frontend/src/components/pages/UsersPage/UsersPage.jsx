@@ -21,6 +21,7 @@ function initialForm(isAdminScope) {
       password: "",
       role: "agent",
       company_id: "",
+      reseller_id: "",
       is_active: true,
       can_use_ai: false,
       areas: [],
@@ -60,9 +61,11 @@ export default function UsersPage({ scope = "company" }) {
 
   const [users, setUsers] = useState([]);
   const [companies, setCompanies] = useState([]);
+  const [resellers, setResellers] = useState([]);
   const [companyScopeAreas, setCompanyScopeAreas] = useState([]);
   const [extraLoading, setExtraLoading] = useState(true);
   const [extraError, setExtraError] = useState(null);
+  const [adminUser, setAdminUser] = useState(null);
 
   const [createBusy, setCreateBusy] = useState(false);
   const [editBusy, setEditBusy] = useState(false);
@@ -71,6 +74,7 @@ export default function UsersPage({ scope = "company" }) {
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [createForm, setCreateForm] = useState(initialForm(isAdminScope));
   const [editForm, setEditForm] = useState(null);
+  const isSuperAdminManagingGlobalUsers = isAdminScope && adminUser?.role === "system_admin";
 
   useEffect(() => {
     setUsers(data?.users ?? []);
@@ -85,9 +89,15 @@ export default function UsersPage({ scope = "company" }) {
 
       try {
         if (isAdminScope) {
-          const response = await api.get("/admin/empresas");
+          const [companiesResponse, resellersResponse, meResponse] = await Promise.all([
+            api.get("/admin/empresas"),
+            api.get("/admin/resellers"),
+            api.get("/me"),
+          ]);
           if (canceled) return;
-          setCompanies(response.data?.companies ?? []);
+          setCompanies(companiesResponse.data?.companies ?? []);
+          setResellers(resellersResponse.data?.resellers ?? []);
+          setAdminUser(meResponse?.data?.user ?? null);
           setCompanyScopeAreas([]);
         } else {
           const [botResponse, areasResponse] = await Promise.all([
@@ -101,6 +111,8 @@ export default function UsersPage({ scope = "company" }) {
 
           setCompanyScopeAreas(normalizeAreaLabels([...fromBot, ...fromAreas]));
           setCompanies([]);
+          setResellers([]);
+          setAdminUser(null);
         }
       } catch (err) {
         if (canceled) return;
@@ -129,18 +141,43 @@ export default function UsersPage({ scope = "company" }) {
   const companyName = data?.company?.name ?? "Empresa";
 
   const roleOptions = isAdminScope
-    ? [
-        { value: "agent", label: "Agente" },
-        { value: "company_admin", label: "Admin da empresa" },
-        { value: "system_admin", label: "Superadmin" },
-      ]
+    ? isSuperAdminManagingGlobalUsers
+      ? [
+          { value: "reseller_admin", label: "Admin revenda" },
+          { value: "system_admin", label: "Superadmin" },
+        ]
+      : [
+          { value: "agent", label: "Agente" },
+          { value: "company_admin", label: "Admin da empresa" },
+          { value: "reseller_admin", label: "Admin revenda" },
+        ]
     : [
         { value: "agent", label: "Agente" },
         { value: "company_admin", label: "Admin da empresa" },
       ];
 
+  useEffect(() => {
+    if (!isSuperAdminManagingGlobalUsers) return;
+
+    setCreateForm((prev) => {
+      if (prev.role === "system_admin" || prev.role === "reseller_admin") {
+        return prev;
+      }
+      return { ...prev, role: "reseller_admin", company_id: "", areas: [] };
+    });
+
+    setEditForm((prev) => {
+      if (!prev) return prev;
+      if (prev.role === "system_admin" || prev.role === "reseller_admin") {
+        return prev;
+      }
+      return { ...prev, role: "reseller_admin", company_id: "", areas: [] };
+    });
+  }, [isSuperAdminManagingGlobalUsers]);
+
   function roleLabel(role) {
     if (role === "system_admin") return "superadmin";
+    if (role === "reseller_admin") return "admin_revenda";
     if (role === "company_admin") return "admin_empresa";
     if (role === "agent") return "agente";
     return role;
@@ -155,22 +192,38 @@ export default function UsersPage({ scope = "company" }) {
     return normalizeAreaLabels(areas);
   }, [companies]);
 
-  const createNeedsCompany = isAdminScope ? createForm.role !== "system_admin" : false;
-  const editNeedsCompany = isAdminScope && editForm ? editForm.role !== "system_admin" : false;
+  const getResellerIdForCompany = useCallback((companyId) => {
+    if (!companyId) return "";
+
+    const company = companies.find((item) => String(item.id) === String(companyId));
+    return company?.reseller_id ? String(company.reseller_id) : "";
+  }, [companies]);
+
+  const createNeedsCompany = isAdminScope
+    ? createForm.role !== "system_admin" && createForm.role !== "reseller_admin"
+    : false;
+  const editNeedsCompany = isAdminScope && editForm
+    ? editForm.role !== "system_admin" && editForm.role !== "reseller_admin"
+    : false;
+  const createNeedsReseller = isAdminScope && createForm.role === "reseller_admin";
+  const editNeedsReseller = isAdminScope && editForm?.role === "reseller_admin";
+  const currentAdminIsReseller = isAdminScope && adminUser?.role === "reseller_admin";
 
   const createAvailableAreas = useMemo(() => {
     if (isAdminScope) {
+      if (createForm.role === "reseller_admin") return [];
       return getCompanyAreas(createForm.company_id);
     }
     return companyScopeAreas;
-  }, [getCompanyAreas, isAdminScope, createForm.company_id, companyScopeAreas]);
+  }, [getCompanyAreas, isAdminScope, createForm.company_id, createForm.role, companyScopeAreas]);
 
   const editAvailableAreas = useMemo(() => {
     if (isAdminScope) {
+      if (editForm?.role === "reseller_admin") return [];
       return getCompanyAreas(editForm?.company_id);
     }
     return companyScopeAreas;
-  }, [editForm?.company_id, getCompanyAreas, isAdminScope, companyScopeAreas]);
+  }, [editForm?.company_id, editForm?.role, getCompanyAreas, isAdminScope, companyScopeAreas]);
 
   function toggleCreateArea(area) {
     setCreateForm((prev) => {
@@ -203,17 +256,26 @@ export default function UsersPage({ scope = "company" }) {
         permissions: isAgent ? (form.permissions ?? null) : null,
       };
       delete payload.company_id;
+      delete payload.reseller_id;
       return payload;
     }
 
     const needsCompany = form.role !== "system_admin";
 
-    return {
+    const payload = {
       ...form,
-      company_id: needsCompany && form.company_id ? Number(form.company_id) : null,
-      areas: needsCompany ? form.areas ?? [] : [],
+      company_id: form.role === "reseller_admin" ? null : (needsCompany && form.company_id ? Number(form.company_id) : null),
+      reseller_id: form.role === "reseller_admin"
+        ? (currentAdminIsReseller
+          ? (adminUser?.reseller_id
+            ? Number(adminUser.reseller_id)
+            : (form.reseller_id ? Number(form.reseller_id) : null))
+          : (form.reseller_id ? Number(form.reseller_id) : null))
+        : null,
+      areas: form.role === "reseller_admin" ? [] : (needsCompany ? form.areas ?? [] : []),
       permissions: isAgent ? (form.permissions ?? null) : null,
     };
+    return payload;
   }
 
   async function refreshUsers() {
@@ -226,7 +288,8 @@ export default function UsersPage({ scope = "company" }) {
     setCreateBusy(true);
 
     try {
-      await api.post(usersEndpoint, buildPayload(createForm));
+      const payload = buildPayload(createForm);
+      await api.post(usersEndpoint, payload);
       await refreshUsers();
       setCreateForm(initialForm(isAdminScope));
       showSuccess("Usuário criado com sucesso.");
@@ -248,6 +311,9 @@ export default function UsersPage({ scope = "company" }) {
         password: "",
         role: user.role,
         company_id: user.company_id ? String(user.company_id) : "",
+        reseller_id: user.reseller_id
+          ? String(user.reseller_id)
+          : (user.company_id ? getResellerIdForCompany(user.company_id) : ""),
         is_active: Boolean(user.is_active),
         can_use_ai: Boolean(user.can_use_ai),
         areas: Array.isArray(user.areas) ? user.areas : [],
@@ -402,9 +468,20 @@ export default function UsersPage({ scope = "company" }) {
                   return {
                     ...prev,
                     company_id: companyId,
+                    reseller_id: "",
                     areas: currentAreas.filter((area) => allowedAreas.includes(area)),
                   };
                 })
+              }
+              showResellerField={createNeedsReseller && !currentAdminIsReseller}
+              resellers={resellers}
+                onResellerChange={(resellerId) =>
+                  setCreateForm((prev) => ({
+                    ...prev,
+                  reseller_id: resellerId,
+                  company_id: "",
+                  areas: [],
+                }))
               }
               showAreas={isAdminScope ? createNeedsCompany : true}
               availableAreas={createAvailableAreas}
@@ -454,9 +531,20 @@ export default function UsersPage({ scope = "company" }) {
                     return {
                       ...prev,
                       company_id: companyId,
+                      reseller_id: "",
                       areas: currentAreas.filter((area) => allowedAreas.includes(area)),
                     };
                   })
+                }
+                showResellerField={editNeedsReseller && !currentAdminIsReseller}
+              resellers={resellers}
+                onResellerChange={(resellerId) =>
+                  setEditForm((prev) => (prev ? {
+                    ...prev,
+                    reseller_id: resellerId,
+                    company_id: "",
+                    areas: [],
+                  } : prev))
                 }
                 showAreas={isAdminScope ? editNeedsCompany : true}
                 availableAreas={editAvailableAreas}

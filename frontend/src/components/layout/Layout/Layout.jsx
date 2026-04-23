@@ -23,6 +23,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
   const [supportAccordionOpen, setSupportAccordionOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [userData, setUserData] = useState(null);
+  const [userDataResolved, setUserDataResolved] = useState(false);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth <= 768);
@@ -34,17 +35,20 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
   useEffect(() => {
     if (!isLogged) {
       setUserData(null);
+      setUserDataResolved(false);
       setCanManageUsers(false);
       return undefined;
     }
 
     let canceled = false;
+    setUserDataResolved(false);
 
     api.get('/me')
       .then((response) => {
         if (canceled) return;
         const user = response.data?.user ?? null;
         setUserData(user);
+        setUserDataResolved(true);
 
         if (role === 'company') {
           setCanManageUsers(
@@ -57,6 +61,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
       .catch(() => {
         if (canceled) return;
         setUserData(null);
+        setUserDataResolved(true);
         setCanManageUsers(false);
       });
 
@@ -73,8 +78,34 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
     })
   ), [canManageUsers, userData?.permissions, userData?.role]);
 
-  const mainLinks = role === 'admin' ? ADMIN_MAIN_LINKS : role === 'company' ? companyMainLinks : [];
-  const supportLinks = role === 'admin' ? ADMIN_SUPPORT_LINKS : role === 'company' ? COMPANY_SUPPORT_LINKS : [];
+  const isResellerAdmin = role === 'admin' && userData?.role === 'reseller_admin';
+  const isSystemAdmin = role === 'admin' && userData?.role === 'system_admin';
+  const resellerAdminAllowedMain = useMemo(
+    () => new Set([
+      '/dashboard',
+      '/admin/empresas',
+      '/admin/usuarios',
+      '/admin/chat-interno',
+    ]),
+    []
+  );
+  const superAdminHiddenMain = useMemo(() => new Set(['/admin/conversas', '/admin/auditoria']), []);
+  const canRenderAdminLinks = role !== 'admin' || userDataResolved;
+
+  const mainLinks = !canRenderAdminLinks
+    ? []
+    : role === 'admin'
+    ? (isResellerAdmin
+      ? ADMIN_MAIN_LINKS.filter((item) => resellerAdminAllowedMain.has(item.href))
+      : isSystemAdmin
+        ? ADMIN_MAIN_LINKS.filter((item) => !superAdminHiddenMain.has(item.href))
+        : ADMIN_MAIN_LINKS)
+    : role === 'company' ? companyMainLinks : [];
+  const supportLinks = !canRenderAdminLinks
+    ? []
+    : role === 'admin'
+    ? (isResellerAdmin ? COMPANY_SUPPORT_LINKS : ADMIN_SUPPORT_LINKS)
+    : role === 'company' ? COMPANY_SUPPORT_LINKS : [];
   const policyLinks = POLICY_LINKS;
   const hasSidebar = isLogged && (mainLinks.length > 0 || supportLinks.length > 0 || policyLinks.length > 0);
 

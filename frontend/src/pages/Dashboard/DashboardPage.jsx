@@ -41,6 +41,7 @@ function DashboardPage() {
   }
 
   if (data.role === 'admin') {
+    const isSystemAdmin = data.user_role === 'system_admin';
     const adminItems = [
       {
         href: '/admin/empresas',
@@ -74,6 +75,24 @@ function DashboardPage() {
       },
     ];
 
+    const visibleAdminItems = isSystemAdmin
+      ? adminItems
+      : [
+          ...adminItems.filter((item) =>
+            ['/admin/empresas', '/admin/usuarios', '/admin/chat-interno', '/admin/conversas'].includes(item.href)
+          ),
+          {
+            href: '/admin/auditoria',
+            title: 'Auditoria',
+            description: 'Consulte eventos de auditoria apenas das empresas ligadas ao seu reseller.',
+          },
+          {
+            href: '/suporte',
+            title: 'Abrir chamado',
+            description: 'Registre um chamado interno para suporte da plataforma.',
+          },
+        ];
+
     return (
       <Layout role="admin" onLogout={logout}>
         <PageHeader
@@ -81,7 +100,7 @@ function DashboardPage() {
           subtitle="Visão central para gerir empresas, utilizadores e fluxo de atendimento."
         />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {adminItems.map((item) => (
+          {visibleAdminItems.map((item) => (
             <a key={item.href} href={item.href} className="group block">
               <Card className="h-full transition group-hover:-translate-y-0.5 group-hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] group-hover:border-[#e5e5e5]">
                 <p className="text-base font-semibold text-[#171717]">{item.title}</p>

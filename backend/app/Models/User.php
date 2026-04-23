@@ -32,6 +32,7 @@ class User extends Authenticatable
         'password',
         'role',
         'company_id',
+        'reseller_id',
         'is_active',
         'can_use_ai',
         'disabled_at',
@@ -95,6 +96,11 @@ class User extends Authenticatable
     public function company()
     {
         return $this->belongsTo(Company::class);
+    }
+
+    public function reseller()
+    {
+        return $this->belongsTo(Reseller::class);
     }
 
     public function notifications()

@@ -128,7 +128,7 @@ class ResellerController extends Controller
             return null;
         }
 
-        $resellerId = (int) ($user->company?->reseller_id ?? 0);
+        $resellerId = (int) ($user->reseller_id ?? $user->company?->reseller_id ?? 0);
 
         return $resellerId > 0 ? $resellerId : -1;
     }

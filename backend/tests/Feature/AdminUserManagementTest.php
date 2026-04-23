@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Company;
+use App\Models\Reseller;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -137,5 +138,102 @@ class AdminUserManagementTest extends TestCase
             'company_id' => null,
             'is_active' => 1,
         ]);
+    }
+
+    public function test_admin_can_create_reseller_admin_without_company_scope(): void
+    {
+        $admin = User::create([
+            'name' => 'Admin',
+            'email' => 'admin-reseller@test.local',
+            'password' => 'secret123',
+            'role' => User::ROLE_SYSTEM_ADMIN,
+            'is_active' => true,
+        ]);
+        $reseller = Reseller::create([
+            'name' => 'Revenda X',
+            'slug' => 'revenda-x',
+        ]);
+
+        $response = $this->actingAs($admin)->postJson('/api/admin/users', [
+            'name' => 'Admin Revenda',
+            'email' => 'admin-revenda@test.local',
+            'password' => 'secret123',
+            'role' => User::ROLE_RESELLER_ADMIN,
+            'reseller_id' => $reseller->id,
+            'is_active' => true,
+        ]);
+
+        $response->assertStatus(201);
+        $response->assertJsonPath('ok', true);
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'admin-revenda@test.local',
+            'role' => User::ROLE_RESELLER_ADMIN,
+            'company_id' => null,
+            'reseller_id' => $reseller->id,
+            'is_active' => 1,
+        ]);
+    }
+
+    public function test_reseller_admin_can_manage_users_only_inside_own_reseller_scope(): void
+    {
+        $resellerA = Reseller::create(['name' => 'Revenda A', 'slug' => 'revenda-a']);
+        $resellerB = Reseller::create(['name' => 'Revenda B', 'slug' => 'revenda-b']);
+
+        $companyA = Company::create(['name' => 'Empresa A', 'reseller_id' => $resellerA->id]);
+        $companyB = Company::create(['name' => 'Empresa B', 'reseller_id' => $resellerB->id]);
+
+        $resellerAdmin = User::create([
+            'name' => 'Reseller Admin',
+            'email' => 'reseller-scope@test.local',
+            'password' => 'secret123',
+            'role' => User::ROLE_RESELLER_ADMIN,
+            'reseller_id' => $resellerA->id,
+            'is_active' => true,
+        ]);
+
+        $insideUser = User::create([
+            'name' => 'Inside User',
+            'email' => 'inside@test.local',
+            'password' => 'secret123',
+            'role' => User::ROLE_COMPANY_ADMIN,
+            'company_id' => $companyA->id,
+            'is_active' => true,
+        ]);
+
+        $outsideUser = User::create([
+            'name' => 'Outside User',
+            'email' => 'outside@test.local',
+            'password' => 'secret123',
+            'role' => User::ROLE_COMPANY_ADMIN,
+            'company_id' => $companyB->id,
+            'is_active' => true,
+        ]);
+
+        $indexResponse = $this->actingAs($resellerAdmin)->getJson('/api/admin/users');
+        $indexResponse->assertOk();
+        $ids = collect($indexResponse->json('users'))->pluck('id')->all();
+        $this->assertContains($insideUser->id, $ids);
+        $this->assertNotContains($outsideUser->id, $ids);
+
+        $createInside = $this->actingAs($resellerAdmin)->postJson('/api/admin/users', [
+            'name' => 'Novo User A',
+            'email' => 'novo-user-a@test.local',
+            'password' => 'secret123',
+            'role' => User::ROLE_COMPANY_ADMIN,
+            'company_id' => $companyA->id,
+            'is_active' => true,
+        ]);
+        $createInside->assertStatus(201);
+
+        $createOutside = $this->actingAs($resellerAdmin)->postJson('/api/admin/users', [
+            'name' => 'Novo User B',
+            'email' => 'novo-user-b@test.local',
+            'password' => 'secret123',
+            'role' => User::ROLE_COMPANY_ADMIN,
+            'company_id' => $companyB->id,
+            'is_active' => true,
+        ]);
+        $createOutside->assertStatus(403);
     }
 }

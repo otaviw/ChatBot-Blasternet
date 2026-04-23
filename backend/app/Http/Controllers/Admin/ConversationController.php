@@ -6,6 +6,7 @@ use App\Actions\Conversation\SearchConversationsAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\SearchConversationsRequest;
 use App\Http\Requests\Admin\UpdateConversationContactRequest;
+use App\Models\Company;
 use App\Models\Conversation;
 use App\Services\AuditLogService;
 use App\Support\AdminPrivacySanitizer;
@@ -20,11 +21,16 @@ class ConversationController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        $actorResellerId = $this->resolveActorResellerId($request);
+
         $query = Conversation::query()
             ->with(['company:id,name'])
             ->withCount('messages')
             ->withCount('tags')
             ->latest();
+
+        $this->applyActorScopeToConversationQuery($query, $actorResellerId);
+
         $companyId = $request->query('company_id');
         if ($companyId) {
             $query->where('company_id', (int) $companyId);
@@ -33,8 +39,8 @@ class ConversationController extends Controller
         $conversations = $query->limit(150)->get();
         $sanitized = AdminPrivacySanitizer::conversationSummaryCollection($conversations);
         $byStatus = $conversations
-            ->groupBy(fn(Conversation $conversation) => (string) $conversation->status)
-            ->map(fn($items) => count($items))
+            ->groupBy(fn (Conversation $conversation) => (string) $conversation->status)
+            ->map(fn ($items) => count($items))
             ->all();
 
         return response()->json([
@@ -51,6 +57,8 @@ class ConversationController extends Controller
 
     public function show(Request $request, int $conversationId): JsonResponse
     {
+        $actorResellerId = $this->resolveActorResellerId($request);
+
         $conversation = Conversation::query()
             ->with(['company:id,name'])
             ->withCount('messages')
@@ -59,8 +67,14 @@ class ConversationController extends Controller
 
         if (! $conversation) {
             return response()->json([
-                'message' => 'Conversa não encontrada.',
+                'message' => 'Conversa nao encontrada.',
             ], 404);
+        }
+
+        if ($actorResellerId !== null && ! $this->conversationBelongsToReseller($conversation, $actorResellerId)) {
+            return response()->json([
+                'message' => 'Acesso negado para esta conversa.',
+            ], 403);
         }
 
         return response()->json([
@@ -74,8 +88,16 @@ class ConversationController extends Controller
     public function search(SearchConversationsRequest $request, SearchConversationsAction $action): JsonResponse
     {
         $validated = $request->validated();
+        $actorResellerId = $this->resolveActorResellerId($request);
+        $companyId = (int) $validated['empresa_id'];
 
-        return response()->json($action->handleForAdmin((int) $validated['empresa_id'], $validated));
+        if ($actorResellerId !== null && ! $this->companyBelongsToReseller($companyId, $actorResellerId)) {
+            return response()->json([
+                'message' => 'Acesso negado para esta empresa.',
+            ], 403);
+        }
+
+        return response()->json($action->handleForAdmin($companyId, $validated));
     }
 
     public function assume(Request $request, int $conversationId): JsonResponse
@@ -106,6 +128,7 @@ class ConversationController extends Controller
     public function updateContact(UpdateConversationContactRequest $request, int $conversationId): JsonResponse
     {
         $validated = $request->validated();
+        $actorResellerId = $this->resolveActorResellerId($request);
 
         $conversation = Conversation::query()
             ->with(['company:id,name'])
@@ -115,8 +138,14 @@ class ConversationController extends Controller
 
         if (! $conversation) {
             return response()->json([
-                'message' => 'Conversa não encontrada.',
+                'message' => 'Conversa nao encontrada.',
             ], 404);
+        }
+
+        if ($actorResellerId !== null && ! $this->conversationBelongsToReseller($conversation, $actorResellerId)) {
+            return response()->json([
+                'message' => 'Acesso negado para esta conversa.',
+            ], 403);
         }
 
         $customerName = trim((string) ($validated['customer_name'] ?? ''));
@@ -154,8 +183,47 @@ class ConversationController extends Controller
         );
 
         return response()->json([
-            'message' => 'Operação bloqueada para superadmin no modo privacidade.',
+            'message' => 'Operacao bloqueada para superadmin no modo privacidade.',
             'privacy_mode' => 'blind_default',
         ], 403);
     }
+
+    private function resolveActorResellerId(Request $request): ?int
+    {
+        $actor = $request->user();
+        if (! $actor || $actor->isSystemAdmin()) {
+            return null;
+        }
+
+        $resellerId = (int) ($actor->reseller_id ?? $actor->company?->reseller_id ?? 0);
+
+        return $resellerId > 0 ? $resellerId : -1;
+    }
+
+    private function applyActorScopeToConversationQuery($query, ?int $actorResellerId): void
+    {
+        if ($actorResellerId === null) {
+            return;
+        }
+
+        $query->whereHas('company', fn ($companyQuery) => $companyQuery->where('reseller_id', $actorResellerId));
+    }
+
+    private function conversationBelongsToReseller(Conversation $conversation, int $actorResellerId): bool
+    {
+        return $this->companyBelongsToReseller((int) $conversation->company_id, $actorResellerId);
+    }
+
+    private function companyBelongsToReseller(int $companyId, int $actorResellerId): bool
+    {
+        if ($companyId <= 0 || $actorResellerId <= 0) {
+            return false;
+        }
+
+        return Company::query()
+            ->where('id', $companyId)
+            ->where('reseller_id', $actorResellerId)
+            ->exists();
+    }
 }
+

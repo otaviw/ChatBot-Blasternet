@@ -68,6 +68,9 @@ function AdminCompaniesPage() {
   const [resellerError, setResellerError] = useState('');
   const [resellerSuccess, setResellerSuccess] = useState('');
   const [editingResellerId, setEditingResellerId] = useState(null);
+  const [currentAdminRole, setCurrentAdminRole] = useState(null);
+  const isSystemAdmin = currentAdminRole === 'system_admin';
+  const canManageCompanies = currentAdminRole === 'reseller_admin';
 
   useEffect(() => {
     setCompanies(Array.isArray(data?.companies) ? data.companies : []);
@@ -75,6 +78,32 @@ function AdminCompaniesPage() {
 
   useEffect(() => {
     let canceled = false;
+    api
+      .get('/me')
+      .then((response) => {
+        if (canceled) return;
+        setCurrentAdminRole(response?.data?.user?.role ?? null);
+      })
+      .catch(() => {
+        if (canceled) return;
+        setCurrentAdminRole(null);
+      });
+
+    return () => {
+      canceled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let canceled = false;
+    if (!isSystemAdmin) {
+      setResellerLoading(false);
+      setResellers([]);
+      return () => {
+        canceled = true;
+      };
+    }
+
     setResellerLoading(true);
 
     api
@@ -97,7 +126,7 @@ function AdminCompaniesPage() {
     return () => {
       canceled = true;
     };
-  }, []);
+  }, [currentAdminRole]);
 
   const resetResellerForm = () => {
     setResellerForm({
@@ -254,9 +283,10 @@ function AdminCompaniesPage() {
         Lista de empresas com acesso. Clique para ver informações e uso.
       </p>
 
-      <section className="app-panel mb-8">
-        <h2 className="font-medium mb-3">Resellers</h2>
-        <form onSubmit={handleSaveReseller} className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      {isSystemAdmin ? (
+        <section className="app-panel mb-8">
+          <h2 className="font-medium mb-3">Resellers</h2>
+          <form onSubmit={handleSaveReseller} className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <label className="block text-sm">
             Nome
             <input
@@ -325,53 +355,55 @@ function AdminCompaniesPage() {
               </button>
             ) : null}
           </div>
-        </form>
+          </form>
 
-        {resellerError ? <p className="text-sm text-red-600 mt-2">{resellerError}</p> : null}
-        {resellerSuccess ? <p className="text-sm text-green-700 mt-2">{resellerSuccess}</p> : null}
+          {resellerError ? <p className="text-sm text-red-600 mt-2">{resellerError}</p> : null}
+          {resellerSuccess ? <p className="text-sm text-green-700 mt-2">{resellerSuccess}</p> : null}
 
-        <div className="mt-5">
-          {resellerLoading ? (
-            <p className="text-sm text-[#737373]">Carregando resellers...</p>
-          ) : resellers.length === 0 ? (
-            <p className="text-sm text-[#737373]">Nenhum reseller cadastrado.</p>
-          ) : (
-            <ul className="rounded-xl border border-[#eeeeee] overflow-hidden bg-white divide-y divide-[#eeeeee]">
-              {resellers.map((reseller) => (
-                <li key={reseller.id} className="px-4 py-3 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-medium text-[#171717] truncate">{reseller.name}</p>
-                    <p className="text-xs text-[#737373] truncate">/{reseller.slug}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {reseller.logo_url ? (
-                      <img
-                        src={reseller.logo_url}
-                        alt={reseller.name || 'Logo do reseller'}
-                        className="h-7 w-7 rounded object-cover border border-[#e5e5e5]"
-                      />
-                    ) : (
-                      <span
-                        title={reseller.primary_color || 'Sem cor definida'}
-                        className="inline-block h-7 w-7 rounded border border-[#d4d4d4]"
-                        style={{ background: normalizeHexColor(reseller.primary_color, '#f5f5f5') }}
-                      />
-                    )}
-                    <button
-                      type="button"
-                      className="app-btn-secondary text-xs px-3 py-1.5"
-                      onClick={() => applyResellerToForm(reseller)}
-                    >
-                      Editar
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </section>
+          <div className="mt-5">
+            {resellerLoading ? (
+              <p className="text-sm text-[#737373]">Carregando resellers...</p>
+            ) : resellers.length === 0 ? (
+              <p className="text-sm text-[#737373]">Nenhum reseller cadastrado.</p>
+            ) : (
+              <ul className="rounded-xl border border-[#eeeeee] overflow-hidden bg-white divide-y divide-[#eeeeee]">
+                {resellers.map((reseller) => (
+                  <li key={reseller.id} className="px-4 py-3 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-medium text-[#171717] truncate">{reseller.name}</p>
+                      <p className="text-xs text-[#737373] truncate">/{reseller.slug}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {reseller.logo_url ? (
+                        <img
+                          src={reseller.logo_url}
+                          alt={reseller.name || 'Logo do reseller'}
+                          className="h-7 w-7 rounded object-cover border border-[#e5e5e5]"
+                        />
+                      ) : (
+                        <span
+                          title={reseller.primary_color || 'Sem cor definida'}
+                          className="inline-block h-7 w-7 rounded border border-[#d4d4d4]"
+                          style={{ background: normalizeHexColor(reseller.primary_color, '#f5f5f5') }}
+                        />
+                      )}
+                      <button
+                        type="button"
+                        className="app-btn-secondary text-xs px-3 py-1.5"
+                        onClick={() => applyResellerToForm(reseller)}
+                      >
+                        Editar
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+      ) : null}
 
+      {canManageCompanies ? (
       <section className="app-panel mb-8">
         <h2 className="font-medium mb-3">Criar empresa</h2>
         <form onSubmit={handleCreateCompany} className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -430,6 +462,7 @@ function AdminCompaniesPage() {
         {createSuccess && <p className="text-sm text-green-700 mt-2">{createSuccess}</p>}
         {deleteError && <p className="text-sm text-red-600 mt-2">{deleteError}</p>}
       </section>
+      ) : null}
 
       {!companies.length ? (
         <EmptyState
@@ -445,19 +478,23 @@ function AdminCompaniesPage() {
                 <p className="text-sm text-[#737373]">Status: {companyStatusLabel(company)}</p>
               </div>
               <div className="flex items-center gap-2">
-                <a href={`/companies/${company.id}/edit`} className="app-btn-secondary text-xs px-3 py-1.5">
-                  Editar
-                </a>
-                <button
-                  type="button"
-                  className="app-btn-danger text-xs px-3 py-1.5"
-                  onClick={() => {
-                    setDeleteError('');
-                    setDeleteTarget(company);
-                  }}
-                >
-                  Excluir
-                </button>
+                {canManageCompanies ? (
+                  <>
+                    <a href={`/companies/${company.id}/edit`} className="app-btn-secondary text-xs px-3 py-1.5">
+                      Editar
+                    </a>
+                    <button
+                      type="button"
+                      className="app-btn-danger text-xs px-3 py-1.5"
+                      onClick={() => {
+                        setDeleteError('');
+                        setDeleteTarget(company);
+                      }}
+                    >
+                      Excluir
+                    </button>
+                  </>
+                ) : null}
               </div>
             </li>
           ))}

@@ -37,7 +37,7 @@ class HomeController extends Controller
             ], 403);
         }
 
-        if ($user->isSystemAdmin()) {
+        if ($user->isAdmin()) {
             return response()->json([
                 'authenticated' => true,
                 'role' => 'admin',

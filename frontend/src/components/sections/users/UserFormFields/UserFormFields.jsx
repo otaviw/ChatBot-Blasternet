@@ -12,6 +12,9 @@ function UserFormFields({
   showCompanyField = false,
   companies = [],
   onCompanyChange,
+  showResellerField = false,
+  resellers = [],
+  onResellerChange,
   showAreas = false,
   availableAreas = [],
   onToggleArea,
@@ -74,6 +77,7 @@ function UserFormFields({
             updateForm({
               role: event.target.value,
               company_id: '',
+              reseller_id: '',
               areas: [],
               can_use_ai: event.target.value === 'agent' ? Boolean(form.can_use_ai) : false,
             })
@@ -107,6 +111,23 @@ function UserFormFields({
             {companies.map((company) => (
               <option key={company.id} value={company.id}>
                 {company.name}
+              </option>
+            ))}
+          </SelectInput>
+        </Field>
+      )}
+
+      {showResellerField && (
+        <Field label="Revenda">
+          <SelectInput
+            value={form.reseller_id ?? ''}
+            onChange={(event) => onResellerChange(event.target.value)}
+            required
+          >
+            <option value="">Selecione revenda</option>
+            {resellers.map((reseller) => (
+              <option key={reseller.id} value={reseller.id}>
+                {reseller.name}
               </option>
             ))}
           </SelectInput>

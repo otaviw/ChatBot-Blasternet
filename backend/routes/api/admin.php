@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\ResellerController;
 use App\Http\Controllers\Admin\SupportTicketController as AdminSupportTicketController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\SupportTicketMessageController;
+use App\Http\Controllers\Company\AuditLogController as CompanyAuditLogController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['web', 'auth', 'admin'])->group(function () {
@@ -25,20 +26,20 @@ Route::middleware(['web', 'auth', 'admin'])->group(function () {
             ->middleware('throttle:bot-write');
 
         Route::get('/users', [AdminUserController::class, 'index'])
-            ->middleware(['system.admin', 'throttle:inbox-read']);
+            ->middleware(['throttle:inbox-read']);
         Route::post('/users', [AdminUserController::class, 'store'])
-            ->middleware(['system.admin', 'throttle:bot-write']);
+            ->middleware(['throttle:bot-write']);
         Route::put('/users/{user}', [AdminUserController::class, 'update'])
-            ->middleware(['system.admin', 'throttle:bot-write']);
+            ->middleware(['throttle:bot-write']);
         Route::delete('/users/{user}', [AdminUserController::class, 'destroy'])
-            ->middleware(['system.admin', 'throttle:bot-write']);
+            ->middleware(['throttle:bot-write']);
 
         Route::get('/conversas', [AdminConversationController::class, 'index'])
-            ->middleware(['system.admin', 'throttle:inbox-read']);
+            ->middleware(['throttle:inbox-read']);
         Route::get('/conversas/buscar', [AdminConversationController::class, 'search'])
-            ->middleware(['system.admin', 'throttle:conversation-search']);
+            ->middleware(['throttle:conversation-search']);
         Route::get('/conversas/{conversationId}', [AdminConversationController::class, 'show'])
-            ->middleware(['system.admin', 'throttle:inbox-read']);
+            ->middleware(['throttle:inbox-read']);
         Route::post('/conversas/{conversationId}/assumir', [AdminConversationController::class, 'assume'])
             ->middleware(['system.admin', 'throttle:bot-write']);
         Route::post('/conversas/{conversationId}/soltar', [AdminConversationController::class, 'release'])
@@ -55,6 +56,11 @@ Route::middleware(['web', 'auth', 'admin'])->group(function () {
             ->middleware(['system.admin', 'throttle:bot-write']);
         Route::put('/conversas/{conversationId}/contato', [AdminConversationController::class, 'updateContact'])
             ->middleware(['system.admin', 'throttle:bot-write']);
+
+        Route::get('/audit-logs', [CompanyAuditLogController::class, 'index'])
+            ->middleware(['throttle:inbox-read']);
+        Route::get('/audit-logs/{auditLog}', [CompanyAuditLogController::class, 'show'])
+            ->middleware(['throttle:inbox-read']);
 
         Route::get('/suporte/solicitacoes', [AdminSupportTicketController::class, 'index'])
             ->middleware(['system.admin', 'throttle:inbox-read']);

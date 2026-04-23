@@ -19,6 +19,7 @@ class UserObserver implements ShouldHandleEventsAfterCommit
         'email',
         'role',
         'company_id',
+        'reseller_id',
         'is_active',
         'can_use_ai',
         'disabled_at',
@@ -26,7 +27,7 @@ class UserObserver implements ShouldHandleEventsAfterCommit
 
     public function created(User $user): void
     {
-        $this->bindCompanyContext((int) $user->company_id);
+        $this->bindTenantContext((int) $user->company_id, (int) ($user->reseller_id ?? 0));
 
         AuditService::log(
             action: 'create_entity',
@@ -42,7 +43,7 @@ class UserObserver implements ShouldHandleEventsAfterCommit
             return;
         }
 
-        $this->bindCompanyContext((int) $user->company_id);
+        $this->bindTenantContext((int) $user->company_id, (int) ($user->reseller_id ?? 0));
 
         $oldData = [];
         $newData = [];
@@ -72,7 +73,7 @@ class UserObserver implements ShouldHandleEventsAfterCommit
 
     public function deleted(User $user): void
     {
-        $this->bindCompanyContext((int) $user->company_id);
+        $this->bindTenantContext((int) $user->company_id, (int) ($user->reseller_id ?? 0));
 
         AuditService::log(
             action: 'delete_entity',
@@ -82,15 +83,24 @@ class UserObserver implements ShouldHandleEventsAfterCommit
         );
     }
 
-    private function bindCompanyContext(int $companyId): void
+    private function bindTenantContext(int $companyId, int $resellerId): void
     {
-        if ($companyId <= 0 || ! app()->bound('request')) {
+        if ($companyId <= 0 && $resellerId <= 0) {
+            return;
+        }
+
+        if (! app()->bound('request')) {
             return;
         }
 
         $request = request();
         if ($request instanceof Request) {
-            $request->attributes->set('company_id', $companyId);
+            if ($companyId > 0) {
+                $request->attributes->set('company_id', $companyId);
+            }
+            if ($resellerId > 0) {
+                $request->attributes->set('reseller_id', $resellerId);
+            }
         }
     }
 
@@ -104,6 +114,7 @@ class UserObserver implements ShouldHandleEventsAfterCommit
         return [
             'id' => (int) $user->id,
             'company_id' => (int) $user->company_id,
+            'reseller_id' => (int) ($user->reseller_id ?? 0),
             'name' => $user->name,
             'email' => $user->email,
             'role' => User::normalizeRole($user->role),
@@ -120,7 +131,7 @@ class UserObserver implements ShouldHandleEventsAfterCommit
         }
 
         return match ($field) {
-            'company_id' => (int) $value,
+            'company_id', 'reseller_id' => (int) $value,
             'is_active', 'can_use_ai' => (bool) $value,
             'role' => User::normalizeRole((string) $value),
             'disabled_at' => $this->normalizeDateTime($value),
