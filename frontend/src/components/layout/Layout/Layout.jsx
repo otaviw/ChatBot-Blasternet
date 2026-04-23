@@ -86,6 +86,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
       '/admin/empresas',
       '/admin/usuarios',
       '/admin/chat-interno',
+      '/admin/auditoria',
     ]),
     []
   );
