@@ -8,6 +8,7 @@ class Company extends Model
 {
     protected $fillable = [
         'name',
+        'reseller_id',
         'meta_phone_number_id',
         'meta_waba_id',
         'meta_access_token',
@@ -98,5 +99,19 @@ class Company extends Model
     public function campaigns()
     {
         return $this->hasMany(Campaign::class);
+    }
+
+    public function reseller()
+    {
+        return $this->belongsTo(Reseller::class);
+    }
+
+    public function scopeForReseller($query, ?int $resellerId)
+    {
+        if ($resellerId === null) {
+            return $query;
+        }
+
+        return $query->where('reseller_id', $resellerId);
     }
 }

@@ -23,7 +23,7 @@ class RealtimeStore {
 
   on(eventName, handler) {
     if (!isSupportedRealtimeEvent(eventName)) {
-      throw new Error(`Realtime event nao suportado: ${eventName}`);
+      throw new Error(`Realtime event não suportado: ${eventName}`);
     }
 
     if (!this.handlers.has(eventName)) {

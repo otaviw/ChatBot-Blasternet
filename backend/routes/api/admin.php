@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\CompanyController;
 use App\Http\Controllers\Admin\ConversationController as AdminConversationController;
+use App\Http\Controllers\Admin\ResellerController;
 use App\Http\Controllers\Admin\SupportTicketController as AdminSupportTicketController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\SupportTicketMessageController;
@@ -9,6 +10,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware(['web', 'auth', 'admin'])->group(function () {
     Route::prefix('admin')->group(function () {
+        Route::post('/resellers', [ResellerController::class, 'store'])->middleware('throttle:bot-write');
         Route::get('/empresas', [CompanyController::class, 'index']);
         Route::post('/empresas', [CompanyController::class, 'store'])->middleware('throttle:bot-write');
         Route::get('/empresas/{company}', [CompanyController::class, 'show']);

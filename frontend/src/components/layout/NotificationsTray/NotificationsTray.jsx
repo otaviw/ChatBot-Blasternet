@@ -266,8 +266,8 @@ export default function NotificationsTray({ role, isLogged }) {
                     setNotificationsPanelOpen(false);
                     setNotifPrefsOpen(true);
                   }}
-                  title="Configurar notificacoes"
-                  aria-label="Configurar notificacoes"
+                  title="Configurar notificações"
+                  aria-label="Configurar notificações"
                 >
                   <svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                     <circle cx="10" cy="10" r="3" stroke="currentColor" strokeWidth="1.6" />
@@ -280,7 +280,7 @@ export default function NotificationsTray({ role, isLogged }) {
                   className="layout-notifications__close"
                   onClick={() => setNotificationsPanelOpen(false)}
                   title="Fechar"
-                  aria-label="Fechar painel de notificacoes"
+                  aria-label="Fechar painel de notificações"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <line x1="18" y1="6" x2="6" y2="18" />
@@ -298,13 +298,13 @@ export default function NotificationsTray({ role, isLogged }) {
                     <path d="M13.73 21a2 2 0 0 1-3.46 0" />
                   </svg>
                 </div>
-                <p className="layout-notifications__permission-text">Ative as notificacoes do navegador para receber alertas mesmo em outras abas.</p>
+                <p className="layout-notifications__permission-text">Ative as notificações do navegador para receber alertas mesmo em outras abas.</p>
                 <button
                   type="button"
                   className="layout-notifications__permission-btn"
                   onClick={() => void handleRequestNotifPermission()}
                 >
-                  Ativar notificacoes
+                  Ativar notificações
                 </button>
               </div>
             )}
@@ -414,10 +414,10 @@ export default function NotificationsTray({ role, isLogged }) {
                   onClick={(event) => event.stopPropagation()}
                 >
                   <h3 id="layout-notifications-clear-title" className="layout-notifications__confirm-title">
-                    Limpar todas as notificacoes?
+                    Limpar todas as notificações?
                   </h3>
                   <p className="layout-notifications__confirm-text">
-                    Todas as notificacoes serao apagadas permanentemente.
+                    Todas as notificações serão apagadas permanentemente.
                   </p>
                   <div className="layout-notifications__confirm-actions">
                     <button
@@ -456,7 +456,7 @@ export default function NotificationsTray({ role, isLogged }) {
           className={`layout-header__btn ${notificationsPanelOpen ? 'layout-header__btn--active' : ''}`}
           onClick={() => setNotificationsPanelOpen((value) => !value)}
           title="Notificacoes"
-          aria-label="Abrir notificacoes"
+          aria-label="Abrir notificações"
         >
           {ICON_NOTIFICATIONS}
           {totalUnreadCount > 0 && (

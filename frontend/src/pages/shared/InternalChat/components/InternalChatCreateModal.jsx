@@ -51,7 +51,7 @@ function InternalChatCreateModal({
 
         <div className="internal-chat-recipient-list">
           {recipientsLoading ? (
-            <p className="internal-chat-list-state">Carregando usuarios...</p>
+            <p className="internal-chat-list-state">Carregando usuários...</p>
           ) : null}
 
           {!recipientsLoading && !filteredRecipients.length ? (

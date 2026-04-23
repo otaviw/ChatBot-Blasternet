@@ -50,7 +50,7 @@ function useContacts() {
       setAllContacts(contacts);
     } catch (err) {
       setAllContacts([]);
-      setError(err?.response?.data?.message ?? 'Nao foi possivel carregar os contatos.');
+      setError(err?.response?.data?.message ?? 'Não foi possível carregar os contatos.');
     } finally {
       setLoading(false);
     }
@@ -105,7 +105,7 @@ function useContacts() {
         err?.response?.data?.errors?.phone?.[0] ??
         err?.response?.data?.errors?.name?.[0] ??
         err?.response?.data?.message ??
-        'Nao foi possivel criar o contato.';
+        'Não foi possível criar o contato.';
       throw new Error(message);
     } finally {
       setCreating(false);
@@ -125,7 +125,7 @@ function useContacts() {
       await fetchContacts();
       return response?.data ?? {};
     } catch (err) {
-      const message = err?.response?.data?.message ?? 'Nao foi possivel importar o CSV.';
+      const message = err?.response?.data?.message ?? 'Não foi possível importar o CSV.';
       throw new Error(message);
     } finally {
       setImporting(false);

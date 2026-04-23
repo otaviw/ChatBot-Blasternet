@@ -158,7 +158,7 @@ function resolveErrorMessage(payload, status, originalError) {
   }
 
   if (status === 422) {
-    return readString(payload?.message) || 'Dados invalidos. Revise os campos e tente novamente.';
+    return readString(payload?.message) || 'Dados inválidos. Revise os campos e tente novamente.';
   }
 
   const payloadMessage = readString(payload?.message);
@@ -180,10 +180,10 @@ function resolveErrorMessage(payload, status, originalError) {
   }
 
   if (!status) {
-    return 'Falha de conexao. Verifique sua internet e tente novamente.';
+    return 'Falha de conexão. Verifique sua internet e tente novamente.';
   }
 
-  return 'Nao foi possivel concluir a operacao.';
+  return 'Não foi possível concluir a operação.';
 }
 
 function resolveErrorCode(payload, status, originalError) {

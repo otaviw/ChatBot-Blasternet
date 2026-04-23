@@ -226,7 +226,7 @@ export default function useNotifications(options = {}) {
       return visible;
     } catch (err) {
       if (!silent) {
-        setError(err?.response?.data?.message || 'Falha ao carregar notificacoes.');
+        setError(err?.response?.data?.message || 'Falha ao carregar notificações.');
       }
       return [];
     } finally {
@@ -246,7 +246,7 @@ export default function useNotifications(options = {}) {
       applyUnreadCounters(response.unread_by_module, response.total_unread);
       return response;
     } catch (err) {
-      setError((prev) => prev || err?.response?.data?.message || 'Falha ao carregar contadores de notificacoes.');
+      setError((prev) => prev || err?.response?.data?.message || 'Falha ao carregar contadores de notificações.');
       return { unread_by_module: {}, total_unread: 0 };
     }
   }, [applyUnreadCounters, clearedUntilId, enabled]);
@@ -318,7 +318,7 @@ export default function useNotifications(options = {}) {
 
       return response;
     } catch (err) {
-      setError(err?.response?.data?.message || 'Falha ao marcar todas as notificacoes como lidas.');
+      setError(err?.response?.data?.message || 'Falha ao marcar todas as notificações como lidas.');
       return null;
     }
   }, [applyUnreadCounters, clearedUntilId, enabled]);
@@ -352,7 +352,7 @@ export default function useNotifications(options = {}) {
 
         return response;
       } catch (err) {
-        setError(err?.response?.data?.message || 'Falha ao apagar notificacoes.');
+        setError(err?.response?.data?.message || 'Falha ao apagar notificações.');
         return null;
       }
     },
@@ -426,7 +426,7 @@ export default function useNotifications(options = {}) {
 
       return response;
     } catch (err) {
-      setError(err?.response?.data?.message || 'Falha ao marcar notificacoes por referencia.');
+      setError(err?.response?.data?.message || 'Falha ao marcar notificações por referência.');
       return null;
     }
   }, [applyUnreadCounters, clearedUntilId, enabled]);

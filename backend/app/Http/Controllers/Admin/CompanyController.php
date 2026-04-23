@@ -10,6 +10,7 @@ use App\Http\Requests\Admin\ValidateCompanyWhatsAppRequest;
 use App\Models\Area;
 use App\Models\Company;
 use App\Models\CompanyBotSetting;
+use App\Models\Reseller;
 use App\Models\Message;
 use App\Models\User;
 use App\Services\AuditLogService;
@@ -17,6 +18,7 @@ use App\Services\WhatsAppCredentialsValidatorService;
 use App\Support\ConversationHandlingMode;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class CompanyController extends Controller
 {
@@ -27,8 +29,11 @@ class CompanyController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        $resellerId = $this->resolveResellerId($request);
+
         $companies = Company::with(['botSetting'])
             ->withCount('conversations')
+            ->forReseller($resellerId)
             ->orderBy('name')
             ->get();
 
@@ -39,8 +44,34 @@ class CompanyController extends Controller
         ]);
     }
 
+    private function resolveResellerId(Request $request): ?int
+    {
+        $user = $request->user();
+
+        if ($user->isSystemAdmin()) {
+            return null;
+        }
+
+        return $user->company?->reseller_id ?? null;
+    }
+
+    private function denyIfNotOwned(Request $request, Company $company): ?JsonResponse
+    {
+        $resellerId = $this->resolveResellerId($request);
+
+        if ($resellerId !== null && (int) $company->reseller_id !== $resellerId) {
+            return response()->json(['message' => 'Não encontrado.'], 404);
+        }
+
+        return null;
+    }
+
     public function show(Request $request, Company $company): JsonResponse
     {
+        if ($denied = $this->denyIfNotOwned($request, $company)) {
+            return $denied;
+        }
+
         $company->loadCount('conversations');
         $company->load([
             'botSetting',
@@ -55,6 +86,10 @@ class CompanyController extends Controller
 
     public function updateBotSettings(UpdateCompanyBotSettingsRequest $request, Company $company): JsonResponse
     {
+        if ($denied = $this->denyIfNotOwned($request, $company)) {
+            return $denied;
+        }
+
         $validated = $request->validated();
 
         $settingsPayload = [
@@ -138,10 +173,23 @@ class CompanyController extends Controller
     {
         $validated = $request->validated();
 
+        $user = $request->user();
+
+        if ($user->isSystemAdmin()) {
+            $resellerId = $validated['reseller_id'] ?? Reseller::getBySlug('default')?->id;
+
+            if ($resellerId === null) {
+                Log::warning('Company criada sem reseller_id: reseller default não encontrado. Execute DefaultResellerSeeder.');
+            }
+        } else {
+            $resellerId = $user->company?->reseller_id ?? null;
+        }
+
         $company = Company::create([
-            'name' => $validated['name'],
+            'name'                 => $validated['name'],
             'meta_phone_number_id' => $validated['meta_phone_number_id'] ?? null,
-            'meta_waba_id' => $validated['meta_waba_id'] ?? null,
+            'meta_waba_id'         => $validated['meta_waba_id'] ?? null,
+            'reseller_id'          => $resellerId,
         ]);
 
         CompanyBotSetting::firstOrCreate(
@@ -188,6 +236,10 @@ class CompanyController extends Controller
 
     public function update(UpdateCompanyRequest $request, Company $company): JsonResponse
     {
+        if ($denied = $this->denyIfNotOwned($request, $company)) {
+            return $denied;
+        }
+
         $validated = $request->validated();
 
         $before = [
@@ -280,6 +332,10 @@ class CompanyController extends Controller
 
     public function destroy(Request $request, Company $company): JsonResponse
     {
+        if ($denied = $this->denyIfNotOwned($request, $company)) {
+            return $denied;
+        }
+
         $companyId = $company->id;
         $companyName = $company->name;
 
@@ -453,6 +509,9 @@ class CompanyController extends Controller
     /** Testa as credenciais do WhatsApp da empresa contra a API da Meta. */
     public function validateWhatsApp(ValidateCompanyWhatsAppRequest $request, Company $company): JsonResponse
     {
+        if ($denied = $this->denyIfNotOwned($request, $company)) {
+            return $denied;
+        }
 
         $phoneNumberId = trim((string) ($request->input('phone_number_id') ?? $company->meta_phone_number_id ?? config('whatsapp.phone_number_id', '')));
         $accessToken   = trim((string) ($request->input('access_token')    ?? $company->meta_access_token    ?? config('whatsapp.access_token', '')));
@@ -471,6 +530,10 @@ class CompanyController extends Controller
 
     public function metrics(Request $request, Company $company): JsonResponse
     {
+        if ($denied = $this->denyIfNotOwned($request, $company)) {
+            return $denied;
+        }
+
         $conversationIds = $company->conversations()->select('id');
 
         $byStatus = $company->conversations()

@@ -12,7 +12,7 @@ function ErrorMessageIcon() {
 }
 
 function ErrorMessage({ message, detail = '', onRetry = null, retryLabel = 'Tentar novamente', className = '' }) {
-  const displayMessage = message || 'Nao foi possivel carregar os dados.';
+  const displayMessage = message || 'Não foi possível carregar os dados.';
 
   return (
     <div

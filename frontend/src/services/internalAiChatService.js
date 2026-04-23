@@ -350,12 +350,12 @@ export async function streamInternalAiConversationMessage({
     });
   } catch (fetchError) {
     if (fetchError?.name === 'AbortError') return;
-    onError?.('Nao foi possivel conectar ao servidor. Tente novamente.');
+    onError?.('Não foi possível conectar ao servidor. Tente novamente.');
     return;
   }
 
   if (!response.ok) {
-    let message = 'Nao foi possivel iniciar o streaming de resposta.';
+    let message = 'Não foi possível iniciar o streaming de resposta.';
     try {
       const json = await response.json();
       if (json?.message) message = String(json.message);
@@ -368,7 +368,7 @@ export async function streamInternalAiConversationMessage({
 
   const reader = response.body?.getReader();
   if (!reader) {
-    onError?.('Streaming nao suportado neste navegador. Use um navegador moderno.');
+    onError?.('Streaming não suportado neste navegador. Use um navegador moderno.');
     return;
   }
 

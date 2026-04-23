@@ -65,7 +65,7 @@ function CompanyTicketIndex({ ticketId: ticketIdProp }) {
     >
       <div className="mb-4">
         <a href="/minha-conta/suporte/solicitacoes" className="text-sm text-[#64748b] hover:underline">
-          {'<-'} Voltar para minhas solicitacoes
+          {'<-'} Voltar para minhas solicitações
         </a>
       </div>
 

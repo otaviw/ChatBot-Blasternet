@@ -45,9 +45,12 @@ class AuthController extends Controller
             ], 403);
         }
 
+        $user->loadMissing('company.reseller');
+
         return response()->json([
             'authenticated' => true,
-            'user' => $this->userPayload($user->loadMissing('company')),
+            'user' => $this->userPayload($user),
+            'reseller' => $this->resellerPayload($user),
         ]);
     }
 
@@ -61,9 +64,12 @@ class AuthController extends Controller
             ], 403);
         }
 
+        $user->loadMissing('company.reseller');
+
         return response()->json([
             'authenticated' => true,
-            'user' => $this->userPayload($user->loadMissing('company')),
+            'user' => $this->userPayload($user),
+            'reseller' => $this->resellerPayload($user),
         ]);
     }
 
@@ -77,8 +83,11 @@ class AuthController extends Controller
         $user->name = $request->validated('name');
         $user->save();
 
+        $user->loadMissing('company.reseller');
+
         return response()->json([
-            'user' => $this->userPayload($user->loadMissing('company')),
+            'user' => $this->userPayload($user),
+            'reseller' => $this->resellerPayload($user),
         ]);
     }
 
@@ -116,6 +125,22 @@ class AuthController extends Controller
         return response()->json([
             'ok' => true,
         ]);
+    }
+
+    private function resellerPayload($user): ?array
+    {
+        $reseller = $user->company?->reseller;
+
+        if (! $reseller) {
+            return null;
+        }
+
+        return [
+            'id'            => $reseller->id,
+            'name'          => $reseller->name,
+            'logo_url'      => $reseller->logo_url,
+            'primary_color' => $reseller->primary_color,
+        ];
     }
 
     private function userPayload($user): array

@@ -16,6 +16,7 @@ class StoreCompanyRequest extends FormRequest
     {
         return [
             'name'                              => ['required', 'string', 'max:120', 'unique:companies,name'],
+            'reseller_id'                       => ['nullable', 'integer', 'exists:resellers,id'],
             'meta_phone_number_id'              => ['nullable', 'string', 'max:255', 'unique:companies,meta_phone_number_id'],
             'meta_waba_id'                      => ['nullable', 'string', 'max:255'],
             'ai_enabled'                        => ['sometimes', 'boolean'],

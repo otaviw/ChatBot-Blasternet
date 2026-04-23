@@ -50,7 +50,7 @@ class ContactController extends Controller
     {
         $companyId = $this->resolveCompanyId($request);
         if ($companyId === null) {
-            return response()->json(['message' => 'Empresa nÃ£o identificada.'], 403);
+            return response()->json(['message' => 'Empresa não identificada.'], 403);
         }
 
         $validated = $request->validated();
@@ -58,8 +58,8 @@ class ContactController extends Controller
         $phone = PhoneNumberNormalizer::normalizeBrazil((string) $validated['phone']);
         if ($phone === '') {
             return response()->json([
-                'message' => 'Telefone invalido.',
-                'errors' => ['phone' => ['Telefone invalido.']],
+                'message' => 'Telefone inválido.',
+                'errors' => ['phone' => ['Telefone inválido.']],
             ], 422);
         }
 

@@ -10,9 +10,9 @@ export function showSuccessToast(message, options = {}) {
 }
 
 export function showErrorToast(message, options = {}) {
-  return toast.error(normalizeMessage(message, 'Nao foi possivel concluir a operacao.'), options);
+  return toast.error(normalizeMessage(message, 'Não foi possível concluir a operação.'), options);
 }
 
 export function showInfoToast(message, options = {}) {
-  return toast(normalizeMessage(message, 'Informacao'), options);
+  return toast(normalizeMessage(message, 'Informação'), options);
 }

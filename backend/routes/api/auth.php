@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BrandingController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\PasswordResetController;
 use Illuminate\Support\Facades\Route;
@@ -21,5 +22,6 @@ Route::middleware('web')->group(function () {
         Route::patch('/me', [AuthController::class, 'updateProfile'])->middleware('throttle:10,1');
         Route::put('/me/password', [AuthController::class, 'updatePassword'])->middleware('throttle:5,1');
         Route::get('/dashboard', [HomeController::class, 'dashboard']);
+        Route::get('/branding', [BrandingController::class, 'show']);
     });
 });

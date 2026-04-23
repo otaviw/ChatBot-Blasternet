@@ -88,7 +88,7 @@ const requestWithFallback = async ({
     const requestHandler = METHOD_HANDLERS[normalizedMethod];
 
     if (!requestHandler) {
-      throw new Error(`Metodo HTTP nao suportado: ${normalizedMethod}`);
+      throw new Error(`Método HTTP não suportado: ${normalizedMethod}`);
     }
 
     try {
@@ -490,7 +490,7 @@ export async function toggleInternalChatReaction({ role, conversationId, message
   const chatConversationId = toPositiveInt(conversationId);
   const chatMessageId = toPositiveInt(messageId);
   if (!chatConversationId || !chatMessageId) {
-    throw new Error('IDs de conversa/mensagem invalidos.');
+    throw new Error('IDs de conversa/mensagem inválidos.');
   }
 
   if (!emoji || !String(emoji).trim()) {
@@ -588,7 +588,7 @@ export async function editInternalChatMessage({ role, conversationId, messageId,
   const chatConversationId = toPositiveInt(conversationId);
   const chatMessageId = toPositiveInt(messageId);
   if (!chatConversationId || !chatMessageId) {
-    throw new Error('IDs de conversa/mensagem invalidos.');
+    throw new Error('IDs de conversa/mensagem inválidos.');
   }
 
   const content = String(text ?? '').trim();
@@ -632,7 +632,7 @@ export async function deleteInternalChatMessage({ role, conversationId, messageI
   const chatConversationId = toPositiveInt(conversationId);
   const chatMessageId = toPositiveInt(messageId);
   if (!chatConversationId || !chatMessageId) {
-    throw new Error('IDs de conversa/mensagem invalidos.');
+    throw new Error('IDs de conversa/mensagem inválidos.');
   }
 
   const response = await requestWithFallback({

@@ -49,7 +49,7 @@ class RealtimeTransport {
   async connect(forceRefresh = false) {
     const socketToken = await this.fetchSocketToken();
     if (!socketToken?.token) {
-      throw new Error('Token de realtime invalido.');
+      throw new Error('Token de realtime inválido.');
     }
 
     if (this.socket) {
@@ -107,7 +107,7 @@ class RealtimeTransport {
 
   waitForSocketConnection(socket) {
     if (!socket) {
-      return Promise.reject(new Error('Socket indisponivel para conexao.'));
+      return Promise.reject(new Error('Socket indisponível para conexão.'));
     }
 
     if (socket.connected) {

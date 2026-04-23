@@ -82,7 +82,7 @@ function GeneralTab({ company, setting, metricsLoading, metricsData }) {
             </div>
             <div className="app-metric-card">
               <p className="app-metric-value">{metricsData.metrics.total_users ?? 0}</p>
-              <p className="app-metric-label">Total de usuarios</p>
+              <p className="app-metric-label">Total de usuários</p>
             </div>
             <div className="app-metric-card">
               <p className="app-metric-value">{metricsData.metrics.by_status?.open ?? 0}</p>

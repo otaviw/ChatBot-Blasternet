@@ -70,7 +70,7 @@ function SettingsTab({
                 disabled={testState === 'loading' || !companyForm.meta_phone_number_id}
                 className="app-btn-secondary text-xs"
               >
-                {testState === 'loading' ? 'Testando...' : 'Testar conexao'}
+                {testState === 'loading' ? 'Testando...' : 'Testar conexão'}
               </button>
               {testState === 'ok' && testResult?.display_phone_number && (
                 <span className="text-xs text-emerald-700">

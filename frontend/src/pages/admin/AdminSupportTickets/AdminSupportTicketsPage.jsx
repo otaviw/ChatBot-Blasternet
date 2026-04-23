@@ -172,7 +172,7 @@ function AdminSupportTicketsPage() {
       setClosedTickets(response.data?.closed_tickets ?? []);
       setCompanies(response.data?.companies ?? []);
     } catch (err) {
-      setActionError(err.response?.data?.message || 'Falha ao carregar solicitacoes.');
+      setActionError(err.response?.data?.message || 'Falha ao carregar solicitações.');
     } finally {
       setBusy(false);
     }
@@ -224,7 +224,7 @@ function AdminSupportTicketsPage() {
     <Layout role="admin" onLogout={logout}>
       <h1 className="text-xl font-medium mb-2">Solicitacoes de suporte</h1>
       <p className="text-sm text-[#64748b] mb-6">
-        Gerencie chamados enviados pelos usuarios da plataforma.
+        Gerencie chamados enviados pelos usuários da plataforma.
       </p>
 
       <section className="border border-[#e3e3e0] rounded-lg p-4 mb-6">

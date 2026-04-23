@@ -31,7 +31,7 @@ class ProcessCampaignJob implements ShouldQueue
         $campaign = Campaign::with('company')->find($this->campaignId);
 
         if ($campaign === null) {
-            Log::warning('ProcessCampaignJob: campanha nao encontrada.', [
+            Log::warning('ProcessCampaignJob: campanha não encontrada.', [
                 'campaign_id' => $this->campaignId,
             ]);
 

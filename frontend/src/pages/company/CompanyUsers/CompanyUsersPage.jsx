@@ -27,7 +27,7 @@ export default function CompanyUsersPage() {
   if (error || !data?.authenticated) {
     return (
       <Layout role="company" onLogout={logout}>
-        <p className="text-sm text-red-600">Nao foi possivel carregar usuarios.</p>
+        <p className="text-sm text-red-600">Não foi possível carregar usuários.</p>
       </Layout>
     );
   }

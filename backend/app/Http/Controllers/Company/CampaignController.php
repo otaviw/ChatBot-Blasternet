@@ -82,7 +82,7 @@ class CampaignController extends Controller
     {
         $companyId = $this->resolveCompanyId($request);
         if ($companyId === null) {
-            return response()->json(['message' => 'Empresa nÃ£o identificada.'], 403);
+            return response()->json(['message' => 'Empresa não identificada.'], 403);
         }
 
         $validated = $request->validated();

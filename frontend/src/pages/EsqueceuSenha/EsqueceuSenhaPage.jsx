@@ -40,7 +40,7 @@ function EsqueceuSenhaPage() {
 
           {sent ? (
             <p className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-800">
-              Se o email estiver cadastrado, voce recebera as instrucoes em breve.
+              Se o email estiver cadastrado, você receberá as instruções em breve.
             </p>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4 mt-4">

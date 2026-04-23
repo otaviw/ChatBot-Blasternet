@@ -133,7 +133,7 @@ function InternalChatConversationOptionsModal({
           ) : (
             <div className="internal-chat-group-options">
               <p className="internal-chat-modal-hint">
-                Esta acao remove a conversa apenas para voce.
+                Esta ação remove a conversa apenas para você.
               </p>
               <button
                 type="button"

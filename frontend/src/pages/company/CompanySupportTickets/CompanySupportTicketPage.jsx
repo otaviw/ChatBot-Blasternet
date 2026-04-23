@@ -148,9 +148,9 @@ function CompanySupportTicketPage() {
       companyName={role === 'company' ? (data.company_name ?? 'Empresa') : undefined}
       onLogout={logout}
     >
-      <h1 className="text-xl font-medium mb-2">Minhas solicitacoes de suporte</h1>
+      <h1 className="text-xl font-medium mb-2">Minhas solicitações de suporte</h1>
       <p className="text-sm text-[#64748b] mb-6">
-        Acompanhe apenas as solicitacoes abertas por voce.
+        Acompanhe apenas as solicitações abertas por você.
       </p>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">

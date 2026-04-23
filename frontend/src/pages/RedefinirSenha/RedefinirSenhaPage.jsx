@@ -59,7 +59,7 @@ function RedefinirSenhaPage() {
         <div className="mx-auto max-w-md">
           <Card>
             <Notice tone="danger">
-              Link invalido. Solicite um novo link de redefinicao de senha.
+              Link inválido. Solicite um novo link de redefinição de senha.
             </Notice>
             <p className="mt-4 text-center text-sm text-[#737373]">
               <Link to="/esqueceu-senha" className="text-[#2563eb] hover:underline">

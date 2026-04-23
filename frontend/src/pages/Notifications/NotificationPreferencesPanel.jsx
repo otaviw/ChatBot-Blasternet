@@ -5,13 +5,13 @@ import notificationService from '@/services/notificationService';
 
 const TYPE_LABELS = {
   customer_message: { label: 'Nova mensagem do cliente', module: 'Conversas' },
-  conversation_transferred: { label: 'Conversa transferida para voce', module: 'Conversas' },
+  conversation_transferred: { label: 'Conversa transferida para você', module: 'Conversas' },
   conversation_closed: { label: 'Conversa encerrada', module: 'Conversas' },
   support_ticket_created: { label: 'Nova solicitacao de suporte aberta', module: 'Chamados' },
   support_ticket_message: { label: 'Nova mensagem em chamado', module: 'Chamados' },
   support_ticket_closed: { label: 'Chamado encerrado', module: 'Chamados' },
   internal_chat_message: { label: 'Nova mensagem no chat interno', module: 'Chat interno' },
-  chat_participant_added: { label: 'Voce foi adicionado a um grupo', module: 'Chat interno' },
+  chat_participant_added: { label: 'Você foi adicionado a um grupo', module: 'Chat interno' },
 };
 
 function groupByModule(allTypes, preferences) {
@@ -45,7 +45,7 @@ export default function NotificationPreferencesPanel({ open, onClose }) {
   const load = useCallback(async () => {
     const { data } = await runLoadPreferences(
       () => notificationService.getPreferences(),
-      { mapError: () => 'Nao foi possivel carregar as preferencias.' }
+      { mapError: () => 'Não foi possível carregar as preferências.' }
     );
 
     if (!data) {
@@ -92,7 +92,7 @@ export default function NotificationPreferencesPanel({ open, onClose }) {
 
     const { data } = await runSavePreferences(
       () => notificationService.updatePreferences(preferences),
-      { mapError: () => 'Nao foi possivel salvar as preferencias.' }
+      { mapError: () => 'Não foi possível salvar as preferências.' }
     );
 
     if (!data) {
@@ -100,7 +100,7 @@ export default function NotificationPreferencesPanel({ open, onClose }) {
     }
 
     setPreferences(data.preferences ?? preferences);
-    setSuccessMsg('Preferencias salvas com sucesso.');
+    setSuccessMsg('Preferências salvas com sucesso.');
   };
 
   const handleEnableAll = () => {
@@ -123,17 +123,17 @@ export default function NotificationPreferencesPanel({ open, onClose }) {
   const panelError = loadingError || saveError;
 
   return (
-    <div className="notif-prefs-overlay" role="dialog" aria-modal="true" aria-label="Preferencias de notificacoes">
+    <div className="notif-prefs-overlay" role="dialog" aria-modal="true" aria-label="Preferências de notificações">
       <div className="notif-prefs-panel" ref={panelRef}>
         <div className="notif-prefs-header">
-          <h2 className="notif-prefs-title">Preferencias de notificacoes</h2>
+          <h2 className="notif-prefs-title">Preferências de notificações</h2>
           <button type="button" className="notif-prefs-close" onClick={onClose} aria-label="Fechar">
             x
           </button>
         </div>
 
         <p className="notif-prefs-subtitle">
-          Escolha quais tipos de notificacao voce deseja receber. As alteracoes valem para novas notificacoes.
+          Escolha quais tipos de notificação você deseja receber. As alterações valem para novas notificações.
         </p>
 
         <AsyncState loading={loading} loadingSlot={<p className="notif-prefs-loading">Carregando...</p>}>
@@ -186,7 +186,7 @@ export default function NotificationPreferencesPanel({ open, onClose }) {
                 onClick={handleSave}
                 disabled={saving}
               >
-                {saving ? 'Salvando...' : 'Salvar preferencias'}
+                {saving ? 'Salvando...' : 'Salvar preferências'}
               </button>
             </div>
           </>

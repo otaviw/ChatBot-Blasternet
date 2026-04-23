@@ -106,7 +106,7 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
       setTestResult(response.data);
     } catch (err) {
       setTestState('error');
-      setTestResult({ error: err.response?.data?.error || 'Erro ao testar conexao.' });
+      setTestResult({ error: err.response?.data?.error || 'Erro ao testar conexão.' });
     }
   };
 
@@ -159,7 +159,7 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
   if (error || !data?.authenticated || !data.company) {
     return (
       <Layout>
-        <p className="text-sm text-red-600 dark:text-red-400">Nao foi possivel carregar a empresa.</p>
+        <p className="text-sm text-red-600 dark:text-red-400">Não foi possível carregar a empresa.</p>
       </Layout>
     );
   }

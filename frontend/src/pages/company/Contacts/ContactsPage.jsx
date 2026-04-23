@@ -65,7 +65,7 @@ function ContactsPage() {
       setIsModalOpen(false);
       showSuccess('Contato criado com sucesso.');
     } catch (err) {
-      setModalError(err.message || 'Nao foi possivel criar o contato.');
+      setModalError(err.message || 'Não foi possível criar o contato.');
     }
   };
 
@@ -88,7 +88,7 @@ function ContactsPage() {
         : `Importacao concluida: ${imported} importados, ${skipped} ignorados.`;
       showSuccess(message);
     } catch (err) {
-      showError(err.message || 'Nao foi possivel importar o CSV.');
+      showError(err.message || 'Não foi possível importar o CSV.');
     }
   };
 

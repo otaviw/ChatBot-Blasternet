@@ -13,7 +13,7 @@ function UsersTab({ company, metricsLoading, metricsData }) {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div className="rounded-lg bg-[#fafafa] px-4 py-3">
-            <p className="text-xs font-medium text-[#737373] uppercase tracking-wider">Total de usuarios</p>
+            <p className="text-xs font-medium text-[#737373] uppercase tracking-wider">Total de usuários</p>
             <p className="mt-1 text-2xl font-semibold text-[#171717]">{totalUsers}</p>
           </div>
           <div className="rounded-lg bg-[#fafafa] px-4 py-3">
@@ -48,7 +48,7 @@ function UsersTab({ company, metricsLoading, metricsData }) {
         </div>
       ) : (
         <p className="text-sm text-[#737373]">
-          Nao ha lista de usuarios neste payload. O total segue disponivel nas metricas.
+          Não há lista de usuários neste payload. O total segue disponível nas métricas.
         </p>
       )}
     </section>
