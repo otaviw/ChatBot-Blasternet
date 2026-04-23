@@ -23,26 +23,20 @@ class AuthController extends Controller
         $credentials = $request->validated();
 
         if (! Auth::attempt($credentials, true)) {
-            return response()->json([
-                'message' => 'Credenciais invalidas.',
-            ], 422);
+            return $this->errorResponse('Credenciais invalidas.', 'invalid_credentials', 401);
         }
 
         $request->session()->regenerate();
         $user = $request->user();
         if (! $user) {
-            return response()->json([
-                'message' => 'Falha ao autenticar usuário.',
-            ], 500);
+            return $this->errorResponse('Falha ao autenticar usuário.', 'auth_failed', 500);
         }
         if (! $user->is_active) {
             Auth::logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
-            return response()->json([
-                'message' => 'Usuário inativo. Procure um administrador.',
-            ], 403);
+            return $this->errorResponse('Usuário inativo. Procure um administrador.', 'user_inactive', 403);
         }
 
         $user->loadMissing('company.reseller', 'reseller');
@@ -77,7 +71,7 @@ class AuthController extends Controller
     {
         $user = $request->user();
         if (! $user) {
-            return response()->json(['message' => 'Não autenticado.'], 403);
+            return $this->errorResponse('Não autenticado.', 'unauthenticated', 401);
         }
 
         $user->name = $request->validated('name');
@@ -95,7 +89,7 @@ class AuthController extends Controller
     {
         $user = $request->user();
         if (! $user) {
-            return response()->json(['message' => 'Não autenticado.'], 403);
+            return $this->errorResponse('Não autenticado.', 'unauthenticated', 401);
         }
 
         $validated = $request->validated();

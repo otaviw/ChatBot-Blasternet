@@ -45,6 +45,8 @@ class AppJsonFormatter extends JsonFormatter
             'service'    => $extra['service']    ?? config('app.name', 'laravel'),
             'env'        => $extra['env']        ?? config('app.env', 'production'),
             'request_id' => $extra['request_id'] ?? null,
+            'user_id'    => $extra['user_id']    ?? null,
+            'company_id' => $extra['company_id'] ?? null,
         ];
 
         return $this->toJson($data, true) . "\n";

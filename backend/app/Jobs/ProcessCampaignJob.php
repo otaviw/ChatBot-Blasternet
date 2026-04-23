@@ -245,6 +245,30 @@ class ProcessCampaignJob implements ShouldQueue
         );
     }
 
+    /**
+     * Chamado pelo framework quando o job falha após esgotar todas as tentativas.
+     *
+     * Com tries = 1 qualquer exceção não capturada no handle() chega aqui.
+     * Sem este método, a campanha ficaria presa no status 'sending' indefinidamente.
+     * Contatos já processados mantêm seus status — apenas os que ainda estão
+     * 'pending' continuam pendentes para diagnóstico manual.
+     */
+    public function failed(?\Throwable $exception): void
+    {
+        Log::error('ProcessCampaignJob: falhou — campanha encerrada com erro.', [
+            'campaign_id'     => $this->campaignId,
+            'exception_class' => $exception !== null ? get_class($exception) : null,
+            'exception'       => $exception?->getMessage(),
+        ]);
+
+        $campaign = Campaign::find($this->campaignId);
+
+        if ($campaign !== null && $campaign->status === 'sending') {
+            $campaign->status = 'finished';
+            $campaign->save();
+        }
+    }
+
     private function serializeError(mixed $error): string
     {
         if ($error === null) {

@@ -69,13 +69,13 @@ class CompanyController extends Controller
     private function denyIfNotOwned(Request $request, Company $company): ?JsonResponse
     {
         if ($request->user()?->isSystemAdmin() && ! $company->reseller_id) {
-            return response()->json(['message' => 'Acesso negado para esta empresa.'], 403);
+            return $this->errorResponse('Acesso negado para esta empresa.', 'access_denied', 403);
         }
 
         $resellerId = $this->resolveResellerId($request);
 
         if ($resellerId !== null && (int) $company->reseller_id !== $resellerId) {
-            return response()->json(['message' => 'Acesso negado para esta empresa.'], 403);
+            return $this->errorResponse('Acesso negado para esta empresa.', 'access_denied', 403);
         }
 
         return null;
@@ -102,7 +102,7 @@ class CompanyController extends Controller
     public function updateBotSettings(UpdateCompanyBotSettingsRequest $request, Company $company): JsonResponse
     {
         if ($request->user()?->isSystemAdmin()) {
-            return response()->json(['message' => 'Superadmin nao pode editar empresas diretamente.'], 403);
+            return $this->errorResponse('Superadmin nao pode editar empresas diretamente.', 'forbidden', 403);
         }
 
         if ($denied = $this->denyIfNotOwned($request, $company)) {
@@ -193,11 +193,6 @@ class CompanyController extends Controller
         $validated = $request->validated();
 
         $user = $request->user();
-        if ($user->isSystemAdmin()) {
-            return response()->json([
-                'message' => 'Superadmin nao pode criar empresas diretamente.',
-            ], 403);
-        }
 
         if ($user->isSystemAdmin()) {
             $resellerId = $validated['reseller_id'] ?? Reseller::getBySlug('default')?->id;
@@ -207,10 +202,9 @@ class CompanyController extends Controller
             }
         } else {
             $resellerId = (int) ($user->reseller_id ?? $user->company?->reseller_id ?? 0);
+
             if ($resellerId <= 0) {
-                return response()->json([
-                    'message' => 'Usuario sem reseller vinculado.',
-                ], 403);
+                return $this->errorResponse('Usuário sem reseller vinculado.', 'reseller_not_found', 403);
             }
         }
 
@@ -266,7 +260,7 @@ class CompanyController extends Controller
     public function update(UpdateCompanyRequest $request, Company $company): JsonResponse
     {
         if ($request->user()?->isSystemAdmin()) {
-            return response()->json(['message' => 'Superadmin nao pode editar empresas diretamente.'], 403);
+            return $this->errorResponse('Superadmin nao pode editar empresas diretamente.', 'forbidden', 403);
         }
 
         if ($denied = $this->denyIfNotOwned($request, $company)) {
@@ -366,7 +360,7 @@ class CompanyController extends Controller
     public function destroy(Request $request, Company $company): JsonResponse
     {
         if ($request->user()?->isSystemAdmin()) {
-            return response()->json(['message' => 'Superadmin nao pode excluir empresas diretamente.'], 403);
+            return $this->errorResponse('Superadmin nao pode excluir empresas diretamente.', 'forbidden', 403);
         }
 
         if ($denied = $this->denyIfNotOwned($request, $company)) {
@@ -547,7 +541,7 @@ class CompanyController extends Controller
     public function validateWhatsApp(ValidateCompanyWhatsAppRequest $request, Company $company): JsonResponse
     {
         if ($request->user()?->isSystemAdmin()) {
-            return response()->json(['message' => 'Superadmin nao pode editar empresas diretamente.'], 403);
+            return $this->errorResponse('Superadmin nao pode editar empresas diretamente.', 'forbidden', 403);
         }
 
         if ($denied = $this->denyIfNotOwned($request, $company)) {

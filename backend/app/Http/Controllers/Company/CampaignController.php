@@ -21,7 +21,7 @@ class CampaignController extends Controller
     {
         $companyId = $this->resolveCompanyId($request);
         if ($companyId === null) {
-            return response()->json(['message' => 'Empresa não identificada.'], 403);
+            return $this->errorResponse('Empresa não identificada.', 'company_not_found', 403);
         }
 
         $campaigns = Campaign::where('company_id', $companyId)
@@ -42,7 +42,7 @@ class CampaignController extends Controller
     {
         $companyId = $this->resolveCompanyId($request);
         if ($companyId === null) {
-            return response()->json(['message' => 'Empresa não identificada.'], 403);
+            return $this->errorResponse('Empresa não identificada.', 'company_not_found', 403);
         }
 
         $validated = $request->validated();
@@ -91,7 +91,7 @@ class CampaignController extends Controller
     {
         $companyId = $this->resolveCompanyId($request);
         if ($companyId === null) {
-            return response()->json(['message' => 'Empresa não identificada.'], 403);
+            return $this->errorResponse('Empresa não identificada.', 'company_not_found', 403);
         }
 
         $validated = $request->validated();
@@ -140,7 +140,7 @@ class CampaignController extends Controller
     {
         $companyId = $this->resolveCompanyId($request);
         if ($companyId === null) {
-            return response()->json(['message' => 'Empresa não identificada.'], 403);
+            return $this->errorResponse('Empresa não identificada.', 'company_not_found', 403);
         }
 
         $campaign = Campaign::where('company_id', $companyId)
@@ -154,7 +154,7 @@ class CampaignController extends Controller
             ->find($campaignId);
 
         if ($campaign === null) {
-            return response()->json(['message' => 'Campanha não encontrada.'], 404);
+            return $this->errorResponse('Campanha não encontrada.', 'not_found', 404);
         }
 
         return response()->json(['campaign' => $campaign]);
@@ -171,21 +171,21 @@ class CampaignController extends Controller
     {
         $companyId = $this->resolveCompanyId($request);
         if ($companyId === null) {
-            return response()->json(['message' => 'Empresa não identificada.'], 403);
+            return $this->errorResponse('Empresa não identificada.', 'company_not_found', 403);
         }
 
         $campaign = Campaign::where('company_id', $companyId)->find($campaignId);
 
         if ($campaign === null) {
-            return response()->json(['message' => 'Campanha não encontrada.'], 404);
+            return $this->errorResponse('Campanha não encontrada.', 'not_found', 404);
         }
 
         if ($campaign->status === 'sending') {
-            return response()->json(['message' => 'Campanha já está sendo enviada.'], 409);
+            return $this->errorResponse('Campanha já está sendo enviada.', 'campaign_already_sending', 409);
         }
 
         if ($campaign->status === 'finished') {
-            return response()->json(['message' => 'Campanha já foi finalizada.'], 409);
+            return $this->errorResponse('Campanha já foi finalizada.', 'campaign_already_finished', 409);
         }
 
         $preselectedIds = $campaign->campaignContacts()
@@ -252,17 +252,17 @@ class CampaignController extends Controller
     {
         $companyId = $this->resolveCompanyId($request);
         if ($companyId === null) {
-            return response()->json(['message' => 'Empresa não identificada.'], 403);
+            return $this->errorResponse('Empresa não identificada.', 'company_not_found', 403);
         }
 
         $campaign = Campaign::where('company_id', $companyId)->find($campaignId);
 
         if ($campaign === null) {
-            return response()->json(['message' => 'Campanha não encontrada.'], 404);
+            return $this->errorResponse('Campanha não encontrada.', 'not_found', 404);
         }
 
         if ($campaign->status === 'sending') {
-            return response()->json(['message' => 'Não é possível excluir uma campanha em envio.'], 409);
+            return $this->errorResponse('Não é possível excluir uma campanha em envio.', 'campaign_sending_cannot_delete', 409);
         }
 
         $campaign->delete();

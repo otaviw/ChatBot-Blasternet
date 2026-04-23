@@ -68,7 +68,7 @@ class InboundMessageService
             if ($existing !== null) {
                 Log::info('InboundMessageService: mensagem de texto duplicada ignorada.', [
                     'wamid'       => $wamid,
-                    'from'        => $normalizedFrom,
+                    'from_hash'   => self::maskPhone($normalizedFrom),
                     'message_id'  => $existing->id,
                     'company_id'  => $company?->id,
                 ]);
@@ -90,7 +90,7 @@ class InboundMessageService
             ->where('direction', 'in')
             ->exists();
 
-        $inMessage = Message::create([
+        $inMessage = $this->createMessageOrFetchDuplicate([
             'conversation_id' => $conversation->id,
             'direction' => 'in',
             'type' => 'user',
@@ -243,9 +243,8 @@ class InboundMessageService
         if ($sendOutbound && ! $wasSent) {
             Log::warning('Falha ao enviar resposta automatica para WhatsApp.', [
                 'conversation_id' => $updatedConversation->id,
-                'company_id' => $company?->id,
-                'to' => $normalizedFrom,
-                'reply_preview' => mb_substr($reply, 0, 140),
+                'company_id'      => $company?->id,
+                'to_hash'         => self::maskPhone($normalizedFrom),
             ]);
         }
 
@@ -286,7 +285,7 @@ class InboundMessageService
             if ($existing !== null) {
                 Log::info('InboundMessageService: mensagem de mídia duplicada ignorada.', [
                     'wamid'          => $wamid,
-                    'from'           => $normalizedFrom,
+                    'from_hash'      => self::maskPhone($normalizedFrom),
                     'message_id'     => $existing->id,
                     'company_id'     => $company?->id,
                     'incoming_type'  => $inMeta['incoming_type'] ?? 'media',
@@ -318,7 +317,7 @@ class InboundMessageService
         if ($storedMedia === null) {
             Log::warning('handleIncomingMedia: download de mídia falhou ou retornou vazio.', [
                 'company_id'   => $company?->id,
-                'from'         => $normalizedFrom,
+                'from_hash'    => self::maskPhone($normalizedFrom),
                 'media_id'     => $normalizedMediaId,
                 'incoming_type' => $inMeta['incoming_type'] ?? 'unknown',
                 'download_null' => $download === null,
@@ -332,30 +331,34 @@ class InboundMessageService
             'media_downloaded' => $storedMedia !== null,
         ]);
 
-        $mediaType = $inMeta['incoming_type'] ?? 'image'; 
+        $mediaType = $inMeta['incoming_type'] ?? 'image';
 
-        $inMessage = Message::create([
-            'conversation_id' => $conversation->id,
-            'direction' => 'in',
-            'type' => 'user',
-            'content_type' => $mediaType,
-            'text' => $captionValue !== '' ? $captionValue : null,
-            'media_provider' => $storedMedia['provider'] ?? null,
-            'media_key' => $storedMedia['key'] ?? null,
-            'media_url' => $storedMedia['url'] ?? null,
-            'media_mime_type' => $storedMedia['mime_type'] ?? null,
-            'media_filename' => isset($inMeta['filename']) ? (string) $inMeta['filename'] : null,
-            'media_size_bytes' => $storedMedia['size_bytes'] ?? null,
-            'media_width' => $storedMedia['width'] ?? null,
-            'media_height' => $storedMedia['height'] ?? null,
-            'whatsapp_message_id' => $this->extractWhatsAppMessageId($meta),
-            'meta' => $meta,
-        ]);
+        $inMessage = DB::transaction(function () use ($conversation, $mediaType, $captionValue, $storedMedia, $meta) {
+            $msg = $this->createMessageOrFetchDuplicate([
+                'conversation_id' => $conversation->id,
+                'direction' => 'in',
+                'type' => 'user',
+                'content_type' => $mediaType,
+                'text' => $captionValue !== '' ? $captionValue : null,
+                'media_provider' => $storedMedia['provider'] ?? null,
+                'media_key' => $storedMedia['key'] ?? null,
+                'media_url' => $storedMedia['url'] ?? null,
+                'media_mime_type' => $storedMedia['mime_type'] ?? null,
+                'media_filename' => isset($meta['filename']) ? (string) $meta['filename'] : null,
+                'media_size_bytes' => $storedMedia['size_bytes'] ?? null,
+                'media_width' => $storedMedia['width'] ?? null,
+                'media_height' => $storedMedia['height'] ?? null,
+                'whatsapp_message_id' => $this->extractWhatsAppMessageId($meta),
+                'meta' => $meta,
+            ]);
 
-        if ($conversation->isManualMode()) {
-            $conversation->status = ConversationStatus::IN_PROGRESS;
-            $conversation->save();
-        }
+            if ($conversation->isManualMode()) {
+                $conversation->status = ConversationStatus::IN_PROGRESS;
+                $conversation->save();
+            }
+
+            return $msg;
+        });
 
         return [
             'conversation' => $conversation,
@@ -391,7 +394,7 @@ class InboundMessageService
             if ($existing !== null) {
                 Log::info('InboundMessageService: mensagem de localização duplicada ignorada.', [
                     'wamid'      => $wamid,
-                    'from'       => $normalizedFrom,
+                    'from_hash'  => self::maskPhone($normalizedFrom),
                     'message_id' => $existing->id,
                     'company_id' => $company?->id,
                 ]);
@@ -409,20 +412,24 @@ class InboundMessageService
 
         $conversation = $this->bootstrapConversation($company, $normalizedFrom, $normalizedContactName);
 
-        $inMessage = Message::create([
-            'conversation_id' => $conversation->id,
-            'direction' => 'in',
-            'type' => 'user',
-            'content_type' => 'location',
-            'text' => json_encode(compact('latitude', 'longitude', 'name', 'address')),
-            'whatsapp_message_id' => $this->extractWhatsAppMessageId($inMeta),
-            'meta' => $inMeta,
-        ]);
+        $inMessage = DB::transaction(function () use ($conversation, $latitude, $longitude, $name, $address, $inMeta) {
+            $msg = $this->createMessageOrFetchDuplicate([
+                'conversation_id' => $conversation->id,
+                'direction' => 'in',
+                'type' => 'user',
+                'content_type' => 'location',
+                'text' => json_encode(compact('latitude', 'longitude', 'name', 'address')),
+                'whatsapp_message_id' => $this->extractWhatsAppMessageId($inMeta),
+                'meta' => $inMeta,
+            ]);
 
-        if ($conversation->isManualMode()) {
-            $conversation->status = ConversationStatus::IN_PROGRESS;
-            $conversation->save();
-        }
+            if ($conversation->isManualMode()) {
+                $conversation->status = ConversationStatus::IN_PROGRESS;
+                $conversation->save();
+            }
+
+            return $msg;
+        });
 
         return [
             'conversation' => $conversation,
@@ -490,6 +497,48 @@ class InboundMessageService
     private function normalizePhone(string $phone): string
     {
         return PhoneNumberNormalizer::normalizeBrazil($phone);
+    }
+
+    /**
+     * Cria mensagem capturando race condition de unique constraint (SQLSTATE 23xxx).
+     *
+     * Cenário: dois jobs passam pelas layers 1 e 2 simultaneamente antes de qualquer
+     * um persistir. O DB rejeita o segundo insert com duplicate key. Sem este catch,
+     * o job falharia e retentaria desnecessariamente — o dado estaria correto mas os
+     * logs de erro seriam ruidosos e os retries desperdiçariam recursos.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    private function createMessageOrFetchDuplicate(array $attributes): Message
+    {
+        try {
+            return Message::create($attributes);
+        } catch (\Illuminate\Database\QueryException $e) {
+            if (str_starts_with((string) $e->getCode(), '23')) {
+                $wamid = $attributes['whatsapp_message_id'] ?? null;
+
+                if ($wamid !== null) {
+                    $existing = Message::where('whatsapp_message_id', $wamid)->first();
+
+                    if ($existing !== null) {
+                        Log::warning('InboundMessageService: race condition resolvida — mensagem já persistida por job concorrente.', [
+                            'wamid'               => $wamid,
+                            'existing_message_id' => $existing->id,
+                            'sqlstate'            => $e->getCode(),
+                        ]);
+
+                        return $existing;
+                    }
+                }
+            }
+
+            throw $e;
+        }
+    }
+
+    private static function maskPhone(string $phone): string
+    {
+        return substr(hash('sha256', $phone), 0, 12);
     }
 
     /**

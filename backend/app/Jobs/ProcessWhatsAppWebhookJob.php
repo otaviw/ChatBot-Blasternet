@@ -94,7 +94,7 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
                     Log::info('Webhook: mensagem duplicada ignorada no job.', [
                         'company_id' => (int) $company->id,
                         'wamid'      => $messageId,
-                        'from'       => $from,
+                        'from_hash'  => self::maskPhone($from),
                         'type'       => $messageType,
                     ]);
                     continue;
@@ -138,7 +138,7 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
                     $contactName
                 );
 
-                Log::info('Webhook imagem processada.', ['company_id' => $company->id, 'from' => $from, 'message_id' => $messageId]);
+                Log::info('Webhook imagem processada.', ['company_id' => $company->id, 'from_hash' => self::maskPhone($from), 'message_id' => $messageId]);
                 continue;
             }
 
@@ -155,7 +155,7 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
                     $contactName
                 );
 
-                Log::info('Webhook audio processado.', ['company_id' => $company->id, 'from' => $from, 'message_id' => $messageId]);
+                Log::info('Webhook audio processado.', ['company_id' => $company->id, 'from_hash' => self::maskPhone($from), 'message_id' => $messageId]);
                 continue;
             }
 
@@ -172,7 +172,7 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
                     $contactName
                 );
 
-                Log::info('Webhook video processado.', ['company_id' => $company->id, 'from' => $from]);
+                Log::info('Webhook video processado.', ['company_id' => $company->id, 'from_hash' => self::maskPhone($from)]);
                 continue;
             }
 
@@ -190,7 +190,7 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
                     $contactName
                 );
 
-                Log::info('Webhook document processado.', ['company_id' => $company->id, 'from' => $from]);
+                Log::info('Webhook document processado.', ['company_id' => $company->id, 'from_hash' => self::maskPhone($from)]);
                 continue;
             }
 
@@ -515,10 +515,9 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
 
         if ($reactorPhone === '' || $targetWhatsappMessageId === '') {
             Log::warning('Webhook reaction ignorado por payload incompleto.', [
-                'company_id' => (int) $company->id,
-                'from' => $messagePayload['from'] ?? null,
+                'company_id'          => (int) $company->id,
+                'from_hash'           => ($messagePayload['from'] ?? '') !== '' ? self::maskPhone((string) $messagePayload['from']) : null,
                 'reaction_message_id' => $reactionPayload['message_id'] ?? null,
-                'reaction_emoji' => $reactionPayload['emoji'] ?? null,
             ]);
             return;
         }
@@ -532,11 +531,10 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
 
         if (! $message) {
             Log::warning('Webhook reaction recebido sem mensagem correspondente.', [
-                'company_id' => (int) $company->id,
-                'reactor_phone' => $reactorPhone,
+                'company_id'                 => (int) $company->id,
+                'reactor_phone_hash'         => self::maskPhone($reactorPhone),
                 'target_whatsapp_message_id' => $targetWhatsappMessageId,
-                'message_type' => $messagePayload['type'] ?? null,
-                'message_id' => $messagePayload['id'] ?? null,
+                'message_id'                 => $messagePayload['id'] ?? null,
             ]);
             return;
         }
@@ -657,5 +655,10 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
             'exception_class' => $exception !== null ? get_class($exception) : null,
             'exception'       => $exception?->getMessage(),
         ]);
+    }
+
+    private static function maskPhone(string $phone): string
+    {
+        return substr(hash('sha256', $phone), 0, 12);
     }
 }

@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToCompany;
 use App\Support\ConversationHandlingMode;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Conversation extends Model
 {
+    use BelongsToCompany;
+
     /** @var array<int, string>|null */
     private ?array $pendingTagNames = null;
 

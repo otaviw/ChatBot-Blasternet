@@ -13,6 +13,8 @@ use Illuminate\Support\Str;
  *  - request_id : UUID gerado uma vez por processo (estável durante toda a request)
  *  - service    : nome da aplicação (config app.name)
  *  - env        : ambiente (config app.env)
+ *  - user_id    : ID do usuário autenticado (null em jobs/artisan)
+ *  - company_id : ID da company do usuário (null para system admins e jobs)
  *
  * Esses campos terminam no JSON final porque AppJsonFormatter os promove
  * de extra para o topo do objeto JSON.
@@ -28,6 +30,8 @@ class AddRequestContext implements ProcessorInterface
             'request_id' => static::getRequestId(),
             'service'    => config('app.name', 'laravel'),
             'env'        => config('app.env', 'production'),
+            'user_id'    => static::resolveUserId(),
+            'company_id' => static::resolveCompanyId(),
         ]));
     }
 
@@ -42,5 +46,26 @@ class AddRequestContext implements ProcessorInterface
         }
 
         return static::$requestId;
+    }
+
+    private static function resolveUserId(): ?int
+    {
+        try {
+            $user = auth()->user();
+            return $user ? (int) $user->id : null;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private static function resolveCompanyId(): ?int
+    {
+        try {
+            $user = auth()->user();
+            $id = $user?->company_id;
+            return ($id !== null && $id > 0) ? (int) $id : null;
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }

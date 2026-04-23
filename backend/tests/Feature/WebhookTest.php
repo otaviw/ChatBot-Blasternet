@@ -516,3 +516,87 @@ describe('Webhook handle (POST) — reações', function () {
         expect(MessageReaction::where('message_id', $message->id)->count())->toBe(0);
     });
 });
+
+// ---------------------------------------------------------------------------
+// POST /api/webhooks/whatsapp  — deduplicação por wamid
+// ---------------------------------------------------------------------------
+
+describe('Webhook handle (POST) — deduplicação por wamid', function () {
+    beforeEach(function () {
+        config()->set('whatsapp.app_secret', 'test-secret');
+        Http::fake(['*' => Http::response(['messages' => [['id' => 'wamid.OUT']]], 200)]);
+    });
+
+    it('salva mensagem corretamente na primeira entrega', function () {
+        $company = makeCompany('200000200000200');
+
+        $payload = makeWebhookPayload('200000200000200', [
+            ['id' => 'wamid.DEDUP.1', 'from' => '5511900001111', 'type' => 'text', 'text' => ['body' => 'mensagem única']],
+        ]);
+
+        webhookPost($this, $payload)->assertOk();
+
+        expect(Message::where('whatsapp_message_id', 'wamid.DEDUP.1')->count())->toBe(1);
+
+        $this->assertDatabaseHas('messages', [
+            'whatsapp_message_id' => 'wamid.DEDUP.1',
+            'direction'           => 'in',
+            'text'                => 'mensagem única',
+        ]);
+    });
+
+    it('não cria mensagem duplicada ao receber o mesmo wamid duas vezes', function () {
+        $company = makeCompany('200100200100200');
+
+        $payload = makeWebhookPayload('200100200100200', [
+            ['id' => 'wamid.DEDUP.2', 'from' => '5511900002222', 'type' => 'text', 'text' => ['body' => 'mensagem repetida']],
+        ]);
+
+        webhookPost($this, $payload)->assertOk();
+        webhookPost($this, $payload)->assertOk(); // reenvio da Meta
+
+        expect(Message::where('whatsapp_message_id', 'wamid.DEDUP.2')->count())->toBe(1);
+    });
+
+    it('processa mensagens distintas com wamids diferentes normalmente', function () {
+        $company = makeCompany('200200200200200');
+
+        foreach (['wamid.DEDUP.3A', 'wamid.DEDUP.3B'] as $wamid) {
+            webhookPost($this, makeWebhookPayload('200200200200200', [
+                ['id' => $wamid, 'from' => '5511900003333', 'type' => 'text', 'text' => ['body' => "msg {$wamid}"]],
+            ]))->assertOk();
+        }
+
+        expect(
+            Message::where('direction', 'in')
+                ->whereIn('whatsapp_message_id', ['wamid.DEDUP.3A', 'wamid.DEDUP.3B'])
+                ->count()
+        )->toBe(2);
+    });
+
+    it('não cria conversa duplicada ao receber o mesmo número duas vezes', function () {
+        $company = makeCompany('200300200300200');
+
+        $payload = makeWebhookPayload('200300200300200', [
+            ['id' => 'wamid.DEDUP.4', 'from' => '5511900004444', 'type' => 'text', 'text' => ['body' => 'primeira']],
+        ]);
+        webhookPost($this, $payload)->assertOk();
+
+        $payload2 = makeWebhookPayload('200300200300200', [
+            ['id' => 'wamid.DEDUP.5', 'from' => '5511900004444', 'type' => 'text', 'text' => ['body' => 'segunda']],
+        ]);
+        webhookPost($this, $payload2)->assertOk();
+
+        expect(
+            Conversation::where('company_id', $company->id)
+                ->where('customer_phone', '5511900004444')
+                ->count()
+        )->toBe(1);
+
+        expect(
+            Message::where('direction', 'in')
+                ->whereIn('whatsapp_message_id', ['wamid.DEDUP.4', 'wamid.DEDUP.5'])
+                ->count()
+        )->toBe(2);
+    });
+});

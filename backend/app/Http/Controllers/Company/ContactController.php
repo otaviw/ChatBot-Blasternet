@@ -19,7 +19,7 @@ class ContactController extends Controller
     {
         $companyId = $this->resolveCompanyId($request);
         if ($companyId === null) {
-            return response()->json(['message' => 'Empresa não identificada.'], 403);
+            return $this->errorResponse('Empresa não identificada.', 'company_not_found', 403);
         }
 
         $contacts = Contact::where('company_id', $companyId)
@@ -33,7 +33,7 @@ class ContactController extends Controller
     {
         $companyId = $this->resolveCompanyId($request);
         if ($companyId === null) {
-            return response()->json(['message' => 'Empresa não identificada.'], 403);
+            return $this->errorResponse('Empresa não identificada.', 'company_not_found', 403);
         }
 
         $result = $this->csvImport->import($request->file('file'), $companyId);
@@ -50,7 +50,7 @@ class ContactController extends Controller
     {
         $companyId = $this->resolveCompanyId($request);
         if ($companyId === null) {
-            return response()->json(['message' => 'Empresa não identificada.'], 403);
+            return $this->errorResponse('Empresa não identificada.', 'company_not_found', 403);
         }
 
         $validated = $request->validated();
@@ -91,12 +91,12 @@ class ContactController extends Controller
     {
         $companyId = $this->resolveCompanyId($request);
         if ($companyId === null) {
-            return response()->json(['message' => 'Empresa não identificada.'], 403);
+            return $this->errorResponse('Empresa não identificada.', 'company_not_found', 403);
         }
 
         $contact = Contact::where('company_id', $companyId)->find($contactId);
         if ($contact === null) {
-            return response()->json(['message' => 'Contato não encontrado.'], 404);
+            return $this->errorResponse('Contato não encontrado.', 'not_found', 404);
         }
 
         $contact->delete();
