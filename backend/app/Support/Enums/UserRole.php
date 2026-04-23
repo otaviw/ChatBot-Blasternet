@@ -5,6 +5,7 @@ namespace App\Support\Enums;
 enum UserRole: string
 {
     case SYSTEM_ADMIN  = 'system_admin';
+    case RESELLER_ADMIN = 'reseller_admin';
     case COMPANY_ADMIN = 'company_admin';
     case AGENT         = 'agent';
 

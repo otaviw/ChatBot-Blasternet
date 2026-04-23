@@ -3,10 +3,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import AppRoutes from './routes';
 import { NotificationsProvider } from '@/contexts/NotificationsContext';
+import { BrandProvider } from '@/contexts/BrandContext';
 import ErrorBoundary from '@/components/ui/ErrorBoundary/ErrorBoundary.jsx';
 import AppToaster from '@/components/ui/AppToaster/AppToaster.jsx';
 import { useNotificationsContext } from '@/hooks/useNotificationsContext';
 import useFaviconBadge from '@/hooks/useFaviconBadge';
+import { isLoginPath } from '@/utils/tenantRouting';
 
 function NotificationBadgeSync() {
   const location = useLocation();
@@ -44,16 +46,18 @@ function NotificationBadgeSync() {
 export default function App() {
   const location = useLocation();
   const currentPath = location.pathname;
-  const isAuthRoute = currentPath !== '/' && currentPath !== '/entrar';
+  const isAuthRoute = currentPath !== '/' && !isLoginPath(currentPath);
 
   return (
-    <ErrorBoundary resetKey={currentPath}>
-      <AppToaster />
-      <NotificationsProvider enabled={isAuthRoute} autoLoad={isAuthRoute}>
-        <NotificationBadgeSync />
-        <AppRoutes />
-      </NotificationsProvider>
-    </ErrorBoundary>
+    <BrandProvider>
+      <ErrorBoundary resetKey={currentPath}>
+        <AppToaster />
+        <NotificationsProvider enabled={isAuthRoute} autoLoad={isAuthRoute}>
+          <NotificationBadgeSync />
+          <AppRoutes />
+        </NotificationsProvider>
+      </ErrorBoundary>
+    </BrandProvider>
   );
 }
 

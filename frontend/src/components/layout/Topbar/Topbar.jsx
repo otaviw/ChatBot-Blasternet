@@ -1,6 +1,10 @@
 import NotificationsTray from '@/components/layout/NotificationsTray/NotificationsTray.jsx';
 import UserMenu from '@/components/layout/UserMenu/UserMenu.jsx';
 import useThemeMode from '@/components/layout/ThemeSwitcher/useThemeMode.js';
+import { useLocation } from 'react-router-dom';
+import useBrand from '@/hooks/useBrand';
+import BrandLogo from '@/components/branding/BrandLogo/BrandLogo.jsx';
+import { getScopedAuthPaths } from '@/utils/tenantRouting';
 
 export default function Topbar({
   hasSidebar,
@@ -13,7 +17,11 @@ export default function Topbar({
   onUserDataChange,
   onLogout,
 }) {
+  const location = useLocation();
   const { themeMode, toggleThemeMode } = useThemeMode();
+  const branding = useBrand();
+  const brandName = branding?.name || 'Blasternet ChatBot';
+  const { loginPath, dashboardPath } = getScopedAuthPaths(location.pathname);
 
   return (
     <header className="layout-header">
@@ -32,10 +40,13 @@ export default function Topbar({
           </button>
         )}
         <a
-          href={isLogged ? '/dashboard' : '/entrar'}
+          href={isLogged ? dashboardPath : loginPath}
           className="layout-header__logo"
         >
-          Blasternet ChatBot
+          <BrandLogo
+            fallback={brandName}
+            imgClassName="inline-block h-6 w-6 rounded object-contain"
+          />
           {role === 'company' && companyName && (
             <span className="hidden xl:inline text-[#737373] text-xs">/ {companyName}</span>
           )}

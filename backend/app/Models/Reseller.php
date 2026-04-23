@@ -7,7 +7,18 @@ use Illuminate\Support\Facades\Cache;
 
 class Reseller extends Model
 {
-    public const RESERVED_SLUGS = ['login', 'dashboard', 'api', 'admin'];
+    public const RESERVED_SLUGS = [
+        'login',
+        'entrar',
+        'dashboard',
+        'api',
+        'admin',
+        'esqueceu-senha',
+        'redefinir-senha',
+        'suporte',
+        'minha-conta',
+        'companies',
+    ];
 
     protected $fillable = [
         'name',

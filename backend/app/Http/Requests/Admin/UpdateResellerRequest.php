@@ -5,8 +5,9 @@ namespace App\Http\Requests\Admin;
 use App\Models\Reseller;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
-class StoreResellerRequest extends FormRequest
+class UpdateResellerRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -17,7 +18,14 @@ class StoreResellerRequest extends FormRequest
     {
         return [
             'name'          => ['required', 'string', 'max:120'],
-            'slug'          => ['required', 'string', 'max:80', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/', 'unique:resellers,slug', 'not_in:' . implode(',', Reseller::RESERVED_SLUGS)],
+            'slug'          => [
+                'required',
+                'string',
+                'max:80',
+                'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/',
+                Rule::unique('resellers', 'slug')->ignore($this->route('reseller')),
+                'not_in:' . implode(',', Reseller::RESERVED_SLUGS),
+            ],
             'logo'          => ['nullable', 'file', 'image', 'max:2048'],
             'primary_color' => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
         ];

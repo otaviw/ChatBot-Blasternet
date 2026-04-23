@@ -12,6 +12,7 @@ Route::middleware('web')->group(function () {
     });
 
     Route::get('/entrar', [HomeController::class, 'index']);
+    Route::get('/branding', [BrandingController::class, 'show']);
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
     Route::post('/forgot-password', [PasswordResetController::class, 'sendLink'])->middleware('throttle:password-reset');
     Route::post('/reset-password', [PasswordResetController::class, 'reset'])->middleware('throttle:password-reset');
@@ -22,6 +23,5 @@ Route::middleware('web')->group(function () {
         Route::patch('/me', [AuthController::class, 'updateProfile'])->middleware('throttle:10,1');
         Route::put('/me/password', [AuthController::class, 'updatePassword'])->middleware('throttle:5,1');
         Route::get('/dashboard', [HomeController::class, 'dashboard']);
-        Route::get('/branding', [BrandingController::class, 'show']);
     });
 });

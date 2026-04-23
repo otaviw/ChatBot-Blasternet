@@ -11,6 +11,19 @@
 
 @layer base {
   :root {
+    --primary-color: #2563eb;
+    --primary-color-hover: #1d4ed8;
+    --primary-color-soft: rgba(37, 99, 235, 0.14);
+    --primary-color-soft-strong: rgba(37, 99, 235, 0.2);
+    --primary-color-soft-border: rgba(37, 99, 235, 0.36);
+    --primary-color-ring: rgba(37, 99, 235, 0.26);
+    --primary-color-dark: #4f8ef7;
+    --primary-color-dark-hover: #6aa3ff;
+    --primary-color-dark-soft: rgba(79, 142, 247, 0.12);
+    --primary-color-dark-soft-strong: rgba(79, 142, 247, 0.2);
+    --primary-color-dark-soft-border: rgba(79, 142, 247, 0.4);
+    --primary-color-dark-ring: rgba(79, 142, 247, 0.3);
+
     --ui-bg: #fafafa;
     --ui-surface: #ffffff;
     --ui-surface-elevated: #ffffff;
@@ -19,10 +32,10 @@
     --ui-text: #171717;
     --ui-text-muted: #737373;
     --ui-text-subtle: #a3a3a3;
-    --ui-accent: #2563eb;
-    --ui-accent-hover: #1d4ed8;
-    --ui-accent-muted: #eff6ff;
-    --ui-ring: rgba(37, 99, 235, 0.25);
+    --ui-accent: var(--primary-color-dark);
+    --ui-accent-hover: var(--primary-color-dark-hover);
+    --ui-accent-muted: var(--primary-color-dark-soft);
+    --ui-ring: var(--primary-color-dark-ring);
     --ui-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
     --ui-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     --ui-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08);
@@ -39,10 +52,10 @@
     --ui-text: #e8eaf2;
     --ui-text-muted: #8b8fa8;
     --ui-text-subtle: #5c6078;
-    --ui-accent: #4f8ef7;
-    --ui-accent-hover: #6aa3ff;
-    --ui-accent-muted: rgba(79, 142, 247, 0.12);
-    --ui-ring: rgba(79, 142, 247, 0.3);
+    --ui-accent: var(--primary-color);
+    --ui-accent-hover: var(--primary-color-hover);
+    --ui-accent-muted: var(--primary-color-soft);
+    --ui-ring: var(--primary-color-ring);
     --ui-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
     --ui-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
     --ui-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.55);
@@ -124,7 +137,7 @@
   }
 
   ::selection {
-    background: rgba(37, 99, 235, 0.15);
+    background: var(--primary-color-soft);
     color: var(--ui-text);
   }
 }
@@ -155,7 +168,12 @@
   }
 
   .app-btn-primary {
-    @apply rounded-[var(--ui-radius-sm)] bg-[#2563eb] px-4 py-2 text-sm font-medium text-white hover:bg-[#1d4ed8] disabled:opacity-50;
+    @apply rounded-[var(--ui-radius-sm)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50;
+    background: var(--ui-accent);
+  }
+
+  .app-btn-primary:hover {
+    background: var(--ui-accent-hover);
   }
 
   .app-btn-secondary {
@@ -171,7 +189,12 @@
   }
 
   .app-input {
-    @apply mt-1.5 w-full rounded-[var(--ui-radius-sm)] border border-[#e5e5e5] bg-white px-3 py-2.5 text-[15px] text-[#171717] placeholder:text-[#a3a3a3] focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20;
+    @apply mt-1.5 w-full rounded-[var(--ui-radius-sm)] border border-[#e5e5e5] bg-white px-3 py-2.5 text-[15px] text-[#171717] placeholder:text-[#a3a3a3] focus:ring-2;
+  }
+
+  .app-input:focus {
+    border-color: var(--ui-accent);
+    box-shadow: 0 0 0 2px var(--ui-ring);
   }
 
   .app-helper {
@@ -796,6 +819,53 @@ body.theme-dark textarea.bg-white {
   background-color: #13151f;
   border-color: #343848;
   color: #e8eaf2;
+}
+
+/* ================================================================
+   BRAND PRIMARY COLOR MAPPING
+   ================================================================ */
+
+.text-\[\#2563eb\],
+.text-\[\#1d4ed8\],
+.text-\[\#1e40af\] {
+  color: var(--ui-accent) !important;
+}
+
+.hover\:text-\[\#1d4ed8\]:hover {
+  color: var(--ui-accent-hover) !important;
+}
+
+.bg-\[\#2563eb\] {
+  background-color: var(--ui-accent) !important;
+}
+
+.hover\:bg-\[\#1d4ed8\]:hover {
+  background-color: var(--ui-accent-hover) !important;
+}
+
+.bg-\[\#eff6ff\],
+.bg-\[\#dbeafe\],
+.bg-\[\#e7f0ff\] {
+  background-color: var(--ui-accent-muted) !important;
+}
+
+.border-\[\#2563eb\] {
+  border-color: var(--ui-accent) !important;
+}
+
+.border-\[\#bfdbfe\],
+.border-\[\#93c5fd\],
+.border-\[\#dbeafe\],
+.border-\[\#c9dfff\] {
+  border-color: var(--primary-color-soft-border) !important;
+}
+
+.focus\:border-\[\#2563eb\]:focus {
+  border-color: var(--ui-accent) !important;
+}
+
+.focus\:ring-\[\#2563eb\]\/20:focus {
+  --tw-ring-color: var(--ui-ring) !important;
 }
 
 /* Inline buttons sem bg específico que ficam transparentes */

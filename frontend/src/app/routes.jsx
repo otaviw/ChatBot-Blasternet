@@ -1,8 +1,9 @@
 import './routes.css';
 import { lazy, Suspense } from 'react';
-import { Navigate, Route, Routes, useParams } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import useAuth from '@/hooks/useAuth';
 import { PERM, hasPermission } from '@/constants/permissions';
+import { getScopedAuthPaths } from '@/utils/tenantRouting';
 
 const EntrarPage = lazy(() => import('@/pages/Entrar/EntrarPage.jsx'));
 const EsqueceuSenhaPage = lazy(() => import('@/pages/EsqueceuSenha/EsqueceuSenhaPage.jsx'));
@@ -10,6 +11,7 @@ const RedefinirSenhaPage = lazy(() => import('@/pages/RedefinirSenha/RedefinirSe
 const DashboardPage = lazy(() => import('@/pages/Dashboard/DashboardPage.jsx'));
 const AdminCompaniesPage = lazy(() => import('@/pages/admin/AdminCompanies/AdminCompaniesPage.jsx'));
 const AdminCompanyShowPage = lazy(() => import('@/pages/admin/AdminCompanyShow/AdminCompanyShowPage.jsx'));
+const CompanyEditPage = lazy(() => import('@/pages/admin/CompanyEdit/CompanyEditPage.jsx'));
 const AdminSimulatorPage = lazy(() => import('@/pages/admin/AdminSimulator/AdminSimulatorPage.jsx'));
 const AdminInboxPage = lazy(() => import('@/pages/admin/AdminInbox/AdminInboxPage.jsx'));
 const AdminUsersPage = lazy(() => import('@/pages/admin/AdminUsers/AdminUsersPage.jsx'));
@@ -54,26 +56,41 @@ const SupportRequestPage = lazy(() => import('@/pages/support/SupportRequest/Sup
 const InternalChatPage = lazy(() => import('@/pages/shared/InternalChat/InternalChatPage.jsx'));
 const InternalAiChatPage = lazy(() => import('@/pages/shared/InternalAiChat/InternalAiChatPage.jsx'));
 
+const LOGIN_PATHS = ['/entrar', '/login', '/:slug/entrar', '/:slug/login'];
+const DASHBOARD_PATHS = ['/dashboard', '/:slug/dashboard'];
+
+function renderAliasRoutes(paths, element) {
+  return paths.map((path) => <Route key={path} path={path} element={element} />);
+}
+
+function useScopedAuthPaths() {
+  const location = useLocation();
+  return getScopedAuthPaths(location.pathname);
+}
+
 function SuperAdminRoute({ children }) {
   const { user, loading } = useAuth();
+  const { dashboardPath } = useScopedAuthPaths();
   if (loading) return null;
-  if (user?.role !== 'system_admin') return <Navigate to="/dashboard" replace />;
+  if (user?.role !== 'system_admin') return <Navigate to={dashboardPath} replace />;
   return children;
 }
 
 function AiManagementRoute({ children }) {
   const { user, loading } = useAuth();
+  const { dashboardPath } = useScopedAuthPaths();
   if (loading) return null;
-  if (user?.role !== 'system_admin') return <Navigate to="/dashboard" replace />;
+  if (user?.role !== 'system_admin') return <Navigate to={dashboardPath} replace />;
   return children;
 }
 
 function PermissionRoute({ permission, children }) {
   const { user, loading } = useAuth();
+  const { loginPath, dashboardPath } = useScopedAuthPaths();
   if (loading) return null;
-  if (!user) return <Navigate to="/entrar" replace />;
+  if (!user) return <Navigate to={loginPath} replace />;
   if (!hasPermission(user.permissions ?? null, user.role, permission)) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={dashboardPath} replace />;
   }
   return children;
 }
@@ -93,18 +110,32 @@ function CompanySupportTicketRoute() {
   return <CompanyTicketIndex ticketId={ticketId} />;
 }
 
+function CompanyEditRoute() {
+  const { user, loading } = useAuth();
+  const { loginPath, dashboardPath } = useScopedAuthPaths();
+
+  if (loading) return null;
+  if (!user) return <Navigate to={loginPath} replace />;
+
+  const canAccess = user.role === 'system_admin' || user.role === 'reseller_admin';
+  if (!canAccess) return <Navigate to={dashboardPath} replace />;
+
+  return <CompanyEditPage />;
+}
+
 function AppRoutes() {
   return (
     <Suspense fallback={<p className="text-sm text-[#706f6c]">Carregando página...</p>}>
       <Routes>
         <Route path="/" element={<Navigate to="/entrar" replace />} />
-        <Route path="/entrar" element={<EntrarPage />} />
+        {renderAliasRoutes(LOGIN_PATHS, <EntrarPage />)}
         <Route path="/esqueceu-senha" element={<EsqueceuSenhaPage />} />
         <Route path="/redefinir-senha" element={<RedefinirSenhaPage />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
+        {renderAliasRoutes(DASHBOARD_PATHS, <DashboardPage />)}
 
         <Route path="/admin/empresas" element={<AdminCompaniesPage />} />
         <Route path="/admin/empresas/:companyId" element={<AdminCompanyShowRoute />} />
+        <Route path="/companies/:id/edit" element={<CompanyEditRoute />} />
         <Route path="/admin/simulador" element={<AdminSimulatorPage />} />
         <Route path="/admin/conversas" element={<AdminInboxPage />} />
         <Route path="/admin/chat-interno" element={<InternalChatPage />} />

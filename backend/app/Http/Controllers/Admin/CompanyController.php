@@ -52,7 +52,12 @@ class CompanyController extends Controller
             return null;
         }
 
-        return $user->company?->reseller_id ?? null;
+        if ($user->isResellerAdmin()) {
+            $resellerId = (int) ($user->company?->reseller_id ?? 0);
+            return $resellerId > 0 ? $resellerId : -1;
+        }
+
+        return -1;
     }
 
     private function denyIfNotOwned(Request $request, Company $company): ?JsonResponse
@@ -60,7 +65,7 @@ class CompanyController extends Controller
         $resellerId = $this->resolveResellerId($request);
 
         if ($resellerId !== null && (int) $company->reseller_id !== $resellerId) {
-            return response()->json(['message' => 'Não encontrado.'], 404);
+            return response()->json(['message' => 'Acesso negado para esta empresa.'], 403);
         }
 
         return null;
@@ -182,7 +187,12 @@ class CompanyController extends Controller
                 Log::warning('Company criada sem reseller_id: reseller default não encontrado. Execute DefaultResellerSeeder.');
             }
         } else {
-            $resellerId = $user->company?->reseller_id ?? null;
+            $resellerId = (int) ($user->company?->reseller_id ?? 0);
+            if ($resellerId <= 0) {
+                return response()->json([
+                    'message' => 'Usuario sem reseller vinculado.',
+                ], 403);
+            }
         }
 
         $company = Company::create([
@@ -573,3 +583,4 @@ class CompanyController extends Controller
         ]);
     }
 }
+

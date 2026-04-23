@@ -1,6 +1,8 @@
 import { useEffect, useMemo } from 'react';
 import { useNotificationsContext } from '@/hooks/useNotificationsContext';
 import { NOTIFICATION_MODULE } from '@/constants/notifications';
+import useBrand from '@/hooks/useBrand';
+import BrandLogo from '@/components/branding/BrandLogo/BrandLogo.jsx';
 
 const ICONS = {
   dashboard: (
@@ -196,6 +198,8 @@ export default function Sidebar({
   currentPath,
 }) {
   const { unreadByModule, totalUnread } = useNotificationsContext();
+  const brand = useBrand();
+  const brandName = brand?.name || 'Blasternet ChatBot';
 
   const unreadCountForLink = (item) => {
     if (!item?.module) return 0;
@@ -354,7 +358,11 @@ export default function Sidebar({
             className={`layout-sidebar layout-sidebar--mobile ${sidebarMobileOpen ? 'layout-sidebar--mobile-open' : ''}`}
           >
             <div className="layout-sidebar__mobile-header">
-              <span className="layout-sidebar__mobile-title">Navegação</span>
+              <BrandLogo
+                fallback={brandName}
+                className="layout-sidebar__mobile-title"
+                imgClassName="h-6 w-auto max-w-[180px] object-contain"
+              />
               <button
                 type="button"
                 className="layout-sidebar__mobile-close"

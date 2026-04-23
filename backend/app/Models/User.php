@@ -12,6 +12,7 @@ use Illuminate\Notifications\Notifiable;
 class User extends Authenticatable
 {
     public const ROLE_SYSTEM_ADMIN  = UserRole::SYSTEM_ADMIN->value;
+    public const ROLE_RESELLER_ADMIN = UserRole::RESELLER_ADMIN->value;
     public const ROLE_COMPANY_ADMIN = UserRole::COMPANY_ADMIN->value;
     public const ROLE_AGENT         = UserRole::AGENT->value;
     public const ROLE_LEGACY_ADMIN  = 'admin';
@@ -130,6 +131,7 @@ class User extends Authenticatable
     {
         return [
             self::ROLE_SYSTEM_ADMIN,
+            self::ROLE_RESELLER_ADMIN,
             self::ROLE_COMPANY_ADMIN,
             self::ROLE_AGENT,
             self::ROLE_LEGACY_ADMIN,
@@ -167,6 +169,12 @@ class User extends Authenticatable
             && self::normalizeRole($this->role) === UserRole::COMPANY_ADMIN->value;
     }
 
+    public function isResellerAdmin(): bool
+    {
+        return (bool) $this->is_active
+            && self::normalizeRole($this->role) === UserRole::RESELLER_ADMIN->value;
+    }
+
     public function isAgent(): bool
     {
         return (bool) $this->is_active
@@ -176,7 +184,7 @@ class User extends Authenticatable
 
     public function isAdmin(): bool
     {
-        return $this->isSystemAdmin();
+        return $this->isSystemAdmin() || $this->isResellerAdmin();
     }
 
     public function isCompanyUser(): bool

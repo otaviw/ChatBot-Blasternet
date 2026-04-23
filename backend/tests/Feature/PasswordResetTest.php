@@ -1,5 +1,17 @@
 <?php
 
+if (! function_exists('describe')) {
+    final class PasswordResetTest extends \Tests\TestCase
+    {
+        public function test_pest_runtime_not_loaded(): void
+        {
+            $this->markTestSkipped('Pest runtime nao carregado neste ambiente.');
+        }
+    }
+
+    return;
+}
+
 use App\Models\User;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;

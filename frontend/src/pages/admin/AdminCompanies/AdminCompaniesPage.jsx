@@ -8,6 +8,38 @@ import LoadingSkeleton from '@/components/ui/LoadingSkeleton/LoadingSkeleton.jsx
 import EmptyState from '@/components/ui/EmptyState/EmptyState.jsx';
 import ConfirmDialog from '@/components/ui/ConfirmDialog/ConfirmDialog.jsx';
 
+function extractFirstValidationError(error) {
+  const validationErrors = error?.validationErrors;
+  if (!validationErrors || typeof validationErrors !== 'object') {
+    return '';
+  }
+
+  for (const messages of Object.values(validationErrors)) {
+    if (Array.isArray(messages) && messages.length > 0) {
+      const first = String(messages[0] ?? '').trim();
+      if (first) {
+        return first;
+      }
+    }
+  }
+
+  return '';
+}
+
+function normalizeHexColor(value, fallback = '#2563eb') {
+  const raw = String(value ?? '').trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(raw)) {
+    return raw.toLowerCase();
+  }
+
+  return fallback;
+}
+
+function companyStatusLabel(company) {
+  const isActive = Boolean(company?.bot_setting?.is_active ?? company?.botSetting?.is_active ?? false);
+  return isActive ? 'Ativa' : 'Inativa';
+}
+
 function AdminCompaniesPage() {
   const { data, loading, error } = usePageData('/admin/empresas');
   const { logout } = useLogout();
@@ -24,10 +56,122 @@ function AdminCompaniesPage() {
   const [deleteError, setDeleteError] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [companies, setCompanies] = useState([]);
+  const [resellers, setResellers] = useState([]);
+  const [resellerLoading, setResellerLoading] = useState(true);
+  const [resellerForm, setResellerForm] = useState({
+    name: '',
+    slug: '',
+    primary_color: '#2563eb',
+    logo: null,
+  });
+  const [resellerBusy, setResellerBusy] = useState(false);
+  const [resellerError, setResellerError] = useState('');
+  const [resellerSuccess, setResellerSuccess] = useState('');
+  const [editingResellerId, setEditingResellerId] = useState(null);
 
   useEffect(() => {
     setCompanies(Array.isArray(data?.companies) ? data.companies : []);
   }, [data]);
+
+  useEffect(() => {
+    let canceled = false;
+    setResellerLoading(true);
+
+    api
+      .get('/admin/resellers')
+      .then((response) => {
+        if (canceled) return;
+        const list = Array.isArray(response?.data?.resellers) ? response.data.resellers : [];
+        setResellers(list);
+      })
+      .catch(() => {
+        if (canceled) return;
+        setResellers([]);
+      })
+      .finally(() => {
+        if (!canceled) {
+          setResellerLoading(false);
+        }
+      });
+
+    return () => {
+      canceled = true;
+    };
+  }, []);
+
+  const resetResellerForm = () => {
+    setResellerForm({
+      name: '',
+      slug: '',
+      primary_color: '#2563eb',
+      logo: null,
+    });
+    setEditingResellerId(null);
+  };
+
+  const applyResellerToForm = (reseller) => {
+    setEditingResellerId(reseller?.id ?? null);
+    setResellerForm({
+      name: String(reseller?.name ?? ''),
+      slug: String(reseller?.slug ?? ''),
+      primary_color: normalizeHexColor(reseller?.primary_color, '#2563eb'),
+      logo: null,
+    });
+    setResellerError('');
+    setResellerSuccess('');
+  };
+
+  const handleResellerColorChange = (value) => {
+    const normalized = normalizeHexColor(value, resellerForm.primary_color || '#2563eb');
+    setResellerForm((previous) => ({ ...previous, primary_color: normalized }));
+  };
+
+  const handleSaveReseller = async (event) => {
+    event.preventDefault();
+    setResellerBusy(true);
+    setResellerError('');
+    setResellerSuccess('');
+
+    const formData = new FormData();
+    formData.append('name', String(resellerForm.name ?? '').trim());
+    formData.append('slug', String(resellerForm.slug ?? '').trim().toLowerCase());
+    formData.append('primary_color', normalizeHexColor(resellerForm.primary_color, '#2563eb'));
+    if (resellerForm.logo instanceof File) {
+      formData.append('logo', resellerForm.logo);
+    }
+
+    try {
+      let response;
+      if (editingResellerId) {
+        formData.append('_method', 'PUT');
+        response = await api.post(`/admin/resellers/${editingResellerId}`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+      } else {
+        response = await api.post('/admin/resellers', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+      }
+
+      const saved = response?.data?.reseller;
+      if (saved?.id) {
+        setResellers((previous) => {
+          const others = previous.filter((item) => item.id !== saved.id);
+          return [...others, saved].sort((left, right) =>
+            String(left?.name ?? '').localeCompare(String(right?.name ?? ''), 'pt-BR')
+          );
+        });
+      }
+
+      setResellerSuccess(editingResellerId ? 'Reseller atualizado com sucesso.' : 'Reseller criado com sucesso.');
+      resetResellerForm();
+    } catch (err) {
+      const firstValidationError = extractFirstValidationError(err);
+      setResellerError(firstValidationError || err?.message || 'Falha ao salvar reseller.');
+    } finally {
+      setResellerBusy(false);
+    }
+  };
 
   const handleCreateCompany = async (event) => {
     event.preventDefault();
@@ -111,6 +255,124 @@ function AdminCompaniesPage() {
       </p>
 
       <section className="app-panel mb-8">
+        <h2 className="font-medium mb-3">Resellers</h2>
+        <form onSubmit={handleSaveReseller} className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <label className="block text-sm">
+            Nome
+            <input
+              type="text"
+              value={resellerForm.name}
+              onChange={(event) => setResellerForm((previous) => ({ ...previous, name: event.target.value }))}
+              required
+              className="app-input"
+            />
+          </label>
+
+          <label className="block text-sm">
+            Slug
+            <input
+              type="text"
+              value={resellerForm.slug}
+              onChange={(event) => setResellerForm((previous) => ({ ...previous, slug: event.target.value }))}
+              required
+              className="app-input"
+              placeholder="minha-marca"
+            />
+          </label>
+
+          <label className="block text-sm">
+            Logo (upload)
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(event) =>
+                setResellerForm((previous) => ({ ...previous, logo: event.target.files?.[0] ?? null }))
+              }
+              className="app-input"
+            />
+          </label>
+
+          <label className="block text-sm">
+            Cor primaria
+            <div className="mt-1.5 flex items-center gap-2">
+              <input
+                type="color"
+                value={normalizeHexColor(resellerForm.primary_color)}
+                onChange={(event) => handleResellerColorChange(event.target.value)}
+                className="h-10 w-14 rounded border border-[#d4d4d4] bg-white p-1"
+              />
+              <input
+                type="text"
+                value={resellerForm.primary_color}
+                onChange={(event) => handleResellerColorChange(event.target.value)}
+                className="app-input !mt-0"
+                placeholder="#2563eb"
+              />
+            </div>
+          </label>
+
+          <div className="md:col-span-2 flex items-center gap-2">
+            <button type="submit" disabled={resellerBusy} className="app-btn-primary">
+              {resellerBusy
+                ? 'Salvando...'
+                : editingResellerId
+                  ? 'Salvar reseller'
+                  : 'Criar reseller'}
+            </button>
+            {editingResellerId ? (
+              <button type="button" className="app-btn-secondary" onClick={resetResellerForm} disabled={resellerBusy}>
+                Cancelar edicao
+              </button>
+            ) : null}
+          </div>
+        </form>
+
+        {resellerError ? <p className="text-sm text-red-600 mt-2">{resellerError}</p> : null}
+        {resellerSuccess ? <p className="text-sm text-green-700 mt-2">{resellerSuccess}</p> : null}
+
+        <div className="mt-5">
+          {resellerLoading ? (
+            <p className="text-sm text-[#737373]">Carregando resellers...</p>
+          ) : resellers.length === 0 ? (
+            <p className="text-sm text-[#737373]">Nenhum reseller cadastrado.</p>
+          ) : (
+            <ul className="rounded-xl border border-[#eeeeee] overflow-hidden bg-white divide-y divide-[#eeeeee]">
+              {resellers.map((reseller) => (
+                <li key={reseller.id} className="px-4 py-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-[#171717] truncate">{reseller.name}</p>
+                    <p className="text-xs text-[#737373] truncate">/{reseller.slug}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {reseller.logo_url ? (
+                      <img
+                        src={reseller.logo_url}
+                        alt={reseller.name || 'Logo do reseller'}
+                        className="h-7 w-7 rounded object-cover border border-[#e5e5e5]"
+                      />
+                    ) : (
+                      <span
+                        title={reseller.primary_color || 'Sem cor definida'}
+                        className="inline-block h-7 w-7 rounded border border-[#d4d4d4]"
+                        style={{ background: normalizeHexColor(reseller.primary_color, '#f5f5f5') }}
+                      />
+                    )}
+                    <button
+                      type="button"
+                      className="app-btn-secondary text-xs px-3 py-1.5"
+                      onClick={() => applyResellerToForm(reseller)}
+                    >
+                      Editar
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
+
+      <section className="app-panel mb-8">
         <h2 className="font-medium mb-3">Criar empresa</h2>
         <form onSubmit={handleCreateCompany} className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <label className="block text-sm md:col-span-2">
@@ -178,28 +440,25 @@ function AdminCompaniesPage() {
         <ul className="rounded-xl border border-[#eeeeee] overflow-hidden bg-white divide-y divide-[#eeeeee]">
           {companies.map((company) => (
             <li key={company.id} className="px-5 py-4 flex items-center justify-between gap-3 hover:bg-[#fafafa] transition">
-              <a
-                href={`/admin/empresas/${company.id}`}
-                className="flex-1 min-w-0"
-              >
-                <span className="font-medium text-[#171717]">{company.name}</span>
-                <span className="text-sm text-[#737373] ml-2">
-                  · {company.conversations_count ?? 0} conversa(s)
-                </span>
-                <span className="text-xs text-[#a3a3a3] ml-2">
-                  · bot {company.bot_setting ? 'configurado' : 'padrão'}
-                </span>
-              </a>
-              <button
-                type="button"
-                className="app-btn-danger text-xs px-3 py-1.5"
-                onClick={() => {
-                  setDeleteError('');
-                  setDeleteTarget(company);
-                }}
-              >
-                Excluir
-              </button>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-[#171717] truncate">{company.name}</p>
+                <p className="text-sm text-[#737373]">Status: {companyStatusLabel(company)}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <a href={`/companies/${company.id}/edit`} className="app-btn-secondary text-xs px-3 py-1.5">
+                  Editar
+                </a>
+                <button
+                  type="button"
+                  className="app-btn-danger text-xs px-3 py-1.5"
+                  onClick={() => {
+                    setDeleteError('');
+                    setDeleteTarget(company);
+                  }}
+                >
+                  Excluir
+                </button>
+              </div>
             </li>
           ))}
         </ul>
@@ -226,7 +485,4 @@ function AdminCompaniesPage() {
 }
 
 export default AdminCompaniesPage;
-
-
-
 

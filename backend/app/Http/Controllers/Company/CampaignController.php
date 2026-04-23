@@ -63,6 +63,15 @@ class CampaignController extends Controller
             ->values();
 
         if ($selectedContactIds->isNotEmpty()) {
+            $selectedContactIds = Contact::query()
+                ->where('company_id', $companyId)
+                ->whereIn('id', $selectedContactIds->all())
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->values();
+        }
+
+        if ($selectedContactIds->isNotEmpty()) {
             $now = now();
             CampaignContact::insertOrIgnore(
                 $selectedContactIds->map(fn ($contactId) => [
@@ -186,6 +195,15 @@ class CampaignController extends Controller
             ->filter(fn ($id) => $id > 0)
             ->unique()
             ->values();
+
+        if ($preselectedIds->isNotEmpty()) {
+            $preselectedIds = Contact::query()
+                ->where('company_id', $companyId)
+                ->whereIn('id', $preselectedIds->all())
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->values();
+        }
 
         $contactIds = $preselectedIds->isNotEmpty()
             ? $preselectedIds

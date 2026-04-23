@@ -1,6 +1,6 @@
 import './EntrarPage.css';
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import Layout from '@/components/layout/Layout/Layout.jsx';
 import usePageData from '@/hooks/usePageData';
 import api from '@/services/api';
@@ -10,18 +10,28 @@ import Notice from '@/components/ui/Notice/Notice.jsx';
 import PageHeader from '@/components/ui/PageHeader/PageHeader.jsx';
 import { Field, TextInput } from '@/components/ui/FormControls/FormControls.jsx';
 import { showError } from '@/services/toastService';
+import { getSlugFromUrl } from '@/utils/urlSlug';
+import useBrand from '@/hooks/useBrand';
+import BrandLogo from '@/components/branding/BrandLogo/BrandLogo.jsx';
 
 function EntrarPage() {
+  const location = useLocation();
   const { data, loading, error } = usePageData('/entrar');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
+  const brand = useBrand();
+  const brandName = brand?.name || 'Blasternet ChatBot';
+  const dashboardPath = useMemo(() => {
+    const slug = getSlugFromUrl(location.pathname);
+    return slug ? `/${slug}/dashboard` : '/dashboard';
+  }, [location.pathname]);
 
   useEffect(() => {
     if (data?.authenticated) {
-      window.location.href = '/dashboard';
+      window.location.href = dashboardPath;
     }
-  }, [data]);
+  }, [dashboardPath, data]);
 
   const handleLogin = async (event) => {
     event.preventDefault();
@@ -30,7 +40,7 @@ function EntrarPage() {
     try {
       await api.get('/sanctum/csrf-cookie');
       await api.post('/login', { email, password });
-      window.location.href = '/dashboard';
+      window.location.href = dashboardPath;
     } catch (err) {
       showError(err.response?.data?.message || 'Falha no login.');
     } finally {
@@ -43,7 +53,12 @@ function EntrarPage() {
       <div className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[1.05fr_.95fr]">
         <Card>
           <PageHeader
-            title="Acessar painel"
+            title={(
+              <BrandLogo
+                fallback={`Acessar ${brandName}`}
+                imgClassName="h-8 w-auto object-contain"
+              />
+            )}
             subtitle="Entre com seu usuário para monitorar conversas, bot e atendimento manual."
           />
 

@@ -16,11 +16,12 @@ class BrandingController extends Controller
 
     public function show(Request $request): JsonResponse
     {
-        $slug = $request->query('slug');
+        $slug = trim((string) $request->query('slug', ''));
+        $user = $request->user();
 
-        $reseller = $slug
+        $reseller = $slug !== ''
             ? Reseller::getBySlug($slug)
-            : $request->user()->loadMissing('company.reseller')->company?->reseller;
+            : $user?->loadMissing('company.reseller')->company?->reseller;
 
         if (! $reseller) {
             return response()->json(self::DEFAULT_BRANDING);

@@ -1,5 +1,17 @@
 <?php
 
+if (! function_exists('describe')) {
+    final class EmailMailablesTest extends \Tests\TestCase
+    {
+        public function test_pest_runtime_not_loaded(): void
+        {
+            $this->markTestSkipped('Pest runtime nao carregado neste ambiente.');
+        }
+    }
+
+    return;
+}
+
 use App\Jobs\AlertUnattendedConversationsJob;
 use App\Jobs\SendAppointmentConfirmedMailJob;
 use App\Jobs\SendAppointmentReminderJob;
