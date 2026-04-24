@@ -18,6 +18,9 @@ function ConversationToolbar({
   onAssumeConversation,
   onReleaseConversation,
   onCloseConversation,
+  onDeleteConversation,
+  deleteBusy,
+  deleteError,
   onOpenTagsModal,
   onOpenTransferModal,
   onOpenSendTemplateModal,
@@ -25,6 +28,7 @@ function ConversationToolbar({
   onDetachTag,
 }) {
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const actionsMenuRef = useRef(null);
 
   useEffect(() => {
@@ -50,7 +54,7 @@ function ConversationToolbar({
     };
   }, [actionsMenuOpen]);
 
-  const closeMenu = () => setActionsMenuOpen(false);
+  const closeMenu = () => { setActionsMenuOpen(false); setDeleteConfirmOpen(false); };
   const tags = Array.isArray(detail.tags) ? detail.tags : [];
 
   return (
@@ -218,6 +222,40 @@ function ConversationToolbar({
               >
                 Enviar template…
               </button>
+              <div className="inbox-toolbar-actions-sep" role="separator" />
+              {deleteConfirmOpen ? (
+                <div className="px-3 py-2 space-y-2">
+                  <p className="text-xs text-[#171717] font-medium">Apagar esta conversa permanentemente?</p>
+                  {deleteError && <p className="text-[10px] text-red-600">{deleteError}</p>}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={deleteBusy}
+                      className="app-btn-secondary text-xs py-1 flex-1"
+                      onClick={() => setDeleteConfirmOpen(false)}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      disabled={deleteBusy}
+                      className="app-btn-secondary text-xs py-1 flex-1 !text-red-700 hover:!bg-red-50 border-red-300"
+                      onClick={onDeleteConversation}
+                    >
+                      {deleteBusy ? '...' : 'Apagar'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="!text-red-700 hover:!bg-red-50"
+                  onClick={() => setDeleteConfirmOpen(true)}
+                >
+                  Apagar conversa
+                </button>
+              )}
             </div>
           ) : null}
         </div>

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Company;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 class SecurityHardeningTest extends TestCase
@@ -43,6 +44,7 @@ class SecurityHardeningTest extends TestCase
             ],
             'inactivity_close_hours' => 24,
             'service_areas' => ['Suporte'],
+            'message_retention_days' => 180,
         ];
 
         $response = $this->actingAs($user)->putJson('/api/minha-conta/bot', $payload);
@@ -97,5 +99,32 @@ class SecurityHardeningTest extends TestCase
         $response->assertHeader('X-Frame-Options', 'DENY');
         $response->assertHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
         $response->assertHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    }
+
+    public function test_simulation_rejects_invalid_image_upload(): void
+    {
+        $company = Company::create(['name' => 'Empresa Simulador Upload']);
+        $admin = User::create([
+            'name' => 'Admin Upload Security',
+            'email' => 'security-upload-admin@test.local',
+            'password' => 'secret123',
+            'role' => 'admin',
+            'company_id' => null,
+            'is_active' => true,
+        ]);
+
+        $file = UploadedFile::fake()->create('arquivo.pdf', 10, 'application/pdf');
+
+        $response = $this->actingAs($admin)->post('/api/simular/mensagem', [
+            'company_id' => $company->id,
+            'from' => '5511999999999',
+            'text' => 'teste',
+            'image' => $file,
+            'send_outbound' => false,
+        ], [
+            'Accept' => 'application/json',
+        ]);
+
+        $response->assertStatus(422);
     }
 }

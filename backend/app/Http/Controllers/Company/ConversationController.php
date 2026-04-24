@@ -359,6 +359,23 @@ class ConversationController extends Controller
         ]);
     }
 
+    public function destroy(Request $request, int $conversationId): JsonResponse
+    {
+        $user = $request->user();
+
+        $conversation = Conversation::where('id', $conversationId)
+            ->where('company_id', $user->company_id)
+            ->first();
+
+        if (! $conversation) {
+            return response()->json(['message' => 'Conversa não encontrada.'], 404);
+        }
+
+        $conversation->delete();
+
+        return response()->json(['ok' => true]);
+    }
+
     public function updateTags(
         UpdateConversationTagsRequest $request,
         int $conversationId,

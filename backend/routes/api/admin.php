@@ -14,6 +14,8 @@ Route::middleware(['web', 'auth', 'admin'])->group(function () {
         Route::get('/resellers', [ResellerController::class, 'index'])->middleware('throttle:inbox-read');
         Route::post('/resellers', [ResellerController::class, 'store'])->middleware('throttle:bot-write');
         Route::put('/resellers/{reseller}', [ResellerController::class, 'update'])->middleware('throttle:bot-write');
+        Route::get('/minha-revenda', [ResellerController::class, 'showMine'])->middleware('throttle:inbox-read');
+        Route::put('/minha-revenda', [ResellerController::class, 'updateMine'])->middleware('throttle:bot-write');
         Route::get('/empresas', [CompanyController::class, 'index']);
         Route::post('/empresas', [CompanyController::class, 'store'])->middleware('throttle:bot-write');
         Route::get('/empresas/{company}', [CompanyController::class, 'show']);

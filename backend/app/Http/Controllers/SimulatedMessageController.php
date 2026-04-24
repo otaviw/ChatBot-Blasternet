@@ -32,7 +32,9 @@ class SimulatedMessageController extends Controller
             'company_id' => ['required', 'integer', 'exists:companies,id'],
             'from' => ['required', 'string', 'max:40'],
             'text' => ['nullable', 'string', 'max:2000'],
-            'file' => ['nullable', 'file', 'max:' . config('whatsapp.media_max_size_kb', 5120)],
+            'image' => ['nullable', 'image', 'max:' . config('whatsapp.media_max_size_kb', 5120)],
+            // Compatibilidade com payload legado.
+            'file' => ['nullable', 'image', 'max:' . config('whatsapp.media_max_size_kb', 5120)],
             'contact_name' => ['nullable', 'string', 'max:160'],
             'send_outbound' => ['sometimes', 'boolean'],
         ]);
@@ -48,7 +50,7 @@ class SimulatedMessageController extends Controller
         $company = Company::with('botSetting')->findOrFail($companyId);
         $sendOutbound = (bool) ($validated['send_outbound'] ?? true);
         $text = trim((string) ($validated['text'] ?? ''));
-        $image = $request->file('image');
+        $image = $request->file('image') ?? $request->file('file');
         if ($text === '' && ! $image) {
             return response()->json([
                 'message' => 'Informe texto ou imagem para simular.',

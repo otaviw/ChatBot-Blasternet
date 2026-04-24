@@ -7,13 +7,13 @@ use App\Http\Requests\Admin\StoreCompanyRequest;
 use App\Http\Requests\Admin\UpdateCompanyBotSettingsRequest;
 use App\Http\Requests\Admin\UpdateCompanyRequest;
 use App\Http\Requests\Admin\ValidateCompanyWhatsAppRequest;
-use App\Models\Area;
 use App\Models\Company;
 use App\Models\CompanyBotSetting;
 use App\Models\Reseller;
 use App\Models\Message;
 use App\Models\User;
 use App\Services\AuditLogService;
+use App\Services\Bot\BotSettingsSupportService;
 use App\Services\WhatsAppCredentialsValidatorService;
 use App\Support\ConversationHandlingMode;
 use Illuminate\Http\JsonResponse;
@@ -24,6 +24,7 @@ class CompanyController extends Controller
 {
     public function __construct(
         private AuditLogService $auditLog,
+        private BotSettingsSupportService $botSettingsSupport,
         private WhatsAppCredentialsValidatorService $credentialsValidator,
     ) {}
 
@@ -117,11 +118,14 @@ class CompanyController extends Controller
             'welcome_message' => $validated['welcome_message'] ?? null,
             'fallback_message' => $validated['fallback_message'] ?? null,
             'out_of_hours_message' => $validated['out_of_hours_message'] ?? null,
-            'business_hours' => $this->normalizeBusinessHours($validated['business_hours']),
-            'keyword_replies' => $this->normalizeKeywordReplies($validated['keyword_replies'] ?? []),
-            'service_areas' => $this->normalizeServiceAreas($validated['service_areas'] ?? []),
+            'business_hours' => $this->botSettingsSupport->normalizeBusinessHours($validated['business_hours']),
+            'keyword_replies' => $this->botSettingsSupport->normalizeKeywordReplies($validated['keyword_replies'] ?? []),
+            'service_areas' => $this->botSettingsSupport->normalizeServiceAreas($validated['service_areas'] ?? []),
             'stateful_menu_flow' => $this->normalizeStatefulMenuFlow($validated['stateful_menu_flow'] ?? null),
-            'inactivity_close_hours' => $this->resolveInactivityCloseHours($company, $validated),
+            'inactivity_close_hours' => $this->botSettingsSupport->resolveInactivityCloseHours(
+                array_key_exists('inactivity_close_hours', $validated) ? $validated['inactivity_close_hours'] : null,
+                $company->botSetting?->inactivity_close_hours
+            ),
         ];
 
         if (array_key_exists('ai_enabled', $validated)) {
@@ -166,7 +170,7 @@ class CompanyController extends Controller
             $settingsPayload
         );
 
-        $this->syncServiceAreas($company->id, $settings->service_areas ?? []);
+        $this->botSettingsSupport->syncServiceAreas($company->id, $settings->service_areas ?? []);
 
         $this->auditLog->record(
             $request,
@@ -233,7 +237,7 @@ class CompanyController extends Controller
                 'welcome_message' => 'Oi. Como posso ajudar?',
                 'fallback_message' => 'Não entendi sua mensagem. Pode reformular?',
                 'out_of_hours_message' => 'Estamos fora do horario de atendimento no momento.',
-                'business_hours' => $this->defaultBusinessHours(),
+                'business_hours' => $this->botSettingsSupport->defaultBusinessHours(),
                 'keyword_replies' => [],
                 'inactivity_close_hours' => 24,
                 'service_areas' => [],
@@ -384,144 +388,6 @@ class CompanyController extends Controller
         return response()->json([
             'ok' => true,
         ]);
-    }
-
-    /**
-     * @param  array<string, mixed>  $validated
-     */
-    private function resolveInactivityCloseHours(Company $company, array $validated): int
-    {
-        if (array_key_exists('inactivity_close_hours', $validated) && $validated['inactivity_close_hours'] !== null) {
-            return (int) $validated['inactivity_close_hours'];
-        }
-
-        $existing = $company->botSetting?->inactivity_close_hours;
-        if (is_numeric($existing)) {
-            $hours = (int) $existing;
-            if ($hours >= 1 && $hours <= 720) {
-                return $hours;
-            }
-        }
-
-        return 24;
-    }
-
-    private function defaultBusinessHours(): array
-    {
-        return [
-            'monday' => ['enabled' => true, 'start' => '08:00', 'end' => '18:00'],
-            'tuesday' => ['enabled' => true, 'start' => '08:00', 'end' => '18:00'],
-            'wednesday' => ['enabled' => true, 'start' => '08:00', 'end' => '18:00'],
-            'thursday' => ['enabled' => true, 'start' => '08:00', 'end' => '18:00'],
-            'friday' => ['enabled' => true, 'start' => '08:00', 'end' => '18:00'],
-            'saturday' => ['enabled' => false, 'start' => null, 'end' => null],
-            'sunday' => ['enabled' => false, 'start' => null, 'end' => null],
-        ];
-    }
-
-    private function normalizeBusinessHours(array $hours): array
-    {
-        $defaults = $this->defaultBusinessHours();
-
-        foreach ($defaults as $day => $defaultValue) {
-            $current = $hours[$day] ?? [];
-            $defaults[$day] = [
-                'enabled' => (bool) ($current['enabled'] ?? false),
-                'start' => $current['start'] ?? null,
-                'end' => $current['end'] ?? null,
-            ];
-        }
-
-        return $defaults;
-    }
-
-    private function normalizeKeywordReplies(array $replies): array
-    {
-        $normalized = [];
-
-        foreach ($replies as $item) {
-            $keyword = trim((string) ($item['keyword'] ?? ''));
-            $reply = trim((string) ($item['reply'] ?? ''));
-            if ($keyword === '' || $reply === '') {
-                continue;
-            }
-
-            $normalized[] = [
-                'keyword' => $keyword,
-                'reply' => $reply,
-            ];
-        }
-
-        return $normalized;
-    }
-
-    private function normalizeServiceAreas(array $areas): array
-    {
-        $normalized = [];
-        $seen = [];
-
-        foreach ($areas as $area) {
-            $label = trim((string) $area);
-            if ($label === '') {
-                continue;
-            }
-
-            $key = mb_strtolower($label);
-            if (isset($seen[$key])) {
-                continue;
-            }
-
-            $seen[$key] = true;
-            $normalized[] = $label;
-        }
-
-        return $normalized;
-    }
-
-    private function syncServiceAreas(int $companyId, array $areaNames): void
-    {
-        $names = collect($areaNames)
-            ->map(fn($name) => trim((string) $name))
-            ->filter()
-            ->unique(fn($name) => mb_strtolower($name))
-            ->values();
-
-        $areas = Area::query()
-            ->where('company_id', $companyId)
-            ->get();
-
-        $keepIds = [];
-        foreach ($names as $name) {
-            $existing = $areas->first(
-                fn(Area $area) => mb_strtolower(trim((string) $area->name)) === mb_strtolower((string) $name)
-            );
-
-            if ($existing) {
-                if ($existing->name !== $name) {
-                    $existing->name = (string) $name;
-                    $existing->save();
-                }
-                $keepIds[] = $existing->id;
-                continue;
-            }
-
-            $created = Area::create([
-                'company_id' => $companyId,
-                'name' => (string) $name,
-            ]);
-            $keepIds[] = $created->id;
-        }
-
-        if ($keepIds === []) {
-            return;
-        }
-
-        Area::query()
-            ->where('company_id', $companyId)
-            ->whereNotIn('id', $keepIds)
-            ->whereDoesntHave('currentConversations')
-            ->whereDoesntHave('users')
-            ->delete();
     }
 
     /**

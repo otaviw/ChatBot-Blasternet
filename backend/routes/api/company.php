@@ -55,6 +55,8 @@ Route::middleware(['web', 'auth', 'company.user'])->group(function () {
             ->middleware('throttle:bot-write');
         Route::post('/conversas/{conversationId}/encerrar', [CompanyConversationController::class, 'close'])
             ->middleware('throttle:bot-write');
+        Route::delete('/conversas/{conversationId}', [CompanyConversationController::class, 'destroy'])
+            ->middleware('throttle:bot-write');
         // Tags — CRUD e vínculo com conversas
         Route::get('/tags', [ConversationTagController::class, 'index'])
             ->middleware('throttle:inbox-read');
@@ -149,28 +151,29 @@ Route::middleware(['web', 'auth', 'company.user'])->group(function () {
         Route::post('/ia/sandbox', [AiSandboxController::class, 'test'])
             ->middleware('throttle:ai-sandbox');
 
-        // Rotas de IA — restritas a superadmin enquanto o módulo não está em produção
-        Route::middleware('admin')->group(function () {
-            Route::post('/conversas/{conversationId}/ia/sugestao', [CompanyConversationController::class, 'suggestReply'])
+        // Rotas de IA para usuarios da empresa.
+        // As regras de acesso por papel/feature ficam nas Actions/Services.
+        Route::post('/conversas/{conversationId}/ia/sugestao', [CompanyConversationController::class, 'suggestReply'])
                 ->middleware('throttle:bot-write');
-            Route::get('/ia/conversas', [AiConversationController::class, 'index'])
+        Route::get('/ia/conversas', [AiConversationController::class, 'index'])
                 ->middleware('throttle:inbox-read');
-            Route::get('/ia/analytics', [AiAnalyticsController::class, 'index'])
+        Route::get('/ia/analytics', [AiAnalyticsController::class, 'index'])
                 ->middleware('throttle:inbox-read');
-            Route::get('/ia/metricas', [AiMetricsController::class, 'index'])
+        Route::get('/ia/metricas', [AiMetricsController::class, 'index'])
                 ->middleware('throttle:inbox-read');
-            Route::get('/ia/auditoria', [AiAuditController::class, 'index'])
+        Route::get('/ia/auditoria', [AiAuditController::class, 'index'])
                 ->middleware('throttle:inbox-read');
-            Route::get('/ia/auditoria/{logId}', [AiAuditController::class, 'show'])
+        Route::get('/ia/auditoria/{logId}', [AiAuditController::class, 'show'])
                 ->middleware('throttle:inbox-read');
-            Route::post('/ia/conversas', [AiConversationController::class, 'store'])
+        Route::post('/ia/conversas', [AiConversationController::class, 'store'])
                 ->middleware('throttle:bot-write');
-            Route::get('/ia/conversas/{conversationId}', [AiConversationController::class, 'show'])
+        Route::get('/ia/conversas/{conversationId}', [AiConversationController::class, 'show'])
                 ->middleware('throttle:inbox-read');
-            Route::post('/ia/conversas/{conversationId}/mensagens', [AiConversationController::class, 'sendMessage'])
+        Route::post('/ia/conversas/{conversationId}/mensagens', [AiConversationController::class, 'sendMessage'])
                 ->middleware('throttle:bot-write');
-            Route::post('/ia/conversas/{conversationId}/mensagens/stream', [AiConversationController::class, 'streamMessage'])
+        Route::post('/ia/conversas/{conversationId}/mensagens/stream', [AiConversationController::class, 'streamMessage'])
                 ->middleware('throttle:bot-write');
-        });
     });
 });
+
+

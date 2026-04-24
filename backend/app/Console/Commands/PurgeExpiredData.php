@@ -23,11 +23,10 @@ class PurgeExpiredData extends Command
         Company::query()
             ->select('id')
             ->with('botSetting:id,company_id,message_retention_days,ai_usage_log_retention_days')
-            ->whereHas('botSetting', fn ($q) => $q->where(
-                fn ($q) => $q
-                    ->whereNotNull('message_retention_days')
-                    ->orWhereNotNull('ai_usage_log_retention_days')
-            ))
+            ->whereHas('botSetting', fn ($q) => $q
+                ->whereNotNull('message_retention_days')
+                ->orWhereNotNull('ai_usage_log_retention_days')
+            )
             ->chunkById(100, function ($companies) use (&$totalMessages, &$totalAiLogs) {
                 foreach ($companies as $company) {
                     $setting = $company->botSetting;

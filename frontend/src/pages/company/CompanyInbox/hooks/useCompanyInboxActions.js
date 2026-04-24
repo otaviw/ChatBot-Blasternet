@@ -8,6 +8,7 @@ import useMessageComposer from './useMessageComposer';
 export default function useCompanyInboxActions({
   contactNameInput,
   detail,
+  onConversationDeleted,
   refreshConversations,
   setContactNameInput,
   setDetail,
@@ -33,6 +34,8 @@ export default function useCompanyInboxActions({
   const [sendTemplateBusy, setSendTemplateBusy] = useState(false);
   const [sendTemplateError, setSendTemplateError] = useState('');
   const [sendTemplateSuccess, setSendTemplateSuccess] = useState('');
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   const messageComposer = useMessageComposer({
     detail,
@@ -113,6 +116,20 @@ export default function useCompanyInboxActions({
       setActionBusy(false);
     }
   }, [detail?.id, refreshConversations, setDetail, setDetailError, upsertConversationInList]);
+
+  const deleteConversation = useCallback(async () => {
+    if (!detail?.id) return;
+    setDeleteBusy(true);
+    setDeleteError('');
+    try {
+      await api.delete(`/minha-conta/conversas/${detail.id}`);
+      onConversationDeleted?.(detail.id);
+    } catch (err) {
+      setDeleteError(err.response?.data?.message || 'Falha ao apagar conversa.');
+    } finally {
+      setDeleteBusy(false);
+    }
+  }, [detail?.id, onConversationDeleted]);
 
   const transferConversation = useCallback(async () => {
     if (!detail?.id) return;
@@ -318,6 +335,9 @@ export default function useCompanyInboxActions({
   return {
     actionBusy,
     attachTag,
+    deleteConversation,
+    deleteBusy,
+    deleteError,
     detachTag,
     aiSuggestionBusy: messageComposer.aiSuggestionBusy,
     aiSuggestionError: messageComposer.aiSuggestionError,

@@ -124,6 +124,9 @@ function CompanyInboxPage() {
   const {
     actionBusy,
     attachTag,
+    deleteConversation,
+    deleteBusy,
+    deleteError,
     detachTag,
     aiSuggestionBusy,
     aiSuggestionError,
@@ -184,6 +187,10 @@ function CompanyInboxPage() {
   } = useCompanyInboxActions({
     contactNameInput,
     detail,
+    onConversationDeleted: useCallback((deletedId) => {
+      setSelectedId(null);
+      setConversations((prev) => prev.filter((c) => c.id !== deletedId));
+    }, [setSelectedId, setConversations]),
     refreshConversations,
     setContactNameInput,
     setDetail,
@@ -446,6 +453,9 @@ function CompanyInboxPage() {
                   onAssumeConversation={assumeConversation}
                   onReleaseConversation={releaseConversation}
                   onCloseConversation={closeConversation}
+                  onDeleteConversation={deleteConversation}
+                  deleteBusy={deleteBusy}
+                  deleteError={deleteError}
                   onOpenTagsModal={() => setTagsModalOpen(true)}
                   onOpenTransferModal={() => setTransferModalOpen(true)}
                   onOpenSendTemplateModal={() => setSendTemplateModalOpen(true)}

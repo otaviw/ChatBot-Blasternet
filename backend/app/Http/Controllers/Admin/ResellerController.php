@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreResellerRequest;
+use App\Http\Requests\Admin\UpdateMyResellerRequest;
 use App\Http\Requests\Admin\UpdateResellerRequest;
 use App\Models\Reseller;
 use Illuminate\Http\JsonResponse;
@@ -85,6 +86,51 @@ class ResellerController extends Controller
             'ok' => true,
             'reseller' => $reseller->refresh(),
         ]);
+    }
+
+    public function showMine(Request $request): JsonResponse
+    {
+        if (! $request->user()?->isResellerAdmin()) {
+            return response()->json(['message' => 'Acesso negado.'], 403);
+        }
+
+        $resellerId = (int) ($request->user()->reseller_id ?? 0);
+        $reseller = $resellerId > 0 ? Reseller::find($resellerId) : null;
+
+        if (! $reseller) {
+            return response()->json(['message' => 'Reseller nao encontrado.'], 404);
+        }
+
+        return response()->json(['ok' => true, 'reseller' => $reseller]);
+    }
+
+    public function updateMine(UpdateMyResellerRequest $request): JsonResponse
+    {
+        $resellerId = (int) ($request->user()->reseller_id ?? 0);
+        $reseller = $resellerId > 0 ? Reseller::find($resellerId) : null;
+
+        if (! $reseller) {
+            return response()->json(['message' => 'Reseller nao encontrado.'], 404);
+        }
+
+        $payload = $request->validated();
+        $oldSlug = (string) $reseller->slug;
+
+        $newLogoPath = $this->storeLogoFile($request->file('logo'));
+        if ($newLogoPath !== null) {
+            $this->deleteLogoFile((string) ($reseller->logo ?? ''));
+            $payload['logo'] = $newLogoPath;
+        } else {
+            unset($payload['logo']);
+        }
+
+        $reseller->fill($payload);
+        $reseller->save();
+
+        $this->forgetSlugCache($oldSlug);
+        $this->forgetSlugCache((string) $reseller->slug);
+
+        return response()->json(['ok' => true, 'reseller' => $reseller->refresh()]);
     }
 
     private function storeLogoFile(?UploadedFile $file): ?string
