@@ -285,25 +285,31 @@ class SearchConversationsAction
             }
         });
 
-        $logs = $query
-            ->orderByDesc('id')
-            ->limit(2000)
-            ->get(['action', 'changes', 'created_at']);
-
         $byConversation = [];
-        foreach ($logs as $log) {
-            $conversationId = (int) (($log->changes['conversation_id'] ?? 0));
-            if ($conversationId <= 0 || isset($byConversation[$conversationId])) {
-                continue;
-            }
 
-            $action = (string) $log->action;
-            $label = $actions[$action] ?? str_replace('.', ' ', $action);
-            $byConversation[$conversationId] = [
-                'label' => 'Ação: ' . $label,
-                'created_at' => $log->created_at,
-            ];
-        }
+        $query
+            ->orderByDesc('id')
+            ->limit(500)
+            ->get(['action', 'changes', 'created_at'])
+            ->each(function ($log) use (&$byConversation, $actions): bool {
+                if (count($byConversation) >= 50) {
+                    return false;
+                }
+
+                $conversationId = (int) (($log->changes['conversation_id'] ?? 0));
+                if ($conversationId <= 0 || isset($byConversation[$conversationId])) {
+                    return true;
+                }
+
+                $action = (string) $log->action;
+                $label = $actions[$action] ?? str_replace('.', ' ', $action);
+                $byConversation[$conversationId] = [
+                    'label' => 'Ação: ' . $label,
+                    'created_at' => $log->created_at,
+                ];
+
+                return true;
+            });
 
         return $byConversation;
     }

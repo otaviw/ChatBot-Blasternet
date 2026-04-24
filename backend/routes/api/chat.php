@@ -45,6 +45,8 @@ Route::middleware(['web', 'auth'])->group(function () {
         ->middleware('throttle:inbox-read');
 
     Route::get('/areas', [AreaController::class, 'index'])->middleware('throttle:inbox-read');
+    Route::post('/areas', [AreaController::class, 'store'])->middleware('throttle:bot-write');
+    Route::delete('/areas/{area}', [AreaController::class, 'destroy'])->middleware('throttle:bot-write');
     Route::get('/areas/{area}/users', [AreaController::class, 'users'])->middleware('throttle:inbox-read');
     Route::post('/conversations/{conversation}/transfer', [ConversationTransferController::class, 'store'])
         ->middleware('throttle:bot-write');

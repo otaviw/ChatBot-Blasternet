@@ -63,6 +63,11 @@ export default function UsersPage({ scope = "company" }) {
   const [companies, setCompanies] = useState([]);
   const [resellers, setResellers] = useState([]);
   const [companyScopeAreas, setCompanyScopeAreas] = useState([]);
+  const [dbAreas, setDbAreas] = useState([]);
+  const [fullBotSettings, setFullBotSettings] = useState(null);
+  const [newAreaName, setNewAreaName] = useState('');
+  const [createAreaBusy, setCreateAreaBusy] = useState(false);
+  const [deleteAreaBusy, setDeleteAreaBusy] = useState(null);
   const [extraLoading, setExtraLoading] = useState(true);
   const [extraError, setExtraError] = useState(null);
   const [adminUser, setAdminUser] = useState(null);
@@ -106,9 +111,13 @@ export default function UsersPage({ scope = "company" }) {
           ]);
           if (canceled) return;
 
-          const fromBot = botResponse.data?.settings?.service_areas ?? [];
-          const fromAreas = (areasResponse.data?.areas ?? []).map((area) => area.name);
+          const fullSettings = botResponse.data?.settings ?? {};
+          const fromBot = fullSettings.service_areas ?? [];
+          const rawAreas = areasResponse.data?.areas ?? [];
+          const fromAreas = rawAreas.map((area) => area.name);
 
+          setFullBotSettings(fullSettings);
+          setDbAreas(rawAreas);
           setCompanyScopeAreas(normalizeAreaLabels([...fromBot, ...fromAreas]));
           setCompanies([]);
           setResellers([]);
@@ -384,6 +393,44 @@ export default function UsersPage({ scope = "company" }) {
     }
   }
 
+  async function refreshDbAreas() {
+    const response = await api.get('/areas');
+    const areas = response.data?.areas ?? [];
+    setDbAreas(areas);
+    const fromAreas = areas.map((a) => a.name);
+    const fromBot = fullBotSettings?.service_areas ?? [];
+    setCompanyScopeAreas(normalizeAreaLabels([...fromBot, ...fromAreas]));
+  }
+
+  async function handleCreateArea(event) {
+    event.preventDefault();
+    if (!newAreaName.trim()) return;
+    setCreateAreaBusy(true);
+    try {
+      await api.post('/areas', { name: newAreaName.trim() });
+      await refreshDbAreas();
+      setNewAreaName('');
+      showSuccess('Área criada com sucesso.');
+    } catch (err) {
+      showError(err.response?.data?.message || 'Falha ao criar área.');
+    } finally {
+      setCreateAreaBusy(false);
+    }
+  }
+
+  async function handleDeleteArea(areaId) {
+    setDeleteAreaBusy(areaId);
+    try {
+      await api.delete(`/areas/${areaId}`);
+      await refreshDbAreas();
+      showSuccess('Área excluída com sucesso.');
+    } catch (err) {
+      showError(err.response?.data?.message || 'Falha ao excluir área.');
+    } finally {
+      setDeleteAreaBusy(null);
+    }
+  }
+
   const loadingAny = loading || extraLoading;
   const pageError = error || extraError;
   const pageErrorMessage = pageError?.response?.data?.message || "Não foi possível carregar usuários.";
@@ -563,6 +610,70 @@ export default function UsersPage({ scope = "company" }) {
           )}
         </Card>
       </div>
+
+      {!isAdminScope && (
+        <>
+          <PageHeader
+            title="Áreas de atendimento"
+            subtitle="Crie e organize as áreas usadas em transferências, menus e vínculos de usuário."
+          />
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card>
+              <h2 className="text-base font-semibold text-[#0f172a] mb-1">Criar área</h2>
+              <p className="text-sm text-[#64748b] mb-4">
+                Áreas cadastradas aqui ficam disponíveis para vincular usuários e configurar transferências no bot.
+              </p>
+              <form onSubmit={handleCreateArea} className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-[#374151] mb-1">Nome da área</label>
+                  <input
+                    type="text"
+                    value={newAreaName}
+                    onChange={(e) => setNewAreaName(e.target.value)}
+                    placeholder="Ex.: Suporte, Vendas, Financeiro"
+                    className="w-full rounded-md border border-[#e2e8f0] bg-white px-3 py-2 text-sm text-[#0f172a] placeholder-[#94a3b8] focus:outline-none focus:ring-2 focus:ring-[#2563eb] focus:border-transparent"
+                  />
+                </div>
+                <Button type="submit" variant="primary" disabled={createAreaBusy || !newAreaName.trim()}>
+                  {createAreaBusy ? 'Criando...' : 'Criar área'}
+                </Button>
+              </form>
+            </Card>
+
+            <Card>
+              <h2 className="text-base font-semibold text-[#0f172a] mb-3">Áreas cadastradas</h2>
+              {dbAreas.length === 0 ? (
+                <p className="text-sm text-[#64748b]">Nenhuma área cadastrada ainda.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {dbAreas.map((area) => (
+                    <li
+                      key={area.id}
+                      className="flex items-center justify-between gap-3 rounded-md border border-[#e2e8f0] px-3 py-2"
+                    >
+                      <div>
+                          <span className="text-sm font-medium text-[#0f172a]">{area.name}</span>
+                          <span className="ml-2 text-xs text-[#94a3b8]">
+                            {area.users_count ?? 0} usuário{(area.users_count ?? 0) !== 1 ? 's' : ''}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteArea(area.id)}
+                          disabled={deleteAreaBusy === area.id}
+                          className="text-xs text-red-600 hover:text-red-800 disabled:opacity-50 transition-colors"
+                        >
+                          {deleteAreaBusy === area.id ? 'Excluindo...' : 'Excluir'}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Card>
+          </div>
+        </>
+      )}
 
       <ConfirmDialog
         open={Boolean(deleteTarget)}

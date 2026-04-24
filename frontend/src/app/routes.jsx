@@ -12,7 +12,6 @@ const DashboardPage = lazy(() => import('@/pages/Dashboard/DashboardPage.jsx'));
 const AdminCompaniesPage = lazy(() => import('@/pages/admin/AdminCompanies/AdminCompaniesPage.jsx'));
 const AdminCompanyShowPage = lazy(() => import('@/pages/admin/AdminCompanyShow/AdminCompanyShowPage.jsx'));
 const CompanyEditPage = lazy(() => import('@/pages/admin/CompanyEdit/CompanyEditPage.jsx'));
-const AdminSimulatorPage = lazy(() => import('@/pages/admin/AdminSimulator/AdminSimulatorPage.jsx'));
 const AdminInboxPage = lazy(() => import('@/pages/admin/AdminInbox/AdminInboxPage.jsx'));
 const AdminUsersPage = lazy(() => import('@/pages/admin/AdminUsers/AdminUsersPage.jsx'));
 const AdminSupportTicketsPage = lazy(
@@ -20,9 +19,6 @@ const AdminSupportTicketsPage = lazy(
 );
 const AdminTicketIndex = lazy(() => import('@/pages/admin/AdminSupportTickets/AdminTicketIndex.jsx'));
 const CompanyBotPage = lazy(() => import('@/pages/company/CompanyBot/CompanyBotPage.jsx'));
-const CompanySimulatorPage = lazy(
-  () => import('@/pages/company/CompanySimulator/CompanySimulatorPage.jsx')
-);
 const CompanyInboxPage = lazy(() => import('@/pages/company/CompanyInbox/CompanyInboxPage.jsx'));
 const NotFoundPage = lazy(() => import('@/pages/NotFound/NotFoundPage.jsx'));
 const CompanyQuickRepliesPage = lazy(
@@ -144,7 +140,6 @@ function AppRoutes() {
         <Route path="/admin/empresas" element={<AdminCompaniesPage />} />
         <Route path="/admin/empresas/:companyId" element={<AdminCompanyShowRoute />} />
         <Route path="/companies/:id/edit" element={<CompanyEditRoute />} />
-        <Route path="/admin/simulador" element={<AdminSimulatorPage />} />
         <Route path="/admin/conversas" element={<ResellerAdminRoute><AdminInboxPage /></ResellerAdminRoute>} />
         <Route path="/admin/auditoria" element={<ResellerAdminRoute><CompanyAuditPage /></ResellerAdminRoute>} />
         <Route path="/admin/chat-interno" element={<InternalChatPage />} />
@@ -156,7 +151,6 @@ function AppRoutes() {
           element={<AdminSupportTicketRoute />}
         />
 
-        <Route path="/minha-conta/simulador" element={<PermissionRoute permission={PERM.PAGE_SIMULATOR}><CompanySimulatorPage /></PermissionRoute>} />
         <Route path="/minha-conta/conversas" element={<PermissionRoute permission={PERM.PAGE_INBOX}><CompanyInboxPage /></PermissionRoute>} />
         <Route path="/minha-conta/chat-interno" element={<PermissionRoute permission={PERM.PAGE_INTERNAL_CHAT}><InternalChatPage /></PermissionRoute>} />
         <Route path="/minha-conta/chat-ia" element={<SuperAdminRoute><InternalAiChatPage /></SuperAdminRoute>} />

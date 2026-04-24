@@ -164,6 +164,9 @@ class BotController extends Controller
                     'service_areas' => $this->normalizeServiceAreas($validated['service_areas'] ?? []),
                     'stateful_menu_flow' => $this->normalizeStatefulMenuFlow($validated['stateful_menu_flow'] ?? null),
                     'inactivity_close_hours' => $this->resolveInactivityCloseHours($company, $validated),
+                    ...(array_key_exists('message_retention_days', $validated)
+                        ? ['message_retention_days' => $validated['message_retention_days']]
+                        : []),
                 ],
                 $aiData
             )

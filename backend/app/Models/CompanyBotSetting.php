@@ -46,6 +46,8 @@ class CompanyBotSetting extends Model
         'template_messages_used',
         'usage_reset_month',
         'usage_reset_year',
+        'message_retention_days',
+        'ai_usage_log_retention_days',
     ];
 
     protected $casts = [
@@ -75,6 +77,8 @@ class CompanyBotSetting extends Model
         'template_messages_used' => 'integer',
         'usage_reset_month' => 'integer',
         'usage_reset_year' => 'integer',
+        'message_retention_days' => 'integer',
+        'ai_usage_log_retention_days' => 'integer',
     ];
 
     public function company()

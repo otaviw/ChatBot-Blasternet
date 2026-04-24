@@ -187,6 +187,28 @@ function CompanyBotPage() {
               />
             </label>
           </div>
+
+          <label className="bot-config-field bot-config-field--inline mt-4">
+            <span className="bot-config-label">Apagar mensagens após (dias)</span>
+            <input
+              type="number"
+              min="1"
+              max="180"
+              value={settings.message_retention_days ?? ''}
+              onChange={(e) => {
+                const value = e.target.value;
+                updateMessageField(
+                  'message_retention_days',
+                  value === '' ? null : Math.min(180, Math.max(1, Number(value)))
+                );
+              }}
+              placeholder="Nunca apagar"
+              className="app-input w-24"
+            />
+          </label>
+          <p className="text-xs text-[#706f6c] mt-1">
+            Mensagens com mais de X dias serão removidas automaticamente toda madrugada. Deixe em branco para nunca apagar.
+          </p>
         </BotConfigStep>
 
         <BotConfigStep

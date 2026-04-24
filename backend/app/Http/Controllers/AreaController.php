@@ -33,6 +33,46 @@ class AreaController extends Controller
         ]);
     }
 
+    public function store(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (! $user || ! $user->isCompanyUser()) {
+            return response()->json(['authenticated' => false, 'redirect' => '/entrar'], 403);
+        }
+
+        $this->authorize('create', Area::class);
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:120',
+        ]);
+
+        $area = Area::firstOrCreate([
+            'company_id' => (int) $user->company_id,
+            'name'       => trim($validated['name']),
+        ]);
+
+        $area->loadCount('users');
+
+        return response()->json([
+            'authenticated' => true,
+            'area'          => $area,
+        ], 201);
+    }
+
+    public function destroy(Request $request, Area $area): JsonResponse
+    {
+        $user = $request->user();
+        if (! $user || ! $user->isCompanyUser()) {
+            return response()->json(['authenticated' => false, 'redirect' => '/entrar'], 403);
+        }
+
+        $this->authorize('delete', $area);
+
+        $area->delete();
+
+        return response()->json(['authenticated' => true]);
+    }
+
     public function users(Request $request, Area $area): JsonResponse
     {
         $user = $request->user();

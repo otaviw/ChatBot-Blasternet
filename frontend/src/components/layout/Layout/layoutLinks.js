@@ -55,12 +55,6 @@ export const ADMIN_MAIN_LINKS = [
     icon: 'bot',
     ariaLabel: 'Base de conhecimento da IA',
   },
-  {
-    href: '/admin/simulador',
-    label: 'Testar bot',
-    icon: 'simulador',
-    ariaLabel: 'Simular mensagens do bot sem enviar ao WhatsApp',
-  },
 ];
 
 export const ADMIN_SUPPORT_LINKS = [
@@ -180,15 +174,6 @@ export function buildCompanyMainLinks({ userRole, userPerms, canManageUsers }) {
       label: 'Auditoria',
       icon: 'chatIa',
       ariaLabel: 'Auditoria geral do sistema',
-    });
-  }
-
-  if (perm(PERM.PAGE_SIMULATOR)) {
-    links.push({
-      href: '/minha-conta/simulador',
-      label: 'Testar bot',
-      icon: 'simulador',
-      ariaLabel: 'Simular mensagens do bot',
     });
   }
 

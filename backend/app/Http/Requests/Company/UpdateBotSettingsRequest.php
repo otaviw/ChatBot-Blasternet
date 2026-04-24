@@ -34,6 +34,7 @@ class UpdateBotSettingsRequest extends FormRequest
             'service_areas.*'               => ['string', 'max:120'],
             'stateful_menu_flow'            => ['nullable', 'array'],
             'inactivity_close_hours'        => ['nullable', 'integer', 'min:1', 'max:720'],
+            'message_retention_days'        => ['sometimes', 'nullable', 'integer', 'min:1', 'max:180'],
             'ai_enabled'                    => ['sometimes', 'boolean'],
             'ai_internal_chat_enabled'      => ['sometimes', 'boolean'],
             'ai_usage_enabled'              => ['sometimes', 'boolean'],

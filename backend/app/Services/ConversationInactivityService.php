@@ -66,15 +66,18 @@ class ConversationInactivityService
             $query->whereKey($companyId);
         }
 
-        return $query->get()
-            ->map(function (Company $company): array {
-                return [
+        $targets = [];
+
+        $query->chunkById(100, function ($companies) use (&$targets) {
+            foreach ($companies as $company) {
+                $targets[] = [
                     'company_id' => (int) $company->id,
                     'hours' => $this->normalizeHours($company->botSetting?->inactivity_close_hours),
                 ];
-            })
-            ->values()
-            ->all();
+            }
+        });
+
+        return $targets;
     }
 
     private function normalizeHours(mixed $value): int

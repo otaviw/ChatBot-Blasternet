@@ -27,6 +27,7 @@ const DEFAULT_SETTINGS = {
   },
   keyword_replies: [],
   inactivity_close_hours: 24,
+  message_retention_days: null,
   service_areas: [],
   stateful_menu_flow: null,
 };
@@ -123,6 +124,10 @@ function normalizeSettings(input) {
       Number(merged.inactivity_close_hours) <= 720
         ? Number(merged.inactivity_close_hours)
         : 24,
+    message_retention_days: (() => {
+      const val = Number(merged.message_retention_days);
+      return Number.isFinite(val) && val >= 1 && val <= 180 ? val : null;
+    })(),
     service_areas: Array.isArray(merged.service_areas) ? merged.service_areas : [],
     stateful_menu_flow:
       merged.stateful_menu_flow && typeof merged.stateful_menu_flow === 'object'
