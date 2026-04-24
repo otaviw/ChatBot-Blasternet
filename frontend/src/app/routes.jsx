@@ -12,6 +12,9 @@ const DashboardPage = lazy(() => import('@/pages/Dashboard/DashboardPage.jsx'));
 const AdminCompaniesPage = lazy(() => import('@/pages/admin/AdminCompanies/AdminCompaniesPage.jsx'));
 const AdminCompanyShowPage = lazy(() => import('@/pages/admin/AdminCompanyShow/AdminCompanyShowPage.jsx'));
 const CompanyEditPage = lazy(() => import('@/pages/admin/CompanyEdit/CompanyEditPage.jsx'));
+const AdminMyResellerPage = lazy(
+  () => import('@/pages/admin/AdminMyReseller/AdminMyResellerPage.jsx')
+);
 const AdminInboxPage = lazy(() => import('@/pages/admin/AdminInbox/AdminInboxPage.jsx'));
 const AdminUsersPage = lazy(() => import('@/pages/admin/AdminUsers/AdminUsersPage.jsx'));
 const AdminSupportTicketsPage = lazy(
@@ -139,6 +142,10 @@ function AppRoutes() {
 
         <Route path="/admin/empresas" element={<AdminCompaniesPage />} />
         <Route path="/admin/empresas/:companyId" element={<AdminCompanyShowRoute />} />
+        <Route
+          path="/admin/minha-revenda"
+          element={<ResellerAdminRoute><AdminMyResellerPage /></ResellerAdminRoute>}
+        />
         <Route path="/companies/:id/edit" element={<CompanyEditRoute />} />
         <Route path="/admin/conversas" element={<ResellerAdminRoute><AdminInboxPage /></ResellerAdminRoute>} />
         <Route path="/admin/auditoria" element={<ResellerAdminRoute><CompanyAuditPage /></ResellerAdminRoute>} />

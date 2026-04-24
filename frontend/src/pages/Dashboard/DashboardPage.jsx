@@ -82,6 +82,11 @@ function DashboardPage() {
             ['/admin/empresas', '/admin/usuarios', '/admin/chat-interno', '/admin/conversas'].includes(item.href)
           ),
           {
+            href: '/admin/minha-revenda',
+            title: 'Minha revenda',
+            description: 'Visualize e atualize nome, slug, logo e cor primaria da sua revenda.',
+          },
+          {
             href: '/admin/auditoria',
             title: 'Auditoria',
             description: 'Consulte eventos de auditoria apenas das empresas ligadas ao seu reseller.',

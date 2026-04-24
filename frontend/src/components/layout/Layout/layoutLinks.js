@@ -4,6 +4,12 @@ import { NOTIFICATION_MODULE } from '@/constants/notifications';
 export const ADMIN_MAIN_LINKS = [
   { href: '/dashboard', label: 'Início', icon: 'dashboard', ariaLabel: 'Ir para o painel inicial' },
   { href: '/admin/empresas', label: 'Empresas', icon: 'empresas', ariaLabel: 'Cadastro e gestão de empresas' },
+  {
+    href: '/admin/minha-revenda',
+    label: 'Minha revenda',
+    icon: 'empresas',
+    ariaLabel: 'Visualizar e editar os dados da minha revenda',
+  },
   { href: '/admin/usuarios', label: 'Usuários', icon: 'usuarios', ariaLabel: 'Usuários do sistema' },
   {
     href: '/admin/conversas',
@@ -223,3 +229,4 @@ export function buildCompanyMainLinks({ userRole, userPerms, canManageUsers }) {
 
   return links;
 }
+

@@ -84,13 +84,17 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
     () => new Set([
       '/dashboard',
       '/admin/empresas',
+      '/admin/minha-revenda',
       '/admin/usuarios',
       '/admin/chat-interno',
       '/admin/auditoria',
     ]),
     []
   );
-  const superAdminHiddenMain = useMemo(() => new Set(['/admin/conversas', '/admin/auditoria']), []);
+  const superAdminHiddenMain = useMemo(
+    () => new Set(['/admin/conversas', '/admin/auditoria', '/admin/minha-revenda']),
+    []
+  );
   const canRenderAdminLinks = role !== 'admin' || userDataResolved;
 
   const mainLinks = !canRenderAdminLinks
