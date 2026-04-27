@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Casts\UserPermissionsCast;
 use App\Support\Enums\UserRole;
 use App\Support\UserPermissions;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -69,7 +70,7 @@ class User extends Authenticatable
             'is_active' => 'boolean',
             'can_use_ai' => 'boolean',
             'disabled_at' => 'datetime',
-            'permissions' => 'array',
+            'permissions' => UserPermissionsCast::class,
         ];
     }
 

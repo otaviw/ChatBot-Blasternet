@@ -1,6 +1,8 @@
 import Button from '@/components/ui/Button/Button.jsx';
 import './EmptyState.css';
 
+/** @typedef {import('@/types/ui').EmptyStateProps} EmptyStateProps */
+
 function EmptyStateDefaultIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -14,6 +16,7 @@ function EmptyStateDefaultIcon() {
   );
 }
 
+/** @param {EmptyStateProps} props */
 function EmptyState({
   icon = null,
   title = 'Nada por aqui ainda',

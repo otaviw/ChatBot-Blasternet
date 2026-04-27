@@ -578,13 +578,14 @@ class InternalChatApiTest extends TestCase
         ]);
         $conversationId = (int) $created->json('conversation.id');
 
+        // outsider é de outra empresa: o scope oculta o recurso → 404 (mais seguro que 403)
         $outsiderShow = $this->actingAs($outsider)->getJson("/api/chat/conversations/{$conversationId}");
-        $outsiderShow->assertForbidden();
+        $outsiderShow->assertNotFound();
 
         $outsiderSend = $this->actingAs($outsider)->postJson("/api/chat/conversations/{$conversationId}/messages", [
             'content' => 'Não deveria enviar',
         ]);
-        $outsiderSend->assertForbidden();
+        $outsiderSend->assertNotFound();
     }
 
     public function test_only_message_owner_can_edit_or_delete_message_and_deleted_message_is_kept_as_placeholder(): void

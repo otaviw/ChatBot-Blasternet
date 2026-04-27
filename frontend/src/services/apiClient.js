@@ -2,8 +2,6 @@ import axios from 'axios';
 
 const LOGIN_ROUTE = '/entrar';
 const AUTH_ENDPOINTS = ['/login', '/forgot-password', '/reset-password', '/sanctum/csrf-cookie'];
-const TOKEN_STORAGE_KEYS = ['auth_token', 'access_token', 'token', 'authToken', 'jwt'];
-const TOKEN_COOKIE_KEYS = ['auth_token', 'access_token', 'token'];
 
 let isRedirectingToLogin = false;
 
@@ -20,104 +18,6 @@ function readObject(value) {
 function readString(value) {
   const normalized = String(value ?? '').trim();
   return normalized || '';
-}
-
-function readTokenFromStorage(storage) {
-  if (!storage) {
-    return '';
-  }
-
-  for (const key of TOKEN_STORAGE_KEYS) {
-    const value = readString(storage.getItem(key));
-    if (value) {
-      return value;
-    }
-  }
-
-  return '';
-}
-
-function readTokenFromCookies() {
-  if (typeof document === 'undefined') {
-    return '';
-  }
-
-  const cookies = readString(document.cookie);
-  if (!cookies) {
-    return '';
-  }
-
-  for (const key of TOKEN_COOKIE_KEYS) {
-    const pattern = new RegExp(`(?:^|;\\s*)${key}=([^;]+)`);
-    const match = cookies.match(pattern);
-    if (!match?.[1]) {
-      continue;
-    }
-
-    try {
-      const decoded = decodeURIComponent(match[1]);
-      if (readString(decoded)) {
-        return decoded;
-      }
-    } catch {
-      if (readString(match[1])) {
-        return match[1];
-      }
-    }
-  }
-
-  return '';
-}
-
-function readStoredToken() {
-  if (typeof window === 'undefined') {
-    return '';
-  }
-
-  try {
-    const fromLocalStorage = readTokenFromStorage(window.localStorage);
-    if (fromLocalStorage) {
-      return fromLocalStorage;
-    }
-  } catch {
-    // ignore
-  }
-
-  try {
-    const fromSessionStorage = readTokenFromStorage(window.sessionStorage);
-    if (fromSessionStorage) {
-      return fromSessionStorage;
-    }
-  } catch {
-    // ignore
-  }
-
-  return readTokenFromCookies();
-}
-
-function clearStoredToken() {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  const storages = [window.localStorage, window.sessionStorage];
-  for (const storage of storages) {
-    try {
-      for (const key of TOKEN_STORAGE_KEYS) {
-        storage?.removeItem(key);
-      }
-    } catch {
-      // ignore
-    }
-  }
-
-  if (typeof document === 'undefined') {
-    return;
-  }
-
-  for (const key of TOKEN_COOKIE_KEYS) {
-    document.cookie = `${key}=; Max-Age=0; path=/`;
-  }
 }
 
 function resolveValidationErrors(payload) {
@@ -254,32 +154,8 @@ function normalizeApiError(error) {
   };
 }
 
-apiClient.interceptors.request.use((config) => {
-  const token = readStoredToken();
-  if (!token) {
-    return config;
-  }
-
-  if (typeof config.headers?.set === 'function') {
-    const hasAuthHeader =
-      readString(config.headers.get('Authorization')) ||
-      readString(config.headers.get('authorization'));
-    if (!hasAuthHeader) {
-      config.headers.set('Authorization', `Bearer ${token}`);
-    }
-    return config;
-  }
-
-  const headers = readObject(config.headers);
-  if (!headers.Authorization && !headers.authorization) {
-    config.headers = {
-      ...headers,
-      Authorization: `Bearer ${token}`,
-    };
-  }
-
-  return config;
-});
+// Auth is session-based (HttpOnly cookie). No Bearer token injection needed.
+apiClient.interceptors.request.use((config) => config);
 
 apiClient.interceptors.response.use(
   (response) => response,
@@ -287,7 +163,6 @@ apiClient.interceptors.response.use(
     const normalizedError = normalizeApiError(error);
 
     if (normalizedError.status === 401 && shouldHandleAuthRedirect(error)) {
-      clearStoredToken();
       redirectToLogin();
     }
 

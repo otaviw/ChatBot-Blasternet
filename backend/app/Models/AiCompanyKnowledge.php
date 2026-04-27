@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToCompany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class AiCompanyKnowledge extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToCompany;
 
     public const INDEXING_PENDING = 'pending';
     public const INDEXING_INDEXED = 'indexed';

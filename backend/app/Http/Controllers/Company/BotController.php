@@ -175,6 +175,7 @@ class BotController extends Controller
         );
 
         $this->botSettingsSupport->syncServiceAreas($company->id, $settings->service_areas ?? []);
+        AiAccessService::forgetCompanyBotSettingsCache((int) $company->id);
 
         $this->auditLog->record(
             $request,

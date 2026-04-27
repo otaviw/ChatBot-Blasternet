@@ -194,10 +194,16 @@ class AppServiceProvider extends ServiceProvider
 
     private function limiterKey(Request $request): string
     {
-        $role = (string) $request->session()->get('role', 'guest');
-        $companyId = (string) $request->session()->get('company_id', '0');
+        $user = $request->user();
 
-        return "{$request->ip()}|{$role}|{$companyId}";
+        // Usa o ID do usuário autenticado (dado do banco) para evitar que dados
+        // de sessão desatualizados — como role ou company_id stale — mantenham
+        // limites de um papel que o usuário não tem mais.
+        if ($user) {
+            return "{$request->ip()}|user:{$user->id}";
+        }
+
+        return "{$request->ip()}|guest";
     }
 
     private function realtimeLimiterKey(Request $request): string

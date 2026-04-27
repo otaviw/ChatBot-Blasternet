@@ -38,4 +38,8 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         ApiExceptionHandler::configure($exceptions);
+
+        // Integração Sentry: reporta exceções 5xx e não-HTTP automaticamente.
+        // Só ativa quando SENTRY_LARAVEL_DSN estiver definido no .env.
+        \Sentry\Laravel\Integration::handles($exceptions);
     })->create();

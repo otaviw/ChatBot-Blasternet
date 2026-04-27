@@ -60,11 +60,14 @@ function CompanyInboxPage() {
     conversationsPagination,
     convSearchInput,
     filters,
+    hasMoreSearchResults,
     isSearchMode,
     searchTerm,
+    searchResultsTotal,
     handleConversationsScroll,
     handleConversationsSearchEnter,
     handleNextConversationPage,
+    loadMoreSearchResults,
     loadedConversationPageRef,
     refreshConversations,
     setConversations,
@@ -421,6 +424,9 @@ function CompanyInboxPage() {
             onNextConversationPage={handleNextConversationPage}
             conversationsLoadingMore={conversationsLoadingMore}
             loadedConversationPage={loadedConversationPageRef.current}
+            hasMoreSearchResults={hasMoreSearchResults}
+            onLoadMoreSearchResults={loadMoreSearchResults}
+            searchResultsTotal={searchResultsTotal}
             onNewConversation={() => setNewConvModalOpen(true)}
           />
 

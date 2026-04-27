@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToCompany;
 use Illuminate\Database\Eloquent\Model;
 
 class AiUsage extends Model
 {
+    use BelongsToCompany;
     public const FEATURE_INTERNAL_CHAT = 'internal_chat';
     public const FEATURE_CHATBOT_FUTURE = 'chatbot_future';
 

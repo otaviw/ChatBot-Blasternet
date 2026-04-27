@@ -97,6 +97,9 @@ function ConversationsSidebar({
   onConvSearchEnter,
   isSearchMode,
   searchTerm,
+  hasMoreSearchResults = false,
+  onLoadMoreSearchResults,
+  searchResultsTotal = 0,
   filters,
   onFiltersChange,
   conversationListRef,
@@ -286,6 +289,17 @@ function ConversationsSidebar({
           </button>
         </div>
       )}
+      {isSearchMode && hasMoreSearchResults ? (
+        <div className="inbox-conversations-pagination">
+          <button
+            type="button"
+            onClick={onLoadMoreSearchResults}
+            className="app-btn-secondary text-xs w-full"
+          >
+            Carregar mais resultados
+          </button>
+        </div>
+      ) : null}
       <div className="inbox-conversations-status">
         {conversationsLoading ? (
           <span className="text-xs text-[#737373]">
@@ -301,7 +315,9 @@ function ConversationsSidebar({
           <span className="text-xs text-[#a3a3a3]">Fim da lista.</span>
         )}
         {isSearchMode ? (
-          <span className="text-xs text-[#a3a3a3]">{conversations.length} resultado(s)</span>
+          <span className="text-xs text-[#a3a3a3]">
+            {conversations.length} / {searchResultsTotal} resultado(s)
+          </span>
         ) : conversationsPagination?.total ? (
           <span className="text-xs text-[#a3a3a3]">
             {conversations.length} / {conversationsPagination.total}

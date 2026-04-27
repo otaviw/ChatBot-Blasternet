@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToCompany;
 use Illuminate\Database\Eloquent\Model;
 
 class SupportTicket extends Model
 {
+    use BelongsToCompany;
     public const STATUS_OPEN = 'open';
     public const STATUS_CLOSED = 'closed';
 

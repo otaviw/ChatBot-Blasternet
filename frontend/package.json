@@ -14,6 +14,7 @@
     "quality": "npm run check"
   },
   "dependencies": {
+    "@sentry/react": "^10.50.0",
     "@tanstack/react-virtual": "^3.13.23",
     "axios": "^1.11.0",
     "react": "^19.2.4",

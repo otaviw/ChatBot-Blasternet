@@ -1,5 +1,7 @@
 import './Button.css';
 
+/** @typedef {import('@/types/ui').ButtonVariant} ButtonVariant */
+
 const VARIANT_CLASSES = {
   primary: 'app-btn-primary',
   secondary: 'app-btn-secondary',
@@ -7,6 +9,11 @@ const VARIANT_CLASSES = {
   danger: 'app-btn-danger focus-visible:ring-red-200',
 };
 
+/**
+ * Botão base do sistema. Suporta 4 variantes visuais e repassa atributos HTML nativos.
+ *
+ * @param {import('@/types/ui').ButtonProps & React.ButtonHTMLAttributes<HTMLButtonElement>} props
+ */
 function Button({
   type = 'button',
   variant = 'secondary',

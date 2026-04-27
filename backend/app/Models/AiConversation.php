@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToCompany;
 use Illuminate\Database\Eloquent\Model;
 
 class AiConversation extends Model
 {
+    use BelongsToCompany;
     public const ORIGIN_INTERNAL_CHAT = 'internal_chat';
     public const ORIGIN_CHATBOT = 'chatbot';
 

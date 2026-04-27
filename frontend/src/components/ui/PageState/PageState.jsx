@@ -3,6 +3,8 @@ import ErrorMessage from '@/components/ui/ErrorMessage/ErrorMessage.jsx';
 import LoadingSpinner from '@/components/ui/LoadingSpinner/LoadingSpinner.jsx';
 import './PageState.css';
 
+/** @typedef {import('@/types/ui').PageStateProps} PageStateProps */
+
 /**
  * PageState — orquestrador de estados de uma seção ou página inteira.
  *
@@ -36,6 +38,8 @@ import './PageState.css';
  *
  * Outras:
  *   className: string — aplicado ao wrapper do slot de erro/loading/vazio
+ *
+ * @param {PageStateProps} props
  */
 function PageState({
   // loading

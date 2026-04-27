@@ -1,7 +1,16 @@
 import { Component } from 'react';
 import Button from '@/components/ui/Button/Button.jsx';
+import { Sentry } from '@/lib/sentry';
 import './ErrorBoundary.css';
 
+/** @typedef {import('@/types/ui').ErrorBoundaryProps} ErrorBoundaryProps */
+
+/**
+ * Captura erros de render na árvore de children, exibe UI de fallback e reporta ao Sentry.
+ * Use `resetKey` para limpar o erro quando o contexto da página muda.
+ *
+ * @extends {Component<ErrorBoundaryProps>}
+ */
 class ErrorBoundary extends Component {
   constructor(props) {
     super(props);
@@ -15,7 +24,9 @@ class ErrorBoundary extends Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('ErrorBoundary capturou um erro:', error, errorInfo);
+    Sentry.captureException(error, {
+      contexts: { react: { componentStack: errorInfo.componentStack } },
+    });
   }
 
   componentDidUpdate(prevProps) {

@@ -2,6 +2,7 @@ import { REALTIME_EVENTS } from '@/constants/realtimeEvents';
 import { isSupportedRealtimeEvent } from './realtime/isSupportedRealtimeEvent';
 import { readPositiveInt } from './realtime/readPositiveInt';
 import { readMessagePayload } from './realtime/readMessagePayload';
+import { validateEventPayload } from './realtime/validateEventPayload';
 
 const MAX_SEEN_ITEMS = 1500;
 const SEEN_TTL_MS = 5 * 60 * 1000;
@@ -117,6 +118,13 @@ class RealtimeStore {
     }
 
     const normalized = this.normalizeEnvelope(eventName, envelope);
+
+    const validation = validateEventPayload(eventName, normalized.payload);
+    if (!validation.ok) {
+      console.warn(`Realtime: payload inválido para "${eventName}":`, validation.error, normalized.payload);
+      return;
+    }
+
     if (this.isDuplicate(eventName, normalized)) {
       return;
     }

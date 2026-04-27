@@ -1,5 +1,8 @@
 import './LoadingSkeleton.css';
 
+/** @typedef {import('@/types/ui').LoadingSkeletonProps} LoadingSkeletonProps */
+
+/** @param {LoadingSkeletonProps} props */
 function LoadingSkeleton({ className = '' }) {
   const classes = ['loading-skeleton', className].filter(Boolean).join(' ');
   return <div className={classes} aria-hidden="true" />;

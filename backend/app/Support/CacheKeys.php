@@ -35,6 +35,16 @@ class CacheKeys
     }
 
     // -------------------------------------------------------------------------
+    // Configurações de bot/IA por empresa (CompanyBotSetting)
+    // TTL recomendado: 5 min  (muda raramente, apenas quando admin edita)
+    // Invalidação: explícita em Admin/BotSettingsController e Company/BotSettingsController
+    // -------------------------------------------------------------------------
+    public static function companyBotSettings(int $companyId): string
+    {
+        return "bot_settings:company:{$companyId}";
+    }
+
+    // -------------------------------------------------------------------------
     // Métricas de IA (analytics de AiMetricsController)
     // TTL recomendado: 5 min  (dados históricos, stale aceitável)
     // Invalidação: não é feita explicitamente — dados analíticos podem ser

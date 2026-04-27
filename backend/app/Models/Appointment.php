@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToCompany;
 use App\Support\AppointmentSource;
 use App\Support\AppointmentStatus;
 use Illuminate\Database\Eloquent\Model;
 
 class Appointment extends Model
 {
+    use BelongsToCompany;
     protected $fillable = [
         'company_id',
         'service_id',

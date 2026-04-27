@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Casts\AiChatbotRulesCast;
+use App\Models\Concerns\BelongsToCompany;
 use Illuminate\Database\Eloquent\Model;
 
 class CompanyBotSetting extends Model
 {
+    use BelongsToCompany;
     protected $fillable = [
         'company_id',
         'is_active',
@@ -58,7 +61,7 @@ class CompanyBotSetting extends Model
         'ai_usage_limit_monthly' => 'integer',
         'ai_chatbot_enabled' => 'boolean',
         'ai_chatbot_auto_reply_enabled' => 'boolean',
-        'ai_chatbot_rules' => 'array',
+        'ai_chatbot_rules' => AiChatbotRulesCast::class,
         'ai_max_context_messages' => 'integer',
         'ai_monthly_limit' => 'integer',
         'ai_usage_count' => 'integer',

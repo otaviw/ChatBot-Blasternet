@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToCompany;
 use Illuminate\Database\Eloquent\Model;
 
 class AiAuditLog extends Model
 {
+    use BelongsToCompany;
     public const ACTION_MESSAGE_SENT = 'message_sent';
     public const ACTION_TOOL_EXECUTED = 'tool_executed';
     public const ACTION_TOOL_FAILED = 'tool_failed';

@@ -3,6 +3,7 @@ import api from '@/services/api';
 import { sortConversationsByActivity } from '../inboxRealtimeUtils';
 
 const CONV_PER_PAGE = 25;
+const SEARCH_DISPLAY_STEP = 20;
 
 const EMPTY_FILTERS = {
   status: '',
@@ -18,6 +19,7 @@ export default function useCompanyInboxConversations({ data, loading }) {
   const [convSearchInput, setConvSearchInput] = useState('');
   const [conversations, setConversations] = useState([]);
   const [searchResults, setSearchResults] = useState([]);
+  const [searchDisplayLimit, setSearchDisplayLimit] = useState(SEARCH_DISPLAY_STEP);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchLoading, setSearchLoading] = useState(false);
   const [conversationsPagination, setConversationsPagination] = useState(null);
@@ -82,6 +84,7 @@ export default function useCompanyInboxConversations({ data, loading }) {
       }
 
       setSearchLoading(true);
+      setSearchDisplayLimit(SEARCH_DISPLAY_STEP);
       try {
         const response = await api.get(buildSearchUrl(term, filters));
         if (canceled) return;
@@ -267,9 +270,14 @@ export default function useCompanyInboxConversations({ data, loading }) {
     );
   }, [conversationsPagination]);
 
+  const loadMoreSearchResults = useCallback(() => {
+    setSearchDisplayLimit((prev) => prev + SEARCH_DISPLAY_STEP);
+  }, []);
+
   const isSearchMode = searchTerm !== '';
-  const visibleConversations = isSearchMode ? searchResults : conversations;
+  const visibleConversations = isSearchMode ? searchResults.slice(0, searchDisplayLimit) : conversations;
   const visiblePagination = isSearchMode ? null : conversationsPagination;
+  const hasMoreSearchResults = isSearchMode && searchResults.length > searchDisplayLimit;
 
   return {
     conversationListRef,
@@ -279,11 +287,14 @@ export default function useCompanyInboxConversations({ data, loading }) {
     conversationsPagination: visiblePagination,
     convSearchInput,
     filters,
+    hasMoreSearchResults,
     isSearchMode,
     searchTerm,
+    searchResultsTotal: isSearchMode ? searchResults.length : 0,
     handleConversationsScroll,
     handleConversationsSearchEnter,
     handleNextConversationPage,
+    loadMoreSearchResults,
     loadedConversationPageRef,
     refreshConversations,
     setConversations,

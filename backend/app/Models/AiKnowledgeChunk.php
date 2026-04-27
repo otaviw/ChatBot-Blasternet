@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToCompany;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AiKnowledgeChunk extends Model
 {
+    use BelongsToCompany;
     protected $table = 'ai_knowledge_chunks';
 
     protected $fillable = [

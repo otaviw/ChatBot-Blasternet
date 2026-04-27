@@ -13,11 +13,8 @@ class QuickReplyController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $user = $request->user();
-
-        $replies = QuickReply::where('company_id', $user->company_id)
-            ->orderBy('title')
-            ->get();
+        // CompanyScope já filtra por company_id do usuário autenticado
+        $replies = QuickReply::orderBy('title')->get();
 
         return response()->json([
             'authenticated' => true,

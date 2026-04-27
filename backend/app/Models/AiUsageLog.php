@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToCompany;
 use Illuminate\Database\Eloquent\Model;
 
 class AiUsageLog extends Model
 {
+    use BelongsToCompany;
     // ── Tipos legados (campo `type`) ──────────────────────────────────────────
     public const TYPE_INTERNAL_CHAT = 'internal_chat';
     public const TYPE_CHATBOT = 'chatbot';

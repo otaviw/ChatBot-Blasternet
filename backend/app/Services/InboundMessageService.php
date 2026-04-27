@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\AiUsageLog;
 use App\Models\Company;
-use App\Models\Contact;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Services\Ai\AiMetricsService;
@@ -13,9 +12,6 @@ use App\Services\Ai\ChatbotAiDecisionService;
 use App\Services\Ai\ConversationAiSuggestionService;
 use App\Services\Bot\StatefulBotService;
 use App\Services\WhatsApp\WhatsAppSendService;
-use App\Support\ConversationAssignedType;
-use App\Support\ConversationHandlingMode;
-use App\Support\ConversationStatus;
 use App\Support\MessageDeliveryStatus;
 use App\Support\PhoneNumberNormalizer;
 use Illuminate\Http\UploadedFile;
@@ -32,7 +28,8 @@ class InboundMessageService
         private StatefulBotService $statefulBot,
         private MessageMediaStorageService $mediaStorage,
         private MessageDeliveryStatusService $deliveryStatus,
-        private ConversationInactivityService $conversationInactivityService,
+        private ConversationBootstrapService $conversationBootstrap,
+        private ConversationStateService $conversationState,
         private ChatbotAiDecisionService $chatbotAiDecision,
         private ConversationAiSuggestionService $chatbotAiSuggestion,
         private AiMetricsService $aiMetrics,
@@ -58,10 +55,9 @@ class InboundMessageService
 
         // Deduplicação — camada 2 (service):
         // Segunda linha de defesa contra wamids já processados. Posicionada antes do
-        // bootstrapConversation para não alterar estado (last_user_message_at, etc.)
-        // em mensagens repetidas. O job já faz o check da camada 1, mas dois jobs
-        // concorrentes podem passar pela camada 1 ao mesmo tempo antes de qualquer
-        // um ter persistido a mensagem.
+        // bootstrap para não alterar estado (last_user_message_at, etc.) em mensagens
+        // repetidas. O job já faz o check da camada 1, mas dois jobs concorrentes podem
+        // passar pela camada 1 ao mesmo tempo antes de qualquer um persistir a mensagem.
         $wamid = $this->extractWhatsAppMessageId($inMeta);
         if ($wamid !== null) {
             $existing = Message::where('whatsapp_message_id', $wamid)->first();
@@ -84,7 +80,7 @@ class InboundMessageService
             }
         }
 
-        $conversation = $this->bootstrapConversation($company, $normalizedFrom, $normalizedContactName);
+        $conversation = $this->conversationBootstrap->bootstrap($company, $normalizedFrom, $normalizedContactName);
 
         $isFirstInboundMessage = ! Message::where('conversation_id', $conversation->id)
             ->where('direction', 'in')
@@ -100,6 +96,26 @@ class InboundMessageService
             'meta' => $inMeta,
         ]);
 
+        // Race condition Layer 3: dois jobs passaram pela Layer 2 ao mesmo tempo.
+        // A unique constraint garantiu que só uma mensagem foi criada; o segundo job
+        // recebeu a já existente. Retorna cedo para não enviar resposta duplicada.
+        if (! $inMessage->wasRecentlyCreated) {
+            Log::info('InboundMessageService: race condition resolvida no handleIncomingText — resposta do bot suprimida.', [
+                'wamid'      => $wamid,
+                'message_id' => $inMessage->id,
+                'company_id' => $company?->id,
+            ]);
+
+            return [
+                'conversation'  => $conversation,
+                'in_message'    => $inMessage,
+                'out_message'   => null,
+                'reply'         => null,
+                'was_sent'      => false,
+                'auto_replied'  => false,
+            ];
+        }
+
         if ($conversation->isManualMode()) {
             Log::info('Auto reply ignorado porque conversa esta em modo manual.', [
                 'conversation_id' => $conversation->id,
@@ -107,7 +123,7 @@ class InboundMessageService
                 'customer_phone' => $normalizedFrom,
             ]);
 
-            $conversation->status = ConversationStatus::IN_PROGRESS;
+            $conversation->status = \App\Support\ConversationStatus::IN_PROGRESS;
             $conversation->save();
 
             return [
@@ -143,7 +159,6 @@ class InboundMessageService
         if ($company !== null && $this->chatbotAiDecision->shouldUseAi($company)) {
             $safetyResult = $this->safetyPipeline->run($normalizedText);
             if ($safetyResult->blocked) {
-                // Bloqueio de segurança: permanece com bot clássico, registra evento
                 Log::info('chatbot.safety_blocked', [
                     'conversation_id' => (int) $conversation->id,
                     'company_id' => (int) ($company->id ?? 0),
@@ -155,7 +170,7 @@ class InboundMessageService
                 $aiReply = $this->generateChatbotAiReply($company, $conversation);
                 if ($aiReply !== null) {
                     $reply = $aiReply;
-                    $statefulHandled = false; // resposta de IA não é fluxo stateful
+                    $statefulHandled = false;
                     $replyMessage = null;
                 }
             }
@@ -189,9 +204,9 @@ class InboundMessageService
             ]);
 
             if ($statefulHandled) {
-                $this->applyStatefulConversationUpdate($lockedConversation, $statefulResult);
+                $this->conversationState->applyStatefulUpdate($lockedConversation, $statefulResult);
             } else {
-                $this->applyLegacyBotConversationUpdate($lockedConversation);
+                $this->conversationState->applyLegacyUpdate($lockedConversation);
             }
 
             $lockedConversation->save();
@@ -302,7 +317,7 @@ class InboundMessageService
             }
         }
 
-        $conversation = $this->bootstrapConversation($company, $normalizedFrom, $normalizedContactName);
+        $conversation = $this->conversationBootstrap->bootstrap($company, $normalizedFrom, $normalizedContactName);
 
         $download = $this->whatsAppSend->downloadInboundImage($company, $normalizedMediaId);
         $storedMedia = null;
@@ -353,7 +368,7 @@ class InboundMessageService
             ]);
 
             if ($conversation->isManualMode()) {
-                $conversation->status = ConversationStatus::IN_PROGRESS;
+                $conversation->status = \App\Support\ConversationStatus::IN_PROGRESS;
                 $conversation->save();
             }
 
@@ -410,7 +425,7 @@ class InboundMessageService
             }
         }
 
-        $conversation = $this->bootstrapConversation($company, $normalizedFrom, $normalizedContactName);
+        $conversation = $this->conversationBootstrap->bootstrap($company, $normalizedFrom, $normalizedContactName);
 
         $inMessage = DB::transaction(function () use ($conversation, $latitude, $longitude, $name, $address, $inMeta) {
             $msg = $this->createMessageOrFetchDuplicate([
@@ -424,7 +439,7 @@ class InboundMessageService
             ]);
 
             if ($conversation->isManualMode()) {
-                $conversation->status = ConversationStatus::IN_PROGRESS;
+                $conversation->status = \App\Support\ConversationStatus::IN_PROGRESS;
                 $conversation->save();
             }
 
@@ -457,7 +472,7 @@ class InboundMessageService
             throw new InvalidArgumentException('Phone e imagem sao obrigatórios para processar mensagem.');
         }
 
-        $conversation = $this->bootstrapConversation($company, $normalizedFrom, $normalizedContactName);
+        $conversation = $this->conversationBootstrap->bootstrap($company, $normalizedFrom, $normalizedContactName);
 
         $storedMedia = $this->mediaStorage->storeUploadedImage($imageFile, $company?->id);
         $meta = array_merge($inMeta, ['media_uploaded' => true]);
@@ -480,7 +495,7 @@ class InboundMessageService
         ]);
 
         if ($conversation->isManualMode()) {
-            $conversation->status = ConversationStatus::IN_PROGRESS;
+            $conversation->status = \App\Support\ConversationStatus::IN_PROGRESS;
             $conversation->save();
         }
 
@@ -564,177 +579,6 @@ class InboundMessageService
         }
 
         return mb_substr($value, 0, 160);
-    }
-
-    private function bootstrapConversation(
-        ?Company $company,
-        string $normalizedFrom,
-        ?string $normalizedContactName
-    ): Conversation {
-        if ($company?->id) {
-            $this->conversationInactivityService->closeInactiveConversations((int) $company->id);
-        }
-
-        $companyId = (int) ($company?->id ?? 0);
-        $variants = PhoneNumberNormalizer::variantsForLookup($normalizedFrom);
-
-        $conversation = Conversation::query()
-            ->where('company_id', $companyId)
-            ->whereIn('customer_phone', $variants !== [] ? $variants : [$normalizedFrom])
-            ->orderByDesc('id')
-            ->first();
-
-        if (! $conversation) {
-            $conversation = Conversation::create([
-                'company_id' => $companyId,
-                'customer_phone' => $normalizedFrom,
-                'status' => ConversationStatus::OPEN,
-                'assigned_type' => ConversationAssignedType::UNASSIGNED,
-                'handling_mode' => ConversationHandlingMode::BOT,
-                'customer_name' => $normalizedContactName,
-            ]);
-        }
-
-        if ($normalizedContactName !== null && $conversation->customer_name !== $normalizedContactName) {
-            $conversation->customer_name = $normalizedContactName;
-        }
-
-        if ($conversation->customer_phone !== $normalizedFrom) {
-            $conversation->customer_phone = $normalizedFrom;
-        }
-
-        if ($conversation->status === ConversationStatus::CLOSED) {
-            $this->reopenClosedConversation($conversation);
-        }
-
-        // Registra o momento da última mensagem do usuário para controle da janela de 24h
-        $conversation->last_user_message_at = now();
-        $conversation->save();
-
-        if ($companyId > 0) {
-            $this->upsertContact($companyId, $normalizedFrom, $normalizedContactName);
-        }
-
-        return $conversation;
-    }
-
-    private function upsertContact(int $companyId, string $phone, ?string $name): void
-    {
-        $contact = Contact::firstOrCreate(
-            ['company_id' => $companyId, 'phone' => $phone],
-            ['name' => $name ?? $phone]
-        );
-
-        $contact->last_interaction_at = now();
-
-        if ($name !== null && $contact->name !== $name) {
-            $contact->name = $name;
-        }
-
-        $contact->save();
-    }
-
-    private function reopenClosedConversation(Conversation $conversation): void
-    {
-        $conversation->status = ConversationStatus::OPEN;
-        $conversation->closed_at = null;
-        $conversation->handling_mode = ConversationHandlingMode::BOT;
-        $conversation->assigned_type = ConversationAssignedType::BOT;
-        $conversation->assigned_id = null;
-        $conversation->current_area_id = null;
-        $conversation->assigned_user_id = null;
-        $conversation->assigned_area = null;
-        $conversation->assumed_at = null;
-        $this->clearBotState($conversation);
-    }
-
-    private function applyLegacyBotConversationUpdate(Conversation $conversation): void
-    {
-        $conversation->status = ConversationStatus::OPEN;
-        $conversation->handling_mode = ConversationHandlingMode::BOT;
-        $conversation->assigned_type = ConversationAssignedType::BOT;
-        $conversation->assigned_id = null;
-        $conversation->current_area_id = null;
-        $conversation->assigned_user_id = null;
-        $conversation->assigned_area = null;
-        $conversation->assumed_at = null;
-        $this->clearBotState($conversation);
-    }
-
-    /**
-     * @param  array<string, mixed>  $statefulResult
-     */
-    private function applyStatefulConversationUpdate(Conversation $conversation, array $statefulResult): void
-    {
-        $shouldHandoff = (bool) ($statefulResult['should_handoff'] ?? false);
-
-        if (! $shouldHandoff) {
-            $conversation->status = ConversationStatus::OPEN;
-            $conversation->handling_mode = (string) ($statefulResult['set_handling_mode'] ?? ConversationHandlingMode::BOT);
-            $conversation->assigned_type = (string) ($statefulResult['set_assigned_type'] ?? ConversationAssignedType::BOT);
-            $conversation->assigned_id = $statefulResult['set_assigned_id'] ?? null;
-            $conversation->current_area_id = $statefulResult['set_current_area_id'] ?? null;
-            $conversation->assigned_user_id = null;
-            $conversation->assigned_area = null;
-            $conversation->assumed_at = null;
-            $this->applyBotStateFromResult($conversation, $statefulResult);
-
-            return;
-        }
-
-        $handoffTarget = is_array($statefulResult['handoff_target'] ?? null)
-            ? $statefulResult['handoff_target']
-            : null;
-
-        $conversation->status = ConversationStatus::IN_PROGRESS;
-        $conversation->handling_mode = (string) ($statefulResult['set_handling_mode'] ?? ConversationHandlingMode::HUMAN);
-        $conversation->assigned_type = (string) ($statefulResult['set_assigned_type'] ?? ConversationAssignedType::UNASSIGNED);
-        $conversation->assigned_id = $statefulResult['set_assigned_id'] ?? null;
-        $conversation->current_area_id = $statefulResult['set_current_area_id'] ?? null;
-        $conversation->assigned_user_id = null;
-        $targetAreaName = is_array($handoffTarget)
-            ? trim((string) ($handoffTarget['name'] ?? ''))
-            : '';
-        $conversation->assigned_area = $targetAreaName === '' ? null : $targetAreaName;
-        $conversation->assumed_at = null;
-        $this->clearBotState($conversation);
-    }
-
-    /**
-     * @param  array<string, mixed>  $statefulResult
-     */
-    private function applyBotStateFromResult(Conversation $conversation, array $statefulResult): void
-    {
-        if ((bool) ($statefulResult['clear_state'] ?? false)) {
-            $this->clearBotState($conversation);
-
-            return;
-        }
-
-        $newState = is_array($statefulResult['new_state'] ?? null)
-            ? $statefulResult['new_state']
-            : null;
-
-        if (! $newState) {
-            $this->clearBotState($conversation);
-
-            return;
-        }
-
-        $conversation->bot_flow = $newState['flow'] ?? null;
-        $conversation->bot_step = $newState['step'] ?? null;
-        $conversation->bot_context = is_array($newState['context'] ?? null)
-            ? $newState['context']
-            : [];
-        $conversation->bot_last_interaction_at = now();
-    }
-
-    private function clearBotState(Conversation $conversation): void
-    {
-        $conversation->bot_flow = null;
-        $conversation->bot_step = null;
-        $conversation->bot_context = null;
-        $conversation->bot_last_interaction_at = null;
     }
 
     /**

@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToCompany;
 use Illuminate\Database\Eloquent\Model;
 
 class AppointmentWorkingHour extends Model
 {
+    use BelongsToCompany;
     protected $fillable = [
         'company_id',
         'staff_profile_id',

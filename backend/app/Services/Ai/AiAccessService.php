@@ -4,6 +4,8 @@ namespace App\Services\Ai;
 
 use App\Models\CompanyBotSetting;
 use App\Models\User;
+use App\Support\CacheKeys;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 
 class AiAccessService
@@ -15,21 +17,30 @@ class AiAccessService
             return null;
         }
 
-        return CompanyBotSetting::query()
-            ->where('company_id', $companyId)
-            ->first() ?? new CompanyBotSetting([
-                'company_id' => $companyId,
-                'ai_enabled' => false,
-                'ai_internal_chat_enabled' => false,
-                'ai_usage_enabled' => true,
-                'ai_usage_limit_monthly' => null,
-                'ai_chatbot_enabled' => false,
-                'ai_chatbot_auto_reply_enabled' => false,
-                'ai_chatbot_rules' => null,
-                'ai_max_context_messages' => 10,
-                'ai_usage_count' => 0,
-                'ai_chatbot_mode' => 'disabled',
-            ]);
+        $cached = Cache::remember(
+            CacheKeys::companyBotSettings($companyId),
+            now()->addMinutes(5),
+            fn () => CompanyBotSetting::query()->where('company_id', $companyId)->first()
+        );
+
+        return $cached ?? new CompanyBotSetting([
+            'company_id'                   => $companyId,
+            'ai_enabled'                   => false,
+            'ai_internal_chat_enabled'     => false,
+            'ai_usage_enabled'             => true,
+            'ai_usage_limit_monthly'       => null,
+            'ai_chatbot_enabled'           => false,
+            'ai_chatbot_auto_reply_enabled' => false,
+            'ai_chatbot_rules'             => null,
+            'ai_max_context_messages'      => 10,
+            'ai_usage_count'               => 0,
+            'ai_chatbot_mode'              => 'disabled',
+        ]);
+    }
+
+    public static function forgetCompanyBotSettingsCache(int $companyId): void
+    {
+        Cache::forget(CacheKeys::companyBotSettings($companyId));
     }
 
     /**

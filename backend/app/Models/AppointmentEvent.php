@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToCompany;
 use Illuminate\Database\Eloquent\Model;
 
 class AppointmentEvent extends Model
 {
+    use BelongsToCompany;
     public const UPDATED_AT = null;
 
     protected $fillable = [

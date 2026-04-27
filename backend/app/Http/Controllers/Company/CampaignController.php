@@ -24,7 +24,9 @@ class CampaignController extends Controller
             return $this->errorResponse('Empresa não identificada.', 'company_not_found', 403);
         }
 
-        $campaigns = Campaign::where('company_id', $companyId)
+        $perPage = min(50, max(5, $request->integer('per_page', 20)));
+
+        $paginator = Campaign::where('company_id', $companyId)
             ->withCount([
                 'campaignContacts',
                 'campaignContacts as sent_count'     => fn ($q) => $q->where('status', 'sent'),
@@ -33,9 +35,17 @@ class CampaignController extends Controller
                 'campaignContacts as pending_count'  => fn ($q) => $q->where('status', 'pending'),
             ])
             ->latest()
-            ->get();
+            ->paginate($perPage);
 
-        return response()->json(['campaigns' => $campaigns]);
+        return response()->json([
+            'campaigns' => $paginator->items(),
+            'pagination' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page'    => $paginator->lastPage(),
+                'per_page'     => $paginator->perPage(),
+                'total'        => $paginator->total(),
+            ],
+        ]);
     }
 
     public function store(StoreCampaignRequest $request): JsonResponse

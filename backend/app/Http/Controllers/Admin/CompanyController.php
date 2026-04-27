@@ -40,14 +40,22 @@ class CompanyController extends Controller
             $companiesQuery->whereNotNull('reseller_id');
         }
 
-        $companies = $companiesQuery
+        $perPage = min(100, max(10, $request->integer('per_page', 50)));
+
+        $paginator = $companiesQuery
             ->orderBy('name')
-            ->get();
+            ->paginate($perPage);
 
         return response()->json([
             'authenticated' => true,
-            'role' => 'admin',
-            'companies' => $companies,
+            'role'          => 'admin',
+            'companies'     => $paginator->items(),
+            'pagination'    => [
+                'current_page' => $paginator->currentPage(),
+                'last_page'    => $paginator->lastPage(),
+                'per_page'     => $paginator->perPage(),
+                'total'        => $paginator->total(),
+            ],
         ]);
     }
 
@@ -171,6 +179,7 @@ class CompanyController extends Controller
         );
 
         $this->botSettingsSupport->syncServiceAreas($company->id, $settings->service_areas ?? []);
+        \App\Services\Ai\AiAccessService::forgetCompanyBotSettingsCache((int) $company->id);
 
         $this->auditLog->record(
             $request,

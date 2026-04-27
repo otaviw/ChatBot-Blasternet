@@ -1,6 +1,8 @@
 import Button from '@/components/ui/Button/Button.jsx';
 import './ErrorMessage.css';
 
+/** @typedef {import('@/types/ui').ErrorMessageProps} ErrorMessageProps */
+
 function ErrorMessageIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -11,6 +13,7 @@ function ErrorMessageIcon() {
   );
 }
 
+/** @param {ErrorMessageProps} props */
 function ErrorMessage({ message, detail = '', onRetry = null, retryLabel = 'Tentar novamente', className = '' }) {
   const displayMessage = message || 'Não foi possível carregar os dados.';
 

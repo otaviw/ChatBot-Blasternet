@@ -2,6 +2,9 @@ import { useEffect } from 'react';
 import Button from '@/components/ui/Button/Button.jsx';
 import './ConfirmDialog.css';
 
+/** @typedef {import('@/types/ui').ConfirmDialogProps} ConfirmDialogProps */
+
+/** @param {ConfirmDialogProps} props */
 function ConfirmDialog({
   open = false,
   title = 'Confirmar ação',

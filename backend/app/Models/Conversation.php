@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\BotContextCast;
 use App\Models\Concerns\BelongsToCompany;
 use App\Support\ConversationHandlingMode;
 use Illuminate\Database\Eloquent\Model;
@@ -42,7 +43,7 @@ class Conversation extends Model
         'bot_last_interaction_at' => 'datetime',
         'last_user_message_at' => 'datetime',
         'last_business_message_at' => 'datetime',
-        'bot_context' => 'array',
+        'bot_context' => BotContextCast::class,
     ];
 
     protected static function booted(): void
@@ -90,6 +91,14 @@ class Conversation extends Model
     public function isManualMode(): bool
     {
         return ConversationHandlingMode::isHuman($this->handling_mode);
+    }
+
+    public function clearBotState(): void
+    {
+        $this->bot_flow = null;
+        $this->bot_step = null;
+        $this->bot_context = null;
+        $this->bot_last_interaction_at = null;
     }
 
     public function getHandlingModeAttribute(?string $value): string
@@ -140,7 +149,10 @@ class Conversation extends Model
 
         $tagIds = collect($tagNames)
             ->map(function (string $name): int {
-                $tag = Tag::query()->firstOrCreate(
+                // createOrFirst faz INSERT primeiro e, se receber duplicate key (23xxx),
+                // busca o registro existente — ao contrário de firstOrCreate (SELECT→INSERT)
+                // que tem race condition quando dois requests criam a mesma tag em paralelo.
+                $tag = Tag::createOrFirst(
                     [
                         'company_id' => (int) $this->company_id,
                         'name' => $name,
