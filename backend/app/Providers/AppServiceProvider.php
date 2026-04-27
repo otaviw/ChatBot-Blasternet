@@ -14,6 +14,7 @@ use App\Models\Conversation;
 use App\Models\ConversationTransfer;
 use App\Models\Message;
 use App\Models\Notification;
+use App\Models\QuickReply;
 use App\Models\SupportTicket;
 use App\Models\SupportTicketMessage;
 use App\Models\Tag;
@@ -33,6 +34,7 @@ use App\Policies\AreaPolicy;
 use App\Policies\AuditLogPolicy;
 use App\Policies\ChatPolicy;
 use App\Policies\ConversationPolicy;
+use App\Policies\QuickReplyPolicy;
 use App\Policies\TagPolicy;
 use App\Services\Ai\AiProviderResolver;
 use App\Services\Ai\Providers\AiProvider;
@@ -81,6 +83,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Area::class, AreaPolicy::class);
         Gate::policy(AuditLog::class, AuditLogPolicy::class);
         Gate::policy(Conversation::class, ConversationPolicy::class);
+        Gate::policy(QuickReply::class, QuickReplyPolicy::class);
         Gate::policy(Tag::class, TagPolicy::class);
         AiCompanyKnowledge::observe(AiCompanyKnowledgeObserver::class);
         Appointment::observe(AppointmentObserver::class);
@@ -101,7 +104,7 @@ class AppServiceProvider extends ServiceProvider
             $email = mb_strtolower(trim((string) $request->input('email', '')));
             $key   = 'login|' . $request->ip() . '|' . $email;
 
-            return Limit::perMinute((int) env('RATE_LIMIT_LOGIN', 5))
+            return Limit::perMinute((int) config('rate_limits.login', 5))
                 ->by($key)
                 ->response(fn () => response()->json([
                     'message' => 'Muitas tentativas de login. Aguarde 1 minuto e tente novamente.',
@@ -113,7 +116,7 @@ class AppServiceProvider extends ServiceProvider
             $email = mb_strtolower(trim((string) $request->input('email', '')));
             $key   = 'pwd-reset|' . $request->ip() . '|' . $email;
 
-            return Limit::perMinute((int) env('RATE_LIMIT_PASSWORD_RESET', 5))
+            return Limit::perMinute((int) config('rate_limits.password_reset', 5))
                 ->by($key)
                 ->response(fn () => response()->json([
                     'message' => 'Muitas tentativas de recuperação de senha. Aguarde 1 minuto.',
@@ -125,7 +128,7 @@ class AppServiceProvider extends ServiceProvider
         // generoso para produção e ainda bloqueia flood não-Meta.
         // ---------------------------------------------------------------------------
         RateLimiter::for('webhook-inbound', function (Request $request) {
-            return Limit::perMinute((int) env('RATE_LIMIT_WEBHOOK_INBOUND', 500))
+            return Limit::perMinute((int) config('rate_limits.webhook_inbound', 500))
                 ->by('webhook|' . $request->ip());
         });
 
@@ -141,7 +144,7 @@ class AppServiceProvider extends ServiceProvider
                 ? 'api|user:' . $user->id
                 : 'api|ip:' . $request->ip();
 
-            return Limit::perMinute((int) env('RATE_LIMIT_API_GLOBAL', 600))
+            return Limit::perMinute((int) config('rate_limits.api_global', 600))
                 ->by($key)
                 ->response(fn () => response()->json([
                     'message' => 'Muitas requisições. Tente novamente em instantes.',
@@ -149,7 +152,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('bot-write', function (Request $request) {
-            return Limit::perMinute((int) env('RATE_LIMIT_BOT_WRITE', 60))
+            return Limit::perMinute((int) config('rate_limits.bot_write', 60))
                 ->by($this->limiterKey($request));
         });
 
@@ -161,12 +164,12 @@ class AppServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('simulation', function (Request $request) {
-            return Limit::perMinute((int) env('RATE_LIMIT_SIMULATION', 30))
+            return Limit::perMinute((int) config('rate_limits.simulation', 30))
                 ->by($this->limiterKey($request));
         });
 
         RateLimiter::for('inbox-read', function (Request $request) {
-            return Limit::perMinute((int) env('RATE_LIMIT_INBOX_READ', 180))
+            return Limit::perMinute((int) config('rate_limits.inbox_read', 180))
                 ->by($this->limiterKey($request));
         });
 
@@ -174,17 +177,17 @@ class AppServiceProvider extends ServiceProvider
             $user = $request->user();
             $identity = $user ? (string) $user->id : $this->limiterKey($request);
 
-            return Limit::perMinute((int) env('RATE_LIMIT_CONVERSATION_SEARCH', 30))
+            return Limit::perMinute((int) config('rate_limits.conversation_search', 30))
                 ->by("conversation-search|{$identity}");
         });
 
         RateLimiter::for('realtime-token', function (Request $request) {
-            return Limit::perMinute((int) env('RATE_LIMIT_REALTIME_TOKEN', 30))
+            return Limit::perMinute((int) config('rate_limits.realtime_token', 30))
                 ->by($this->realtimeLimiterKey($request));
         });
 
         RateLimiter::for('realtime-join', function (Request $request) {
-            return Limit::perMinute((int) env('RATE_LIMIT_REALTIME_JOIN', 120))
+            return Limit::perMinute((int) config('rate_limits.realtime_join', 120))
                 ->by($this->realtimeLimiterKey($request));
         });
 

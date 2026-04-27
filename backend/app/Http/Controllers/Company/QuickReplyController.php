@@ -7,13 +7,13 @@ use App\Http\Requests\Company\StoreQuickReplyRequest;
 use App\Http\Requests\Company\UpdateQuickReplyRequest;
 use App\Models\QuickReply;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 class QuickReplyController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(): JsonResponse
     {
-        // CompanyScope já filtra por company_id do usuário autenticado
+        $this->authorize('viewAny', QuickReply::class);
+
         $replies = QuickReply::orderBy('title')->get();
 
         return response()->json([
@@ -24,6 +24,8 @@ class QuickReplyController extends Controller
 
     public function store(StoreQuickReplyRequest $request): JsonResponse
     {
+        $this->authorize('create', QuickReply::class);
+
         $user = $request->user();
 
         $validated = $request->validated();
@@ -42,11 +44,7 @@ class QuickReplyController extends Controller
 
     public function update(UpdateQuickReplyRequest $request, QuickReply $quickReply): JsonResponse
     {
-        $user = $request->user();
-
-        if ((int) $quickReply->company_id !== (int) $user->company_id) {
-            return response()->json(['message' => 'Não autorizado.'], 403);
-        }
+        $this->authorize('update', $quickReply);
 
         $validated = $request->validated();
 
@@ -58,13 +56,9 @@ class QuickReplyController extends Controller
         ]);
     }
 
-    public function destroy(Request $request, QuickReply $quickReply): JsonResponse
+    public function destroy(QuickReply $quickReply): JsonResponse
     {
-        $user = $request->user();
-
-        if ((int) $quickReply->company_id !== (int) $user->company_id) {
-            return response()->json(['message' => 'Não autorizado.'], 403);
-        }
+        $this->authorize('delete', $quickReply);
 
         $quickReply->delete();
 

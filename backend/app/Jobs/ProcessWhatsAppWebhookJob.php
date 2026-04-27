@@ -311,7 +311,7 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
         }
 
         $company = Company::with('botSetting')
-            ->where('meta_phone_number_id', $phoneNumberId)
+            ->where('meta_phone_number_id_hash', Company::phoneNumberIdHash($phoneNumberId))
             ->first();
 
         if (! $company) {

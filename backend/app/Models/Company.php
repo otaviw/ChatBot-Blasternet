@@ -16,6 +16,7 @@ class Company extends Model
 
     protected $hidden = [
         'meta_access_token',
+        'meta_phone_number_id_hash',
     ];
 
     protected $appends = [
@@ -24,8 +25,28 @@ class Company extends Model
 
     protected $casts = [
         'meta_access_token' => 'encrypted',
+        'meta_phone_number_id' => 'encrypted',
         'meta_waba_id' => 'encrypted',
     ];
+
+    protected static function booted(): void
+    {
+        static::saving(function (Company $company): void {
+            if ($company->isDirty('meta_phone_number_id')) {
+                $company->meta_phone_number_id_hash = self::phoneNumberIdHash($company->meta_phone_number_id);
+            }
+        });
+    }
+
+    public static function phoneNumberIdHash(?string $phoneNumberId): ?string
+    {
+        $normalized = trim((string) $phoneNumberId);
+        if ($normalized === '') {
+            return null;
+        }
+
+        return hash_hmac('sha256', $normalized, (string) config('app.key'));
+    }
 
     public function conversations()
     {

@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Models\Company;
+use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -21,7 +23,7 @@ class UpdateCompanyRequest extends FormRequest
                 'nullable',
                 'string',
                 'max:255',
-                Rule::unique('companies', 'meta_phone_number_id')->ignore($this->route('company')),
+                $this->uniquePhoneNumberIdRule(),
             ],
             'meta_access_token'             => ['sometimes', 'nullable', 'string', 'max:1000'],
             'meta_waba_id'                  => ['nullable', 'string', 'max:255'],
@@ -33,5 +35,27 @@ class UpdateCompanyRequest extends FormRequest
             'ai_usage_enabled'              => ['sometimes', 'boolean'],
             'ai_usage_limit_monthly'        => ['nullable', 'integer', 'min:1'],
         ];
+    }
+
+    private function uniquePhoneNumberIdRule(): Closure
+    {
+        return function (string $attribute, mixed $value, Closure $fail): void {
+            $hash = Company::phoneNumberIdHash((string) $value);
+            if ($hash === null) {
+                return;
+            }
+
+            $company = $this->route('company');
+            $companyId = $company instanceof Company ? $company->id : $company;
+
+            $exists = Company::query()
+                ->where('meta_phone_number_id_hash', $hash)
+                ->when($companyId, fn ($query) => $query->whereKeyNot($companyId))
+                ->exists();
+
+            if ($exists) {
+                $fail('O phone number id informado já está em uso.');
+            }
+        };
     }
 }
