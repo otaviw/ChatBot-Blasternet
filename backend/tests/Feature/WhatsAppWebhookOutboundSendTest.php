@@ -70,7 +70,7 @@ class WhatsAppWebhookOutboundSendTest extends TestCase
 
         $this->assertDatabaseHas('conversations', [
             'company_id' => $company->id,
-            'customer_phone' => '555496161912',
+            'customer_phone' => '5554996161912',
         ]);
 
         Http::assertSent(function (HttpRequest $request) use ($company) {
@@ -83,11 +83,11 @@ class WhatsAppWebhookOutboundSendTest extends TestCase
                 && str_contains($contentType, 'application/json')
                 && str_starts_with($authorization, 'Bearer ')
                 && ($body['messaging_product'] ?? null) === 'whatsapp'
-                && ($body['type'] ?? null) === 'text'
+                && ($body['type'] ?? null) === 'interactive'
                 && is_string($body['to'] ?? null)
                 && ($body['to'] ?? null) === '555496161912'
-                && is_array($body['text'] ?? null)
-                && is_string($body['text']['body'] ?? null);
+                && ($body['interactive']['type'] ?? null) === 'button'
+                && is_string($body['interactive']['body']['text'] ?? null);
         });
 
         Http::assertNotSent(function (HttpRequest $request) {

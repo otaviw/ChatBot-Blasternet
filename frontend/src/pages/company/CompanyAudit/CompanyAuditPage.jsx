@@ -5,7 +5,6 @@ import Card from '@/components/ui/Card/Card.jsx';
 import PageHeader from '@/components/ui/PageHeader/PageHeader.jsx';
 import PageState from '@/components/ui/PageState/PageState.jsx';
 import usePageData from '@/hooks/usePageData';
-import useAuth from '@/hooks/useAuth';
 import useLogout from '@/hooks/useLogout';
 import api from '@/services/api';
 import { useLocation } from 'react-router-dom';
@@ -115,7 +114,6 @@ function buildUrl(basePath, filters, page) {
 }
 
 function CompanyAuditPage() {
-  const { user } = useAuth();
   const { logout } = useLogout();
   const location = useLocation();
   const isAdminView = location.pathname.startsWith('/admin/');

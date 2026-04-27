@@ -61,7 +61,7 @@ class AdminResellerCompanyCreationTest extends TestCase
         ]);
 
         $response->assertStatus(403);
-        $response->assertJsonPath('message', 'Usuario sem reseller vinculado.');
+        $response->assertJsonPath('message', 'Usuário sem reseller vinculado.');
 
         $this->assertDatabaseMissing('companies', [
             'name' => 'Empresa Bloqueada',

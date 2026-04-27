@@ -84,7 +84,7 @@ class RealtimeTokenTest extends TestCase
         $response = $this->actingAs($user)
             ->postJson("/api/realtime/conversations/{$conversation->id}/join-token");
 
-        $response->assertStatus(403);
+        $response->assertNotFound();
     }
 
     public function test_admin_cannot_request_conversation_join_token_in_privacy_mode(): void

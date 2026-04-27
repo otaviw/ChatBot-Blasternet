@@ -262,6 +262,7 @@ describe('PUT /minha-conta/bot — validação de credenciais ao salvar', functi
                 'is_active'            => false,
                 'timezone'             => 'America/Sao_Paulo',
                 'business_hours'       => [],
+                'message_retention_days' => 180,
             ])
             ->assertStatus(422)
             ->assertJsonFragment(['message' => fn($msg) => str_contains($msg, 'Credenciais do WhatsApp inválidas')]);
@@ -292,6 +293,7 @@ describe('PUT /minha-conta/bot — validação de credenciais ao salvar', functi
                 'is_active'            => false,
                 'timezone'             => 'America/Sao_Paulo',
                 'business_hours'       => [],
+                'message_retention_days' => 180,
             ])
             ->assertOk()
             ->assertJsonPath('ok', true);

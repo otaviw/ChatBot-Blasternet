@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Message;
 use App\Support\MessageDeliveryStatus;
+use Illuminate\Support\Facades\Log;
 
 class MessageDeliveryStatusService
 {
@@ -17,7 +18,7 @@ class MessageDeliveryStatusService
         $whatsappMessageId = trim((string) ($sendResult['whatsapp_message_id'] ?? ''));
 
         if ($isOk) {
-            $message->whatsapp_message_id = $whatsappMessageId !== '' ? $whatsappMessageId : null;
+            $message->whatsapp_message_id = $this->uniqueWhatsAppMessageIdFor($message, $whatsappMessageId);
             $message->delivery_status = MessageDeliveryStatus::SENT;
             $message->sent_at = $message->sent_at ?: now();
             $message->status_error = null;
@@ -39,6 +40,30 @@ class MessageDeliveryStatusService
             'error' => $sendResult['error'] ?? null,
         ];
         $message->save();
+    }
+
+    private function uniqueWhatsAppMessageIdFor(Message $message, string $whatsappMessageId): ?string
+    {
+        if ($whatsappMessageId === '') {
+            return null;
+        }
+
+        $existsForAnotherMessage = Message::query()
+            ->where('whatsapp_message_id', $whatsappMessageId)
+            ->whereKeyNot($message->id)
+            ->exists();
+
+        if (! $existsForAnotherMessage) {
+            return $whatsappMessageId;
+        }
+
+        Log::warning('WhatsApp send result retornou message id duplicado; mensagem marcada como enviada sem vincular wamid.', [
+            'message_id' => (int) $message->id,
+            'conversation_id' => (int) $message->conversation_id,
+            'whatsapp_message_id' => $whatsappMessageId,
+        ]);
+
+        return null;
     }
 
     private function stringifyError(mixed $error): ?string

@@ -67,7 +67,7 @@ class WhatsAppMessageReactionWebhookTest extends TestCase
         $this->assertSame(1, MessageReaction::query()->count());
         $this->assertDatabaseHas('message_reactions', [
             'message_id' => $message->id,
-            'reactor_phone' => '551188887777',
+            'reactor_phone' => '5511988887777',
             'emoji' => ':D',
             'whatsapp_message_id' => 'wamid.REACTION.UPDATE.1',
         ]);

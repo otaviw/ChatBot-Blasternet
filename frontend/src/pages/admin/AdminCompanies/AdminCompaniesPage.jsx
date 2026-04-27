@@ -126,7 +126,7 @@ function AdminCompaniesPage() {
     return () => {
       canceled = true;
     };
-  }, [currentAdminRole]);
+  }, [isSystemAdmin]);
 
   const resetResellerForm = () => {
     setResellerForm({

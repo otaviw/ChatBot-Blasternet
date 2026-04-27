@@ -12,14 +12,26 @@ class AdminUserManagementTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_admin_user_index_returns_users_list_and_summary(): void
+    public function test_system_admin_user_index_returns_global_users_and_summary(): void
     {
         $company = Company::create(['name' => 'Empresa Sumario']);
+        $reseller = Reseller::create([
+            'name' => 'Revenda Sumario',
+            'slug' => 'revenda-sumario',
+        ]);
         $admin = User::create([
             'name' => 'Admin',
             'email' => 'admin-users-index@test.local',
             'password' => 'secret123',
             'role' => User::ROLE_SYSTEM_ADMIN,
+            'is_active' => true,
+        ]);
+        $resellerAdmin = User::create([
+            'name' => 'Admin Revenda',
+            'email' => 'reseller-admin-users-index@test.local',
+            'password' => 'secret123',
+            'role' => User::ROLE_RESELLER_ADMIN,
+            'reseller_id' => $reseller->id,
             'is_active' => true,
         ]);
         $operator = User::create([
@@ -35,20 +47,31 @@ class AdminUserManagementTest extends TestCase
 
         $response->assertOk();
         $response->assertJsonPath('authenticated', true);
-        $response->assertJsonPath('users.1.id', $operator->id);
-        $response->assertJsonPath('users_summary.companies.0.company_id', $company->id);
+
+        $userIds = collect($response->json('users'))->pluck('id');
+        $this->assertTrue($userIds->contains($admin->id));
+        $this->assertTrue($userIds->contains($resellerAdmin->id));
+        $this->assertFalse($userIds->contains($operator->id));
+
+        $response->assertJsonPath('users_summary.global.total', 2);
+        $this->assertSame([], $response->json('users_summary.companies'));
     }
 
-    public function test_admin_can_create_company_user(): void
+    public function test_reseller_admin_can_create_company_user(): void
     {
+        $reseller = Reseller::create([
+            'name' => 'Revenda U',
+            'slug' => 'revenda-u',
+        ]);
         $admin = User::create([
-            'name' => 'Admin',
+            'name' => 'Admin Revenda',
             'email' => 'admin-users@test.local',
             'password' => 'secret123',
-            'role' => User::ROLE_SYSTEM_ADMIN,
+            'role' => User::ROLE_RESELLER_ADMIN,
+            'reseller_id' => $reseller->id,
             'is_active' => true,
         ]);
-        $company = Company::create(['name' => 'Empresa U']);
+        $company = Company::create(['name' => 'Empresa U', 'reseller_id' => $reseller->id]);
 
         $response = $this->actingAs($admin)->postJson('/api/admin/users', [
             'name' => 'Operador 1',
@@ -70,17 +93,22 @@ class AdminUserManagementTest extends TestCase
         ]);
     }
 
-    public function test_admin_can_update_user_role_and_activation(): void
+    public function test_reseller_admin_can_update_user_role_and_activation(): void
     {
+        $reseller = Reseller::create([
+            'name' => 'Revenda X',
+            'slug' => 'revenda-x-users',
+        ]);
         $admin = User::create([
-            'name' => 'Admin',
+            'name' => 'Admin Revenda',
             'email' => 'admin-users2@test.local',
             'password' => 'secret123',
-            'role' => User::ROLE_SYSTEM_ADMIN,
+            'role' => User::ROLE_RESELLER_ADMIN,
+            'reseller_id' => $reseller->id,
             'is_active' => true,
         ]);
-        $companyA = Company::create(['name' => 'Empresa X']);
-        $companyB = Company::create(['name' => 'Empresa Y']);
+        $companyA = Company::create(['name' => 'Empresa X', 'reseller_id' => $reseller->id]);
+        $companyB = Company::create(['name' => 'Empresa Y', 'reseller_id' => $reseller->id]);
         $user = User::create([
             'name' => 'Operador 2',
             'email' => 'operador2@test.local',

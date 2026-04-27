@@ -14,6 +14,7 @@ use App\Support\CacheKeys;
 use App\Support\RealtimeEvents;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 
@@ -117,7 +118,7 @@ class ConversationTagController extends Controller
     }
 
     /** DELETE /minha-conta/tags/{tag} */
-    public function destroy(Request $request, Tag $tag): JsonResponse
+    public function destroy(Request $request, Tag $tag): JsonResponse|Response
     {
         $user = $request->user();
 
@@ -135,7 +136,7 @@ class ConversationTagController extends Controller
 
         Cache::forget(CacheKeys::companyTags($companyId));
 
-        return response()->json(['ok' => true]);
+        return response()->noContent();
     }
 
     // -------------------------------------------------------------------------

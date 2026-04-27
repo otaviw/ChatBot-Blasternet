@@ -1,5 +1,5 @@
 import './EntrarPage.css';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import Layout from '@/components/layout/Layout/Layout.jsx';
 import usePageData from '@/hooks/usePageData';
@@ -26,11 +26,11 @@ function EntrarPage() {
     const slug = getSlugFromUrl(location.pathname);
     return slug ? `/${slug}/dashboard` : '/dashboard';
   }, [location.pathname]);
-  const buildDashboardPath = (resellerSlug) => {
+  const buildDashboardPath = useCallback((resellerSlug) => {
     const fromPath = getSlugFromUrl(location.pathname);
     const slug = String(fromPath || resellerSlug || '').trim();
     return slug ? `/${slug}/dashboard` : '/dashboard';
-  };
+  }, [location.pathname]);
 
   useEffect(() => {
     if (data?.authenticated) {
@@ -43,7 +43,7 @@ function EntrarPage() {
           window.location.href = dashboardPath;
         });
     }
-  }, [dashboardPath, data, location.pathname]);
+  }, [buildDashboardPath, dashboardPath, data]);
 
   const handleLogin = async (event) => {
     event.preventDefault();

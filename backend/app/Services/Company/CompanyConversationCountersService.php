@@ -7,6 +7,7 @@ use App\Models\Message;
 use App\Support\CacheKeys;
 use App\Support\ConversationStatus;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class CompanyConversationCountersService
 {
@@ -19,14 +20,26 @@ class CompanyConversationCountersService
         // Este método é chamado em dois pontos quentes:
         //   1. Polling do frontend (/conversas/contadores) — frequência alta
         //   2. MessageObserver.created() — dispara a cada mensagem recebida/enviada
-        // Sem cache, cada mensagem nova causaria dois round-trips pesados ao banco.
-        // Invalidação explícita não é necessária: o sistema realtime já envia o
-        // dado atualizado via WebSocket; o cache só serve para reduzir o DB load.
+        // Sem cache, cada mensagem nova causaria round-trips pesados ao banco.
+        // Observers usam buildFreshForCompany() para publicar contadores atuais.
         return Cache::remember(
             CacheKeys::conversationCounters($companyId),
             now()->addSeconds(30),
             fn () => $this->query($companyId),
         );
+    }
+
+    /** @return array<string, mixed> */
+    public function buildFreshForCompany(int $companyId): array
+    {
+        $this->forgetForCompany($companyId);
+
+        return $this->buildForCompany($companyId);
+    }
+
+    public function forgetForCompany(int $companyId): void
+    {
+        Cache::forget(CacheKeys::conversationCounters($companyId));
     }
 
     /** @return array<string, mixed> */
@@ -38,7 +51,7 @@ class CompanyConversationCountersService
             ->latest('id')
             ->limit(1);
 
-        $openConversationsWithLastDirection = Conversation::query()
+        $openConversationsWithLastDirection = Conversation::withoutGlobalScopes()
             ->where('conversations.company_id', $companyId)
             ->where('conversations.status', '!=', ConversationStatus::CLOSED)
             ->select(['conversations.id', 'conversations.current_area_id'])
@@ -46,7 +59,7 @@ class CompanyConversationCountersService
                 'last_message_direction' => $lastMessageDirectionSubquery,
             ]);
 
-        $rows = Conversation::query()
+        $rows = DB::query()
             ->fromSub($openConversationsWithLastDirection, 'open_conversations')
             ->leftJoin('areas', 'areas.id', '=', 'open_conversations.current_area_id')
             ->selectRaw('

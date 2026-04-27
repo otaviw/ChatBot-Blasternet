@@ -42,7 +42,7 @@ class ConversationObserver implements ShouldHandleEventsAfterCommit
             [
                 'company_id' => $companyId,
                 'conversation_id' => (int) $conversation->id,
-                'counters' => $this->countersService->buildForCompany($companyId),
+                'counters' => $this->countersService->buildFreshForCompany($companyId),
             ]
         );
     }

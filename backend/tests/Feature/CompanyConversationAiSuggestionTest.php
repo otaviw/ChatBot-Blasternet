@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Company;
 use App\Models\CompanyBotSetting;
 use App\Models\Conversation;
+use App\Models\AiUsageLog;
 use App\Models\Message;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -65,6 +66,12 @@ class CompanyConversationAiSuggestionTest extends TestCase
 
         $this->assertSame($beforeCount, $afterCount);
         $this->assertDatabaseCount('ai_messages', 0);
+        $this->assertDatabaseHas('ai_usage_logs', [
+            'company_id' => $company->id,
+            'conversation_id' => null,
+            'feature' => AiUsageLog::FEATURE_CONVERSATION_SUGGESTION,
+            'status' => AiUsageLog::STATUS_OK,
+        ]);
     }
 
     public function test_ai_suggestion_returns_422_when_user_has_no_permission(): void

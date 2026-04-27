@@ -61,7 +61,8 @@ class ConversationAiSuggestionService
                 $this->metricsService->record(
                     companyId: (int) $conversation->company_id,
                     userId: null,
-                    conversationId: (int) $conversation->id,
+                    // ai_usage_logs.conversation_id references ai_conversations, not inbox conversations.
+                    conversationId: null,
                     provider: $providerName,
                     model: $modelName,
                     feature: AiUsageLog::FEATURE_CONVERSATION_SUGGESTION,
@@ -107,7 +108,8 @@ class ConversationAiSuggestionService
         $this->metricsService->record(
             companyId: (int) $conversation->company_id,
             userId: null,
-            conversationId: (int) $conversation->id,
+            // ai_usage_logs.conversation_id references ai_conversations, not inbox conversations.
+            conversationId: null,
             provider: $providerName,
             model: $modelName,
             feature: AiUsageLog::FEATURE_CONVERSATION_SUGGESTION,
@@ -270,7 +272,8 @@ class ConversationAiSuggestionService
         $this->metricsService->record(
             companyId: (int) $conversation->company_id,
             userId: null,
-            conversationId: (int) $conversation->id,
+            // ai_usage_logs.conversation_id references ai_conversations, not inbox conversations.
+            conversationId: null,
             provider: $providerName,
             model: $modelName,
             feature: AiUsageLog::FEATURE_CONVERSATION_SUGGESTION,
@@ -485,4 +488,3 @@ class ConversationAiSuggestionService
         ]);
     }
 }
-

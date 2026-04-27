@@ -13,9 +13,15 @@ class AuditLog extends Model
         'user_id',
         'company_id',
         'reseller_id',
+        'actor_role',
+        'actor_company_id',
         'action',
         'entity_type',
         'entity_id',
+        'method',
+        'route',
+        'changes',
+        'meta',
         'old_data',
         'new_data',
         'ip_address',
@@ -24,6 +30,8 @@ class AuditLog extends Model
     ];
 
     protected $casts = [
+        'changes' => 'array',
+        'meta' => 'array',
         'old_data' => 'array',
         'new_data' => 'array',
         'created_at' => 'datetime',
@@ -40,4 +48,3 @@ class AuditLog extends Model
         });
     }
 }
-

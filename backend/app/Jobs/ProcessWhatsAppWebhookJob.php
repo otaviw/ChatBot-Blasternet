@@ -540,35 +540,59 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
         }
 
         if ($emoji === '') {
-            $reaction = MessageReaction::query()
+            $deleted = MessageReaction::query()
                 ->where('message_id', (int) $message->id)
-                ->where('reactor_phone', $reactorPhone)
-                ->first();
+                ->whereIn('reactor_phone', $this->phoneLookupVariants($reactorPhone))
+                ->delete();
 
-            if (! $reaction) {
+            if ($deleted < 1) {
                 return;
             }
 
-            $reaction->delete();
             $this->publishMessageReactionsUpdated($company, $message, $realtimePublisher);
             return;
         }
 
-        MessageReaction::updateOrCreate(
-            ['message_id' => (int) $message->id, 'reactor_phone' => $reactorPhone],
-            [
-                'whatsapp_message_id' => $targetWhatsappMessageId,
-                'emoji' => $emoji,
-                'reacted_at' => $this->resolveMetaTimestamp($messagePayload['timestamp'] ?? null),
-                'meta' => [
-                    'source' => 'webhook_reaction',
-                    'message_id' => $messagePayload['id'] ?? null,
-                    'reaction' => $reactionPayload,
-                ],
-            ]
-        );
+        $reactions = MessageReaction::query()
+            ->where('message_id', (int) $message->id)
+            ->whereIn('reactor_phone', $this->phoneLookupVariants($reactorPhone))
+            ->orderByRaw('CASE WHEN reactor_phone = ? THEN 0 ELSE 1 END', [$reactorPhone])
+            ->get();
+
+        /** @var MessageReaction|null $reaction */
+        $reaction = $reactions->first();
+        $payload = [
+            'whatsapp_message_id' => $targetWhatsappMessageId,
+            'reactor_phone' => $reactorPhone,
+            'emoji' => $emoji,
+            'reacted_at' => $this->resolveMetaTimestamp($messagePayload['timestamp'] ?? null),
+            'meta' => [
+                'source' => 'webhook_reaction',
+                'message_id' => $messagePayload['id'] ?? null,
+                'reaction' => $reactionPayload,
+            ],
+        ];
+
+        if ($reaction) {
+            $reactions->skip(1)->each->delete();
+            $reaction->fill($payload)->save();
+        } else {
+            MessageReaction::create(array_merge($payload, [
+                'message_id' => (int) $message->id,
+            ]));
+        }
 
         $this->publishMessageReactionsUpdated($company, $message, $realtimePublisher);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function phoneLookupVariants(string $phone): array
+    {
+        $variants = PhoneNumberNormalizer::variantsForLookup($phone);
+
+        return $variants !== [] ? $variants : [$phone];
     }
 
     private function publishMessageReactionsUpdated(Company $company, Message $message, RealtimePublisher $realtimePublisher): void

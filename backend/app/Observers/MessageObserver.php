@@ -106,7 +106,7 @@ class MessageObserver implements ShouldHandleEventsAfterCommit
             [
                 'company_id' => (int) $conversation->company_id,
                 'conversation_id' => (int) $conversation->id,
-                'counters' => $this->countersService->buildForCompany((int) $conversation->company_id),
+                'counters' => $this->countersService->buildFreshForCompany((int) $conversation->company_id),
             ]
         );
     }

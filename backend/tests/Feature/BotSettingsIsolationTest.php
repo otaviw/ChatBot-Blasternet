@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Company;
 use App\Models\CompanyBotSetting;
+use App\Models\Reseller;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -136,15 +137,16 @@ class BotSettingsIsolationTest extends TestCase
         $updateResponse->assertJsonPath('redirect', '/entrar');
     }
 
-    public function test_admin_can_view_and_update_any_company_settings(): void
+    public function test_reseller_admin_can_view_and_update_own_reseller_company_settings(): void
     {
         [, $companyB] = $this->createTwoCompaniesWithSettings();
         $admin = User::create([
-            'name' => 'Admin User',
+            'name' => 'Admin Revenda User',
             'email' => 'admin@test.local',
             'password' => 'secret123',
-            'role' => 'admin',
+            'role' => User::ROLE_RESELLER_ADMIN,
             'company_id' => null,
+            'reseller_id' => $companyB->reseller_id,
             'is_active' => true,
         ]);
 
@@ -175,7 +177,14 @@ class BotSettingsIsolationTest extends TestCase
 
     public function test_admin_update_without_inactivity_close_hours_preserves_existing_value(): void
     {
-        $company = Company::create(['name' => 'Empresa Admin Inatividade']);
+        $reseller = Reseller::create([
+            'name' => 'Revenda Admin Inatividade',
+            'slug' => 'revenda-admin-inatividade',
+        ]);
+        $company = Company::create([
+            'name' => 'Empresa Admin Inatividade',
+            'reseller_id' => $reseller->id,
+        ]);
         CompanyBotSetting::create([
             'company_id' => $company->id,
             ...$this->validSettingsPayload([
@@ -188,8 +197,9 @@ class BotSettingsIsolationTest extends TestCase
             'name' => 'Admin Preserve',
             'email' => 'admin-preserve@test.local',
             'password' => 'secret123',
-            'role' => 'admin',
+            'role' => User::ROLE_RESELLER_ADMIN,
             'company_id' => null,
+            'reseller_id' => $reseller->id,
             'is_active' => true,
         ]);
 
@@ -213,8 +223,13 @@ class BotSettingsIsolationTest extends TestCase
 
     private function createTwoCompaniesWithSettings(): array
     {
-        $companyA = Company::create(['name' => 'Empresa A']);
-        $companyB = Company::create(['name' => 'Empresa B']);
+        $reseller = Reseller::create([
+            'name' => 'Revenda Empresas',
+            'slug' => 'revenda-empresas',
+        ]);
+
+        $companyA = Company::create(['name' => 'Empresa A', 'reseller_id' => $reseller->id]);
+        $companyB = Company::create(['name' => 'Empresa B', 'reseller_id' => $reseller->id]);
 
         CompanyBotSetting::create([
             'company_id' => $companyA->id,
@@ -256,6 +271,7 @@ class BotSettingsIsolationTest extends TestCase
                 ['keyword' => 'preco', 'reply' => 'Consulte nossos planos atuais.'],
             ],
             'inactivity_close_hours' => 24,
+            'message_retention_days' => 180,
             'service_areas' => ['Suporte'],
         ];
 

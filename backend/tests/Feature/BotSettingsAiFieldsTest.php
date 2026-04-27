@@ -56,6 +56,7 @@ class BotSettingsAiFieldsTest extends TestCase
             'welcome_message' => 'Oi.',
             'fallback_message' => 'Não entendi.',
             'out_of_hours_message' => 'Fora do horario.',
+            'message_retention_days' => 180,
             'business_hours' => [
                 'monday' => ['enabled' => true, 'start' => '08:00', 'end' => '18:00'],
                 'tuesday' => ['enabled' => true, 'start' => '08:00', 'end' => '18:00'],

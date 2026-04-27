@@ -21,7 +21,7 @@ class ConversationSearchTest extends TestCase
     {
         $company = Company::create(['name' => 'Empresa Busca']);
         $otherCompany = Company::create(['name' => 'Empresa Outra']);
-        $agent = $this->makeAgent($company);
+        $user = $this->makeCompanyAdmin($company);
 
         $matchingConversation = $this->makeConversation($company, '5511999987654');
         Message::create([
@@ -37,7 +37,7 @@ class ConversationSearchTest extends TestCase
             'text' => 'Não deve aparecer.',
         ]);
 
-        $response = $this->actingAs($agent)
+        $response = $this->actingAs($user)
             ->getJson('/api/minha-conta/conversas/buscar?q=9987654');
 
         $response->assertOk()
@@ -49,7 +49,7 @@ class ConversationSearchTest extends TestCase
     public function test_company_user_can_search_conversations_by_message_text(): void
     {
         $company = Company::create(['name' => 'Empresa Busca Texto']);
-        $agent = $this->makeAgent($company);
+        $user = $this->makeCompanyAdmin($company);
 
         $matchingConversation = $this->makeConversation($company, '5511988881111');
         Message::create([
@@ -65,7 +65,7 @@ class ConversationSearchTest extends TestCase
             'text' => 'Mensagem sem o termo pesquisado.',
         ]);
 
-        $response = $this->actingAs($agent)
+        $response = $this->actingAs($user)
             ->getJson('/api/minha-conta/conversas/buscar?q=boleto');
 
         $response->assertOk()
@@ -79,7 +79,7 @@ class ConversationSearchTest extends TestCase
     public function test_company_user_can_search_conversations_by_action(): void
     {
         $company = Company::create(['name' => 'Empresa Busca Ação']);
-        $agent = $this->makeAgent($company);
+        $user = $this->makeCompanyAdmin($company);
 
         $matchingConversation = $this->makeConversation($company, '5511911111111');
         $otherConversation = $this->makeConversation($company, '5511922222222');
@@ -104,7 +104,7 @@ class ConversationSearchTest extends TestCase
             'created_at' => now(),
         ]);
 
-        $response = $this->actingAs($agent)
+        $response = $this->actingAs($user)
             ->getJson('/api/minha-conta/conversas/buscar?q=transferida');
 
         $response->assertOk()
@@ -118,7 +118,7 @@ class ConversationSearchTest extends TestCase
     public function test_company_user_can_search_messages_inside_selected_conversation(): void
     {
         $company = Company::create(['name' => 'Empresa Busca Interna']);
-        $agent = $this->makeAgent($company);
+        $user = $this->makeCompanyAdmin($company);
         $conversation = $this->makeConversation($company, '5511933333333');
 
         Message::create([
@@ -133,7 +133,7 @@ class ConversationSearchTest extends TestCase
             'text' => 'Confirmamos que o reembolso parcial sera analisado.',
         ]);
 
-        $response = $this->actingAs($agent)
+        $response = $this->actingAs($user)
             ->getJson("/api/minha-conta/conversas/{$conversation->id}/mensagens/buscar?q=reembolso");
 
         $response->assertOk()
@@ -141,13 +141,13 @@ class ConversationSearchTest extends TestCase
             ->assertJsonPath('results.0.message_id', Message::query()->latest('id')->value('id'));
     }
 
-    private function makeAgent(Company $company): User
+    private function makeCompanyAdmin(Company $company): User
     {
         return User::create([
-            'name' => 'Agente Busca',
+            'name' => 'Admin Busca',
             'email' => fake()->unique()->safeEmail(),
             'password' => 'secret',
-            'role' => User::ROLE_AGENT,
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $company->id,
             'is_active' => true,
         ]);

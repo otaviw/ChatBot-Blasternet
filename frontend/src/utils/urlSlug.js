@@ -35,8 +35,8 @@ export function isValidSlug(slug) {
   if (typeof slug !== 'string' || slug.trim() === '') {
     return false;
   }
-  const normalized = slug.trim().toLowerCase();
-  return SLUG_REGEX.test(normalized) && !RESERVED_SLUGS.has(normalized);
+  const trimmed = slug.trim();
+  return SLUG_REGEX.test(trimmed) && !RESERVED_SLUGS.has(trimmed.toLowerCase());
 }
 
 function readPathname(url) {

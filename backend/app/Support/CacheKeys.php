@@ -16,8 +16,8 @@ class CacheKeys
     // -------------------------------------------------------------------------
     // Counters de conversa por empresa
     // TTL recomendado: 30 s  (veja CompanyConversationCountersService)
-    // Invalidação: não é feita explicitamente — TTL curto já garante
-    //              consistência suficiente para o inbox e para o realtime.
+    // Invalidação: feita pelos observers antes de publicar realtime; TTL curto
+    //              reduz custo no polling do frontend.
     // -------------------------------------------------------------------------
     public static function conversationCounters(int $companyId): string
     {

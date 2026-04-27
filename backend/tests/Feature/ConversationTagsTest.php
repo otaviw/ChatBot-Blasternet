@@ -128,10 +128,10 @@ class ConversationTagsTest extends TestCase
         $this->actingAs($user)->putJson("/api/minha-conta/tags/{$foreignTag->id}", [
             'name'  => 'hacked',
             'color' => '#000000',
-        ])->assertForbidden();
+        ])->assertNotFound();
 
         $this->actingAs($user)->deleteJson("/api/minha-conta/tags/{$foreignTag->id}")
-            ->assertForbidden();
+            ->assertNotFound();
     }
 
     // ─── Attach / Detach ────────────────────────────────────────────────────
@@ -209,7 +209,7 @@ class ConversationTagsTest extends TestCase
         $this->actingAs($user)->postJson(
             "/api/minha-conta/conversas/{$conversation->id}/tags",
             ['tag_id' => $foreignTag->id]
-        )->assertForbidden();
+        )->assertNotFound();
     }
 
     // ─── Filter by tag_id ───────────────────────────────────────────────────

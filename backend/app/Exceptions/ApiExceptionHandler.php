@@ -95,13 +95,22 @@ class ApiExceptionHandler
             $details = $e->errors();
         }
 
+        $code = static::errorCodeFor($e, $status);
+        $message = static::messageFor($e, $status);
+
         $body = [
+            'message' => $message,
+            'code' => $code,
             'error' => [
-                'code' => static::errorCodeFor($e, $status),
-                'message' => static::messageFor($e, $status),
+                'code' => $code,
+                'message' => $message,
                 'details' => $details,
             ],
         ];
+
+        if ($details !== null) {
+            $body['errors'] = $details;
+        }
 
         $response = response()->json($body, $status);
 

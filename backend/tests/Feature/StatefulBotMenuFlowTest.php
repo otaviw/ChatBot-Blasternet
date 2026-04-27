@@ -336,6 +336,10 @@ class StatefulBotMenuFlowTest extends TestCase
 
         $toConfirm = $this->simulateInbound($user, $company, '551187654321', '1');
         $toConfirm->assertOk();
+        $this->assertStringContainsString('informe seu endereço de e-mail', (string) $toConfirm->json('reply'));
+
+        $toConfirm = $this->simulateInbound($user, $company, '551187654321', 'pular');
+        $toConfirm->assertOk();
         $this->assertStringContainsString('Confirma o agendamento?', (string) $toConfirm->json('reply'));
 
         $confirmed = $this->simulateInbound($user, $company, '551187654321', '1');
@@ -347,6 +351,7 @@ class StatefulBotMenuFlowTest extends TestCase
         $this->assertSame((int) $service->id, (int) $appointment->service_id);
         $this->assertSame((int) $staffProfile->id, (int) $appointment->staff_profile_id);
         $this->assertSame('5511987654321', (string) $appointment->customer_phone);
+        $this->assertNull($appointment->customer_email);
     }
 
     public function test_appointment_flow_allows_handoff_with_option_nine(): void
