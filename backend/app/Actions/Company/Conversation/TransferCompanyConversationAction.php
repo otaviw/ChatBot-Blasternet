@@ -6,7 +6,9 @@ use App\Models\Conversation;
 use App\Models\User;
 use App\Services\AuditLogService;
 use App\Services\Company\CompanyConversationSupportService;
+use App\Services\ProductMetricsService;
 use App\Services\TransferConversationService;
+use App\Support\ProductFunnels;
 use Illuminate\Http\Request;
 
 class TransferCompanyConversationAction
@@ -14,7 +16,8 @@ class TransferCompanyConversationAction
     public function __construct(
         private readonly AuditLogService $auditLog,
         private readonly TransferConversationService $transferService,
-        private readonly CompanyConversationSupportService $conversationSupport
+        private readonly CompanyConversationSupportService $conversationSupport,
+        private readonly ProductMetricsService $productMetrics,
     ) {}
 
     /**
@@ -35,6 +38,19 @@ class TransferCompanyConversationAction
         [$targetType, $targetId] = $this->conversationSupport->resolveTransferTargetFromLegacyPayload(
             (int) $user->company_id,
             $validated
+        );
+
+        $this->productMetrics->track(
+            ProductFunnels::TRANSFERENCIA,
+            'requested',
+            'conversation_transfer_requested',
+            (int) $conversation->company_id,
+            (int) $user->id,
+            [
+                'conversation_id' => (int) $conversation->id,
+                'target_type' => (string) $targetType,
+                'target_id' => (int) $targetId,
+            ],
         );
 
         $result = $this->transferService->transfer(
@@ -59,6 +75,20 @@ class TransferCompanyConversationAction
             ->whereKey($conversation->id)
             ->with(['assignedUser:id,name,email', 'currentArea:id,name'])
             ->firstOrFail();
+
+        $this->productMetrics->track(
+            ProductFunnels::TRANSFERENCIA,
+            'completed',
+            'conversation_transfer_completed',
+            (int) $conversation->company_id,
+            (int) $user->id,
+            [
+                'conversation_id' => (int) $conversation->id,
+                'to_assigned_type' => (string) $transfer->to_assigned_type,
+                'to_assigned_id' => $transfer->to_assigned_id ? (int) $transfer->to_assigned_id : null,
+                'was_sent' => (bool) ($result['was_sent'] ?? false),
+            ],
+        );
 
         $this->conversationSupport->normalizeConversationAssignmentRelations($updatedConversation);
         $history = $this->conversationSupport->loadTransferHistory($updatedConversation);

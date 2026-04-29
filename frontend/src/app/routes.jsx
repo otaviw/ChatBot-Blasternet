@@ -132,7 +132,7 @@ function CompanyEditRoute() {
 
 function AppRoutes() {
   return (
-    <Suspense fallback={<p className="text-sm text-[#706f6c]">Carregando página...</p>}>
+    <Suspense fallback={<p className="text-sm text-[#525252]" role="status" aria-live="polite">Carregando página...</p>}>
       <Routes>
         <Route path="/" element={<Navigate to="/entrar" replace />} />
         {renderAliasRoutes(LOGIN_PATHS, <EntrarPage />)}

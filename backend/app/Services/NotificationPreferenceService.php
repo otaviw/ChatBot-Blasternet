@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\User;
 use App\Models\UserNotificationPreference;
+use Illuminate\Support\Collection;
 
 class NotificationPreferenceService
 {
@@ -84,5 +85,50 @@ class NotificationPreferenceService
         $prefs = $record->preferences;
 
         return array_key_exists($type, $prefs) ? (bool) $prefs[$type] : true;
+    }
+
+    /**
+     * Retorna apenas os ids dos destinatarios com o tipo de notificacao habilitado.
+     * Tipos ausentes no JSON continuam com fallback true (habilitado).
+     *
+     * @param  array<int, int>  $recipientIds
+     * @return array<int, int>
+     */
+    public function enabledRecipientIds(array $recipientIds, string $type): array
+    {
+        $normalizedIds = collect($recipientIds)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($normalizedIds->isEmpty()) {
+            return [];
+        }
+
+        /** @var Collection<int, array{user_id: int, preferences: mixed}> $storedRows */
+        $storedRows = UserNotificationPreference::query()
+            ->whereIn('user_id', $normalizedIds->all())
+            ->get(['user_id', 'preferences'])
+            ->map(fn (UserNotificationPreference $row) => [
+                'user_id' => (int) $row->user_id,
+                'preferences' => $row->preferences,
+            ]);
+
+        $preferencesByUserId = $storedRows->keyBy('user_id');
+
+        return $normalizedIds
+            ->filter(function (int $recipientId) use ($preferencesByUserId, $type): bool {
+                $row = $preferencesByUserId->get($recipientId);
+                if (! is_array($row) || ! is_array($row['preferences'] ?? null)) {
+                    return true;
+                }
+
+                $prefs = $row['preferences'];
+
+                return array_key_exists($type, $prefs) ? (bool) $prefs[$type] : true;
+            })
+            ->values()
+            ->all();
     }
 }

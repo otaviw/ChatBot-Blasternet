@@ -119,6 +119,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
 
   return (
     <div className="min-h-screen relative text-[#171717] layout-wrapper">
+      <a href="#layout-main-content" className="app-skip-link">Pular para o conteúdo principal</a>
       <Sidebar
         hasSidebar={hasSidebar}
         isMobile={isMobile}
@@ -138,6 +139,7 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
         <Topbar
           hasSidebar={hasSidebar}
           isMobile={isMobile}
+          sidebarMobileOpen={sidebarMobileOpen}
           isLogged={isLogged}
           role={role}
           companyName={companyName}
@@ -147,7 +149,13 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
           onLogout={onLogout}
         />
 
-        <main className={`layout-main__content ${fullWidth ? 'layout-main__content--full' : ''}`}>{children}</main>
+        <main
+          id="layout-main-content"
+          className={`layout-main__content ${fullWidth ? 'layout-main__content--full' : ''}`}
+          tabIndex={-1}
+        >
+          {children}
+        </main>
       </div>
     </div>
   );

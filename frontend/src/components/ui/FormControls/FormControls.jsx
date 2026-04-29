@@ -1,18 +1,33 @@
 import './FormControls.css';
+import { cloneElement, isValidElement, useId } from 'react';
 
 const CONTROL_CLASS =
-  'mt-1.5 w-full rounded-lg border border-[#e5e5e5] bg-white px-3 py-2.5 text-[15px] text-[#171717] outline-none transition placeholder:text-[#a3a3a3] focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20';
+  'app-input';
 
 function mergeClasses(...classes) {
   return classes.filter(Boolean).join(' ');
 }
 
 function Field({ label, hint = '', className = '', children }) {
+  const fieldId = useId();
+  const inputId = `field-${fieldId}`;
+  const hintId = hint ? `${inputId}-hint` : undefined;
+
+  const childWithA11yProps =
+    isValidElement(children)
+      ? cloneElement(children, {
+          id: children.props.id || inputId,
+          'aria-describedby': hintId
+            ? [children.props['aria-describedby'], hintId].filter(Boolean).join(' ')
+            : children.props['aria-describedby'],
+        })
+      : children;
+
   return (
-    <label className={mergeClasses('block text-sm font-medium text-[#525252]', className)}>
+    <label className={mergeClasses('app-field-label', className)}>
       <span className="font-medium">{label}</span>
-      {hint ? <span className="ml-1 text-xs text-[#737373]">{hint}</span> : null}
-      {children}
+      {hint ? <span id={hintId} className="app-field-hint">{hint}</span> : null}
+      {childWithA11yProps}
     </label>
   );
 }
@@ -35,12 +50,12 @@ function SelectInput({ className = '', children, ...props }) {
 
 function CheckboxField({ checked, onChange, children, className = '' }) {
   return (
-    <label className={mergeClasses('flex items-center gap-2 text-sm text-[#1f2937]', className)}>
+    <label className={mergeClasses('app-checkbox-label', className)}>
       <input
         type="checkbox"
         checked={checked}
         onChange={onChange}
-        className="h-4 w-4 rounded border-[#d4d4d4] text-[#2563eb] focus:ring-[#2563eb]/20"
+        className="app-checkbox"
       />
       <span>{children}</span>
     </label>

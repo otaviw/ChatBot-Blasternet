@@ -7,8 +7,11 @@ use App\Http\Requests\Admin\StoreCompanyRequest;
 use App\Models\Company;
 use App\Models\CompanyBotSetting;
 use App\Models\Reseller;
+use App\Models\User;
 use App\Services\AuditLogService;
 use App\Services\Bot\BotSettingsSupportService;
+use App\Services\ProductMetricsService;
+use App\Support\ProductFunnels;
 use Illuminate\Support\Facades\Log;
 
 class StoreAdminCompanyAction
@@ -16,6 +19,7 @@ class StoreAdminCompanyAction
     public function __construct(
         private readonly AuditLogService $auditLog,
         private readonly BotSettingsSupportService $botSettingsSupport,
+        private readonly ProductMetricsService $productMetrics,
     ) {}
 
     public function handle(StoreCompanyRequest $request): ActionResponse
@@ -70,6 +74,18 @@ class StoreAdminCompanyAction
                 'name' => $company->name,
                 'meta_phone_number_id' => $company->meta_phone_number_id,
             ]
+        );
+
+        $this->productMetrics->track(
+            ProductFunnels::CADASTRO,
+            'company_created',
+            'admin_company_created',
+            (int) $company->id,
+            $user?->id ? (int) $user->id : null,
+            [
+                'reseller_id' => $resellerId ?? null,
+                'created_by_role' => $user ? User::normalizeRole((string) $user->role) : null,
+            ],
         );
 
         return ActionResponse::created(['ok' => true, 'company' => $company->load('botSetting')]);

@@ -93,7 +93,7 @@ function RedefinirSenhaPage() {
               </p>
             </div>
           ) : (
-            <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4 mt-4">
+            <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4 mt-4" aria-busy={busy ? 'true' : 'false'}>
               <Field label="Nova senha">
                 <TextInput
                   type="password"

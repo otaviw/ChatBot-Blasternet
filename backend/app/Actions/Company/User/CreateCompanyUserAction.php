@@ -7,17 +7,22 @@ use App\Models\AppointmentStaffProfile;
 use App\Models\Area;
 use App\Models\User;
 use App\Services\Company\CompanyUsageLimitsService;
+use App\Services\ProductMetricsService;
+use App\Support\ProductFunnels;
 use App\Support\UserPermissions;
 use Illuminate\Validation\ValidationException;
 
 class CreateCompanyUserAction
 {
-    public function __construct(private readonly CompanyUsageLimitsService $usageLimits) {}
+    public function __construct(
+        private readonly CompanyUsageLimitsService $usageLimits,
+        private readonly ProductMetricsService $productMetrics,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $validated
      */
-    public function handle(int $companyId, array $validated): ActionResponse
+    public function handle(int $companyId, array $validated, ?User $actor = null): ActionResponse
     {
         $limitCheck = $this->usageLimits->checkUserLimit($companyId);
         if (! $limitCheck->allowed) {
@@ -44,6 +49,19 @@ class CreateCompanyUserAction
 
         $user->areas()->sync($areaIds);
         $this->syncAppointmentProfile($companyId, $user, $validated);
+
+        $this->productMetrics->track(
+            ProductFunnels::CADASTRO,
+            'user_created',
+            'company_user_created',
+            $companyId,
+            (int) $user->id,
+            [
+                'created_by_user_id' => $actor?->id ? (int) $actor->id : null,
+                'role' => User::normalizeRole((string) $user->role),
+                'is_active' => (bool) $user->is_active,
+            ],
+        );
 
         return ActionResponse::created(array_merge(
             ['ok' => true, 'user' => $user, 'current_users' => $limitCheck->count, 'max_users' => $limitCheck->limit],

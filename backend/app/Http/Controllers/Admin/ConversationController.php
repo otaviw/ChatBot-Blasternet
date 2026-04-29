@@ -36,7 +36,11 @@ class ConversationController extends Controller
             $query->where('company_id', (int) $companyId);
         }
 
-        $conversations = $query->limit(150)->get();
+        $perPage = min(max((int) $request->query('per_page', 150), 1), 200);
+        $page = max(1, (int) $request->query('page', 1));
+
+        $paginator = $query->paginate($perPage, ['*'], 'page', $page);
+        $conversations = $paginator->getCollection();
         $sanitized = AdminPrivacySanitizer::conversationSummaryCollection($conversations);
         $byStatus = $conversations
             ->groupBy(fn (Conversation $conversation) => (string) $conversation->status)
@@ -51,6 +55,12 @@ class ConversationController extends Controller
             'metrics' => [
                 'total' => count($sanitized),
                 'by_status' => $byStatus,
+            ],
+            'pagination' => [
+                'current_page' => (int) $paginator->currentPage(),
+                'last_page' => (int) $paginator->lastPage(),
+                'per_page' => (int) $paginator->perPage(),
+                'total' => (int) $paginator->total(),
             ],
         ]);
     }
@@ -226,4 +236,3 @@ class ConversationController extends Controller
             ->exists();
     }
 }
-

@@ -9,13 +9,16 @@ use App\Models\Company;
 use App\Models\User;
 use App\Services\Admin\AdminUserManagementSupportService;
 use App\Services\AuditLogService;
+use App\Services\ProductMetricsService;
+use App\Support\ProductFunnels;
 use Illuminate\Support\Facades\Mail;
 
 class StoreAdminUserAction
 {
     public function __construct(
         private readonly AdminUserManagementSupportService $support,
-        private readonly AuditLogService $auditLog
+        private readonly AuditLogService $auditLog,
+        private readonly ProductMetricsService $productMetrics,
     ) {}
 
     public function handle(StoreUserRequest $request): ActionResponse
@@ -87,6 +90,19 @@ class StoreAdminUserAction
             'can_use_ai' => $user->can_use_ai,
             'area_ids' => $areaIds,
         ]);
+
+        $this->productMetrics->track(
+            ProductFunnels::CADASTRO,
+            'user_created',
+            'admin_user_created',
+            $user->company_id ? (int) $user->company_id : null,
+            (int) $user->id,
+            [
+                'created_by_user_id' => $actor?->id ? (int) $actor->id : null,
+                'role' => User::normalizeRole((string) $user->role),
+                'is_active' => (bool) $user->is_active,
+            ],
+        );
 
         return ActionResponse::created(['ok' => true, 'user' => $this->support->serializeUser($user)]);
     }

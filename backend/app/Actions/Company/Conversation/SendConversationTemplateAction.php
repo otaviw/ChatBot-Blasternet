@@ -11,8 +11,10 @@ use App\Services\AuditLogService;
 use App\Services\AuditService;
 use App\Services\Company\CompanyUsageLimitsService;
 use App\Services\MessageDeliveryStatusService;
+use App\Services\ProductMetricsService;
 use App\Services\WhatsApp\WhatsAppSendService;
 use App\Support\ConversationStatus;
+use App\Support\ProductFunnels;
 use App\Support\MessageDeliveryStatus;
 use Illuminate\Http\Request;
 
@@ -24,6 +26,7 @@ class SendConversationTemplateAction
         private readonly AuditLogService $auditLog,
         private readonly CompanyUsageLimitsService $usageLimits,
         private readonly UpdateConversationStatusAction $statusAction,
+        private readonly ProductMetricsService $productMetrics,
     ) {}
 
     public function handle(Request $request, User $user, int $conversationId): ActionResponse
@@ -97,6 +100,20 @@ class SendConversationTemplateAction
             'template_name'   => $templateName,
             'sent'            => $templateSent,
         ]);
+
+        $this->productMetrics->track(
+            ProductFunnels::FEATURE_PRINCIPAL,
+            'manual_or_template_sent',
+            'template_message_sent',
+            (int) $conversation->company_id,
+            (int) $user->id,
+            [
+                'conversation_id' => (int) $conversation->id,
+                'message_id' => (int) $message->id,
+                'template_name' => $templateName,
+                'was_sent' => $templateSent,
+            ],
+        );
 
         return ActionResponse::ok(array_merge(
             [

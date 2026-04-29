@@ -15,6 +15,7 @@ use App\Services\WhatsApp\WhatsAppSendService;
 use App\Support\ConversationStatus;
 use App\Support\MessageDeliveryStatus;
 use App\Support\PhoneNumberNormalizer;
+use App\Support\ProductFunnels;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -34,7 +35,8 @@ class InboundMessageService
         private ChatbotAiDecisionService $chatbotAiDecision,
         private ConversationAiSuggestionService $chatbotAiSuggestion,
         private AiMetricsService $aiMetrics,
-        private AiSafetyPipelineService $safetyPipeline
+        private AiSafetyPipelineService $safetyPipeline,
+        private ProductMetricsService $productMetrics
     ) {}
 
     public function handleIncomingText(
@@ -92,6 +94,19 @@ class InboundMessageService
 
             return $this->noReplyResult($conversation, $inMessage);
         }
+
+        $this->productMetrics->track(
+            ProductFunnels::CHATBOT,
+            'inbound_received',
+            'chatbot_inbound_received',
+            $company?->id ? (int) $company->id : null,
+            null,
+            [
+                'conversation_id' => (int) $conversation->id,
+                'is_first_message' => $isFirstInboundMessage,
+                'is_manual_mode' => $conversation->isManualMode(),
+            ],
+        );
 
         if ($conversation->isManualMode()) {
             Log::info('Auto reply ignorado porque conversa esta em modo manual.', [
@@ -232,6 +247,21 @@ class InboundMessageService
                 'to_hash'         => self::maskPhone($normalizedFrom),
             ]);
         }
+
+        $this->productMetrics->track(
+            ProductFunnels::CHATBOT,
+            'auto_reply_sent',
+            'chatbot_auto_reply_sent',
+            $company?->id ? (int) $company->id : null,
+            null,
+            [
+                'conversation_id' => (int) $updatedConversation->id,
+                'message_id' => (int) $outMessage->id,
+                'was_sent' => $wasSent,
+                'stateful_handled' => $statefulHandled,
+                'send_outbound' => $sendOutbound,
+            ],
+        );
 
         return [
             'conversation' => $updatedConversation,

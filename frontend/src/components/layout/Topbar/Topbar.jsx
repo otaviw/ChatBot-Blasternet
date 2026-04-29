@@ -9,6 +9,7 @@ import { getScopedAuthPaths } from '@/utils/tenantRouting';
 export default function Topbar({
   hasSidebar,
   isMobile,
+  sidebarMobileOpen,
   isLogged,
   role,
   companyName,
@@ -33,6 +34,8 @@ export default function Topbar({
             onClick={openSidebarMobile}
             title="Abrir menu"
             aria-label="Abrir menu"
+            aria-controls="layout-sidebar-mobile"
+            aria-expanded={sidebarMobileOpen ? 'true' : 'false'}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />

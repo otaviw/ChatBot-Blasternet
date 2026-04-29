@@ -1,20 +1,20 @@
 .error-message {
   width: 100%;
-  border: 1px solid #fecaca;
-  border-radius: 0.9rem;
-  padding: 1rem;
-  background: #fff5f5;
+  border: 1px solid var(--color-danger-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  background: var(--color-danger-bg);
   text-align: center;
 }
 
 .error-message__icon-wrap {
   width: 2.4rem;
   height: 2.4rem;
-  margin: 0 auto 0.6rem;
-  border-radius: 999px;
-  border: 1px solid #fecaca;
-  background: #ffffff;
-  color: #dc2626;
+  margin: 0 auto var(--space-2);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-danger-border);
+  background: var(--ui-surface);
+  color: var(--color-danger-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -22,38 +22,20 @@
 
 .error-message__title {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: var(--font-size-sm);
   line-height: 1.45;
-  color: #991b1b;
-  font-weight: 500;
+  color: var(--color-danger-text);
+  font-weight: var(--font-weight-medium);
 }
 
 .error-message__detail {
-  margin: 0.3rem 0 0;
-  font-size: 0.82rem;
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-sm);
   line-height: 1.45;
-  color: #b91c1c;
+  color: var(--color-danger-text);
+  opacity: 0.92;
 }
 
 .error-message__action {
-  margin-top: 0.9rem;
-}
-
-body.theme-dark .error-message {
-  border-color: #7f1d1d;
-  background: #1c0f0f;
-}
-
-body.theme-dark .error-message__icon-wrap {
-  border-color: #7f1d1d;
-  background: #2d1212;
-  color: #f87171;
-}
-
-body.theme-dark .error-message__title {
-  color: #fca5a5;
-}
-
-body.theme-dark .error-message__detail {
-  color: #f87171;
+  margin-top: var(--space-3);
 }

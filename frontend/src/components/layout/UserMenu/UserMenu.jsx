@@ -18,6 +18,7 @@ export default function UserMenu({
   themeMode,
   onToggleTheme,
 }) {
+  const menuId = 'layout-profile-menu';
   const profileRef = useRef(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileEditName, setProfileEditName] = useState(false);
@@ -33,6 +34,12 @@ export default function UserMenu({
   const [passwordSaveSuccess, setPasswordSaveSuccess] = useState('');
 
   useEffect(() => {
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setProfileOpen(false);
+      }
+    };
+
     const handleClickOutside = (event) => {
       if (profileRef.current && !profileRef.current.contains(event.target)) {
         setProfileOpen(false);
@@ -41,9 +48,13 @@ export default function UserMenu({
 
     if (profileOpen) {
       document.addEventListener('click', handleClickOutside);
+      window.addEventListener('keydown', onKeyDown);
     }
 
-    return () => document.removeEventListener('click', handleClickOutside);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+      window.removeEventListener('keydown', onKeyDown);
+    };
   }, [profileOpen]);
 
   const resetPasswordForm = () => {
@@ -127,12 +138,21 @@ export default function UserMenu({
         onClick={(event) => { event.stopPropagation(); setProfileOpen((value) => !value); }}
         title="Perfil"
         aria-label="Abrir menu de perfil"
+        aria-expanded={profileOpen ? 'true' : 'false'}
+        aria-controls={menuId}
       >
         {ICON_PROFILE}
         <span className="layout-header__btn-label">Perfil</span>
       </button>
       {profileOpen && (
-        <div className="layout-profile__dropdown" onClick={(event) => event.stopPropagation()}>
+        <div
+          id={menuId}
+          className="layout-profile__dropdown"
+          onClick={(event) => event.stopPropagation()}
+          role="dialog"
+          aria-modal="false"
+          aria-label="Menu de perfil"
+        >
           <div className="layout-profile__info">
             <span className="layout-profile__name">{userData?.name ?? 'Usuário'}</span>
             <span className="layout-profile__email">{userData?.email ?? ''}</span>
@@ -142,7 +162,9 @@ export default function UserMenu({
           </div>
           {profileEditName ? (
             <form onSubmit={handleSaveName} className="layout-profile__edit">
+              <label htmlFor="profile-name-input" className="sr-only">Nome</label>
               <input
+                id="profile-name-input"
                 type="text"
                 value={profileName}
                 onChange={(event) => setProfileName(event.target.value)}
@@ -171,7 +193,9 @@ export default function UserMenu({
           )}
           {profileEditPassword ? (
             <form onSubmit={handleSavePassword} className="layout-profile__edit">
+              <label htmlFor="profile-password-current" className="sr-only">Senha atual</label>
               <input
+                id="profile-password-current"
                 type="password"
                 value={passwordCurrent}
                 onChange={(event) => { setPasswordCurrent(event.target.value); setPasswordSaveError(''); setPasswordSaveSuccess(''); }}
@@ -180,7 +204,9 @@ export default function UserMenu({
                 autoComplete="current-password"
                 autoFocus
               />
+              <label htmlFor="profile-password-new" className="sr-only">Nova senha</label>
               <input
+                id="profile-password-new"
                 type="password"
                 value={passwordNew}
                 onChange={(event) => { setPasswordNew(event.target.value); setPasswordSaveError(''); setPasswordSaveSuccess(''); }}
@@ -188,7 +214,9 @@ export default function UserMenu({
                 className="layout-profile__input"
                 autoComplete="new-password"
               />
+              <label htmlFor="profile-password-confirm" className="sr-only">Confirmar nova senha</label>
               <input
+                id="profile-password-confirm"
                 type="password"
                 value={passwordConfirm}
                 onChange={(event) => { setPasswordConfirm(event.target.value); setPasswordSaveError(''); setPasswordSaveSuccess(''); }}

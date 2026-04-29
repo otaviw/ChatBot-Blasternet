@@ -6,7 +6,7 @@ const VARIANT_CLASSES = {
   primary: 'app-btn-primary',
   secondary: 'app-btn-secondary',
   ghost: 'app-btn-ghost',
-  danger: 'app-btn-danger focus-visible:ring-red-200',
+  danger: 'app-btn-danger',
 };
 
 /**
@@ -23,7 +23,7 @@ function Button({
   ...props
 }) {
   const classes = [
-    'inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50',
+    'app-btn',
     VARIANT_CLASSES[variant] ?? VARIANT_CLASSES.secondary,
     className,
   ]

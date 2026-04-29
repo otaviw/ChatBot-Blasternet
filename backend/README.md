@@ -9,8 +9,15 @@ composer install
 cp .env.example .env
 php artisan key:generate
 php artisan migrate --force
+php artisan db:smoke
 php artisan db:seed --force
 php artisan serve
+```
+
+Ou use o fluxo seguro de producao:
+
+```bash
+composer run migrate-safe
 ```
 
 ## Variáveis de ambiente relevantes

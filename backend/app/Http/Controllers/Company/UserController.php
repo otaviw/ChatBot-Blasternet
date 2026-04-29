@@ -84,7 +84,7 @@ class UserController extends Controller
             ], 403);
         }
 
-        $result = $this->createUserAction->handle((int) $actor->company_id, $request->validated());
+        $result = $this->createUserAction->handle((int) $actor->company_id, $request->validated(), $actor);
 
         if ($result->status !== 201) {
             return $result->toResponse();

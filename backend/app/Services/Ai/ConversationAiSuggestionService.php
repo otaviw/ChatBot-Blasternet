@@ -18,6 +18,7 @@ class ConversationAiSuggestionService
 
     public function __construct(
         private readonly AiProviderResolver $providerResolver,
+        private readonly AiPromptService $promptService,
         private readonly AiMetricsService $metricsService,
         private readonly AiSafetyPipelineService $safetyPipeline,
         private readonly AiAuditService $aiAuditService,
@@ -36,13 +37,34 @@ class ConversationAiSuggestionService
         $temperature = $this->resolveTemperature($settings);
         $maxResponseTokens = $this->resolveMaxResponseTokens($settings);
         $historyLimit = $this->resolveHistoryLimit($settings);
+        $promptResolution = $this->promptService->resolvePrompt(
+            templateKey: 'conversation_suggestion.system',
+            legacyFallbackText: (string) ($this->resolveSystemPrompt() ?? ''),
+            companyId: (int) $conversation->company_id,
+            userId: null,
+            conversationId: null,
+            providerRequested: (string) ($settings->ai_provider ?? ''),
+            providerResolved: $providerName,
+            metadata: [
+                'feature' => AiUsageLog::FEATURE_CONVERSATION_SUGGESTION,
+                'inbox_conversation_id' => (int) $conversation->id,
+            ]
+        );
+        $baseSystemPrompt = trim((string) ($promptResolution['content'] ?? ''));
 
         // Extract last user message BEFORE building context so we can use it
         // as the RAG query to retrieve the most relevant knowledge chunks.
         $rawHistory = $this->fetchRawHistory($conversation, $historyLimit);
         $lastUserText = $this->extractLastUserTextFromHistory($rawHistory);
 
-        [$contextMessages, $ragChunks] = $this->buildContextMessagesWithMeta($conversation, $settings, $historyLimit, $lastUserText, $rawHistory);
+        [$contextMessages, $ragChunks] = $this->buildContextMessagesWithMeta(
+            $conversation,
+            $settings,
+            $historyLimit,
+            $lastUserText,
+            $rawHistory,
+            $baseSystemPrompt
+        );
         if ($lastUserText !== null && $lastUserText !== '') {
             $safetyResult = $this->safetyPipeline->run($lastUserText);
             if ($safetyResult->blocked) {
@@ -155,11 +177,12 @@ class ConversationAiSuggestionService
         CompanyBotSetting $settings,
         int $historyLimit,
         ?string $ragQuery,
-        ?\Illuminate\Support\Collection $preloadedHistory
+        ?\Illuminate\Support\Collection $preloadedHistory,
+        string $baseSystemPrompt = ''
     ): array {
         $messages = [];
 
-        [$systemPrompt, $ragChunks] = $this->buildSystemPromptWithMeta($conversation, $settings, $ragQuery);
+        [$systemPrompt, $ragChunks] = $this->buildSystemPromptWithMeta($conversation, $settings, $baseSystemPrompt, $ragQuery);
         if ($systemPrompt !== '') {
             $messages[] = [
                 'role'    => AiMessage::ROLE_SYSTEM,
@@ -186,13 +209,18 @@ class ConversationAiSuggestionService
     /**
      * @return array{0: string, 1: list<array{title:string,content:string,score:float|null}>}
      */
-    private function buildSystemPromptWithMeta(Conversation $conversation, CompanyBotSetting $settings, ?string $ragQuery = null): array
+    private function buildSystemPromptWithMeta(
+        Conversation $conversation,
+        CompanyBotSetting $settings,
+        string $baseSystemPrompt = '',
+        ?string $ragQuery = null
+    ): array
     {
         $sections = [];
 
-        $globalPrompt = trim((string) config('ai.system_prompt', ''));
-        if ($globalPrompt !== '') {
-            $sections[] = $globalPrompt;
+        $basePrompt = trim($baseSystemPrompt);
+        if ($basePrompt !== '') {
+            $sections[] = $basePrompt;
         }
 
         $companyPrompt = trim((string) ($settings->ai_system_prompt ?? ''));

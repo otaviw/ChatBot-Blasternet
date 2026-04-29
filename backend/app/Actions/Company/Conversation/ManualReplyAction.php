@@ -13,8 +13,10 @@ use App\Services\Company\CompanyConversationSupportService;
 use App\Services\Company\CompanyUsageLimitsService;
 use App\Services\MessageDeliveryStatusService;
 use App\Services\MessageMediaStorageService;
+use App\Services\ProductMetricsService;
 use App\Services\WhatsApp\WhatsAppSendService;
 use App\Support\ConversationAssignedType;
+use App\Support\ProductFunnels;
 use App\Support\ConversationStatus;
 use App\Support\MessageDeliveryStatus;
 use Illuminate\Support\Facades\DB;
@@ -29,6 +31,7 @@ class ManualReplyAction
         private readonly AuditLogService $auditLog,
         private readonly CompanyConversationSupportService $conversationSupport,
         private readonly CompanyUsageLimitsService $usageLimits,
+        private readonly ProductMetricsService $productMetrics,
     ) {}
 
     public function handle(ManualReplyRequest $request, User $user, int $conversationId): ActionResponse
@@ -119,6 +122,21 @@ class ManualReplyAction
             'message_id'      => $message->id,
             'sent'            => $wasSent,
         ]);
+
+        $this->productMetrics->track(
+            ProductFunnels::FEATURE_PRINCIPAL,
+            'manual_or_template_sent',
+            'manual_reply_sent',
+            (int) $conversation->company_id,
+            (int) $user->id,
+            [
+                'conversation_id' => (int) $conversation->id,
+                'message_id' => (int) $message->id,
+                'content_type' => (string) $message->content_type,
+                'was_sent' => $wasSent,
+                'send_outbound' => $sendOutbound,
+            ],
+        );
 
         $message->refresh();
         $conversation->load(['assignedUser:id,name,email', 'currentArea:id,name']);

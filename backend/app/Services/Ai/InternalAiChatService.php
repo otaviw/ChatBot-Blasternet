@@ -25,6 +25,7 @@ class InternalAiChatService
 
     public function __construct(
         private readonly AiProviderResolver $providerResolver,
+        private readonly AiPromptService $promptService,
         private readonly AiConversationContextBuilder $contextBuilder,
         private readonly InternalAiConversationService $conversationService,
         private readonly AiUsageService $usageService,
@@ -60,7 +61,20 @@ class InternalAiChatService
         $targetConversation = $this->resolveConversation($conversation, $user, $companyId);
         $providerName = $this->resolveProviderName($settings);
         $modelName = $this->resolveModelName($settings);
-        $systemPrompt = $this->resolveSystemPrompt();
+        $promptResolution = $this->promptService->resolvePrompt(
+            templateKey: 'internal_chat.system',
+            legacyFallbackText: (string) ($this->resolveSystemPrompt() ?? ''),
+            companyId: (int) $targetConversation->company_id,
+            userId: (int) $user->id,
+            conversationId: (int) $targetConversation->id,
+            providerRequested: (string) ($settings?->ai_provider ?? ''),
+            providerResolved: $providerName,
+            metadata: [
+                'feature' => AiUsageLog::FEATURE_INTERNAL_CHAT,
+            ]
+        );
+        $systemPrompt = trim((string) ($promptResolution['content'] ?? ''));
+        $systemPrompt = $systemPrompt !== '' ? $systemPrompt : null;
         $temperature = $this->resolveTemperature($settings);
         $maxResponseTokens = $this->resolveMaxResponseTokens($settings);
         $usageLog = $this->usageService->consumeInternalChat(

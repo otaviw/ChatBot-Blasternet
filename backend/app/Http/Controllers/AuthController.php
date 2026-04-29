@@ -7,6 +7,8 @@ use App\Http\Requests\Auth\UpdatePasswordRequest;
 use App\Http\Requests\Auth\UpdateProfileRequest;
 use App\Models\User;
 use App\Services\Ai\AiAccessService;
+use App\Services\ProductMetricsService;
+use App\Support\ProductFunnels;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,12 +17,23 @@ use Illuminate\Support\Facades\Hash;
 class AuthController extends Controller
 {
     public function __construct(
-        private readonly AiAccessService $aiAccessService
+        private readonly AiAccessService $aiAccessService,
+        private readonly ProductMetricsService $productMetrics,
     ) {}
 
     public function login(LoginRequest $request): JsonResponse
     {
         $credentials = $request->validated();
+        $emailHash = hash('sha256', mb_strtolower((string) ($credentials['email'] ?? '')));
+
+        $this->productMetrics->track(
+            ProductFunnels::LOGIN,
+            'attempt',
+            'auth_login_attempt',
+            null,
+            null,
+            ['email_hash' => $emailHash],
+        );
 
         if (! Auth::attempt($credentials, true)) {
             return $this->errorResponse('Credenciais invalidas.', 'invalid_credentials', 401);
@@ -40,6 +53,15 @@ class AuthController extends Controller
         }
 
         $user->loadMissing('company.reseller', 'reseller');
+
+        $this->productMetrics->track(
+            ProductFunnels::LOGIN,
+            'success',
+            'auth_login_success',
+            $user->company_id ? (int) $user->company_id : null,
+            (int) $user->id,
+            ['role' => User::normalizeRole((string) $user->role)],
+        );
 
         return response()->json([
             'authenticated' => true,

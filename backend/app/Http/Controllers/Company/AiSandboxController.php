@@ -9,6 +9,7 @@ use App\Models\CompanyBotSetting;
 use App\Models\User;
 use App\Services\Ai\AiAccessService;
 use App\Services\Ai\AiMetricsService;
+use App\Services\Ai\AiPromptService;
 use App\Services\Ai\AiProviderResolver;
 use App\Services\Ai\Rag\AiKnowledgeRetrieverService;
 use Illuminate\Http\JsonResponse;
@@ -24,6 +25,7 @@ class AiSandboxController extends Controller
     public function __construct(
         private readonly AiAccessService $aiAccessService,
         private readonly AiProviderResolver $providerResolver,
+        private readonly AiPromptService $promptService,
         private readonly AiKnowledgeRetrieverService $retriever,
         private readonly AiMetricsService $metricsService,
     ) {}
@@ -54,10 +56,22 @@ class AiSandboxController extends Controller
         $companyId  = (int) $user->company_id;
 
         [$providerName, $modelName] = $this->resolveProviderAndModel($settings);
+        $promptResolution = $this->promptService->resolvePrompt(
+            templateKey: 'sandbox.system',
+            legacyFallbackText: trim((string) config('ai.system_prompt', '')),
+            companyId: $companyId,
+            userId: (int) $user->id,
+            conversationId: null,
+            providerRequested: (string) ($settings->ai_provider ?? ''),
+            providerResolved: $providerName,
+            metadata: [
+                'feature' => 'ai_sandbox',
+            ]
+        );
 
         // Build system prompt
         $systemParts = array_filter([
-            trim((string) config('ai.system_prompt', '')),
+            trim((string) ($promptResolution['content'] ?? '')),
             trim((string) ($settings->ai_system_prompt ?? '')),
         ]);
 

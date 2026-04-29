@@ -24,8 +24,11 @@ export default function NotificationsTray({ role, isLogged }) {
   const [clearAllConfirmOpen, setClearAllConfirmOpen] = useState(false);
   const [notifPrefsOpen, setNotifPrefsOpen] = useState(false);
   const [notifPermission, setNotifPermission] = useState(() => browserNotificationService.getPermission());
+  const notificationsPanelId = 'layout-notifications-panel';
+  const notificationsTitleId = 'layout-notifications-title';
 
   const lastToastNotificationIdRef = useRef(null);
+  const notificationsCloseButtonRef = useRef(null);
 
   const {
     totalUnread,
@@ -174,8 +177,35 @@ export default function NotificationsTray({ role, isLogged }) {
   useEffect(() => {
     if (!notificationsPanelOpen) {
       setClearAllConfirmOpen(false);
+      return undefined;
     }
+
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setNotificationsPanelOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    notificationsCloseButtonRef.current?.focus();
+
+    return () => window.removeEventListener('keydown', onKeyDown);
   }, [notificationsPanelOpen]);
+
+  useEffect(() => {
+    if (!clearAllConfirmOpen) {
+      return undefined;
+    }
+
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setClearAllConfirmOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [clearAllConfirmOpen]);
 
   useEffect(() => {
     if (!browserNotificationService.isSupported() || !navigator.permissions) {
@@ -255,9 +285,15 @@ export default function NotificationsTray({ role, isLogged }) {
             onClick={() => setNotificationsPanelOpen(false)}
             aria-hidden
           />
-          <aside className="layout-notifications__panel">
+          <aside
+            id={notificationsPanelId}
+            className="layout-notifications__panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={notificationsTitleId}
+          >
             <div className="layout-notifications__header">
-              <h2 className="layout-notifications__title">Notificacoes</h2>
+              <h2 id={notificationsTitleId} className="layout-notifications__title">Notificacoes</h2>
               <div className="layout-notifications__header-actions">
                 <button
                   type="button"
@@ -279,6 +315,7 @@ export default function NotificationsTray({ role, isLogged }) {
                   type="button"
                   className="layout-notifications__close"
                   onClick={() => setNotificationsPanelOpen(false)}
+                  ref={notificationsCloseButtonRef}
                   title="Fechar"
                   aria-label="Fechar painel de notificações"
                 >
@@ -411,12 +448,13 @@ export default function NotificationsTray({ role, isLogged }) {
                   role="dialog"
                   aria-modal="true"
                   aria-labelledby="layout-notifications-clear-title"
+                  aria-describedby="layout-notifications-clear-text"
                   onClick={(event) => event.stopPropagation()}
                 >
                   <h3 id="layout-notifications-clear-title" className="layout-notifications__confirm-title">
                     Limpar todas as notificações?
                   </h3>
-                  <p className="layout-notifications__confirm-text">
+                  <p id="layout-notifications-clear-text" className="layout-notifications__confirm-text">
                     Todas as notificações serão apagadas permanentemente.
                   </p>
                   <div className="layout-notifications__confirm-actions">
@@ -456,6 +494,8 @@ export default function NotificationsTray({ role, isLogged }) {
           className={`layout-header__btn ${notificationsPanelOpen ? 'layout-header__btn--active' : ''}`}
           onClick={() => setNotificationsPanelOpen((value) => !value)}
           title="Notificacoes"
+          aria-expanded={notificationsPanelOpen ? 'true' : 'false'}
+          aria-controls={notificationsPanelId}
           aria-label="Abrir notificações"
         >
           {ICON_NOTIFICATIONS}

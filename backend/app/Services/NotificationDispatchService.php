@@ -51,6 +51,11 @@ class NotificationDispatchService
             return;
         }
 
+        $recipientIds = $this->preferenceService->enabledRecipientIds($recipientIds, 'customer_message');
+        if ($recipientIds === []) {
+            return;
+        }
+
         $titleName = trim((string) ($conversation->customer_name ?: $conversation->customer_phone));
         $title = $titleName === ''
             ? 'Nova mensagem do cliente'
@@ -59,10 +64,6 @@ class NotificationDispatchService
         $text = $this->messageNotificationText($message);
 
         foreach ($recipientIds as $recipientId) {
-            if (! $this->preferenceService->isEnabled($recipientId, 'customer_message')) {
-                continue;
-            }
-
             if ($this->presenceService->isConversationOpenByUser($recipientId, (int) $conversation->id)) {
                 continue;
             }
@@ -126,15 +127,16 @@ class NotificationDispatchService
             return;
         }
 
+        $superAdminIds = $this->preferenceService->enabledRecipientIds($superAdminIds, 'support_ticket_created');
+        if ($superAdminIds === []) {
+            return;
+        }
+
         $ticketNumber = (int) ($ticket->ticket_number ?: $ticket->id);
         $title = "Nova solicitacao #{$ticketNumber}";
         $text = trim((string) ($ticket->subject ?: $ticket->message));
 
         foreach ($superAdminIds as $recipientId) {
-            if (! $this->preferenceService->isEnabled($recipientId, 'support_ticket_created')) {
-                continue;
-            }
-
             $this->notificationService->createForUser($recipientId, [
                 'type' => 'support_ticket_created',
                 'module' => 'support',
@@ -182,6 +184,11 @@ class NotificationDispatchService
             return;
         }
 
+        $recipientIds = $this->preferenceService->enabledRecipientIds($recipientIds, 'support_ticket_message');
+        if ($recipientIds === []) {
+            return;
+        }
+
         $ticketNumber = (int) ($ticket->ticket_number ?: $ticket->id);
         $senderName = trim((string) ($message->sender?->name ?? 'Usuário'));
         $title = "Nova mensagem na solicitacao #{$ticketNumber}";
@@ -189,10 +196,6 @@ class NotificationDispatchService
 
         foreach ($recipientIds as $recipientId) {
             if ($recipientId === $senderId) {
-                continue;
-            }
-
-            if (! $this->preferenceService->isEnabled($recipientId, 'support_ticket_message')) {
                 continue;
             }
 
@@ -247,11 +250,12 @@ class NotificationDispatchService
             ->values()
             ->all();
 
-        foreach ($recipientIds as $recipientId) {
-            if (! $this->preferenceService->isEnabled($recipientId, 'internal_chat_message')) {
-                continue;
-            }
+        $recipientIds = $this->preferenceService->enabledRecipientIds($recipientIds, 'internal_chat_message');
+        if ($recipientIds === []) {
+            return;
+        }
 
+        foreach ($recipientIds as $recipientId) {
             $this->notificationService->createForUser($recipientId, [
                 'type' => 'internal_chat_message',
                 'module' => 'internal_chat',

@@ -43,13 +43,14 @@ function EsqueceuSenhaPage() {
               Se o email estiver cadastrado, você receberá as instruções em breve.
             </p>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+            <form onSubmit={handleSubmit} className="space-y-4 mt-4" aria-busy={busy ? 'true' : 'false'}>
               <Field label="E-mail">
                 <TextInput
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   placeholder="seu@email.com"
+                  autoComplete="email"
                   required
                 />
               </Field>

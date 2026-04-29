@@ -211,3 +211,25 @@ cd backend && php vendor/bin/pest
 powershell -ExecutionPolicy Bypass -File scripts/update-schema-dump.ps1
 ```
 
+## Padrao de migrations (producao)
+
+Adotar sempre o template em `database/migration_templates/forward_only_migration.stub.php`.
+
+Regras obrigatorias:
+- Forward-only: `down()` sem DDL destrutiva em producao.
+- Compatibilidade de producao: migration idempotente (deploy repetido nao pode quebrar).
+- Rollback logico: desfazer via nova migration compensatoria.
+- Pos-migrate: executar smoke test de banco.
+
+Fluxo recomendado:
+
+```bash
+php artisan migrate --force
+php artisan db:smoke
+```
+
+Atalho:
+
+```bash
+composer run migrate-safe
+```

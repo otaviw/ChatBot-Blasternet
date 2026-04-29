@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useNotificationsContext } from '@/hooks/useNotificationsContext';
 import { NOTIFICATION_MODULE } from '@/constants/notifications';
 import useBrand from '@/hooks/useBrand';
@@ -197,6 +197,7 @@ export default function Sidebar({
   setSupportAccordionOpen,
   currentPath,
 }) {
+  const mobileCloseButtonRef = useRef(null);
   const { unreadByModule, totalUnread } = useNotificationsContext();
   const brand = useBrand();
   const brandName = brand?.name || 'Blasternet ChatBot';
@@ -231,6 +232,25 @@ export default function Sidebar({
     }
   }, [isAnySupportActive, setSupportAccordionOpen]);
 
+  useEffect(() => {
+    if (!isMobile || !sidebarMobileOpen) {
+      return undefined;
+    }
+
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        closeSidebarMobile();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    mobileCloseButtonRef.current?.focus();
+
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [closeSidebarMobile, isMobile, sidebarMobileOpen]);
+
   if (!hasSidebar) {
     return null;
   }
@@ -239,11 +259,13 @@ export default function Sidebar({
     <>
       {!isMobile && (
         <aside
+          id="layout-sidebar-desktop"
           className={`layout-sidebar ${sidebarHovered ? 'layout-sidebar--expanded' : ''}`}
           onMouseEnter={() => onSidebarHoverChange(true)}
           onMouseLeave={() => onSidebarHoverChange(false)}
+          aria-label="Navegação lateral"
         >
-          <nav className="layout-sidebar__nav">
+          <nav className="layout-sidebar__nav" aria-label="Navegação principal">
             {mainLinks.map((item) => {
               const unreadCount = unreadCountForLink(item);
               const linkTitle = item.ariaLabel || item.label;
@@ -355,7 +377,9 @@ export default function Sidebar({
             />
           )}
           <aside
+            id="layout-sidebar-mobile"
             className={`layout-sidebar layout-sidebar--mobile ${sidebarMobileOpen ? 'layout-sidebar--mobile-open' : ''}`}
+            aria-label="Menu lateral móvel"
           >
             <div className="layout-sidebar__mobile-header">
               <BrandLogo
@@ -369,13 +393,14 @@ export default function Sidebar({
                 onClick={closeSidebarMobile}
                 title="Fechar menu"
                 aria-label="Fechar menu"
+                ref={mobileCloseButtonRef}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
               </button>
             </div>
-            <nav className="layout-sidebar__nav">
+            <nav className="layout-sidebar__nav" aria-label="Navegação principal">
               {mainLinks.map((item) => {
                 const unreadCount = unreadCountForLink(item);
                 const linkTitle = item.ariaLabel || item.label;

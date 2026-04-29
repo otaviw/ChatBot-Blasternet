@@ -14,6 +14,7 @@ use App\Http\Controllers\Company\AiSandboxController;
 use App\Http\Controllers\Company\AiSuggestionFeedbackController;
 use App\Http\Controllers\Company\ConversationController as CompanyConversationController;
 use App\Http\Controllers\Company\ConversationTagController;
+use App\Http\Controllers\Company\ProductMetricsController;
 use App\Http\Controllers\Company\QuickReplyController;
 use App\Http\Controllers\Company\UserController as CompanyUserController;
 use Illuminate\Support\Facades\Route;
@@ -27,6 +28,7 @@ Route::middleware(['web', 'auth', 'company.user'])->group(function () {
         Route::put('/bot', [BotController::class, 'update'])->middleware('throttle:bot-write');
         Route::post('/bot/validar-whatsapp', [BotController::class, 'validateWhatsApp'])->middleware('throttle:bot-write');
         Route::get('/uso', [BotController::class, 'usageSnapshot'])->middleware('throttle:inbox-read');
+        Route::get('/produto/funil', [ProductMetricsController::class, 'funnel'])->middleware('throttle:inbox-read');
         Route::get('/templates', [CompanyConversationController::class, 'listTemplates'])
             ->middleware('throttle:inbox-read');
         Route::get('/conversas', [CompanyConversationController::class, 'index'])
@@ -176,5 +178,4 @@ Route::middleware(['web', 'auth', 'company.user'])->group(function () {
                 ->middleware('throttle:bot-write');
     });
 });
-
 

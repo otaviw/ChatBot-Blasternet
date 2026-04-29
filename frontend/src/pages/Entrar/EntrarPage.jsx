@@ -79,12 +79,13 @@ function EntrarPage() {
           {error ? <Notice tone="danger">Erro ao carregar dados de entrada. Tente novamente.</Notice> : null}
 
           {!loading && !error ? (
-            <form onSubmit={handleLogin} className="space-y-4">
+            <form onSubmit={handleLogin} className="space-y-4" aria-busy={busy ? 'true' : 'false'}>
               <Field label="E-mail">
                 <TextInput
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
+                  autoComplete="email"
                   required
                 />
               </Field>
@@ -94,6 +95,7 @@ function EntrarPage() {
                   type="password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
+                  autoComplete="current-password"
                   required
                 />
               </Field>

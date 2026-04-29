@@ -6,8 +6,10 @@ use App\Models\Conversation;
 use App\Models\User;
 use App\Services\AuditLogService;
 use App\Services\NotificationDispatchService;
+use App\Services\ProductMetricsService;
 use App\Support\ConversationAssignedType;
 use App\Support\ConversationHandlingMode;
+use App\Support\ProductFunnels;
 use App\Support\ConversationStatus;
 use Illuminate\Http\Request;
 
@@ -15,7 +17,8 @@ class UpdateConversationStatusAction
 {
     public function __construct(
         private readonly NotificationDispatchService $dispatchService,
-        private readonly AuditLogService $auditLog
+        private readonly AuditLogService $auditLog,
+        private readonly ProductMetricsService $productMetrics,
     ) {}
 
     public function handle(Request $request, User $user, int $conversationId, string $operation): ?Conversation
@@ -59,6 +62,15 @@ class UpdateConversationStatusAction
             'closed_by' => $user->id,
         ]);
 
+        $this->productMetrics->track(
+            ProductFunnels::FEATURE_PRINCIPAL,
+            'conversation_closed',
+            'conversation_closed',
+            (int) $conversation->company_id,
+            (int) $user->id,
+            ['conversation_id' => (int) $conversation->id],
+        );
+
         return $conversation;
     }
 
@@ -76,4 +88,3 @@ class UpdateConversationStatusAction
         return $conversation;
     }
 }
-
