@@ -16,8 +16,8 @@ use Illuminate\Validation\ValidationException;
 class SupportTicketMessageController extends Controller
 {
     public function __construct(
-        private AuditLogService $auditLog,
-        private MessageMediaStorageService $mediaStorage
+        private readonly AuditLogService $auditLog,
+        private readonly MessageMediaStorageService $mediaStorage
     ) {}
 
     public function listMine(Request $request, SupportTicket $ticket): JsonResponse
@@ -70,14 +70,6 @@ class SupportTicketMessageController extends Controller
         }
 
         return $this->storeMessage($request, $ticket, $user);
-    }
-
-    private function unauthenticatedResponse(): JsonResponse
-    {
-        return response()->json([
-            'authenticated' => false,
-            'redirect' => '/entrar',
-        ], 403);
     }
 
     private function listMessagesResponse(SupportTicket $ticket): JsonResponse

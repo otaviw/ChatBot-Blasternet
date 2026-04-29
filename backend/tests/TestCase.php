@@ -13,7 +13,7 @@ abstract class TestCase extends BaseTestCase
      *
      * @param  array<string, mixed>  $payload
      */
-    protected function webhookPost(array $payload, string $secret = 'test-secret'): TestResponse
+    public function webhookPost(array $payload, string $secret = 'test-secret'): TestResponse
     {
         $body      = json_encode($payload, JSON_UNESCAPED_UNICODE);
         $signature = 'sha256=' . hash_hmac('sha256', (string) $body, $secret);

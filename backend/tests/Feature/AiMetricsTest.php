@@ -45,7 +45,7 @@ class AiMetricsTest extends TestCase
             'name' => 'Admin Metrics',
             'email' => 'admin-metrics@test.local',
             'password' => 'secret123',
-            'role' => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $company->id,
             'is_active' => true,
         ]);
@@ -356,7 +356,7 @@ class AiMetricsTest extends TestCase
             'name' => 'NoAI User',
             'email' => 'noai@test.local',
             'password' => 'secret',
-            'role' => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $company->id,
             'is_active' => true,
         ]);
@@ -385,3 +385,4 @@ class AiMetricsTest extends TestCase
         $this->assertNull($providers->firstWhere('provider', 'ollama-b'));
     }
 }
+

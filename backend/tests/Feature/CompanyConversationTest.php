@@ -293,7 +293,34 @@ describe('POST /minha-conta/conversas/{id}/encerrar', function () {
 });
 
 // ---------------------------------------------------------------------------
-// PUT /api/minha-conta/conversas/{id}/tags — atualiza tags
+// DELETE /api/minha-conta/conversas/{id} — excluir conversa
+// ---------------------------------------------------------------------------
+
+describe('DELETE /minha-conta/conversas/{id}', function () {
+    it('retorna 401 para requisição não autenticada (middleware auth)', function () {
+        $this->deleteJson('/api/minha-conta/conversas/1')
+            ->assertStatus(401);
+    });
+
+    it('retorna 404 quando usuário da empresa A tenta excluir conversa da empresa B', function () {
+        $companyA = Company::create(['name' => 'Empresa A']);
+        $companyB = Company::create(['name' => 'Empresa B']);
+        $agentA = makeAgent($companyA);
+        $conversationB = makeOpenConversation($companyB, '5511888880001');
+
+        $this->actingAs($agentA)
+            ->deleteJson("/api/minha-conta/conversas/{$conversationB->id}")
+            ->assertNotFound();
+
+        $this->assertDatabaseHas('conversations', [
+            'id' => $conversationB->id,
+            'company_id' => $companyB->id,
+        ]);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// PUT /api/minha-conta/conversas/{id}/tags â€” atualiza tags
 // ---------------------------------------------------------------------------
 
 describe('PUT /minha-conta/conversas/{id}/tags', function () {
@@ -544,3 +571,4 @@ describe('POST /minha-conta/conversas/{id}/responder-manual', function () {
             ->assertNotFound();
     });
 });
+

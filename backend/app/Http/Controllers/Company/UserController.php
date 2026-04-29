@@ -2,31 +2,30 @@
 
 namespace App\Http\Controllers\Company;
 
+use App\Actions\Company\User\CreateCompanyUserAction;
+use App\Actions\Company\User\UpdateCompanyUserAction;
+use App\Data\ActionResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Company\StoreUserRequest;
 use App\Http\Requests\Company\UpdateUserRequest;
 use App\Models\Area;
-use App\Models\AppointmentStaffProfile;
 use App\Models\User;
-use App\Services\Company\CompanyUsageLimitsService;
-use App\Support\UserPermissions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\ValidationException;
 
 class UserController extends Controller
 {
-    public function __construct(private CompanyUsageLimitsService $usageLimits) {}
+    public function __construct(
+        private readonly CreateCompanyUserAction $createUserAction,
+        private readonly UpdateCompanyUserAction $updateUserAction,
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
-        $actor = $request->user();
-        if (! $actor) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
+        if ($guard = $this->guardUnauthenticated($request)) {
+            return $guard;
         }
+        $actor = $request->user();
         if (! $actor->isCompanyAdmin() && ! $actor->isSystemAdmin()) {
             return response()->json([
                 'authenticated' => true,
@@ -74,13 +73,10 @@ class UserController extends Controller
 
     public function store(StoreUserRequest $request): JsonResponse
     {
-        $actor = $request->user();
-        if (! $actor) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
+        if ($guard = $this->guardUnauthenticated($request)) {
+            return $guard;
         }
+        $actor = $request->user();
         if (! $actor->isCompanyAdmin()) {
             return response()->json([
                 'authenticated' => true,
@@ -88,66 +84,27 @@ class UserController extends Controller
             ], 403);
         }
 
-        $validated = $request->validated();
+        $result = $this->createUserAction->handle((int) $actor->company_id, $request->validated());
 
-        $companyId = (int) $actor->company_id;
-
-        $userLimitCheck = $this->usageLimits->checkUserLimit($companyId);
-        if (! $userLimitCheck['allowed']) {
-            return response()->json([
-                'message'       => $userLimitCheck['error_message'],
-                'limit_blocked' => true,
-                'current'       => $userLimitCheck['current'],
-                'limit'         => $userLimitCheck['limit'],
-            ], 429);
+        if ($result->status !== 201) {
+            return $result->toResponse();
         }
 
-        $normalizedRole = User::normalizeRole((string) $validated['role']);
-        $areaIds = $this->resolveAreaIds($companyId, $validated);
-        $isActive = (bool) ($validated['is_active'] ?? true);
-        $canUseAi = $this->resolveCanUseAi($normalizedRole, $validated);
-        $permissions = $this->resolvePermissions($normalizedRole, $validated);
+        /** @var \App\Models\User $user */
+        $user = $result->body['user'];
+        $this->loadUserWithRelations($user);
 
-        $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => $validated['password'],
-            'role' => $normalizedRole,
-            'company_id' => $companyId,
-            'is_active' => $isActive,
-            'can_use_ai' => $canUseAi,
-            'disabled_at' => $isActive ? null : now(),
-            'permissions' => $permissions,
-        ]);
-
-        $user->areas()->sync($areaIds);
-        $this->syncAppointmentProfile($companyId, $user, $validated);
-        $user->load(['company:id,name', 'areas:id,name,company_id']);
-        try {
-            $user->load('appointmentStaffProfile');
-        } catch (\Throwable) {
-            // Tabela pode não existir ainda em produção
-        }
-
-        return response()->json([
-            'ok'            => true,
-            'user'          => $this->serializeUser($user),
-            'usage_warning' => $userLimitCheck['warning'] ?? false,
-            'usage_message' => $userLimitCheck['warning_message'] ?? null,
-            'current_users' => $userLimitCheck['current'] ?? null,
-            'max_users'     => $userLimitCheck['limit'] ?? null,
-        ], 201);
+        return ActionResponse::created(
+            array_merge($result->body, ['user' => $this->serializeUser($user)])
+        )->toResponse();
     }
 
     public function update(UpdateUserRequest $request, User $user): JsonResponse
     {
-        $actor = $request->user();
-        if (! $actor) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
+        if ($guard = $this->guardUnauthenticated($request)) {
+            return $guard;
         }
+        $actor = $request->user();
         if (! $actor->isCompanyAdmin() && ! $actor->isSystemAdmin()) {
             return response()->json([
                 'authenticated' => true,
@@ -157,55 +114,24 @@ class UserController extends Controller
 
         $companyId = $actor->isSystemAdmin() ? (int) $user->company_id : (int) $actor->company_id;
         if ((int) $user->company_id !== $companyId || ! in_array($user->role, User::companyRoleValues(), true)) {
-            return response()->json([
-                'message' => 'Usuário não pertence a empresa.',
-            ], 404);
+            return response()->json(['message' => 'Usuário não pertence a empresa.'], 404);
         }
 
-        $validated = $request->validated();
-
-        $normalizedRole = User::normalizeRole((string) $validated['role']);
-        $areaIds = $this->resolveAreaIds($companyId, $validated);
-        $isActive = (bool) $validated['is_active'];
-        $canUseAi = $this->resolveCanUseAi($normalizedRole, $validated, $user);
-        $permissions = $this->resolvePermissions($normalizedRole, $validated, $user);
-
-        $user->name = $validated['name'];
-        $user->email = $validated['email'];
-        $user->role = $normalizedRole;
-        $user->is_active = $isActive;
-        $user->can_use_ai = $canUseAi;
-        $user->permissions = $permissions;
-        $user->disabled_at = $isActive ? null : ($user->disabled_at ?? now());
-        if (! empty($validated['password'])) {
-            $user->password = $validated['password'];
-        }
-        $user->save();
-
-        $user->areas()->sync($areaIds);
-        $this->syncAppointmentProfile($companyId, $user, $validated);
-        $user->load(['company:id,name', 'areas:id,name,company_id']);
-        try {
-            $user->load('appointmentStaffProfile');
-        } catch (\Throwable) {
-            // Tabela pode não existir ainda em produção
-        }
+        $this->updateUserAction->handle($companyId, $user, $request->validated());
+        $this->loadUserWithRelations($user);
 
         return response()->json([
-            'ok' => true,
+            'ok'   => true,
             'user' => $this->serializeUser($user),
         ]);
     }
 
     public function destroy(Request $request, User $user): JsonResponse
     {
-        $actor = $request->user();
-        if (! $actor) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
+        if ($guard = $this->guardUnauthenticated($request)) {
+            return $guard;
         }
+        $actor = $request->user();
         if (! $actor->isCompanyAdmin()) {
             return response()->json([
                 'authenticated' => true,
@@ -231,94 +157,6 @@ class UserController extends Controller
         return response()->json([
             'ok' => true,
         ]);
-    }
-
-    /**
-     * @param  array<string, mixed>  $validated
-     * @return array<int, int>
-     */
-    private function resolveAreaIds(int $companyId, array $validated): array
-    {
-        $ids = collect($validated['area_ids'] ?? [])
-            ->map(fn($value) => (int) $value)
-            ->filter(fn(int $value) => $value > 0)
-            ->values()
-            ->all();
-
-        $names = collect($validated['areas'] ?? [])
-            ->map(fn($value) => trim((string) $value))
-            ->filter()
-            ->values()
-            ->all();
-
-        if ($names !== []) {
-            $resolvedByName = Area::query()
-                ->where('company_id', $companyId)
-                ->whereIn('name', $names)
-                ->pluck('id')
-                ->map(fn($value) => (int) $value)
-                ->values()
-                ->all();
-
-            if (count($resolvedByName) !== count(array_unique($names))) {
-                throw ValidationException::withMessages([
-                    'areas' => ['Uma ou mais areas informadas não existem para a empresa.'],
-                ]);
-            }
-
-            $ids = array_merge($ids, $resolvedByName);
-        }
-
-        $ids = array_values(array_unique($ids));
-        if ($ids === []) {
-            return [];
-        }
-
-        $validAreaCount = Area::query()
-            ->where('company_id', $companyId)
-            ->whereIn('id', $ids)
-            ->count();
-
-        if ($validAreaCount !== count($ids)) {
-            throw ValidationException::withMessages([
-                'area_ids' => ['Area informada não pertence a empresa.'],
-            ]);
-        }
-
-        return $ids;
-    }
-
-    /**
-     * @param  array<string, mixed>  $validated
-     * @return list<string>|null
-     */
-    private function resolvePermissions(string $normalizedRole, array $validated, ?User $currentUser = null): ?array
-    {
-        if ($normalizedRole !== User::ROLE_AGENT) {
-            return null;
-        }
-
-        if (array_key_exists('permissions', $validated)) {
-            return UserPermissions::sanitize($validated['permissions']);
-        }
-
-        return $currentUser?->permissions;
-    }
-
-    /**
-     * @param  array<string, mixed>  $validated
-     */
-    private function resolveCanUseAi(string $normalizedRole, array $validated, ?User $currentUser = null): bool
-    {
-        if ($normalizedRole !== User::ROLE_AGENT) {
-            return true;
-        }
-
-        if (array_key_exists('can_use_ai', $validated)) {
-            return (bool) $validated['can_use_ai'];
-        }
-
-        return (bool) ($currentUser?->can_use_ai ?? false);
     }
 
     /**
@@ -363,37 +201,18 @@ class UserController extends Controller
     }
 
     /**
-     * @param  array<string, mixed>  $validated
+     * Carrega as relações necessárias após criar ou atualizar um usuário.
+     * O try/catch em appointmentStaffProfile protege ambientes onde a tabela
+     * ainda não existe (deploy gradual).
      */
-    private function syncAppointmentProfile(int $companyId, User $user, array $validated): void
+    private function loadUserWithRelations(User $user): void
     {
-        if (! array_key_exists('appointment_is_staff', $validated) && ! array_key_exists('appointment_display_name', $validated)) {
-            return;
-        }
-
+        $user->load(['company:id,name', 'areas:id,name,company_id']);
         try {
-            $profile = AppointmentStaffProfile::query()->firstOrCreate(
-                [
-                    'company_id' => $companyId,
-                    'user_id' => (int) $user->id,
-                ],
-                [
-                    'display_name' => $user->name,
-                    'is_bookable' => true,
-                ]
-            );
-
-            if (array_key_exists('appointment_is_staff', $validated)) {
-                $profile->is_bookable = (bool) $validated['appointment_is_staff'];
-            }
-            if (array_key_exists('appointment_display_name', $validated)) {
-                $text = trim((string) ($validated['appointment_display_name'] ?? ''));
-                $profile->display_name = $text !== '' ? $text : null;
-            }
-
-            $profile->save();
+            $user->load('appointmentStaffProfile');
         } catch (\Throwable) {
             // Tabela pode não existir ainda em produção
         }
     }
+
 }

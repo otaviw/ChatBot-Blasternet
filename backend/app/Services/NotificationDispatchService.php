@@ -88,10 +88,7 @@ class NotificationDispatchService
             return;
         }
 
-        $targetUserId = User::query()
-            ->where('id', (int) $transfer->to_assigned_id)
-            ->where('is_active', true)
-            ->value('id');
+        $targetUserId = $this->findActiveUserId((int) $transfer->to_assigned_id);
 
         if (! $targetUserId) {
             return;
@@ -105,11 +102,7 @@ class NotificationDispatchService
         $title = 'Conversa transferida para você';
         $text = "Você recebeu o atendimento de {$label}.";
 
-        if (! $this->preferenceService->isEnabled((int) $targetUserId, 'conversation_transferred')) {
-            return;
-        }
-
-        $this->notificationService->createForUser((int) $targetUserId, [
+        $this->sendIfEnabled((int) $targetUserId, 'conversation_transferred', [
             'type' => 'conversation_transferred',
             'module' => 'inbox',
             'title' => $title,
@@ -127,14 +120,7 @@ class NotificationDispatchService
 
     public function dispatchSupportTicketCreatedNotification(SupportTicket $ticket): void
     {
-        $superAdminIds = User::query()
-            ->where('is_active', true)
-            ->whereIn('role', [User::ROLE_SYSTEM_ADMIN, User::ROLE_LEGACY_ADMIN])
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->filter(fn (int $id) => $id > 0)
-            ->values()
-            ->all();
+        $superAdminIds = $this->activeSystemAdminIds();
 
         if ($superAdminIds === []) {
             return;
@@ -183,23 +169,12 @@ class NotificationDispatchService
         $recipientIds = [];
 
         if ($senderId > 0 && $requesterId > 0 && $senderId === $requesterId) {
-            $recipientIds = User::query()
-                ->where('is_active', true)
-                ->whereIn('role', [User::ROLE_SYSTEM_ADMIN, User::ROLE_LEGACY_ADMIN])
-                ->pluck('id')
-                ->map(fn ($id) => (int) $id)
-                ->filter(fn (int $id) => $id > 0)
-                ->unique()
-                ->values()
-                ->all();
+            $recipientIds = $this->activeSystemAdminIds();
         } elseif ($requesterId > 0) {
-            $activeRequesterId = User::query()
-                ->where('id', $requesterId)
-                ->where('is_active', true)
-                ->value('id');
+            $activeRequesterId = $this->findActiveUserId($requesterId);
 
             if ($activeRequesterId) {
-                $recipientIds[] = (int) $activeRequesterId;
+                $recipientIds[] = $activeRequesterId;
             }
         }
 
@@ -304,10 +279,7 @@ class NotificationDispatchService
             return;
         }
 
-        $targetUserId = User::query()
-            ->where('id', $prevAssignedId)
-            ->where('is_active', true)
-            ->value('id');
+        $targetUserId = $this->findActiveUserId($prevAssignedId);
 
         if (! $targetUserId) {
             return;
@@ -319,11 +291,7 @@ class NotificationDispatchService
             ? "A conversa com {$customerLabel} foi encerrada."
             : 'Uma conversa foi encerrada.';
 
-        if (! $this->preferenceService->isEnabled((int) $targetUserId, 'conversation_closed')) {
-            return;
-        }
-
-        $this->notificationService->createForUser((int) $targetUserId, [
+        $this->sendIfEnabled((int) $targetUserId, 'conversation_closed', [
             'type' => 'conversation_closed',
             'module' => 'inbox',
             'title' => $title,
@@ -349,10 +317,7 @@ class NotificationDispatchService
             return;
         }
 
-        $activeRequesterId = User::query()
-            ->where('id', $requesterId)
-            ->where('is_active', true)
-            ->value('id');
+        $activeRequesterId = $this->findActiveUserId($requesterId);
 
         if (! $activeRequesterId) {
             return;
@@ -365,11 +330,7 @@ class NotificationDispatchService
             ? "Sua solicitacao \"{$subject}\" foi encerrada."
             : "Sua solicitacao #{$ticketNumber} foi encerrada.";
 
-        if (! $this->preferenceService->isEnabled((int) $activeRequesterId, 'support_ticket_closed')) {
-            return;
-        }
-
-        $this->notificationService->createForUser((int) $activeRequesterId, [
+        $this->sendIfEnabled((int) $activeRequesterId, 'support_ticket_closed', [
             'type' => 'support_ticket_closed',
             'module' => 'support',
             'title' => $title,
@@ -397,16 +358,9 @@ class NotificationDispatchService
             return;
         }
 
-        $activeAddedUser = User::query()
-            ->where('id', $addedUserId)
-            ->where('is_active', true)
-            ->value('id');
+        $activeAddedUser = $this->findActiveUserId($addedUserId);
 
         if (! $activeAddedUser) {
-            return;
-        }
-
-        if (! $this->preferenceService->isEnabled((int) $activeAddedUser, 'chat_participant_added')) {
             return;
         }
 
@@ -429,7 +383,7 @@ class NotificationDispatchService
             $text = 'Você foi adicionado a um grupo no chat interno.';
         }
 
-        $this->notificationService->createForUser((int) $activeAddedUser, [
+        $this->sendIfEnabled((int) $activeAddedUser, 'chat_participant_added', [
             'type' => 'chat_participant_added',
             'module' => 'internal_chat',
             'title' => $title,
@@ -442,6 +396,52 @@ class NotificationDispatchService
                 'added_by_user_id' => $addedByUserId,
             ],
         ]);
+    }
+
+    /**
+     * Verifica a preferência do usuário e, se habilitada, cria a notificação.
+     * Centraliza o padrão isEnabled + createForUser usado em destinatários únicos.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function sendIfEnabled(int $recipientId, string $preferenceType, array $payload): void
+    {
+        if (! $this->preferenceService->isEnabled($recipientId, $preferenceType)) {
+            return;
+        }
+
+        $this->notificationService->createForUser($recipientId, $payload);
+    }
+
+    /**
+     * Retorna o id do usuário se ele existir e estiver ativo, ou null caso contrário.
+     */
+    private function findActiveUserId(int $userId): ?int
+    {
+        $found = User::query()
+            ->where('id', $userId)
+            ->where('is_active', true)
+            ->value('id');
+
+        return $found ? (int) $found : null;
+    }
+
+    /**
+     * Retorna a lista de ids de todos os admins do sistema ativos.
+     *
+     * @return array<int, int>
+     */
+    private function activeSystemAdminIds(): array
+    {
+        return User::query()
+            ->where('is_active', true)
+            ->where('role', User::ROLE_SYSTEM_ADMIN)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
     }
 
     /**

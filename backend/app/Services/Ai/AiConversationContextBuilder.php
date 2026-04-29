@@ -40,29 +40,9 @@ class AiConversationContextBuilder
             ->reverse()
             ->values();
 
-        $prompt = $this->buildSystemPrompt($systemPrompt, $companySettings);
-        if ($prompt !== '') {
-            $messages[] = [
-                'role' => AiMessage::ROLE_SYSTEM,
-                'content' => $prompt,
-            ];
-        }
-
-        $knowledgePrompt = $this->buildKnowledgePrompt((int) $conversation->company_id, $currentQuery);
-        if ($knowledgePrompt !== '') {
-            $messages[] = [
-                'role' => AiMessage::ROLE_SYSTEM,
-                'content' => $knowledgePrompt,
-            ];
-        }
-
-        $historyPrompt = $this->buildHistoryPrompt($history);
-        if ($historyPrompt !== '') {
-            $messages[] = [
-                'role' => AiMessage::ROLE_SYSTEM,
-                'content' => $historyPrompt,
-            ];
-        }
+        $this->appendSystemMessage($messages, $this->buildSystemPrompt($systemPrompt, $companySettings));
+        $this->appendSystemMessage($messages, $this->buildKnowledgePrompt((int) $conversation->company_id, $currentQuery));
+        $this->appendSystemMessage($messages, $this->buildHistoryPrompt($history));
 
         foreach ($history as $item) {
             $role = $this->normalizeRole((string) ($item->role ?? ''));
@@ -78,15 +58,27 @@ class AiConversationContextBuilder
             ];
         }
 
-        $toolsPrompt = $this->buildToolsPrompt();
-        if ($toolsPrompt !== '') {
-            $messages[] = [
-                'role' => AiMessage::ROLE_SYSTEM,
-                'content' => $toolsPrompt,
-            ];
-        }
+        $this->appendSystemMessage($messages, $this->buildToolsPrompt());
 
         return $messages;
+    }
+
+    /**
+     * Adiciona uma mensagem de sistema ao array de contexto apenas se o conteúdo não for vazio.
+     * Centraliza o padrão repetido em build() para cada seção do prompt.
+     *
+     * @param  array<int, array<string, string>>  $messages
+     */
+    private function appendSystemMessage(array &$messages, string $content): void
+    {
+        if ($content === '') {
+            return;
+        }
+
+        $messages[] = [
+            'role'    => AiMessage::ROLE_SYSTEM,
+            'content' => $content,
+        ];
     }
 
     private function resolveHistoryLimit(?int $historyLimit, ?CompanyBotSetting $companySettings): int

@@ -82,7 +82,7 @@ describe('WhatsAppCredentialsValidatorService', function () {
         $result  = $service->validate('111111111', 'token-sem-permissao');
 
         expect($result['ok'])->toBeFalse();
-        expect($result['error'])->toContain('403');
+        expect($result['error'])->toContain('Sem permiss');
     });
 
     it('retorna ok=false quando phone_number_id é vazio', function () {
@@ -217,7 +217,7 @@ describe('POST /minha-conta/bot/validar-whatsapp', function () {
 
     it('retorna 403 para usuário não autenticado', function () {
         $this->postJson('/api/minha-conta/bot/validar-whatsapp')
-            ->assertStatus(403);
+            ->assertStatus(401);
     });
 });
 
@@ -261,11 +261,19 @@ describe('PUT /minha-conta/bot — validação de credenciais ao salvar', functi
                 'meta_access_token'    => 'token-invalido',
                 'is_active'            => false,
                 'timezone'             => 'America/Sao_Paulo',
-                'business_hours'       => [],
+                'business_hours'       => [
+                    'monday' => ['enabled' => true, 'start' => '08:00', 'end' => '18:00'],
+                    'tuesday' => ['enabled' => true, 'start' => '08:00', 'end' => '18:00'],
+                    'wednesday' => ['enabled' => true, 'start' => '08:00', 'end' => '18:00'],
+                    'thursday' => ['enabled' => true, 'start' => '08:00', 'end' => '18:00'],
+                    'friday' => ['enabled' => true, 'start' => '08:00', 'end' => '18:00'],
+                    'saturday' => ['enabled' => false, 'start' => null, 'end' => null],
+                    'sunday' => ['enabled' => false, 'start' => null, 'end' => null],
+                ],
                 'message_retention_days' => 180,
             ])
             ->assertStatus(422)
-            ->assertJsonFragment(['message' => fn($msg) => str_contains($msg, 'Credenciais do WhatsApp inválidas')]);
+            ->assertJsonPath('message', 'Credenciais do WhatsApp inválidas: Token inválido ou expirado.');
     });
 
     it('salva com sucesso quando novas credenciais são válidas', function () {
@@ -292,7 +300,15 @@ describe('PUT /minha-conta/bot — validação de credenciais ao salvar', functi
                 'meta_access_token'    => 'token-valido-novo',
                 'is_active'            => false,
                 'timezone'             => 'America/Sao_Paulo',
-                'business_hours'       => [],
+                'business_hours'       => [
+                    'monday' => ['enabled' => true, 'start' => '08:00', 'end' => '18:00'],
+                    'tuesday' => ['enabled' => true, 'start' => '08:00', 'end' => '18:00'],
+                    'wednesday' => ['enabled' => true, 'start' => '08:00', 'end' => '18:00'],
+                    'thursday' => ['enabled' => true, 'start' => '08:00', 'end' => '18:00'],
+                    'friday' => ['enabled' => true, 'start' => '08:00', 'end' => '18:00'],
+                    'saturday' => ['enabled' => false, 'start' => null, 'end' => null],
+                    'sunday' => ['enabled' => false, 'start' => null, 'end' => null],
+                ],
                 'message_retention_days' => 180,
             ])
             ->assertOk()

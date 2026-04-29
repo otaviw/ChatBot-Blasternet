@@ -22,7 +22,7 @@ class ConversationTagsTest extends TestCase
             'name'       => 'Atendente',
             'email'      => 'atendente-tags@test.local',
             'password'   => 'secret',
-            'role'       => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $company->id,
             'is_active'  => true,
         ]);
@@ -280,3 +280,4 @@ class ConversationTagsTest extends TestCase
         ]);
     }
 }
+

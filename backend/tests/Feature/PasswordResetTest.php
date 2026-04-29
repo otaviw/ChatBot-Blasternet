@@ -30,7 +30,7 @@ describe('POST /forgot-password — sem enumeração de usuários', function () 
             'email'      => 'existe@exemplo.com',
             'password'   => bcrypt('senha123'),
             'is_active'  => true,
-            'role'       => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => null,
         ]);
 
@@ -69,7 +69,7 @@ describe('POST /forgot-password — sem enumeração de usuários', function () 
             'email'      => 'existe2@exemplo.com',
             'password'   => bcrypt('senha123'),
             'is_active'  => true,
-            'role'       => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => null,
         ]);
 
@@ -92,7 +92,7 @@ describe('POST /forgot-password — sem enumeração de usuários', function () 
             'email'      => 'comparacao@exemplo.com',
             'password'   => bcrypt('senha123'),
             'is_active'  => true,
-            'role'       => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => null,
         ]);
 
@@ -115,7 +115,7 @@ describe('POST /forgot-password — sem enumeração de usuários', function () 
             'email'      => 'inativo@exemplo.com',
             'password'   => bcrypt('senha123'),
             'is_active'  => false,
-            'role'       => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => null,
         ]);
 
@@ -138,7 +138,7 @@ describe('POST /reset-password — sem enumeração de usuários', function () {
             'email'      => 'reset-ok@exemplo.com',
             'password'   => bcrypt('senhaantiga'),
             'is_active'  => true,
-            'role'       => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => null,
         ]);
 
@@ -161,7 +161,7 @@ describe('POST /reset-password — sem enumeração de usuários', function () {
             'email'      => 'token-inválido@exemplo.com',
             'password'   => bcrypt('senha123'),
             'is_active'  => true,
-            'role'       => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => null,
         ]);
 
@@ -198,7 +198,7 @@ describe('POST /reset-password — sem enumeração de usuários', function () {
             'email'      => 'comparacao-reset@exemplo.com',
             'password'   => bcrypt('senha123'),
             'is_active'  => true,
-            'role'       => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => null,
         ]);
 
@@ -220,3 +220,4 @@ describe('POST /reset-password — sem enumeração de usuários', function () {
         expect($respostaTokenInvalido->json('message'))->toBe($respostaEmailInexistente->json('message'));
     });
 });
+

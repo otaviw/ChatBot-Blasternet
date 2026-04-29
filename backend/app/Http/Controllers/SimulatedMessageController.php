@@ -12,8 +12,8 @@ use Illuminate\Http\Request;
 class SimulatedMessageController extends Controller
 {
     public function __construct(
-        private InboundMessageService $inboundMessage,
-        private AuditLogService $auditLog
+        private readonly InboundMessageService $inboundMessage,
+        private readonly AuditLogService $auditLog
     ) {}
 
     public function store(Request $request): JsonResponse

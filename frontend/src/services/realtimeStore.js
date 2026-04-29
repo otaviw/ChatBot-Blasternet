@@ -3,6 +3,7 @@ import { isSupportedRealtimeEvent } from './realtime/isSupportedRealtimeEvent';
 import { readPositiveInt } from './realtime/readPositiveInt';
 import { readMessagePayload } from './realtime/readMessagePayload';
 import { validateEventPayload } from './realtime/validateEventPayload';
+import { error as logError, warn as logWarn } from '@/lib/logger';
 
 const MAX_SEEN_ITEMS = 1500;
 const SEEN_TTL_MS = 5 * 60 * 1000;
@@ -121,7 +122,7 @@ class RealtimeStore {
 
     const validation = validateEventPayload(eventName, normalized.payload);
     if (!validation.ok) {
-      console.warn(`Realtime: payload inválido para "${eventName}":`, validation.error, normalized.payload);
+      logWarn(`Realtime: payload inválido para "${eventName}":`, validation.error, normalized.payload);
       return;
     }
 
@@ -138,7 +139,7 @@ class RealtimeStore {
       try {
         listener(normalized);
       } catch (error) {
-        console.error('Realtime listener failed', error);
+        logError('Realtime listener failed', error);
       }
     });
   }

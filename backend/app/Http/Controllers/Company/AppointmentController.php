@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Company;
 use App\Actions\Appointment\BookAppointmentAction;
 use App\Actions\Appointment\CancelAppointmentAction;
 use App\Actions\Appointment\CheckAppointmentAvailabilityAction;
+use App\Actions\Appointment\ListAppointmentsAction;
+use App\Actions\Appointment\ReplaceWorkingHoursAction;
 use App\Actions\Appointment\RescheduleAppointmentAction;
 use App\Exceptions\AppointmentBusinessException;
 use App\Http\Controllers\Controller;
@@ -24,12 +26,10 @@ use App\Models\AppointmentService;
 use App\Models\AppointmentSetting;
 use App\Models\AppointmentStaffProfile;
 use App\Models\AppointmentTimeOff;
-use App\Models\AppointmentWorkingHour;
 use App\Models\Company;
 use App\Models\User;
-use App\Support\AppointmentSource;
 use App\Support\AppointmentStatus;
-use App\Support\PhoneNumberNormalizer;
+use App\Support\Appointments\AppointmentSerializer;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -39,10 +39,13 @@ use Illuminate\Validation\ValidationException;
 class AppointmentController extends Controller
 {
     public function __construct(
-        private CheckAppointmentAvailabilityAction $checkAvailabilityAction,
-        private BookAppointmentAction $bookAppointmentAction,
-        private CancelAppointmentAction $cancelAppointmentAction,
-        private RescheduleAppointmentAction $rescheduleAppointmentAction
+        private readonly CheckAppointmentAvailabilityAction $checkAvailabilityAction,
+        private readonly BookAppointmentAction $bookAppointmentAction,
+        private readonly CancelAppointmentAction $cancelAppointmentAction,
+        private readonly RescheduleAppointmentAction $rescheduleAppointmentAction,
+        private readonly ReplaceWorkingHoursAction $replaceWorkingHoursAction,
+        private readonly ListAppointmentsAction $listAppointmentsAction,
+        private readonly AppointmentSerializer $serializer,
     ) {}
 
     public function settings(Request $request): JsonResponse
@@ -68,7 +71,7 @@ class AppointmentController extends Controller
         return response()->json([
             'authenticated' => true,
             'company_id' => (int) $company->id,
-            'settings' => $this->serializeSettings($settings),
+            'settings' => $this->serializer->serializeSettings($settings),
             'actor_id' => (int) $actor->id,
         ]);
     }
@@ -88,7 +91,7 @@ class AppointmentController extends Controller
 
         return response()->json([
             'ok' => true,
-            'settings' => $this->serializeSettings($settings),
+            'settings' => $this->serializer->serializeSettings($settings),
         ]);
     }
 
@@ -105,7 +108,7 @@ class AppointmentController extends Controller
             ->get();
 
         return response()->json([
-            'services' => $services->map(fn(AppointmentService $service) => $this->serializeService($service))->values(),
+            'services' => $services->map(fn(AppointmentService $service) => $this->serializer->serializeService($service))->values(),
         ]);
     }
 
@@ -140,7 +143,7 @@ class AppointmentController extends Controller
 
         return response()->json([
             'ok' => true,
-            'service' => $this->serializeService($service),
+            'service' => $this->serializer->serializeService($service),
         ], 201);
     }
 
@@ -170,7 +173,7 @@ class AppointmentController extends Controller
 
         return response()->json([
             'ok' => true,
-            'service' => $this->serializeService($service),
+            'service' => $this->serializer->serializeService($service),
         ]);
     }
 
@@ -218,7 +221,7 @@ class AppointmentController extends Controller
                 ]
             );
             $profile->load(['workingHours']);
-            $profiles[] = $this->serializeStaffProfile($profile, $user);
+            $profiles[] = $this->serializer->serializeStaffProfile($profile, $user);
         }
 
         return response()->json([
@@ -251,7 +254,7 @@ class AppointmentController extends Controller
 
         return response()->json([
             'ok' => true,
-            'staff' => $this->serializeStaffProfile($staffProfile, $staffProfile->user),
+            'staff' => $this->serializer->serializeStaffProfile($staffProfile, $staffProfile->user),
         ]);
     }
 
@@ -268,58 +271,13 @@ class AppointmentController extends Controller
 
         $validated = $request->validated();
 
-        AppointmentWorkingHour::query()
-            ->where('company_id', (int) $company->id)
-            ->where('staff_profile_id', (int) $staffProfile->id)
-            ->delete();
-
-        foreach ($validated['hours'] as $item) {
-            if ((string) $item['start_time'] >= (string) $item['end_time']) {
-                throw ValidationException::withMessages([
-                    'hours' => ['Cada janela de jornada deve ter inicio menor que fim.'],
-                ]);
-            }
-
-            $breakStart = isset($item['break_start_time']) ? trim((string) $item['break_start_time']) : '';
-            $breakEnd = isset($item['break_end_time']) ? trim((string) $item['break_end_time']) : '';
-            if (($breakStart === '') !== ($breakEnd === '')) {
-                throw ValidationException::withMessages([
-                    'hours' => ['Informe inicio e fim da pausa, ou deixe ambos vazios.'],
-                ]);
-            }
-            if ($breakStart !== '' && $breakEnd !== '') {
-                if ($breakStart >= $breakEnd) {
-                    throw ValidationException::withMessages([
-                        'hours' => ['A pausa deve ter inicio menor que fim.'],
-                    ]);
-                }
-                if ($breakStart <= (string) $item['start_time'] || $breakEnd >= (string) $item['end_time']) {
-                    throw ValidationException::withMessages([
-                        'hours' => ['A pausa deve ficar dentro da jornada (entre inicio e fim).'],
-                    ]);
-                }
-            }
-
-            AppointmentWorkingHour::create([
-                'company_id' => (int) $company->id,
-                'staff_profile_id' => (int) $staffProfile->id,
-                'day_of_week' => (int) $item['day_of_week'],
-                'start_time' => (string) $item['start_time'] . ':00',
-                'break_start_time' => $breakStart !== '' ? $breakStart . ':00' : null,
-                'break_end_time' => $breakEnd !== '' ? $breakEnd . ':00' : null,
-                'end_time' => (string) $item['end_time'] . ':00',
-                'slot_interval_minutes' => isset($item['slot_interval_minutes'])
-                    ? (int) $item['slot_interval_minutes']
-                    : null,
-                'is_active' => (bool) ($item['is_active'] ?? true),
-            ]);
-        }
+        $this->replaceWorkingHoursAction->handle($company, $staffProfile, $validated['hours']);
 
         $staffProfile->load(['user:id,name,email', 'workingHours']);
 
         return response()->json([
             'ok' => true,
-            'staff' => $this->serializeStaffProfile($staffProfile, $staffProfile->user),
+            'staff' => $this->serializer->serializeStaffProfile($staffProfile, $staffProfile->user),
         ]);
     }
 
@@ -356,7 +314,7 @@ class AppointmentController extends Controller
         $rows = $query->get();
 
         return response()->json([
-            'time_offs' => $rows->map(fn(AppointmentTimeOff $item) => $this->serializeTimeOff($item))->values(),
+            'time_offs' => $rows->map(fn(AppointmentTimeOff $item) => $this->serializer->serializeTimeOff($item))->values(),
         ]);
     }
 
@@ -394,7 +352,7 @@ class AppointmentController extends Controller
 
         return response()->json([
             'ok' => true,
-            'time_off' => $this->serializeTimeOff($timeOff),
+            'time_off' => $this->serializer->serializeTimeOff($timeOff),
         ], 201);
     }
 
@@ -440,50 +398,7 @@ class AppointmentController extends Controller
             return $errorResponse;
         }
 
-        $validated = $request->validated();
-
-        $from = isset($validated['date_from'])
-            ? CarbonImmutable::parse((string) $validated['date_from'])->startOfDay()
-            : now()->startOfDay();
-        $to = isset($validated['date_to'])
-            ? CarbonImmutable::parse((string) $validated['date_to'])->endOfDay()
-            : now()->addDays(14)->endOfDay();
-        $perPage = (int) ($validated['per_page'] ?? 50);
-        $phoneVariants = [];
-        if (! empty($validated['customer_phone'])) {
-            $phoneVariants = PhoneNumberNormalizer::variantsForLookup((string) $validated['customer_phone']);
-        }
-
-        $query = Appointment::query()
-            ->where('company_id', (int) $company->id)
-            ->where('starts_at', '>=', $from->setTimezone('UTC'))
-            ->where('starts_at', '<=', $to->setTimezone('UTC'))
-            ->with(['service:id,name', 'staffProfile.user:id,name,email'])
-            ->orderBy('starts_at');
-
-        if (! empty($validated['staff_profile_id'])) {
-            $query->where('staff_profile_id', (int) $validated['staff_profile_id']);
-        }
-
-        if (! empty($validated['status'])) {
-            $query->where('status', (string) $validated['status']);
-        }
-
-        if ($phoneVariants !== []) {
-            $query->whereIn('customer_phone', $phoneVariants);
-        }
-
-        $rows = $query->paginate($perPage);
-
-        return response()->json([
-            'items' => collect($rows->items())->map(fn(Appointment $appointment) => $this->serializeAppointment($appointment))->values(),
-            'pagination' => [
-                'current_page' => $rows->currentPage(),
-                'last_page' => $rows->lastPage(),
-                'per_page' => $rows->perPage(),
-                'total' => $rows->total(),
-            ],
-        ]);
+        return response()->json($this->listAppointmentsAction->handle($company, $request->validated()));
     }
 
     public function createAppointment(StoreAppointmentRequest $request): JsonResponse
@@ -499,7 +414,7 @@ class AppointmentController extends Controller
 
         return response()->json([
             'ok' => true,
-            'appointment' => $this->serializeAppointment($appointment),
+            'appointment' => $this->serializer->serializeAppointment($appointment),
         ], 201);
     }
 
@@ -537,7 +452,7 @@ class AppointmentController extends Controller
 
         $appointment->load(['service:id,name', 'staffProfile.user:id,name,email']);
 
-        return response()->json(['ok' => true, 'appointment' => $this->serializeAppointment($appointment)]);
+        return response()->json(['ok' => true, 'appointment' => $this->serializer->serializeAppointment($appointment)]);
     }
 
     public function deleteAppointment(Request $request, Appointment $appointment): JsonResponse
@@ -591,126 +506,6 @@ class AppointmentController extends Controller
         }
 
         return [$actor, $company, null];
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function serializeSettings(AppointmentSetting $settings): array
-    {
-        return [
-            'id' => (int) $settings->id,
-            'company_id' => (int) $settings->company_id,
-            'timezone' => (string) $settings->timezone,
-            'slot_interval_minutes' => (int) $settings->slot_interval_minutes,
-            'booking_min_notice_minutes' => (int) $settings->booking_min_notice_minutes,
-            'booking_max_advance_days' => (int) $settings->booking_max_advance_days,
-            'cancellation_min_notice_minutes' => (int) $settings->cancellation_min_notice_minutes,
-            'reschedule_min_notice_minutes' => (int) $settings->reschedule_min_notice_minutes,
-            'allow_customer_choose_staff' => (bool) $settings->allow_customer_choose_staff,
-        ];
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function serializeService(AppointmentService $service): array
-    {
-        return [
-            'id' => (int) $service->id,
-            'company_id' => (int) $service->company_id,
-            'name' => (string) $service->name,
-            'description' => $service->description,
-            'duration_minutes' => (int) $service->duration_minutes,
-            'buffer_before_minutes' => (int) $service->buffer_before_minutes,
-            'buffer_after_minutes' => (int) $service->buffer_after_minutes,
-            'max_bookings_per_slot' => (int) $service->max_bookings_per_slot,
-            'is_active' => (bool) $service->is_active,
-        ];
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function serializeStaffProfile(AppointmentStaffProfile $profile, ?User $user): array
-    {
-        return [
-            'id' => (int) $profile->id,
-            'company_id' => (int) $profile->company_id,
-            'user_id' => (int) $profile->user_id,
-            'user_name' => (string) ($user?->name ?? ''),
-            'user_email' => (string) ($user?->email ?? ''),
-            'display_name' => $profile->display_name,
-            'is_bookable' => (bool) $profile->is_bookable,
-            'slot_interval_minutes' => $profile->slot_interval_minutes !== null ? (int) $profile->slot_interval_minutes : null,
-            'booking_min_notice_minutes' => $profile->booking_min_notice_minutes !== null ? (int) $profile->booking_min_notice_minutes : null,
-            'booking_max_advance_days' => $profile->booking_max_advance_days !== null ? (int) $profile->booking_max_advance_days : null,
-            'working_hours' => $profile->workingHours
-                ->map(fn(AppointmentWorkingHour $hour) => [
-                    'id' => (int) $hour->id,
-                    'day_of_week' => (int) $hour->day_of_week,
-                    'start_time' => mb_substr((string) $hour->start_time, 0, 5),
-                    'break_start_time' => $hour->break_start_time
-                        ? mb_substr((string) $hour->break_start_time, 0, 5)
-                        : null,
-                    'break_end_time' => $hour->break_end_time
-                        ? mb_substr((string) $hour->break_end_time, 0, 5)
-                        : null,
-                    'end_time' => mb_substr((string) $hour->end_time, 0, 5),
-                    'slot_interval_minutes' => $hour->slot_interval_minutes !== null
-                        ? (int) $hour->slot_interval_minutes
-                        : null,
-                    'is_active' => (bool) $hour->is_active,
-                ])
-                ->values()
-                ->all(),
-        ];
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function serializeTimeOff(AppointmentTimeOff $timeOff): array
-    {
-        return [
-            'id' => (int) $timeOff->id,
-            'company_id' => (int) $timeOff->company_id,
-            'staff_profile_id' => $timeOff->staff_profile_id ? (int) $timeOff->staff_profile_id : null,
-            'staff_name' => $timeOff->staffProfile?->display_name ?: $timeOff->staffProfile?->user?->name,
-            'starts_at' => $timeOff->starts_at->toIso8601String(),
-            'ends_at' => $timeOff->ends_at->toIso8601String(),
-            'is_all_day' => (bool) $timeOff->is_all_day,
-            'reason' => $timeOff->reason,
-            'source' => (string) $timeOff->source,
-            'created_by_user_id' => $timeOff->created_by_user_id ? (int) $timeOff->created_by_user_id : null,
-            'created_by_name' => $timeOff->createdBy?->name,
-        ];
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function serializeAppointment(Appointment $appointment): array
-    {
-        return [
-            'id' => (int) $appointment->id,
-            'company_id' => (int) $appointment->company_id,
-            'service_id' => $appointment->service_id ? (int) $appointment->service_id : null,
-            'service_name' => $appointment->service?->name,
-            'staff_profile_id' => (int) $appointment->staff_profile_id,
-            'staff_name' => $appointment->staffProfile?->display_name ?: $appointment->staffProfile?->user?->name,
-            'customer_name' => $appointment->customer_name,
-            'customer_phone' => (string) $appointment->customer_phone,
-            'customer_email' => $appointment->customer_email,
-            'starts_at' => $appointment->starts_at->toIso8601String(),
-            'ends_at' => $appointment->ends_at->toIso8601String(),
-            'effective_start_at' => $appointment->effective_start_at->toIso8601String(),
-            'effective_end_at' => $appointment->effective_end_at->toIso8601String(),
-            'status' => (string) $appointment->status,
-            'source' => (string) $appointment->source,
-            'notes' => $appointment->notes,
-            'created_at' => $appointment->created_at->toIso8601String(),
-        ];
     }
 
     /**

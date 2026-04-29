@@ -16,7 +16,7 @@ class CompanyScope implements Scope
 
         $user = auth()->user();
 
-        if ($user->isSystemAdmin()) {
+        if ($user->isAdmin()) {
             return;
         }
 

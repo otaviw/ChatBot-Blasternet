@@ -2,6 +2,8 @@
 
 namespace App\Support;
 
+use App\Support\Enums\UserRole;
+
 class UserPermissions
 {
     // ── Pages ────────────────────────────────────────────────────────────────
@@ -88,7 +90,9 @@ class UserPermissions
      */
     public static function resolve(string $role, mixed $storedPermissions): array
     {
-        if (in_array($role, ['system_admin', 'company_admin', 'admin'], true)) {
+        $normalizedRole = UserRole::normalize($role);
+
+        if (in_array($normalizedRole, [UserRole::SYSTEM_ADMIN->value, UserRole::COMPANY_ADMIN->value], true)) {
             return self::ALL;
         }
 

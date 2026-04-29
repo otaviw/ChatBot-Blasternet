@@ -16,7 +16,7 @@ class AiCompanyKnowledgeController extends Controller
     private const MAX_ITEMS = 50;
 
     public function __construct(
-        private AiAccessService $aiAccess
+        private readonly AiAccessService $aiAccess
     ) {}
 
     private function resolveCompanyId(Request $request, $actor): int

@@ -5,8 +5,10 @@
   "scripts": {
     "dev": "node --env-file=.env --watch src/index.js",
     "start": "node --env-file=.env src/index.js",
+    "lint": "node --check src/config.js && node --check src/auth.js && node --check src/envelope.js && node --check src/logger.js && node --check src/index.js",
     "test:run": "node --test",
-    "check": "npm run test:run && node --check src/config.js && node --check src/auth.js && node --check src/envelope.js && node --check src/logger.js && node --check src/index.js",
+    "test:coverage": "c8 --reporter text-summary node --test",
+    "check": "npm run lint && npm run test:run",
     "quality": "npm run check"
   },
   "dependencies": {
@@ -14,5 +16,8 @@
     "ioredis": "^5.4.2",
     "jsonwebtoken": "^9.0.2",
     "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "c8": "^10.1.3"
   }
 }

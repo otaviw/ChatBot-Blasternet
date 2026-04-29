@@ -140,6 +140,7 @@ function AppRoutes() {
         <Route path="/redefinir-senha" element={<RedefinirSenhaPage />} />
         {renderAliasRoutes(DASHBOARD_PATHS, <DashboardPage />)}
 
+        {/* Rotas administrativas gerais: acesso por papel especifico no proprio route guard/componente */}
         <Route path="/admin/empresas" element={<AdminCompaniesPage />} />
         <Route path="/admin/empresas/:companyId" element={<AdminCompanyShowRoute />} />
         <Route
@@ -158,13 +159,16 @@ function AppRoutes() {
           element={<AdminSupportTicketRoute />}
         />
 
+        {/* Rotas de company account com permissao explicita via PermissionRoute */}
         <Route path="/minha-conta/conversas" element={<PermissionRoute permission={PERM.PAGE_INBOX}><CompanyInboxPage /></PermissionRoute>} />
         <Route path="/minha-conta/chat-interno" element={<PermissionRoute permission={PERM.PAGE_INTERNAL_CHAT}><InternalChatPage /></PermissionRoute>} />
+        {/* Rotas de IA: atualmente restritas a system_admin (SuperAdminRoute/AiManagementRoute) */}
         <Route path="/minha-conta/chat-ia" element={<SuperAdminRoute><InternalAiChatPage /></SuperAdminRoute>} />
         <Route path="/minha-conta/ia/analytics" element={<AiManagementRoute><CompanyAiAnalyticsPage /></AiManagementRoute>} />
         <Route path="/minha-conta/ia/auditoria" element={<AiManagementRoute><CompanyAiAuditPage /></AiManagementRoute>} />
         <Route path="/minha-conta/auditoria" element={<PermissionRoute permission={PERM.PAGE_AUDIT}><CompanyAuditPage /></PermissionRoute>} />
         <Route path="/minha-conta/ia/configuracoes" element={<AiManagementRoute><AiSettingsPage /></AiManagementRoute>} />
+        {/* Rotas operacionais de company sem PermissionRoute explicito: regra aplicada no backend e/ou pagina */}
         <Route path="/minha-conta/bot" element={<CompanyBotPage />} />
         <Route path="/minha-conta/base-conhecimento" element={<AiManagementRoute><CompanyKnowledgeBasePage /></AiManagementRoute>} />
         <Route path="/minha-conta/respostas-rapidas" element={<PermissionRoute permission={PERM.PAGE_QUICK_REPLIES}><CompanyQuickRepliesPage /></PermissionRoute>} />
@@ -179,6 +183,7 @@ function AppRoutes() {
           element={<CompanySupportTicketRoute />}
         />
 
+        {/* Rota publica autenticada para solicitacao de suporte geral */}
         <Route path="/suporte" element={<SupportRequestPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

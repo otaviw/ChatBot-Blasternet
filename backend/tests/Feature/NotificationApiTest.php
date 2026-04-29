@@ -20,7 +20,7 @@ class NotificationApiTest extends TestCase
             'name' => 'User Owner',
             'email' => 'owner-notif@test.local',
             'password' => 'secret123',
-            'role' => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $company->id,
             'is_active' => true,
         ]);
@@ -29,7 +29,7 @@ class NotificationApiTest extends TestCase
             'name' => 'User Other',
             'email' => 'other-notif@test.local',
             'password' => 'secret123',
-            'role' => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $company->id,
             'is_active' => true,
         ]);
@@ -81,7 +81,7 @@ class NotificationApiTest extends TestCase
             'name' => 'User Read',
             'email' => 'user-read@test.local',
             'password' => 'secret123',
-            'role' => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $company->id,
             'is_active' => true,
         ]);
@@ -115,7 +115,7 @@ class NotificationApiTest extends TestCase
             'name' => 'Owner',
             'email' => 'owner-read@test.local',
             'password' => 'secret123',
-            'role' => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $company->id,
             'is_active' => true,
         ]);
@@ -124,7 +124,7 @@ class NotificationApiTest extends TestCase
             'name' => 'Intruder',
             'email' => 'intruder-read@test.local',
             'password' => 'secret123',
-            'role' => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $company->id,
             'is_active' => true,
         ]);
@@ -154,7 +154,7 @@ class NotificationApiTest extends TestCase
             'name' => 'User Count',
             'email' => 'count-notif@test.local',
             'password' => 'secret123',
-            'role' => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $company->id,
             'is_active' => true,
         ]);
@@ -212,7 +212,7 @@ class NotificationApiTest extends TestCase
             'name' => 'User Ref',
             'email' => 'ref-notif@test.local',
             'password' => 'secret123',
-            'role' => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $company->id,
             'is_active' => true,
         ]);
@@ -263,3 +263,4 @@ class NotificationApiTest extends TestCase
         $response->assertJsonPath('total_unread', 1);
     }
 }
+

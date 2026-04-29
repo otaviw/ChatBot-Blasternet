@@ -206,25 +206,25 @@ class CompanyUserManagementTest extends TestCase
         $response->assertJsonPath('authenticated', true);
     }
 
-    public function test_legacy_company_role_can_manage_company_users(): void
+    public function test_company_admin_role_can_manage_company_users(): void
     {
-        $company = Company::create(['name' => 'Empresa Legado']);
-        $legacyCompanyUser = User::create([
-            'name' => 'Admin Legado',
-            'email' => 'legacy-company@test.local',
+        $company = Company::create(['name' => 'Empresa Gestao']);
+        $companyAdminUser = User::create([
+            'name' => 'Admin Empresa',
+            'email' => 'company-admin-manage@test.local',
             'password' => 'secret123',
-            'role' => User::ROLE_LEGACY_COMPANY,
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $company->id,
             'is_active' => true,
         ]);
 
-        $dashboard = $this->actingAs($legacyCompanyUser)->getJson('/api/dashboard');
+        $dashboard = $this->actingAs($companyAdminUser)->getJson('/api/dashboard');
         $dashboard->assertStatus(200);
         $dashboard->assertJsonPath('can_manage_users', true);
 
-        $response = $this->actingAs($legacyCompanyUser)->postJson('/api/minha-conta/users', [
+        $response = $this->actingAs($companyAdminUser)->postJson('/api/minha-conta/users', [
             'name' => 'Agente Novo',
-            'email' => 'legacy-agent@test.local',
+            'email' => 'company-agent@test.local',
             'password' => 'secret123',
             'role' => User::ROLE_AGENT,
             'is_active' => true,
@@ -232,7 +232,7 @@ class CompanyUserManagementTest extends TestCase
 
         $response->assertStatus(201);
         $this->assertDatabaseHas('users', [
-            'email' => 'legacy-agent@test.local',
+            'email' => 'company-agent@test.local',
             'role' => User::ROLE_AGENT,
             'company_id' => $company->id,
         ]);

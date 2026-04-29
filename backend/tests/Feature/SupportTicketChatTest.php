@@ -81,7 +81,7 @@ class SupportTicketChatTest extends TestCase
     {
         [$company, $requester] = $this->makeCompanyRequester();
         $adminSender = $this->makeSystemAdmin('admin-chat-sender@test.local');
-        $legacyAdmin = $this->makeSystemAdmin('legacy-admin-chat@test.local', User::ROLE_LEGACY_ADMIN);
+        $secondaryAdmin = $this->makeSystemAdmin('secondary-admin-chat@test.local');
         $ticket = $this->makeTicket($company, $requester);
 
         $requesterSend = $this->actingAs($requester)->postJson("/api/suporte/minhas-solicitacoes/{$ticket->id}/chat", [
@@ -99,7 +99,7 @@ class SupportTicketChatTest extends TestCase
         ]);
 
         $this->assertDatabaseHas('user_notifications', [
-            'user_id' => $legacyAdmin->id,
+            'user_id' => $secondaryAdmin->id,
             'module' => 'support',
             'type' => 'support_ticket_message',
             'reference_type' => 'support_ticket',

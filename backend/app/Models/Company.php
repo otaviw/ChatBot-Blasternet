@@ -3,6 +3,10 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Company extends Model
 {
@@ -48,12 +52,12 @@ class Company extends Model
         return hash_hmac('sha256', $normalized, (string) config('app.key'));
     }
 
-    public function conversations()
+    public function conversations(): HasMany
     {
         return $this->hasMany(Conversation::class);
     }
 
-    public function botSetting()
+    public function botSetting(): HasOne
     {
         return $this->hasOne(CompanyBotSetting::class);
     }
@@ -72,62 +76,62 @@ class Company extends Model
         return $this->hasMetaCredentials();
     }
 
-    public function quickReplies()
+    public function quickReplies(): HasMany
     {
         return $this->hasMany(QuickReply::class);
     }
 
-    public function areas()
+    public function areas(): HasMany
     {
         return $this->hasMany(Area::class);
     }
 
-    public function aiConversations()
+    public function aiConversations(): HasMany
     {
         return $this->hasMany(AiConversation::class);
     }
 
-    public function aiKnowledgeEntries()
+    public function aiKnowledgeEntries(): HasMany
     {
         return $this->hasMany(AiCompanyKnowledge::class);
     }
 
-    public function appointmentSetting()
+    public function appointmentSetting(): HasOne
     {
         return $this->hasOne(AppointmentSetting::class);
     }
 
-    public function appointmentServices()
+    public function appointmentServices(): HasMany
     {
         return $this->hasMany(AppointmentService::class);
     }
 
-    public function appointmentStaffProfiles()
+    public function appointmentStaffProfiles(): HasMany
     {
         return $this->hasMany(AppointmentStaffProfile::class);
     }
 
-    public function appointments()
+    public function appointments(): HasMany
     {
         return $this->hasMany(Appointment::class)->latest('starts_at');
     }
 
-    public function contacts()
+    public function contacts(): HasMany
     {
         return $this->hasMany(Contact::class);
     }
 
-    public function campaigns()
+    public function campaigns(): HasMany
     {
         return $this->hasMany(Campaign::class);
     }
 
-    public function reseller()
+    public function reseller(): BelongsTo
     {
         return $this->belongsTo(Reseller::class);
     }
 
-    public function scopeForReseller($query, ?int $resellerId)
+    public function scopeForReseller(Builder $query, ?int $resellerId): Builder
     {
         if ($resellerId === null) {
             return $query;

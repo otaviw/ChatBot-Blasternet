@@ -1,0 +1,112 @@
+.contact-detail-modal {
+  width: min(30rem, 100%);
+}
+
+.contact-detail-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #171717;
+  margin: 0;
+}
+
+.contact-detail-info {
+  margin: 0 0 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.contact-detail-row {
+  display: grid;
+  grid-template-columns: 9rem 1fr;
+  gap: 0.25rem 0.75rem;
+  align-items: baseline;
+}
+
+.contact-detail-row dt {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #737373;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.contact-detail-row dd {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #171717;
+  word-break: break-all;
+}
+
+.contact-detail-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.contact-detail-delete-btn {
+  margin-right: auto;
+  color: #b91c1c !important;
+  border-color: #b91c1c !important;
+}
+
+.contact-detail-error {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #b91c1c;
+}
+
+/* Responsividade: colapsa grid em telas pequenas */
+@media (max-width: 480px) {
+  .contact-detail-row {
+    grid-template-columns: 1fr;
+    gap: 0.1rem;
+  }
+
+  .contact-detail-row dd {
+    padding-left: 0.5rem;
+  }
+
+  .contact-detail-actions {
+    flex-wrap: wrap;
+  }
+
+  .contact-detail-delete-btn {
+    margin-right: 0;
+    width: 100%;
+    order: 1;
+  }
+
+  .contact-detail-modal .app-btn-secondary,
+  .contact-detail-modal .app-btn-primary {
+    flex: 1;
+  }
+}
+
+/* Dark theme */
+body.theme-dark .contact-detail-title {
+  color: var(--ui-text-primary, #f5f5f5);
+}
+
+body.theme-dark .contact-detail-row dt {
+  color: var(--ui-text-muted);
+}
+
+body.theme-dark .contact-detail-row dd {
+  color: var(--ui-text-primary, #f5f5f5);
+}
+
+body.theme-dark .contact-detail-delete-btn {
+  color: #f87171 !important;
+  border-color: #f87171 !important;
+}
+
+body.theme-dark .contact-detail-error {
+  color: #f87171;
+}
+
+body.theme-dark .contact-detail-modal {
+  background: #1a1d27;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+}

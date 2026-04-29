@@ -19,7 +19,7 @@ class ManualInboxFlowTest extends TestCase
             'name' => 'Operador Sem Config',
             'email' => 'semconfig@test.local',
             'password' => 'secret123',
-            'role' => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $company->id,
             'is_active' => true,
         ]);
@@ -73,7 +73,7 @@ class ManualInboxFlowTest extends TestCase
             'name' => 'Operador Manual',
             'email' => 'manual@test.local',
             'password' => 'secret123',
-            'role' => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $company->id,
             'is_active' => true,
         ]);
@@ -111,3 +111,4 @@ class ManualInboxFlowTest extends TestCase
         $manualReply->assertJsonPath('message.meta.source', 'manual');
     }
 }
+

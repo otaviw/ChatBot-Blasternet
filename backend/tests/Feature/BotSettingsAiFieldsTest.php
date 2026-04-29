@@ -5,7 +5,9 @@ namespace Tests\Feature;
 use App\Models\Company;
 use App\Models\CompanyBotSetting;
 use App\Models\User;
+use App\Services\WhatsAppCredentialsValidatorService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Mockery;
 use Tests\TestCase;
 
 class BotSettingsAiFieldsTest extends TestCase
@@ -39,7 +41,7 @@ class BotSettingsAiFieldsTest extends TestCase
             'name' => "User AI {$suffix}",
             'email' => "user-ai-{$suffix}@test.local",
             'password' => 'secret123',
-            'role' => 'company', // normaliza para company_admin
+            'role' => User::ROLE_COMPANY_ADMIN, // normaliza para company_admin
             'company_id' => $company->id,
             'is_active' => true,
         ]);
@@ -243,4 +245,84 @@ class BotSettingsAiFieldsTest extends TestCase
             'ai_usage_limit_monthly' => null,
         ]);
     }
+
+    public function test_update_with_only_meta_phone_number_id_uses_saved_token_for_validation(): void
+    {
+        [$company, $user] = $this->makeCompanyUser('creds-phone-only');
+
+        $company->meta_phone_number_id = 'phone-old';
+        $company->meta_access_token = 'token-saved';
+        $company->save();
+
+        $validatorMock = Mockery::mock(WhatsAppCredentialsValidatorService::class);
+        $validatorMock->shouldReceive('validate')
+            ->once()
+            ->with('phone-new', 'token-saved')
+            ->andReturn([
+                'ok' => true,
+                'display_phone_number' => '+55 11 99999-9999',
+                'verified_name' => 'Empresa Teste',
+                'error' => null,
+            ]);
+        $this->app->instance(WhatsAppCredentialsValidatorService::class, $validatorMock);
+
+        $response = $this->actingAs($user)->putJson('/api/minha-conta/bot', $this->basePayload([
+            'meta_phone_number_id' => 'phone-new',
+        ]));
+
+        $response->assertOk();
+        $response->assertJsonPath('ok', true);
+        $this->assertSame('phone-new', $company->fresh()->meta_phone_number_id);
+    }
+
+    public function test_update_with_same_saved_credentials_does_not_call_validator(): void
+    {
+        [$company, $user] = $this->makeCompanyUser('creds-same');
+
+        $company->meta_phone_number_id = 'phone-same';
+        $company->meta_access_token = 'token-same';
+        $company->save();
+
+        $validatorMock = Mockery::mock(WhatsAppCredentialsValidatorService::class);
+        $validatorMock->shouldNotReceive('validate');
+        $this->app->instance(WhatsAppCredentialsValidatorService::class, $validatorMock);
+
+        $response = $this->actingAs($user)->putJson('/api/minha-conta/bot', $this->basePayload([
+            'meta_phone_number_id' => 'phone-same',
+            'meta_access_token' => 'token-same',
+        ]));
+
+        $response->assertOk();
+        $response->assertJsonPath('ok', true);
+    }
+
+    public function test_update_returns_422_when_changed_credentials_are_invalid(): void
+    {
+        [$company, $user] = $this->makeCompanyUser('creds-invalid');
+
+        $company->meta_phone_number_id = 'phone-old';
+        $company->meta_access_token = 'token-old';
+        $company->save();
+
+        $validatorMock = Mockery::mock(WhatsAppCredentialsValidatorService::class);
+        $validatorMock->shouldReceive('validate')
+            ->once()
+            ->with('phone-invalid', 'token-invalid')
+            ->andReturn([
+                'ok' => false,
+                'display_phone_number' => null,
+                'verified_name' => null,
+                'error' => 'Token invalido ou expirado.',
+            ]);
+        $this->app->instance(WhatsAppCredentialsValidatorService::class, $validatorMock);
+
+        $response = $this->actingAs($user)->putJson('/api/minha-conta/bot', $this->basePayload([
+            'meta_phone_number_id' => 'phone-invalid',
+            'meta_access_token' => 'token-invalid',
+        ]));
+
+        $response->assertStatus(422);
+        $response->assertJsonPath('message', 'Credenciais do WhatsApp inválidas: Token invalido ou expirado.');
+    }
 }
+

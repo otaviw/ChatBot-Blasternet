@@ -2,88 +2,46 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Actions\Admin\Company\DestroyAdminCompanyAction;
+use App\Actions\Admin\Company\ListAdminCompaniesAction;
+use App\Actions\Admin\Company\ShowAdminCompanyAction;
+use App\Actions\Admin\Company\StoreAdminCompanyAction;
+use App\Actions\Admin\Company\UpdateAdminCompanyAction;
+use App\Actions\Admin\Company\UpdateAdminCompanyBotSettingsAction;
+use App\Actions\Admin\Company\ValidateAdminCompanyWhatsAppAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreCompanyRequest;
 use App\Http\Requests\Admin\UpdateCompanyBotSettingsRequest;
 use App\Http\Requests\Admin\UpdateCompanyRequest;
 use App\Http\Requests\Admin\ValidateCompanyWhatsAppRequest;
 use App\Models\Company;
-use App\Models\CompanyBotSetting;
-use App\Models\Reseller;
-use App\Models\Message;
-use App\Models\User;
-use App\Services\AuditLogService;
-use App\Services\Bot\BotSettingsSupportService;
-use App\Services\WhatsAppCredentialsValidatorService;
-use App\Support\ConversationHandlingMode;
+use App\Services\Admin\CompanyMetricsService;
+use App\Services\Admin\CompanyOwnershipService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 
 class CompanyController extends Controller
 {
     public function __construct(
-        private AuditLogService $auditLog,
-        private BotSettingsSupportService $botSettingsSupport,
-        private WhatsAppCredentialsValidatorService $credentialsValidator,
+        private readonly ListAdminCompaniesAction $listCompaniesAction,
+        private readonly ShowAdminCompanyAction $showCompanyAction,
+        private readonly StoreAdminCompanyAction $storeCompanyAction,
+        private readonly UpdateAdminCompanyAction $updateCompanyAction,
+        private readonly UpdateAdminCompanyBotSettingsAction $updateCompanyBotSettingsAction,
+        private readonly DestroyAdminCompanyAction $destroyCompanyAction,
+        private readonly ValidateAdminCompanyWhatsAppAction $validateAdminCompanyWhatsAppAction,
+        private readonly CompanyOwnershipService $companyOwnership,
+        private readonly CompanyMetricsService $companyMetrics,
     ) {}
 
     public function index(Request $request): JsonResponse
     {
-        $resellerId = $this->resolveResellerId($request);
-
-        $companiesQuery = Company::with(['botSetting'])
-            ->withCount('conversations')
-            ->forReseller($resellerId);
-
-        if ($request->user()?->isSystemAdmin()) {
-            $companiesQuery->whereNotNull('reseller_id');
-        }
-
-        $perPage = min(100, max(10, $request->integer('per_page', 50)));
-
-        $paginator = $companiesQuery
-            ->orderBy('name')
-            ->paginate($perPage);
-
-        return response()->json([
-            'authenticated' => true,
-            'role'          => 'admin',
-            'companies'     => $paginator->items(),
-            'pagination'    => [
-                'current_page' => $paginator->currentPage(),
-                'last_page'    => $paginator->lastPage(),
-                'per_page'     => $paginator->perPage(),
-                'total'        => $paginator->total(),
-            ],
-        ]);
-    }
-
-    private function resolveResellerId(Request $request): ?int
-    {
-        $user = $request->user();
-
-        if ($user->isSystemAdmin()) {
-            return null;
-        }
-
-        if ($user->isResellerAdmin()) {
-            $resellerId = (int) ($user->reseller_id ?? $user->company?->reseller_id ?? 0);
-            return $resellerId > 0 ? $resellerId : -1;
-        }
-
-        return -1;
+        return response()->json($this->listCompaniesAction->handle($request));
     }
 
     private function denyIfNotOwned(Request $request, Company $company): ?JsonResponse
     {
-        if ($request->user()?->isSystemAdmin() && ! $company->reseller_id) {
-            return $this->errorResponse('Acesso negado para esta empresa.', 'access_denied', 403);
-        }
-
-        $resellerId = $this->resolveResellerId($request);
-
-        if ($resellerId !== null && (int) $company->reseller_id !== $resellerId) {
+        if (! $this->companyOwnership->canAccessCompany($request->user(), $company)) {
             return $this->errorResponse('Acesso negado para esta empresa.', 'access_denied', 403);
         }
 
@@ -96,16 +54,7 @@ class CompanyController extends Controller
             return $denied;
         }
 
-        $company->loadCount('conversations');
-        $company->load([
-            'botSetting',
-        ]);
-
-        return response()->json([
-            'authenticated' => true,
-            'role' => 'admin',
-            'company' => $company,
-        ]);
+        return response()->json($this->showCompanyAction->handle($company));
     }
 
     public function updateBotSettings(UpdateCompanyBotSettingsRequest $request, Company $company): JsonResponse
@@ -118,156 +67,14 @@ class CompanyController extends Controller
             return $denied;
         }
 
-        $validated = $request->validated();
-
-        $settingsPayload = [
-            'is_active' => (bool) $validated['is_active'],
-            'timezone' => $validated['timezone'],
-            'welcome_message' => $validated['welcome_message'] ?? null,
-            'fallback_message' => $validated['fallback_message'] ?? null,
-            'out_of_hours_message' => $validated['out_of_hours_message'] ?? null,
-            'business_hours' => $this->botSettingsSupport->normalizeBusinessHours($validated['business_hours']),
-            'keyword_replies' => $this->botSettingsSupport->normalizeKeywordReplies($validated['keyword_replies'] ?? []),
-            'service_areas' => $this->botSettingsSupport->normalizeServiceAreas($validated['service_areas'] ?? []),
-            'stateful_menu_flow' => $this->normalizeStatefulMenuFlow($validated['stateful_menu_flow'] ?? null),
-            'inactivity_close_hours' => $this->botSettingsSupport->resolveInactivityCloseHours(
-                array_key_exists('inactivity_close_hours', $validated) ? $validated['inactivity_close_hours'] : null,
-                $company->botSetting?->inactivity_close_hours
-            ),
-        ];
-
-        if (array_key_exists('ai_enabled', $validated)) {
-            $settingsPayload['ai_enabled'] = (bool) $validated['ai_enabled'];
-        }
-        if (array_key_exists('ai_internal_chat_enabled', $validated)) {
-            $settingsPayload['ai_internal_chat_enabled'] = (bool) $validated['ai_internal_chat_enabled'];
-        }
-        if (array_key_exists('ai_chatbot_enabled', $validated)) {
-            $settingsPayload['ai_chatbot_enabled'] = (bool) $validated['ai_chatbot_enabled'];
-        }
-        if (array_key_exists('ai_chatbot_auto_reply_enabled', $validated)) {
-            $settingsPayload['ai_chatbot_auto_reply_enabled'] = (bool) $validated['ai_chatbot_auto_reply_enabled'];
-        }
-        if (array_key_exists('ai_chatbot_rules', $validated)) {
-            $settingsPayload['ai_chatbot_rules'] = $validated['ai_chatbot_rules'];
-        }
-        if (array_key_exists('ai_usage_enabled', $validated)) {
-            $settingsPayload['ai_usage_enabled'] = (bool) $validated['ai_usage_enabled'];
-        }
-        if (array_key_exists('ai_usage_limit_monthly', $validated)) {
-            $settingsPayload['ai_usage_limit_monthly'] = $validated['ai_usage_limit_monthly'] !== null
-                ? (int) $validated['ai_usage_limit_monthly']
-                : null;
-        }
-        if (array_key_exists('max_users', $validated)) {
-            $settingsPayload['max_users'] = $validated['max_users'] !== null ? (int) $validated['max_users'] : null;
-        }
-        if (array_key_exists('max_conversation_messages_monthly', $validated)) {
-            $settingsPayload['max_conversation_messages_monthly'] = $validated['max_conversation_messages_monthly'] !== null
-                ? (int) $validated['max_conversation_messages_monthly']
-                : null;
-        }
-        if (array_key_exists('max_template_messages_monthly', $validated)) {
-            $settingsPayload['max_template_messages_monthly'] = $validated['max_template_messages_monthly'] !== null
-                ? (int) $validated['max_template_messages_monthly']
-                : null;
-        }
-
-        $settings = CompanyBotSetting::updateOrCreate(
-            ['company_id' => $company->id],
-            $settingsPayload
-        );
-
-        $this->botSettingsSupport->syncServiceAreas($company->id, $settings->service_areas ?? []);
-        \App\Services\Ai\AiAccessService::forgetCompanyBotSettingsCache((int) $company->id);
-
-        $this->auditLog->record(
-            $request,
-            'admin.company.bot_settings.updated',
-            $company->id,
-            [
-                'is_active' => $settings->is_active,
-                'timezone' => $settings->timezone,
-                'keyword_replies_count' => count($settings->keyword_replies ?? []),
-            ],
-            [
-                'target_company_id' => $company->id,
-            ]
-        );
-
-        return response()->json([
-            'ok' => true,
-            'settings' => $settings,
-        ]);
+        return response()->json($this->updateCompanyBotSettingsAction->handle($request, $company));
     }
 
     public function store(StoreCompanyRequest $request): JsonResponse
     {
-        $validated = $request->validated();
+        $result = $this->storeCompanyAction->handle($request);
 
-        $user = $request->user();
-
-        if ($user->isSystemAdmin()) {
-            $resellerId = $validated['reseller_id'] ?? Reseller::getBySlug('default')?->id;
-
-            if ($resellerId === null) {
-                Log::warning('Company criada sem reseller_id: reseller default não encontrado. Execute DefaultResellerSeeder.');
-            }
-        } else {
-            $resellerId = (int) ($user->reseller_id ?? $user->company?->reseller_id ?? 0);
-
-            if ($resellerId <= 0) {
-                return $this->errorResponse('Usuário sem reseller vinculado.', 'reseller_not_found', 403);
-            }
-        }
-
-        $company = Company::create([
-            'name'                 => $validated['name'],
-            'meta_phone_number_id' => $validated['meta_phone_number_id'] ?? null,
-            'meta_waba_id'         => $validated['meta_waba_id'] ?? null,
-            'reseller_id'          => $resellerId,
-        ]);
-
-        CompanyBotSetting::firstOrCreate(
-            ['company_id' => $company->id],
-            [
-                'is_active' => true,
-                'ai_enabled' => (bool) ($validated['ai_enabled'] ?? false),
-                'ai_internal_chat_enabled' => (bool) ($validated['ai_internal_chat_enabled'] ?? false),
-                'ai_chatbot_enabled' => (bool) ($validated['ai_chatbot_enabled'] ?? false),
-                'ai_chatbot_auto_reply_enabled' => (bool) ($validated['ai_chatbot_auto_reply_enabled'] ?? false),
-                'ai_chatbot_rules' => $validated['ai_chatbot_rules'] ?? null,
-                'ai_usage_enabled' => (bool) ($validated['ai_usage_enabled'] ?? true),
-                'ai_usage_limit_monthly' => $validated['ai_usage_limit_monthly'] ?? null,
-                'max_users' => $validated['max_users'] ?? null,
-                'max_conversation_messages_monthly' => $validated['max_conversation_messages_monthly'] ?? null,
-                'max_template_messages_monthly' => $validated['max_template_messages_monthly'] ?? null,
-                'timezone' => 'America/Sao_Paulo',
-                'welcome_message' => 'Oi. Como posso ajudar?',
-                'fallback_message' => 'Não entendi sua mensagem. Pode reformular?',
-                'out_of_hours_message' => 'Estamos fora do horario de atendimento no momento.',
-                'business_hours' => $this->botSettingsSupport->defaultBusinessHours(),
-                'keyword_replies' => [],
-                'inactivity_close_hours' => 24,
-                'service_areas' => [],
-                'stateful_menu_flow' => null,
-            ]
-        );
-
-        $this->auditLog->record(
-            $request,
-            'admin.company.created',
-            $company->id,
-            [
-                'name' => $company->name,
-                'meta_phone_number_id' => $company->meta_phone_number_id,
-            ]
-        );
-
-        return response()->json([
-            'ok' => true,
-            'company' => $company->load('botSetting'),
-        ], 201);
+        return $result->toResponse();
     }
 
     public function update(UpdateCompanyRequest $request, Company $company): JsonResponse
@@ -280,94 +87,9 @@ class CompanyController extends Controller
             return $denied;
         }
 
-        $validated = $request->validated();
+        $result = $this->updateCompanyAction->handle($request, $company);
 
-        $before = [
-            'name' => $company->name,
-            'meta_phone_number_id' => $company->meta_phone_number_id,
-            'has_meta_credentials' => $company->hasMetaCredentials(),
-        ];
-
-        $newPhoneId = $validated['meta_phone_number_id'] ?? null;
-        $newToken   = array_key_exists('meta_access_token', $validated) ? ($validated['meta_access_token'] ?: null) : null;
-
-        $phoneChanged = $newPhoneId !== null && $newPhoneId !== '' && $newPhoneId !== (string) ($company->meta_phone_number_id ?? '');
-        $tokenChanged = $newToken !== null && $newToken !== (string) ($company->meta_access_token ?? '');
-
-        if ($phoneChanged || $tokenChanged) {
-            $phoneToValidate = $newPhoneId ?: (string) ($company->meta_phone_number_id ?? '');
-            $tokenToValidate = $newToken   ?: (string) ($company->meta_access_token    ?? config('whatsapp.access_token', ''));
-
-            if ($phoneToValidate !== '' && $tokenToValidate !== '') {
-                $validation = $this->credentialsValidator->validate($phoneToValidate, $tokenToValidate);
-                if (! $validation['ok']) {
-                    return response()->json([
-                        'message' => 'Credenciais do WhatsApp inválidas: ' . $validation['error'],
-                    ], 422);
-                }
-            }
-        }
-
-        $company->name = $validated['name'];
-        $company->meta_phone_number_id = $newPhoneId;
-        $company->meta_waba_id = $validated['meta_waba_id'] ?? null;
-        if ($newToken !== null) {
-            $company->meta_access_token = $newToken;
-        }
-        $company->save();
-        $company->refresh();
-
-        $aiSettingsPayload = [];
-        if (array_key_exists('ai_enabled', $validated)) {
-            $aiSettingsPayload['ai_enabled'] = (bool) $validated['ai_enabled'];
-        }
-        if (array_key_exists('ai_internal_chat_enabled', $validated)) {
-            $aiSettingsPayload['ai_internal_chat_enabled'] = (bool) $validated['ai_internal_chat_enabled'];
-        }
-        if (array_key_exists('ai_chatbot_enabled', $validated)) {
-            $aiSettingsPayload['ai_chatbot_enabled'] = (bool) $validated['ai_chatbot_enabled'];
-        }
-        if (array_key_exists('ai_chatbot_auto_reply_enabled', $validated)) {
-            $aiSettingsPayload['ai_chatbot_auto_reply_enabled'] = (bool) $validated['ai_chatbot_auto_reply_enabled'];
-        }
-        if (array_key_exists('ai_chatbot_rules', $validated)) {
-            $aiSettingsPayload['ai_chatbot_rules'] = $validated['ai_chatbot_rules'];
-        }
-        if (array_key_exists('ai_usage_enabled', $validated)) {
-            $aiSettingsPayload['ai_usage_enabled'] = (bool) $validated['ai_usage_enabled'];
-        }
-        if (array_key_exists('ai_usage_limit_monthly', $validated)) {
-            $aiSettingsPayload['ai_usage_limit_monthly'] = $validated['ai_usage_limit_monthly'] !== null
-                ? (int) $validated['ai_usage_limit_monthly']
-                : null;
-        }
-
-        if ($aiSettingsPayload !== []) {
-            CompanyBotSetting::updateOrCreate(
-                ['company_id' => $company->id],
-                $aiSettingsPayload
-            );
-            $company->load('botSetting');
-        }
-
-        $this->auditLog->record(
-            $request,
-            'admin.company.updated',
-            $company->id,
-            [
-                'before' => $before,
-                'after' => [
-                    'name' => $company->name,
-                    'meta_phone_number_id' => $company->meta_phone_number_id,
-                    'has_meta_credentials' => $company->hasMetaCredentials(),
-                ],
-            ]
-        );
-
-        return response()->json([
-            'ok' => true,
-            'company' => $company->loadMissing('botSetting'),
-        ]);
+        return $result->toResponse();
     }
 
     public function destroy(Request $request, Company $company): JsonResponse
@@ -380,36 +102,7 @@ class CompanyController extends Controller
             return $denied;
         }
 
-        $companyId = $company->id;
-        $companyName = $company->name;
-
-        $company->delete();
-
-        $this->auditLog->record(
-            $request,
-            'admin.company.deleted',
-            $companyId,
-            [
-                'name' => $companyName,
-            ]
-        );
-
-        return response()->json([
-            'ok' => true,
-        ]);
-    }
-
-    /**
-     * @param  array<string, mixed>|null  $flow
-     * @return array<string, mixed>|null
-     */
-    private function normalizeStatefulMenuFlow(?array $flow): ?array
-    {
-        if (! is_array($flow)) {
-            return null;
-        }
-
-        return $flow;
+        return response()->json($this->destroyCompanyAction->handle($request, $company));
     }
 
     /** Testa as credenciais do WhatsApp da empresa contra a API da Meta. */
@@ -423,19 +116,9 @@ class CompanyController extends Controller
             return $denied;
         }
 
-        $phoneNumberId = trim((string) ($request->input('phone_number_id') ?? $company->meta_phone_number_id ?? config('whatsapp.phone_number_id', '')));
-        $accessToken   = trim((string) ($request->input('access_token')    ?? $company->meta_access_token    ?? config('whatsapp.access_token', '')));
+        $result = $this->validateAdminCompanyWhatsAppAction->handle($request, $company);
 
-        if ($phoneNumberId === '') {
-            return response()->json(['ok' => false, 'error' => 'phone_number_id não configurado.'], 422);
-        }
-        if ($accessToken === '') {
-            return response()->json(['ok' => false, 'error' => 'access_token não configurado.'], 422);
-        }
-
-        $result = $this->credentialsValidator->validate($phoneNumberId, $accessToken);
-
-        return response()->json($result, $result['ok'] ? 200 : 422);
+        return $result->toResponse();
     }
 
     public function metrics(Request $request, Company $company): JsonResponse
@@ -444,42 +127,9 @@ class CompanyController extends Controller
             return $denied;
         }
 
-        $conversationIds = $company->conversations()->select('id');
-
-        $byStatus = $company->conversations()
-            ->selectRaw('status, count(*) as total')
-            ->groupBy('status')
-            ->pluck('total', 'status');
-
-        $byMode = $company->conversations()
-            ->where('status', 'closed')
-            ->selectRaw(
-                'CASE WHEN handling_mode = ? THEN ? ELSE handling_mode END as normalized_mode, count(*) as total',
-                [ConversationHandlingMode::LEGACY_MANUAL, ConversationHandlingMode::HUMAN]
-            )
-            ->groupBy('normalized_mode')
-            ->pluck('total', 'normalized_mode');
-
-        $byDay = $company->conversations()
-            ->selectRaw('DATE(created_at) as day, count(*) as total')
-            ->where('created_at', '>=', now()->subDays(30))
-            ->groupBy('day')
-            ->orderBy('day')
-            ->get();
-
-        $totalMessages = Message::whereIn('conversation_id', $conversationIds)->count();
-        $totalUsers = User::where('company_id', $company->id)->count();
-
         return response()->json([
             'authenticated' => true,
-            'metrics' => [
-                'by_status' => $byStatus,
-                'by_mode' => $byMode,
-                'by_day' => $byDay,
-                'total' => $company->conversations()->count(),
-                'total_messages' => $totalMessages,
-                'total_users' => $totalUsers,
-            ],
+            'metrics' => $this->companyMetrics->build($company),
         ]);
     }
 }

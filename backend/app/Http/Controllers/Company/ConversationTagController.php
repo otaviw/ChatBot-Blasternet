@@ -21,8 +21,8 @@ use Illuminate\Validation\ValidationException;
 class ConversationTagController extends Controller
 {
     public function __construct(
-        private AuditLogService $auditLog,
-        private RealtimePublisher $realtime
+        private readonly AuditLogService $auditLog,
+        private readonly RealtimePublisher $realtime
     ) {}
 
     // -------------------------------------------------------------------------

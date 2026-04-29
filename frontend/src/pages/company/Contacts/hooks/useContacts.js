@@ -40,6 +40,8 @@ function useContacts() {
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchContacts = useCallback(async () => {
     setLoading(true);
@@ -112,6 +114,47 @@ function useContacts() {
     }
   }, [fetchContacts]);
 
+  const updateContact = useCallback(async (id, { name, phone }) => {
+    setSaving(true);
+    try {
+      const response = await api.patch(`${CONTACTS_ENDPOINT}/${id}`, {
+        name: String(name ?? '').trim(),
+        phone: String(phone ?? '').trim(),
+      });
+      const updated = response?.data?.contact;
+      if (updated) {
+        setAllContacts((previous) =>
+          sortContactsByName(previous.map((c) => (c.id === updated.id ? updated : c)))
+        );
+        return updated;
+      }
+      await fetchContacts();
+    } catch (err) {
+      const message =
+        err?.response?.data?.errors?.phone?.[0] ??
+        err?.response?.data?.errors?.name?.[0] ??
+        err?.response?.data?.message ??
+        'Não foi possível salvar o contato.';
+      throw new Error(message);
+    } finally {
+      setSaving(false);
+    }
+  }, [fetchContacts]);
+
+  const deleteContact = useCallback(async (id) => {
+    setDeleting(true);
+    try {
+      await api.delete(`${CONTACTS_ENDPOINT}/${id}`);
+      setAllContacts((previous) => previous.filter((c) => c.id !== id));
+    } catch (err) {
+      const message =
+        err?.response?.data?.message ?? 'Não foi possível excluir o contato.';
+      throw new Error(message);
+    } finally {
+      setDeleting(false);
+    }
+  }, []);
+
   const importCsv = useCallback(async (file) => {
     const formData = new FormData();
     formData.append('file', file);
@@ -143,10 +186,14 @@ function useContacts() {
       error,
       creating,
       importing,
+      saving,
+      deleting,
       fetchContacts,
       searchContacts,
       refetch,
       createContact,
+      updateContact,
+      deleteContact,
       importCsv,
     }),
     [
@@ -157,10 +204,14 @@ function useContacts() {
       error,
       creating,
       importing,
+      saving,
+      deleting,
       fetchContacts,
       searchContacts,
       refetch,
       createContact,
+      updateContact,
+      deleteContact,
       importCsv,
     ]
   );

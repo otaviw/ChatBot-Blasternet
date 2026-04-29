@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Message extends Model
 {
@@ -52,12 +54,12 @@ class Message extends Model
         return ($name !== null && $name !== '') ? (string) $name : null;
     }
 
-    public function conversation()
+    public function conversation(): BelongsTo
     {
         return $this->belongsTo(Conversation::class);
     }
 
-    public function reactions()
+    public function reactions(): HasMany
     {
         return $this->hasMany(MessageReaction::class);
     }

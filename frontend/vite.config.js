@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const frontendCoverageMin = Number.parseInt(process.env.FRONTEND_COVERAGE_MIN ?? '60', 10);
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
@@ -17,6 +18,19 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': 'http://localhost:8000',
+    },
+  },
+  test: {
+    environment: 'jsdom',
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'lcov'],
+      thresholds: {
+        lines: frontendCoverageMin,
+        functions: frontendCoverageMin,
+        statements: frontendCoverageMin,
+        branches: frontendCoverageMin,
+      },
     },
   },
 });

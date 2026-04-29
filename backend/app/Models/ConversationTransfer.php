@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\BelongsToCompany;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ConversationTransfer extends Model
 {
@@ -25,37 +26,37 @@ class ConversationTransfer extends Model
         'updated_at' => 'datetime',
     ];
 
-    public function conversation()
+    public function conversation(): BelongsTo
     {
         return $this->belongsTo(Conversation::class);
     }
 
-    public function company()
+    public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
     }
 
-    public function transferredByUser()
+    public function transferredByUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'transferred_by_user_id');
     }
 
-    public function fromUser()
+    public function fromUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'from_assigned_id');
     }
 
-    public function toUser()
+    public function toUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'to_assigned_id');
     }
 
-    public function fromArea()
+    public function fromArea(): BelongsTo
     {
         return $this->belongsTo(Area::class, 'from_assigned_id');
     }
 
-    public function toArea()
+    public function toArea(): BelongsTo
     {
         return $this->belongsTo(Area::class, 'to_assigned_id');
     }

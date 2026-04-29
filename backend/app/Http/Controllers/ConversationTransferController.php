@@ -15,8 +15,8 @@ use Illuminate\Http\Request;
 class ConversationTransferController extends Controller
 {
     public function __construct(
-        private TransferConversationService $transferService,
-        private AuditLogService $auditLog
+        private readonly TransferConversationService $transferService,
+        private readonly AuditLogService $auditLog
     ) {}
 
     public function index(Request $request, Conversation $conversation): JsonResponse

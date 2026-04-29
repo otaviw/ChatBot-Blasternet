@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\BelongsToCompany;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AppointmentWorkingHour extends Model
 {
@@ -26,12 +27,12 @@ class AppointmentWorkingHour extends Model
         'is_active' => 'boolean',
     ];
 
-    public function company()
+    public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
     }
 
-    public function staffProfile()
+    public function staffProfile(): BelongsTo
     {
         return $this->belongsTo(AppointmentStaffProfile::class, 'staff_profile_id');
     }

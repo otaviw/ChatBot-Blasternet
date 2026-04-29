@@ -53,7 +53,7 @@ class AiSandboxTest extends TestCase
             'name'       => 'Admin Sandbox',
             'email'      => 'admin-sandbox@test.local',
             'password'   => 'secret123',
-            'role'       => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $company->id,
             'is_active'  => true,
         ]);
@@ -300,3 +300,4 @@ class AiSandboxTest extends TestCase
             ->assertJsonPath('tokens_used', 77);
     }
 }
+

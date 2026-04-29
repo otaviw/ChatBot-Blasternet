@@ -35,7 +35,7 @@ class ValidateWhatsAppWebhookSignature
         if ($secret === '') {
             Log::error('Webhook WhatsApp bloqueado: WHATSAPP_APP_SECRET não configurado.', $context);
 
-            return response('Internal configuration error', 500);
+            return response('', 403);
         }
 
         $header = (string) (

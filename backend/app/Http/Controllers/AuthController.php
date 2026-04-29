@@ -121,7 +121,7 @@ class AuthController extends Controller
         ]);
     }
 
-    private function resellerPayload($user): ?array
+    private function resellerPayload(User $user): ?array
     {
         $reseller = $user->company?->reseller ?? $user->reseller;
 
@@ -138,7 +138,7 @@ class AuthController extends Controller
         ];
     }
 
-    private function userPayload($user): array
+    private function userPayload(User $user): array
     {
         $settings = $this->aiAccessService->resolveCompanySettings($user);
         $canUseInternalAi = $this->aiAccessService->canUseInternalAi($user, $settings);

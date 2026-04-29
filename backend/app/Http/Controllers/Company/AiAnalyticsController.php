@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\DB;
 class AiAnalyticsController extends Controller
 {
     public function __construct(
-        private AiAccessService $aiAccess
+        private readonly AiAccessService $aiAccess
     ) {}
 
     public function index(Request $request): JsonResponse

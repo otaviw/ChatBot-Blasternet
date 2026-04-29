@@ -9,12 +9,11 @@ use App\Models\Company;
 use App\Models\SupportTicket;
 use App\Services\AuditLogService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 class SupportTicketController extends Controller
 {
     public function __construct(
-        private AuditLogService $auditLog
+        private readonly AuditLogService $auditLog
     ) {}
 
     public function index(ListSupportTicketsRequest $request): JsonResponse
@@ -62,8 +61,8 @@ class SupportTicketController extends Controller
 
         return response()->json([
             'authenticated' => true,
-            'open_tickets' => array_map(fn(SupportTicket $ticket) => $this->serializeTicket($ticket), $openTickets),
-            'closed_tickets' => array_map(fn(SupportTicket $ticket) => $this->serializeTicket($ticket), $closedTickets),
+            'open_tickets' => array_map(fn(SupportTicket $ticket) => $ticket->toApiArray(), $openTickets),
+            'closed_tickets' => array_map(fn(SupportTicket $ticket) => $ticket->toApiArray(), $closedTickets),
             'companies' => $companies,
             'filters' => [
                 'company_id' => $companyFilter === '' ? null : $companyFilter,
@@ -77,13 +76,13 @@ class SupportTicketController extends Controller
         ]);
     }
 
-    public function show(Request $request, SupportTicket $ticket): JsonResponse
+    public function show(SupportTicket $ticket): JsonResponse
     {
         $ticket->load(['company:id,name', 'requester:id,name,email', 'managedBy:id,name,email', 'attachments']);
 
         return response()->json([
             'authenticated' => true,
-            'ticket' => $this->serializeTicket($ticket),
+            'ticket' => $ticket->toApiArray(),
         ]);
     }
 
@@ -116,42 +115,8 @@ class SupportTicketController extends Controller
 
         return response()->json([
             'ok' => true,
-            'ticket' => $this->serializeTicket($ticket),
+            'ticket' => $ticket->toApiArray(),
         ]);
     }
 
-    /**
-     * @return array<string, mixed>
-     */
-    private function serializeTicket(SupportTicket $ticket): array
-    {
-        $attachments = $ticket->relationLoaded('attachments')
-            ? $ticket->attachments->map(fn ($a) => [
-                'id' => (int) $a->id,
-                'url' => null,
-                'mime_type' => $a->mime_type,
-                'size_bytes' => $a->size_bytes ? (int) $a->size_bytes : null,
-            ])->values()->all()
-            : [];
-
-        return [
-            'id' => (int) $ticket->id,
-            'ticket_number' => (int) ($ticket->ticket_number ?: $ticket->id),
-            'company_id' => $ticket->company_id ? (int) $ticket->company_id : null,
-            'company_name' => $ticket->company?->name ?? $ticket->requester_company_name,
-            'requester_user_id' => $ticket->requester_user_id ? (int) $ticket->requester_user_id : null,
-            'requester_name' => $ticket->requester_name,
-            'requester_contact' => $ticket->requester_contact,
-            'requester_company_name' => $ticket->requester_company_name,
-            'subject' => $ticket->subject,
-            'message' => $ticket->message,
-            'status' => $ticket->status,
-            'managed_by_user_id' => $ticket->managed_by_user_id ? (int) $ticket->managed_by_user_id : null,
-            'managed_by_name' => $ticket->managedBy?->name,
-            'closed_at' => $ticket->closed_at,
-            'created_at' => $ticket->created_at,
-            'updated_at' => $ticket->updated_at,
-            'attachments' => $attachments,
-        ];
-    }
 }

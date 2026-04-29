@@ -60,6 +60,14 @@ class WhatsAppCredentialsValidatorService
             ]);
 
             return $this->failure('Não foi possível conectar à API da Meta. Tente novamente em instantes.');
+        } catch (\Throwable $e) {
+            Log::error('WhatsApp credentials validation: unexpected error.', [
+                'phone_number_id' => $phoneNumberId,
+                'error'           => $e->getMessage(),
+                'class'           => $e::class,
+            ]);
+
+            return $this->failure('Erro inesperado ao verificar credenciais. Tente novamente.');
         }
     }
 

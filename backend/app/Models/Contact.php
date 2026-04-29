@@ -16,6 +16,8 @@ class Contact extends Model
         'phone',
         'last_interaction_at',
         'company_id',
+        'source',
+        'added_by_user_id',
     ];
 
     protected $casts = [
@@ -25,6 +27,11 @@ class Contact extends Model
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
+    }
+
+    public function addedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'added_by_user_id');
     }
 
     public function campaignContacts(): HasMany

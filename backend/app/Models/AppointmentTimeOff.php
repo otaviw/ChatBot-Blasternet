@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\BelongsToCompany;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AppointmentTimeOff extends Model
 {
@@ -25,17 +26,17 @@ class AppointmentTimeOff extends Model
         'is_all_day' => 'boolean',
     ];
 
-    public function company()
+    public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
     }
 
-    public function staffProfile()
+    public function staffProfile(): BelongsTo
     {
         return $this->belongsTo(AppointmentStaffProfile::class, 'staff_profile_id');
     }
 
-    public function createdBy()
+    public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id');
     }

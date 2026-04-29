@@ -15,7 +15,7 @@ use Illuminate\Http\Request;
 class AiAuditController extends Controller
 {
     public function __construct(
-        private AiAccessService $aiAccess
+        private readonly AiAccessService $aiAccess
     ) {}
 
     public function index(Request $request): JsonResponse

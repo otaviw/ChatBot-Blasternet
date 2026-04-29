@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import RealtimeStore from './realtimeStore';
 import { REALTIME_EVENTS } from '@/constants/realtimeEvents';
 

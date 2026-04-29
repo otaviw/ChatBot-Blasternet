@@ -83,6 +83,15 @@
   background: #fafafa;
 }
 
+.contacts-table-row--clickable {
+  cursor: pointer;
+}
+
+.contacts-table-row--clickable:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
+}
+
 .contacts-modal-overlay {
   position: fixed;
   inset: 0;
@@ -150,6 +159,10 @@ body.theme-dark .contacts-table th {
 
 body.theme-dark .contacts-table tbody tr:hover {
   background: #1e2130;
+}
+
+body.theme-dark .contacts-table-row--clickable:focus-visible {
+  outline-color: #3b82f6;
 }
 
 body.theme-dark .contacts-modal {

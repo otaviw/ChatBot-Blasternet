@@ -211,11 +211,4 @@ class AiConversationController extends Controller
         return $user instanceof User && (bool) $user->is_active ? $user : null;
     }
 
-    private function unauthenticatedResponse(): JsonResponse
-    {
-        return response()->json([
-            'authenticated' => false,
-            'redirect' => '/entrar',
-        ], 403);
-    }
 }

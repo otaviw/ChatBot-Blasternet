@@ -29,7 +29,7 @@ class BotSettingsIsolationTest extends TestCase
             'name' => 'Empresa A User',
             'email' => 'empresa-a@test.local',
             'password' => 'secret123',
-            'role' => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $companyA->id,
             'is_active' => true,
         ]);
@@ -53,7 +53,7 @@ class BotSettingsIsolationTest extends TestCase
             'name' => 'Empresa A User 2',
             'email' => 'empresa-a2@test.local',
             'password' => 'secret123',
-            'role' => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $companyA->id,
             'is_active' => true,
         ]);
@@ -89,7 +89,7 @@ class BotSettingsIsolationTest extends TestCase
             'name' => 'Empresa Sem Campo User',
             'email' => 'empresa-sem-campo@test.local',
             'password' => 'secret123',
-            'role' => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $company->id,
             'is_active' => true,
         ]);
@@ -119,7 +119,7 @@ class BotSettingsIsolationTest extends TestCase
             'name' => 'Empresa User',
             'email' => 'empresa-user@test.local',
             'password' => 'secret123',
-            'role' => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $companyA->id,
             'is_active' => true,
         ]);
@@ -278,3 +278,4 @@ class BotSettingsIsolationTest extends TestCase
         return array_replace_recursive($base, $overrides);
     }
 }
+

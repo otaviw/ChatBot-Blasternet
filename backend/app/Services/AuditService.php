@@ -9,6 +9,18 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
 
+/**
+ * Auditoria de mudanças em entidades (mensagens, modelos, eventos de domínio).
+ *
+ * Use este serviço quando precisar registrar O QUE mudou em uma entidade específica,
+ * independente de existir uma requisição HTTP ativa. É chamado de forma estática e
+ * resolve o contexto do request automaticamente via container.
+ *
+ * Para registrar AÇÕES DE USUÁRIO (quem fez o quê via HTTP, com IP e rota), use
+ * AuditLogService, que exige injeção de dependência e um Request explícito.
+ *
+ * @see AuditLogService Para auditoria de ações HTTP de usuário
+ */
 class AuditService
 {
     /**

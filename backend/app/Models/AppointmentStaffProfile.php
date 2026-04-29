@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Models\Concerns\BelongsToCompany;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AppointmentStaffProfile extends Model
 {
@@ -25,17 +27,17 @@ class AppointmentStaffProfile extends Model
         'booking_max_advance_days' => 'integer',
     ];
 
-    public function company()
+    public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
     }
 
-    public function user()
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    public function workingHours()
+    public function workingHours(): HasMany
     {
         return $this->hasMany(AppointmentWorkingHour::class, 'staff_profile_id')
             ->where('is_active', true)
@@ -43,13 +45,13 @@ class AppointmentStaffProfile extends Model
             ->orderBy('start_time');
     }
 
-    public function timeOffs()
+    public function timeOffs(): HasMany
     {
         return $this->hasMany(AppointmentTimeOff::class, 'staff_profile_id')
             ->orderBy('starts_at');
     }
 
-    public function appointments()
+    public function appointments(): HasMany
     {
         return $this->hasMany(Appointment::class, 'staff_profile_id')
             ->latest('starts_at');

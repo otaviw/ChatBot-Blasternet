@@ -14,14 +14,14 @@ use RuntimeException;
 class RealtimeTokenController extends Controller
 {
     public function __construct(
-        private JwtTokenService $jwt,
-        private ConversationPresenceService $presenceService
+        private readonly JwtTokenService $jwt,
+        private readonly ConversationPresenceService $presenceService
     ) {}
 
     public function issueSocketToken(Request $request): JsonResponse
     {
-        $user = $this->resolveAuthenticatedUser($request);
-        if (! $user instanceof User) {
+        $user = $request->user();
+        if (! $user) {
             return $this->unauthenticatedResponse();
         }
 
@@ -53,8 +53,8 @@ class RealtimeTokenController extends Controller
 
     public function issueConversationJoinToken(Request $request, Conversation $conversation): JsonResponse
     {
-        $user = $this->resolveAuthenticatedUser($request);
-        if (! $user instanceof User) {
+        $user = $request->user();
+        if (! $user) {
             return $this->unauthenticatedResponse();
         }
 
@@ -92,8 +92,8 @@ class RealtimeTokenController extends Controller
 
     public function issueChatConversationJoinToken(Request $request, ChatConversation $chatConversation): JsonResponse
     {
-        $user = $this->resolveAuthenticatedUser($request);
-        if (! $user instanceof User) {
+        $user = $request->user();
+        if (! $user) {
             return $this->unauthenticatedResponse();
         }
 
@@ -131,8 +131,8 @@ class RealtimeTokenController extends Controller
 
     public function touchConversationPresence(Request $request, Conversation $conversation): JsonResponse
     {
-        $user = $this->resolveAuthenticatedUser($request);
-        if (! $user instanceof User) {
+        $user = $request->user();
+        if (! $user) {
             return $this->unauthenticatedResponse();
         }
 
@@ -152,8 +152,8 @@ class RealtimeTokenController extends Controller
 
     public function clearConversationPresence(Request $request, Conversation $conversation): JsonResponse
     {
-        $user = $this->resolveAuthenticatedUser($request);
-        if (! $user instanceof User) {
+        $user = $request->user();
+        if (! $user) {
             return $this->unauthenticatedResponse();
         }
 
@@ -189,18 +189,4 @@ class RealtimeTokenController extends Controller
             ->exists();
     }
 
-    private function resolveAuthenticatedUser(Request $request): ?User
-    {
-        $user = $request->user();
-
-        return $user instanceof User ? $user : null;
-    }
-
-    private function unauthenticatedResponse(): JsonResponse
-    {
-        return response()->json([
-            'authenticated' => false,
-            'redirect' => '/entrar',
-        ], 403);
-    }
 }

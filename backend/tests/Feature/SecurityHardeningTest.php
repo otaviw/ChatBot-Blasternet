@@ -19,7 +19,7 @@ class SecurityHardeningTest extends TestCase
             'name' => 'Company Security User',
             'email' => 'security-company@test.local',
             'password' => 'secret123',
-            'role' => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $company->id,
             'is_active' => true,
         ]);
@@ -53,7 +53,7 @@ class SecurityHardeningTest extends TestCase
 
         $this->assertDatabaseHas('audit_logs', [
             'company_id' => $company->id,
-            'actor_role' => 'company',
+            'actor_role' => User::ROLE_COMPANY_ADMIN,
             'actor_company_id' => $company->id,
             'action' => 'company.bot_settings.updated',
             'method' => 'PUT',
@@ -68,7 +68,7 @@ class SecurityHardeningTest extends TestCase
             'name' => 'Admin Security User',
             'email' => 'security-admin@test.local',
             'password' => 'secret123',
-            'role' => 'admin',
+            'role' => User::ROLE_SYSTEM_ADMIN,
             'company_id' => null,
             'is_active' => true,
         ]);
@@ -84,7 +84,7 @@ class SecurityHardeningTest extends TestCase
 
         $this->assertDatabaseHas('audit_logs', [
             'company_id' => $company->id,
-            'actor_role' => 'admin',
+            'actor_role' => User::ROLE_SYSTEM_ADMIN,
             'action' => 'bot.simulation.executed',
             'method' => 'POST',
             'route' => 'api/simular/mensagem',
@@ -108,7 +108,7 @@ class SecurityHardeningTest extends TestCase
             'name' => 'Admin Upload Security',
             'email' => 'security-upload-admin@test.local',
             'password' => 'secret123',
-            'role' => 'admin',
+            'role' => User::ROLE_SYSTEM_ADMIN,
             'company_id' => null,
             'is_active' => true,
         ]);

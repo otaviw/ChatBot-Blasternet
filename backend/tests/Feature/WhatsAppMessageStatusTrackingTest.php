@@ -34,7 +34,7 @@ class WhatsAppMessageStatusTrackingTest extends TestCase
             'name' => 'Operador Status',
             'email' => 'status-manual@test.local',
             'password' => 'secret123',
-            'role' => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $company->id,
             'is_active' => true,
         ]);
@@ -159,3 +159,4 @@ class WhatsAppMessageStatusTrackingTest extends TestCase
         $this->assertIsArray($message->status_meta);
     }
 }
+

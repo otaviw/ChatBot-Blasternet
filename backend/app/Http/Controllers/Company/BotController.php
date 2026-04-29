@@ -2,12 +2,13 @@
 
 namespace App\Http\Controllers\Company;
 
+use App\Actions\Company\Bot\UpdateCompanyBotSettingsAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Company\UpdateBotSettingsRequest;
 use App\Http\Requests\Company\ValidateBotWhatsAppRequest;
 use App\Models\Company;
 use App\Models\CompanyBotSetting;
-use App\Services\AuditLogService;
+use App\Models\User;
 use App\Services\Ai\AiAccessService;
 use App\Services\Bot\BotSettingsSupportService;
 use App\Services\Company\CompanyUsageLimitsService;
@@ -18,11 +19,11 @@ use Illuminate\Http\Request;
 class BotController extends Controller
 {
     public function __construct(
-        private AuditLogService $auditLog,
-        private AiAccessService $aiAccess,
-        private BotSettingsSupportService $botSettingsSupport,
-        private WhatsAppCredentialsValidatorService $credentialsValidator,
-        private CompanyUsageLimitsService $usageLimits,
+        private readonly AiAccessService $aiAccess,
+        private readonly BotSettingsSupportService $botSettingsSupport,
+        private readonly WhatsAppCredentialsValidatorService $credentialsValidator,
+        private readonly CompanyUsageLimitsService $usageLimits,
+        private readonly UpdateCompanyBotSettingsAction $updateAction,
     ) {}
 
     /** Configuracoes do bot da empresa logada (respostas, horarios etc.). */
@@ -30,45 +31,39 @@ class BotController extends Controller
     {
         $user = $request->user();
         if (! $user || ! $this->aiAccess->canAccessBotSettings($user)) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
+            return response()->json(['authenticated' => false, 'redirect' => '/entrar'], 403);
         }
 
         $companies = $user->isSystemAdmin()
             ? Company::orderBy('name')->get(['id', 'name'])
             : null;
 
-        $companyId = $user->isSystemAdmin()
-            ? (int) $request->integer('company_id', 0)
-            : (int) $user->company_id;
+        $company = $this->resolveCompany($request, $user);
+        if ($company instanceof JsonResponse) {
+            // Sem company selecionada: admin vê seletor, usuário comum vê erro
+            if ($user->isSystemAdmin()) {
+                return response()->json([
+                    'authenticated' => true,
+                    'role'          => 'admin',
+                    'is_admin'      => true,
+                    'companies'     => $companies,
+                    'company'       => null,
+                    'settings'      => null,
+                ]);
+            }
 
-        if ($companyId <= 0) {
-            return response()->json([
-                'authenticated' => true,
-                'role' => 'admin',
-                'is_admin' => true,
-                'companies' => $companies,
-                'company' => null,
-                'settings' => null,
-            ]);
-        }
-
-        $company = Company::find($companyId);
-        if (! $company) {
-            return response()->json(['message' => 'Empresa não encontrada.'], 404);
+            return $company;
         }
 
         $settings = $company->botSetting ?: $this->buildDefaultSettings($company->id);
 
         return response()->json([
             'authenticated' => true,
-            'role' => $user->isSystemAdmin() ? 'admin' : 'company',
-            'is_admin' => $user->isSystemAdmin(),
-            'companies' => $companies,
-            'company' => $company,
-            'settings' => $settings,
+            'role'          => $user->isSystemAdmin() ? 'admin' : 'company',
+            'is_admin'      => $user->isSystemAdmin(),
+            'companies'     => $companies,
+            'company'       => $company,
+            'settings'      => $settings,
         ]);
     }
 
@@ -76,122 +71,17 @@ class BotController extends Controller
     {
         $user = $request->user();
         if (! $user || ! $this->aiAccess->canAccessBotSettings($user)) {
-            return response()->json([
-                'authenticated' => false,
-                'redirect' => '/entrar',
-            ], 403);
+            return response()->json(['authenticated' => false, 'redirect' => '/entrar'], 403);
         }
 
-        $companyId = $user->isSystemAdmin()
-            ? (int) $request->integer('company_id', 0)
-            : (int) $user->company_id;
-
-        if ($companyId <= 0) {
-            return response()->json(['message' => 'Informe company_id.'], 422);
+        $company = $this->resolveCompany($request, $user);
+        if ($company instanceof JsonResponse) {
+            return $company;
         }
 
-        $company = Company::find($companyId);
-        if (! $company) {
-            return response()->json(['message' => 'Empresa não encontrada.'], 404);
-        }
+        $result = $this->updateAction->handle($request, $company);
 
-        $validated = $request->validated();
-
-        // Campos de IA presentes no request são adicionados dinamicamente para
-        // não sobrescrever valores existentes quando payloads legados os omitem.
-        $aiFields = [
-            'ai_enabled', 'ai_internal_chat_enabled', 'ai_usage_enabled',
-            'ai_usage_limit_monthly', 'ai_chatbot_enabled', 'ai_chatbot_auto_reply_enabled',
-            'ai_chatbot_mode', 'ai_persona', 'ai_tone', 'ai_language', 'ai_formality',
-            'ai_system_prompt', 'ai_max_context_messages', 'ai_temperature',
-            'ai_max_response_tokens', 'ai_provider', 'ai_model', 'ai_chatbot_rules',
-        ];
-
-        $aiData = [];
-        foreach ($aiFields as $field) {
-            if (array_key_exists($field, $validated)) {
-                $aiData[$field] = $validated[$field];
-            }
-        }
-
-        // Salva credenciais do WhatsApp se enviadas no payload
-        $credentialsChanged = false;
-        if (array_key_exists('meta_phone_number_id', $validated) || array_key_exists('meta_access_token', $validated)) {
-            $newPhoneId = array_key_exists('meta_phone_number_id', $validated)
-                ? ($validated['meta_phone_number_id'] !== null ? trim((string) $validated['meta_phone_number_id']) : null)
-                : null;
-            $newToken = array_key_exists('meta_access_token', $validated)
-                ? ($validated['meta_access_token'] !== null ? trim((string) $validated['meta_access_token']) : null)
-                : null;
-
-            $phoneChanged = $newPhoneId !== null && $newPhoneId !== '' && $newPhoneId !== (string) ($company->meta_phone_number_id ?? '');
-            $tokenChanged = $newToken !== null && $newToken !== '' && $newToken !== (string) ($company->meta_access_token ?? '');
-            $credentialsChanged = $phoneChanged || $tokenChanged;
-
-            if ($credentialsChanged) {
-                $phoneToValidate = ($newPhoneId !== null && $newPhoneId !== '') ? $newPhoneId : (string) ($company->meta_phone_number_id ?? '');
-                $tokenToValidate = ($newToken !== null && $newToken !== '') ? $newToken : (string) ($company->meta_access_token ?? '');
-
-                $validation = $this->credentialsValidator->validate($phoneToValidate, $tokenToValidate);
-                if (! $validation['ok']) {
-                    return response()->json([
-                        'message' => 'Credenciais do WhatsApp inválidas: ' . $validation['error'],
-                    ], 422);
-                }
-            }
-
-            if ($newPhoneId !== null && $newPhoneId !== '') {
-                $company->meta_phone_number_id = $newPhoneId;
-            }
-            if ($newToken !== null && $newToken !== '') {
-                $company->meta_access_token = $newToken;
-            }
-            if ($company->isDirty()) {
-                $company->save();
-            }
-        }
-
-        $settings = CompanyBotSetting::updateOrCreate(
-            ['company_id' => $company->id],
-            array_merge(
-                [
-                    'is_active' => (bool) $validated['is_active'],
-                    'timezone' => $validated['timezone'],
-                    'welcome_message' => $validated['welcome_message'] ?? null,
-                    'fallback_message' => $validated['fallback_message'] ?? null,
-                    'out_of_hours_message' => $validated['out_of_hours_message'] ?? null,
-                    'business_hours' => $this->botSettingsSupport->normalizeBusinessHours($validated['business_hours']),
-                    'keyword_replies' => $this->botSettingsSupport->normalizeKeywordReplies($validated['keyword_replies'] ?? []),
-                    'service_areas' => $this->botSettingsSupport->normalizeServiceAreas($validated['service_areas'] ?? []),
-                    'stateful_menu_flow' => $this->normalizeStatefulMenuFlow($validated['stateful_menu_flow'] ?? null),
-                    'inactivity_close_hours' => $this->botSettingsSupport->resolveInactivityCloseHours(
-                        array_key_exists('inactivity_close_hours', $validated) ? $validated['inactivity_close_hours'] : null,
-                        $company->botSetting?->inactivity_close_hours
-                    ),
-                    'message_retention_days' => (int) $validated['message_retention_days'],
-                ],
-                $aiData
-            )
-        );
-
-        $this->botSettingsSupport->syncServiceAreas($company->id, $settings->service_areas ?? []);
-        AiAccessService::forgetCompanyBotSettingsCache((int) $company->id);
-
-        $this->auditLog->record(
-            $request,
-            'company.bot_settings.updated',
-            $company->id,
-            [
-                'is_active' => $settings->is_active,
-                'timezone' => $settings->timezone,
-                'keyword_replies_count' => count($settings->keyword_replies ?? []),
-            ]
-        );
-
-        return response()->json([
-            'ok' => true,
-            'settings' => $settings,
-        ]);
+        return $result->toResponse();
     }
 
     /** Testa as credenciais do WhatsApp contra a API da Meta. */
@@ -202,20 +92,11 @@ class BotController extends Controller
             return response()->json(['authenticated' => false, 'redirect' => '/entrar'], 403);
         }
 
-        $companyId = $user->isSystemAdmin()
-            ? (int) $request->integer('company_id', 0)
-            : (int) $user->company_id;
-
-        if ($companyId <= 0) {
-            return response()->json(['message' => 'Informe company_id.'], 422);
+        $company = $this->resolveCompany($request, $user);
+        if ($company instanceof JsonResponse) {
+            return $company;
         }
 
-        $company = Company::find($companyId);
-        if (! $company) {
-            return response()->json(['message' => 'Empresa não encontrada.'], 404);
-        }
-
-        // Usa os valores enviados no request; se omitidos, usa os salvos na empresa ou env
         $phoneNumberId = trim((string) ($request->input('phone_number_id') ?? $company->meta_phone_number_id ?? config('whatsapp.phone_number_id', '')));
         $accessToken   = trim((string) ($request->input('access_token')    ?? $company->meta_access_token    ?? config('whatsapp.access_token', '')));
 
@@ -231,58 +112,7 @@ class BotController extends Controller
         return response()->json($result, $result['ok'] ? 200 : 422);
     }
 
-    private function buildDefaultSettings(int $companyId): CompanyBotSetting
-    {
-        return new CompanyBotSetting([
-            // Campos do bot clássico
-            'company_id' => $companyId,
-            'is_active' => true,
-            'timezone' => 'America/Sao_Paulo',
-            'welcome_message' => 'Oi. Como posso ajudar?',
-            'fallback_message' => 'Não entendi sua mensagem. Pode reformular?',
-            'out_of_hours_message' => 'Estamos fora do horario de atendimento no momento.',
-            'business_hours' => $this->botSettingsSupport->defaultBusinessHours(),
-            'keyword_replies' => [],
-            'service_areas' => [],
-            'stateful_menu_flow' => null,
-            'inactivity_close_hours' => 24,
-            'message_retention_days' => 180,
-            // Campos de IA — espelham os defaults das colunas no banco
-            'ai_enabled' => false,
-            'ai_internal_chat_enabled' => false,
-            'ai_usage_enabled' => true,
-            'ai_usage_limit_monthly' => null,
-            'ai_chatbot_enabled' => false,
-            'ai_chatbot_auto_reply_enabled' => false,
-            'ai_chatbot_mode' => 'disabled',
-            'ai_chatbot_rules' => null,
-            'ai_persona' => null,
-            'ai_tone' => null,
-            'ai_language' => null,
-            'ai_formality' => null,
-            'ai_system_prompt' => null,
-            'ai_max_context_messages' => 10,
-            'ai_temperature' => null,
-            'ai_max_response_tokens' => null,
-            'ai_provider' => null,
-            'ai_model' => null,
-        ]);
-    }
-
-    /**
-     * @param  array<string, mixed>|null  $flow
-     * @return array<string, mixed>|null
-     */
-    private function normalizeStatefulMenuFlow(?array $flow): ?array
-    {
-        if (! is_array($flow)) {
-            return null;
-        }
-
-        return $flow;
-    }
-
-    /** Usage snapshot for the current company (limits + counters). */
+    /** Retorna o snapshot de uso da empresa atual (limites + contadores). */
     public function usageSnapshot(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -298,5 +128,33 @@ class BotController extends Controller
         return response()->json([
             'usage' => $this->usageLimits->snapshot($companyId),
         ]);
+    }
+
+    /**
+     * Resolve a empresa a partir do request e do usuário autenticado.
+     * Admins passam company_id via query; usuários de empresa usam o próprio.
+     */
+    private function resolveCompany(Request $request, User $user): Company|JsonResponse
+    {
+        $companyId = $user->isSystemAdmin()
+            ? (int) $request->integer('company_id', 0)
+            : (int) $user->company_id;
+
+        if ($companyId <= 0) {
+            return response()->json(['message' => 'Informe company_id.'], 422);
+        }
+
+        $company = Company::find($companyId);
+        if (! $company) {
+            return response()->json(['message' => 'Empresa não encontrada.'], 404);
+        }
+
+        return $company;
+    }
+
+    /** Retorna um CompanyBotSetting não persistido com os defaults da empresa. */
+    private function buildDefaultSettings(int $companyId): CompanyBotSetting
+    {
+        return new CompanyBotSetting($this->botSettingsSupport->defaultBotSettingsPayload($companyId));
     }
 }

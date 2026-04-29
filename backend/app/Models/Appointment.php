@@ -6,6 +6,8 @@ use App\Models\Concerns\BelongsToCompany;
 use App\Support\AppointmentSource;
 use App\Support\AppointmentStatus;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Appointment extends Model
 {
@@ -48,32 +50,32 @@ class Appointment extends Model
         'meta' => 'array',
     ];
 
-    public function company()
+    public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
     }
 
-    public function service()
+    public function service(): BelongsTo
     {
         return $this->belongsTo(AppointmentService::class, 'service_id');
     }
 
-    public function staffProfile()
+    public function staffProfile(): BelongsTo
     {
         return $this->belongsTo(AppointmentStaffProfile::class, 'staff_profile_id');
     }
 
-    public function createdBy()
+    public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id');
     }
 
-    public function rescheduledFrom()
+    public function rescheduledFrom(): BelongsTo
     {
         return $this->belongsTo(self::class, 'rescheduled_from_appointment_id');
     }
 
-    public function events()
+    public function events(): HasMany
     {
         return $this->hasMany(AppointmentEvent::class)->latest('id');
     }

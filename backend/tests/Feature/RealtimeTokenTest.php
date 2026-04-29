@@ -33,7 +33,7 @@ class RealtimeTokenTest extends TestCase
             'name' => 'Realtime User',
             'email' => 'realtime-user@test.local',
             'password' => 'secret123',
-            'role' => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $company->id,
             'is_active' => true,
         ]);
@@ -68,7 +68,7 @@ class RealtimeTokenTest extends TestCase
             'name' => 'Company A User',
             'email' => 'company-a-user@test.local',
             'password' => 'secret123',
-            'role' => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $companyA->id,
             'is_active' => true,
         ]);
@@ -94,7 +94,7 @@ class RealtimeTokenTest extends TestCase
             'name' => 'Admin',
             'email' => 'admin-realtime@test.local',
             'password' => 'secret123',
-            'role' => 'admin',
+            'role' => User::ROLE_SYSTEM_ADMIN,
             'company_id' => null,
             'is_active' => true,
         ]);
@@ -135,3 +135,4 @@ class RealtimeTokenTest extends TestCase
         return base64_decode(strtr($value, '-_', '+/')) ?: '';
     }
 }
+

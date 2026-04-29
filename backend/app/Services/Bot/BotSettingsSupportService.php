@@ -6,6 +6,51 @@ use App\Models\Area;
 
 class BotSettingsSupportService
 {
+    /**
+     * Payload completo de defaults para um CompanyBotSetting novo.
+     * Fonte única de verdade — use em todo lugar que precise inicializar settings.
+     *
+     * @return array<string, mixed>
+     */
+    public function defaultBotSettingsPayload(int $companyId): array
+    {
+        return [
+            'company_id'                        => $companyId,
+            'is_active'                         => true,
+            'timezone'                          => 'America/Sao_Paulo',
+            'welcome_message'                   => 'Oi. Como posso ajudar?',
+            'fallback_message'                  => 'Não entendi sua mensagem. Pode reformular?',
+            'out_of_hours_message'              => 'Estamos fora do horario de atendimento no momento.',
+            'business_hours'                    => $this->defaultBusinessHours(),
+            'keyword_replies'                   => [],
+            'service_areas'                     => [],
+            'stateful_menu_flow'                => null,
+            'inactivity_close_hours'            => 24,
+            'message_retention_days'            => 180,
+            'ai_enabled'                        => false,
+            'ai_internal_chat_enabled'          => false,
+            'ai_usage_enabled'                  => true,
+            'ai_usage_limit_monthly'            => null,
+            'max_users'                         => null,
+            'max_conversation_messages_monthly' => null,
+            'max_template_messages_monthly'     => null,
+            'ai_chatbot_enabled'                => false,
+            'ai_chatbot_auto_reply_enabled'     => false,
+            'ai_chatbot_mode'                   => 'disabled',
+            'ai_chatbot_rules'                  => null,
+            'ai_persona'                        => null,
+            'ai_tone'                           => null,
+            'ai_language'                       => null,
+            'ai_formality'                      => null,
+            'ai_system_prompt'                  => null,
+            'ai_max_context_messages'           => 10,
+            'ai_temperature'                    => null,
+            'ai_max_response_tokens'            => null,
+            'ai_provider'                       => null,
+            'ai_model'                          => null,
+        ];
+    }
+
     public function defaultBusinessHours(): array
     {
         return [

@@ -9,6 +9,12 @@ enum UserRole: string
     case COMPANY_ADMIN = 'company_admin';
     case AGENT         = 'agent';
 
+    /** @var array<string, string> */
+    private const LEGACY_ALIASES = [
+        'admin' => self::SYSTEM_ADMIN->value,
+        'company' => self::COMPANY_ADMIN->value,
+    ];
+
     /** @return array<int, string> */
     public static function values(): array
     {
@@ -18,12 +24,8 @@ enum UserRole: string
     /** Canonical value that should be stored in the DB. */
     public static function normalize(string $raw): string
     {
-        $value = mb_strtolower(trim($raw));
+        $normalized = mb_strtolower(trim($raw));
 
-        return match ($value) {
-            'admin'   => self::SYSTEM_ADMIN->value,
-            'company' => self::COMPANY_ADMIN->value,
-            default   => $value,
-        };
+        return self::LEGACY_ALIASES[$normalized] ?? $normalized;
     }
 }

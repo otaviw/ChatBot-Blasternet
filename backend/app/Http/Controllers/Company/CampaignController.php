@@ -27,13 +27,7 @@ class CampaignController extends Controller
         $perPage = min(50, max(5, $request->integer('per_page', 20)));
 
         $paginator = Campaign::where('company_id', $companyId)
-            ->withCount([
-                'campaignContacts',
-                'campaignContacts as sent_count'     => fn ($q) => $q->where('status', 'sent'),
-                'campaignContacts as failed_count'   => fn ($q) => $q->where('status', 'failed'),
-                'campaignContacts as skipped_count'  => fn ($q) => $q->where('status', 'skipped'),
-                'campaignContacts as pending_count'  => fn ($q) => $q->where('status', 'pending'),
-            ])
+            ->withStatusCounts()
             ->latest()
             ->paginate($perPage);
 
@@ -153,15 +147,7 @@ class CampaignController extends Controller
             return $this->errorResponse('Empresa não identificada.', 'company_not_found', 403);
         }
 
-        $campaign = Campaign::where('company_id', $companyId)
-            ->withCount([
-                'campaignContacts',
-                'campaignContacts as sent_count'    => fn ($q) => $q->where('status', 'sent'),
-                'campaignContacts as failed_count'  => fn ($q) => $q->where('status', 'failed'),
-                'campaignContacts as skipped_count' => fn ($q) => $q->where('status', 'skipped'),
-                'campaignContacts as pending_count' => fn ($q) => $q->where('status', 'pending'),
-            ])
-            ->find($campaignId);
+        $campaign = $this->loadCampaignWithCounts($companyId, $campaignId);
 
         if ($campaign === null) {
             return $this->errorResponse('Campanha não encontrada.', 'not_found', 404);
@@ -283,13 +269,7 @@ class CampaignController extends Controller
     private function loadCampaignWithCounts(int $companyId, int $campaignId): ?Campaign
     {
         return Campaign::where('company_id', $companyId)
-            ->withCount([
-                'campaignContacts',
-                'campaignContacts as sent_count' => fn ($q) => $q->where('status', 'sent'),
-                'campaignContacts as failed_count' => fn ($q) => $q->where('status', 'failed'),
-                'campaignContacts as skipped_count' => fn ($q) => $q->where('status', 'skipped'),
-                'campaignContacts as pending_count' => fn ($q) => $q->where('status', 'pending'),
-            ])
+            ->withStatusCounts()
             ->find($campaignId);
     }
 
@@ -330,17 +310,4 @@ class CampaignController extends Controller
         );
     }
 
-    private function resolveCompanyId(Request $request): ?int
-    {
-        $user = $request->user();
-        if (! $user) {
-            return null;
-        }
-
-        $companyId = $user->isSystemAdmin()
-            ? (int) $request->integer('company_id', 0)
-            : (int) $user->company_id;
-
-        return $companyId > 0 ? $companyId : null;
-    }
 }

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Reseller extends Model
 {
@@ -63,7 +64,7 @@ class Reseller extends Model
         return $reseller;
     }
 
-    public function companies()
+    public function companies(): HasMany
     {
         return $this->hasMany(Company::class);
     }

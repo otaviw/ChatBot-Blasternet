@@ -225,11 +225,11 @@ class NotificationBusinessRulesTest extends TestCase
             'is_active' => true,
         ]);
 
-        $legacyAdmin = User::create([
-            'name' => 'Legacy Admin',
-            'email' => 'legacy-admin-support@test.local',
+        $secondSuperAdmin = User::create([
+            'name' => 'Second Super Admin',
+            'email' => 'second-super-admin-support@test.local',
             'password' => 'secret123',
-            'role' => User::ROLE_LEGACY_ADMIN,
+            'role' => User::ROLE_SYSTEM_ADMIN,
             'company_id' => null,
             'is_active' => true,
         ]);
@@ -260,7 +260,7 @@ class NotificationBusinessRulesTest extends TestCase
         ]);
 
         $this->assertDatabaseHas('user_notifications', [
-            'user_id' => $legacyAdmin->id,
+            'user_id' => $secondSuperAdmin->id,
             'module' => 'support',
             'type' => 'support_ticket_created',
             'reference_type' => 'support_ticket',

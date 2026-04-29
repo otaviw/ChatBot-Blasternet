@@ -7,6 +7,8 @@ use App\Models\Concerns\BelongsToCompany;
 use App\Support\ConversationHandlingMode;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Conversation extends Model
 {
@@ -53,27 +55,27 @@ class Conversation extends Model
         });
     }
 
-    public function company()
+    public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
     }
 
-    public function messages()
+    public function messages(): HasMany
     {
         return $this->hasMany(Message::class);
     }
 
-    public function assignedUser()
+    public function assignedUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_id');
     }
 
-    public function assignedArea()
+    public function assignedArea(): BelongsTo
     {
         return $this->belongsTo(Area::class, 'assigned_id');
     }
 
-    public function currentArea()
+    public function currentArea(): BelongsTo
     {
         return $this->belongsTo(Area::class, 'current_area_id');
     }
@@ -83,7 +85,7 @@ class Conversation extends Model
         return $this->belongsToMany(Tag::class, 'conversation_tag');
     }
 
-    public function transferHistory()
+    public function transferHistory(): HasMany
     {
         return $this->hasMany(ConversationTransfer::class)->latest('id');
     }

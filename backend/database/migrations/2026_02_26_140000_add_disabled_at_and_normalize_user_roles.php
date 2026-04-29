@@ -1,6 +1,5 @@
 <?php
 
-use App\Models\User;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -18,12 +17,12 @@ return new class extends Migration
         });
 
         DB::table('users')
-            ->where('role', User::ROLE_LEGACY_ADMIN)
-            ->update(['role' => User::ROLE_SYSTEM_ADMIN]);
+            ->where('role', 'admin')
+            ->update(['role' => 'system_admin']);
 
         DB::table('users')
-            ->where('role', User::ROLE_LEGACY_COMPANY)
-            ->update(['role' => User::ROLE_AGENT]);
+            ->where('role', 'company')
+            ->update(['role' => 'agent']);
 
         DB::table('users')
             ->where('is_active', false)
@@ -37,12 +36,12 @@ return new class extends Migration
     public function down(): void
     {
         DB::table('users')
-            ->where('role', User::ROLE_SYSTEM_ADMIN)
-            ->update(['role' => User::ROLE_LEGACY_ADMIN]);
+            ->where('role', 'system_admin')
+            ->update(['role' => 'admin']);
 
         DB::table('users')
-            ->where('role', User::ROLE_AGENT)
-            ->update(['role' => User::ROLE_LEGACY_COMPANY]);
+            ->where('role', 'agent')
+            ->update(['role' => 'company']);
 
         Schema::table('users', function (Blueprint $table) {
             $table->dropColumn('disabled_at');

@@ -125,88 +125,8 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
                 continue;
             }
 
-            if ($messageType === 'image') {
-                $mediaId = (string) ($msg['image']['id'] ?? '');
-                $caption = (string) ($msg['image']['caption'] ?? '');
-                if (trim($mediaId) === '') {
-                    continue;
-                }
-
-                $inboundMessage->handleIncomingMedia(
-                    $company, $from, $mediaId, $caption,
-                    ['wamid' => $messageId, 'from' => $from, 'source' => 'webhook', 'incoming_type' => 'image'],
-                    $contactName
-                );
-
-                Log::info('Webhook imagem processada.', ['company_id' => $company->id, 'from_hash' => self::maskPhone($from), 'message_id' => $messageId]);
-                continue;
-            }
-
-            if ($messageType === 'audio') {
-                $mediaId = (string) ($msg['audio']['id'] ?? '');
-                $caption = (string) ($msg['audio']['caption'] ?? '');
-                if (trim($mediaId) === '') {
-                    continue;
-                }
-
-                $inboundMessage->handleIncomingMedia(
-                    $company, $from, $mediaId, $caption,
-                    ['wamid' => $messageId, 'from' => $from, 'source' => 'webhook', 'incoming_type' => 'audio'],
-                    $contactName
-                );
-
-                Log::info('Webhook audio processado.', ['company_id' => $company->id, 'from_hash' => self::maskPhone($from), 'message_id' => $messageId]);
-                continue;
-            }
-
-            if ($messageType === 'video') {
-                $mediaId = (string) ($msg['video']['id'] ?? '');
-                $caption = (string) ($msg['video']['caption'] ?? '');
-                if (trim($mediaId) === '') {
-                    continue;
-                }
-
-                $inboundMessage->handleIncomingMedia(
-                    $company, $from, $mediaId, $caption,
-                    ['wamid' => $messageId, 'from' => $from, 'source' => 'webhook', 'incoming_type' => 'video'],
-                    $contactName
-                );
-
-                Log::info('Webhook video processado.', ['company_id' => $company->id, 'from_hash' => self::maskPhone($from)]);
-                continue;
-            }
-
-            if ($messageType === 'document') {
-                $mediaId = (string) ($msg['document']['id'] ?? '');
-                $caption = (string) ($msg['document']['caption'] ?? '');
-                $filename = (string) ($msg['document']['filename'] ?? 'documento');
-                if (trim($mediaId) === '') {
-                    continue;
-                }
-
-                $inboundMessage->handleIncomingMedia(
-                    $company, $from, $mediaId, $caption,
-                    ['wamid' => $messageId, 'from' => $from, 'source' => 'webhook', 'incoming_type' => 'document', 'filename' => $filename],
-                    $contactName
-                );
-
-                Log::info('Webhook document processado.', ['company_id' => $company->id, 'from_hash' => self::maskPhone($from)]);
-                continue;
-            }
-
-            if ($messageType === 'sticker') {
-                $mediaId = (string) ($msg['sticker']['id'] ?? '');
-                if (trim($mediaId) === '') {
-                    continue;
-                }
-
-                $inboundMessage->handleIncomingMedia(
-                    $company, $from, $mediaId, null,
-                    ['wamid' => $messageId, 'from' => $from, 'source' => 'webhook', 'incoming_type' => 'sticker'],
-                    $contactName
-                );
-
-                Log::info('Webhook sticker processado.', ['company_id' => $company->id]);
+            if (in_array($messageType, ['image', 'audio', 'video', 'document', 'sticker'], true)) {
+                $this->processMediaMessage($inboundMessage, $company, $from, $messageId, $messageType, $msg, $contactName);
                 continue;
             }
 
@@ -439,15 +359,7 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
             return;
         }
 
-        $occurredAt = now();
-        $rawTimestamp = $statusPayload['timestamp'] ?? null;
-        if (is_numeric($rawTimestamp)) {
-            $timestamp = (int) $rawTimestamp;
-            if ($timestamp > 9999999999) {
-                $timestamp = (int) floor($timestamp / 1000);
-            }
-            $occurredAt = now()->setTimestamp($timestamp);
-        }
+        $occurredAt = $this->resolveMetaTimestamp($statusPayload['timestamp'] ?? null) ?? now();
 
         $beforeStatus = (string) ($message->delivery_status ?: MessageDeliveryStatus::PENDING);
         switch ($statusName) {
@@ -678,6 +590,48 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
             'attempts'        => $this->tries,
             'exception_class' => $exception !== null ? get_class($exception) : null,
             'exception'       => $exception?->getMessage(),
+        ]);
+    }
+
+    /**
+     * Extrai o payload de mídia do array da mensagem WhatsApp e chama handleIncomingMedia.
+     * Centraliza o padrão repetido para image, audio, video, document e sticker.
+     */
+    private function processMediaMessage(
+        InboundMessageService $inboundMessage,
+        Company $company,
+        string $from,
+        string $messageId,
+        string $messageType,
+        array $msg,
+        ?string $contactName
+    ): void {
+        $typePayload = is_array($msg[$messageType] ?? null) ? $msg[$messageType] : [];
+        $mediaId     = trim((string) ($typePayload['id'] ?? ''));
+
+        if ($mediaId === '') {
+            return;
+        }
+
+        $caption = $messageType !== 'sticker' ? (string) ($typePayload['caption'] ?? '') : null;
+
+        $meta = [
+            'wamid'         => $messageId,
+            'from'          => $from,
+            'source'        => 'webhook',
+            'incoming_type' => $messageType,
+        ];
+
+        if ($messageType === 'document') {
+            $meta['filename'] = (string) ($typePayload['filename'] ?? 'documento');
+        }
+
+        $inboundMessage->handleIncomingMedia($company, $from, $mediaId, $caption, $meta, $contactName);
+
+        Log::info("Webhook {$messageType} processado.", [
+            'company_id' => (int) $company->id,
+            'from_hash'  => self::maskPhone($from),
+            'message_id' => $messageId,
         ]);
     }
 

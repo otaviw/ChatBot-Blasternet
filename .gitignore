@@ -19,6 +19,10 @@ Desktop.ini
 npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
+docs    
+!docs/
+!docs/ENGINEERING_PLAYBOOK.md
+!docs/complexity-report.md
 
 # ------------------------------
 # Environment / secrets

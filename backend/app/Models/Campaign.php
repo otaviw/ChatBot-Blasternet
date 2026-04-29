@@ -29,4 +29,16 @@ class Campaign extends Model
     {
         return $this->hasMany(CampaignContact::class);
     }
+
+    /** Adiciona contagens de status dos contatos da campanha à query. */
+    public function scopeWithStatusCounts(\Illuminate\Database\Eloquent\Builder $query): void
+    {
+        $query->withCount([
+            'campaignContacts',
+            'campaignContacts as sent_count'    => fn ($q) => $q->where('status', 'sent'),
+            'campaignContacts as failed_count'  => fn ($q) => $q->where('status', 'failed'),
+            'campaignContacts as skipped_count' => fn ($q) => $q->where('status', 'skipped'),
+            'campaignContacts as pending_count' => fn ($q) => $q->where('status', 'pending'),
+        ]);
+    }
 }

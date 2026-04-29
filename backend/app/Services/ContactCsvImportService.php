@@ -38,26 +38,20 @@ class ContactCsvImportService
         $errors   = [];
         $row      = 0;
 
-        // Detecta e pula BOM UTF-8
-        $first = fgets($handle);
-        if ($first !== false) {
-            $first = ltrim($first, "\xEF\xBB\xBF");
-            rewind($handle);
-            fwrite($handle, $first);
-            rewind($handle);
-        }
-
-        $header = fgetcsv($handle, 1000, ',') ?: fgetcsv($handle, 1000, ';');
-        if ($header === false || $header === null) {
+        // Lê a primeira linha removendo BOM UTF-8 sem reescrever o arquivo
+        $firstLine = fgets($handle);
+        if ($firstLine === false) {
             return ['imported' => 0, 'skipped' => 0, 'errors' => ['Arquivo CSV vazio ou inválido.']];
         }
+        $firstLine = ltrim($firstLine, "\xEF\xBB\xBF");
 
-        // Detecta delimitador pela contagem de colunas no header
-        $delimiter = count(str_getcsv(implode(',', $header), ',')) >= 2 ? ',' : ';';
+        // Detecta delimitador contando ocorrências no header
+        $delimiter = substr_count($firstLine, ',') >= substr_count($firstLine, ';') ? ',' : ';';
 
-        // Reinicia e relê com o delimitador correto
-        rewind($handle);
-        fgetcsv($handle, 1000, $delimiter); // pula header
+        $header = str_getcsv(trim($firstLine), $delimiter);
+        if (empty($header)) {
+            return ['imported' => 0, 'skipped' => 0, 'errors' => ['Arquivo CSV vazio ou inválido.']];
+        }
 
         $nameCol  = $this->findColumn($header, ['nome', 'name', 'nome completo', 'full name']);
         $phoneCol = $this->findColumn($header, ['telefone', 'phone', 'celular', 'whatsapp', 'fone', 'número']);
@@ -108,6 +102,7 @@ class ContactCsvImportService
                 'company_id'  => $companyId,
                 'phone'       => $phone,
                 'name'        => $name !== '' ? $name : $phone,
+                'source'      => 'csv',
                 'created_at'  => now(),
                 'updated_at'  => now(),
             ];

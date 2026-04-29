@@ -435,7 +435,7 @@ class StatefulBotMenuFlowTest extends TestCase
             'name' => 'Operador',
             'email' => $email,
             'password' => 'secret123',
-            'role' => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $company->id,
             'is_active' => true,
         ]);
@@ -461,3 +461,4 @@ class StatefulBotMenuFlowTest extends TestCase
         ]);
     }
 }
+

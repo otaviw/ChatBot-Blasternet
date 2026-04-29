@@ -343,7 +343,7 @@ class AppointmentAvailabilityService
                                         'starts_at_local' => $cursor->toIso8601String(),
                                         'ends_at_local' => $slotEnd->toIso8601String(),
                                         'staff_profile_id' => $staffId,
-                                        'staff_name' => trim((string) ($staffProfile->display_name ?: $staffProfile->user?->name ?: 'Atendente')),
+                                        'staff_name' => $this->staffDisplayName($staffProfile),
                                         'date' => $date->toDateString(),
                                     ];
                                     $cursor = $cursor->addMinutes($durationMinutes + $slotInterval);
@@ -384,14 +384,8 @@ class AppointmentAvailabilityService
 
         foreach ($workingHours as $workingHour) {
             $windowInterval = $this->resolveSlotInterval($settings, $staffProfile, $workingHour);
-            $windowStart = CarbonImmutable::parse(
-                $targetDate->toDateString() . ' ' . (string) $workingHour->start_time,
-                $timezone
-            );
-            $windowEnd = CarbonImmutable::parse(
-                $targetDate->toDateString() . ' ' . (string) $workingHour->end_time,
-                $timezone
-            );
+            $windowStart    = $this->parseWorkingHourTime($targetDate, $timezone, (string) $workingHour->start_time);
+            $windowEnd      = $this->parseWorkingHourTime($targetDate, $timezone, (string) $workingHour->end_time);
 
             if ($windowEnd->lte($windowStart)) {
                 continue;
@@ -451,7 +445,7 @@ class AppointmentAvailabilityService
         return [
             'staff_profile_id' => (int) $staffProfile->id,
             'user_id' => (int) $staffProfile->user_id,
-            'staff_name' => trim((string) ($staffProfile->display_name ?: $staffProfile->user?->name ?: 'Atendente')),
+            'staff_name' => $this->staffDisplayName($staffProfile),
             'slot_interval_minutes' => $slotInterval,
             'slots' => $availableSlots,
         ];
@@ -503,14 +497,9 @@ class AppointmentAvailabilityService
             ->get();
 
         $isInsideAnyWindow = $workingHours->contains(function (AppointmentWorkingHour $window) use ($startLocal, $endLocal) {
-            $windowStart = CarbonImmutable::parse(
-                $startLocal->toDateString() . ' ' . (string) $window->start_time,
-                $startLocal->timezone
-            );
-            $windowEnd = CarbonImmutable::parse(
-                $startLocal->toDateString() . ' ' . (string) $window->end_time,
-                $startLocal->timezone
-            );
+            $tz          = $startLocal->timezone;
+            $windowStart = $this->parseWorkingHourTime($startLocal, $tz, (string) $window->start_time);
+            $windowEnd   = $this->parseWorkingHourTime($startLocal, $tz, (string) $window->end_time);
 
             $insideWindow = $startLocal->gte($windowStart) && $endLocal->lte($windowEnd);
             if (! $insideWindow) {
@@ -521,14 +510,8 @@ class AppointmentAvailabilityService
                 return true;
             }
 
-            $breakStart = CarbonImmutable::parse(
-                $startLocal->toDateString() . ' ' . (string) $window->break_start_time,
-                $startLocal->timezone
-            );
-            $breakEnd = CarbonImmutable::parse(
-                $startLocal->toDateString() . ' ' . (string) $window->break_end_time,
-                $startLocal->timezone
-            );
+            $breakStart = $this->parseWorkingHourTime($startLocal, $tz, (string) $window->break_start_time);
+            $breakEnd   = $this->parseWorkingHourTime($startLocal, $tz, (string) $window->break_end_time);
 
             return ! ($startLocal->lt($breakEnd) && $endLocal->gt($breakStart));
         });
@@ -633,27 +616,15 @@ class AppointmentAvailabilityService
         string $timezone,
         AppointmentWorkingHour $workingHour
     ): array {
-        $windowStart = CarbonImmutable::parse(
-            $targetDate->toDateString() . ' ' . (string) $workingHour->start_time,
-            $timezone
-        );
-        $windowEnd = CarbonImmutable::parse(
-            $targetDate->toDateString() . ' ' . (string) $workingHour->end_time,
-            $timezone
-        );
+        $windowStart = $this->parseWorkingHourTime($targetDate, $timezone, (string) $workingHour->start_time);
+        $windowEnd   = $this->parseWorkingHourTime($targetDate, $timezone, (string) $workingHour->end_time);
 
         if (! $workingHour->break_start_time || ! $workingHour->break_end_time) {
             return [[$windowStart, $windowEnd]];
         }
 
-        $breakStart = CarbonImmutable::parse(
-            $targetDate->toDateString() . ' ' . (string) $workingHour->break_start_time,
-            $timezone
-        );
-        $breakEnd = CarbonImmutable::parse(
-            $targetDate->toDateString() . ' ' . (string) $workingHour->break_end_time,
-            $timezone
-        );
+        $breakStart = $this->parseWorkingHourTime($targetDate, $timezone, (string) $workingHour->break_start_time);
+        $breakEnd   = $this->parseWorkingHourTime($targetDate, $timezone, (string) $workingHour->break_end_time);
 
         if ($breakStart->lte($windowStart) || $breakEnd->gte($windowEnd) || $breakEnd->lte($breakStart)) {
             return [[$windowStart, $windowEnd]];
@@ -710,10 +681,31 @@ class AppointmentAvailabilityService
         return [
             'staff_profile_id' => (int) $staffProfile->id,
             'user_id' => (int) $staffProfile->user_id,
-            'staff_name' => trim((string) ($staffProfile->display_name ?: $staffProfile->user?->name ?: 'Atendente')),
+            'staff_name' => $this->staffDisplayName($staffProfile),
             'slot_interval_minutes' => $slotInterval,
             'slots' => [],
         ];
+    }
+
+    /**
+     * Constrói um CarbonImmutable a partir de uma data e um horário de jornada de trabalho.
+     * Centraliza o padrão `parse("Y-m-d H:i:s", $tz)` repetido em resolveWorkingSegments,
+     * assertInsideWorkingHours e buildStaffAvailability.
+     */
+    private function parseWorkingHourTime(
+        CarbonImmutable $date,
+        string|\DateTimeZone $timezone,
+        string $time
+    ): CarbonImmutable {
+        return CarbonImmutable::parse($date->toDateString() . ' ' . $time, $timezone);
+    }
+
+    /**
+     * Resolve o nome de exibição do atendente com fallback para nome do usuário e 'Atendente'.
+     */
+    private function staffDisplayName(AppointmentStaffProfile $staffProfile): string
+    {
+        return trim((string) ($staffProfile->display_name ?: $staffProfile->user?->name ?: 'Atendente'));
     }
 
     /**

@@ -1,5 +1,6 @@
 import { io } from 'socket.io-client';
 import { post } from './apiClient';
+import { error as logError } from '@/lib/logger';
 
 class RealtimeTransport {
   constructor({ onConnect, onRawEvent, shouldAutoReconnect } = {}) {
@@ -147,7 +148,7 @@ class RealtimeTransport {
       this.disconnect();
       await this.ensureConnected(true);
     } catch (error) {
-      console.error('Realtime reconnect failed', error);
+      logError('Realtime reconnect failed', error);
       this.scheduleReconnect();
     }
   }
@@ -160,7 +161,7 @@ class RealtimeTransport {
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       void this.ensureConnected(true).catch((error) => {
-        console.error('Realtime scheduled reconnect failed', error);
+        logError('Realtime scheduled reconnect failed', error);
         this.scheduleReconnect();
       });
     }, 1200);

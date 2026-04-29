@@ -16,7 +16,7 @@ use Illuminate\Http\Request;
 class ConversationController extends Controller
 {
     public function __construct(
-        private AuditLogService $auditLog
+        private readonly AuditLogService $auditLog
     ) {}
 
     public function index(Request $request): JsonResponse

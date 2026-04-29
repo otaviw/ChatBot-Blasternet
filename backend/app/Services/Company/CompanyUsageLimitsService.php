@@ -2,6 +2,7 @@
 
 namespace App\Services\Company;
 
+use App\Data\UsageLimitResult;
 use App\Models\CompanyBotSetting;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -25,15 +26,10 @@ class CompanyUsageLimitsService
 
     /**
      * Check whether the company is within its limit and atomically increment the counter.
-     *
-     * Returns:
-     *   ['allowed' => true,  'warning' => false, 'used' => N, 'limit' => M]
-     *   ['allowed' => true,  'warning' => true,  'used' => N, 'limit' => M, 'warning_message' => '...']
-     *   ['allowed' => false, 'used' => N, 'limit' => M, 'error_message' => '...']
      */
-    public function checkAndConsume(int $companyId, string $type): array
+    public function checkAndConsume(int $companyId, string $type): UsageLimitResult
     {
-        return DB::transaction(function () use ($companyId, $type) {
+        return DB::transaction(function () use ($companyId, $type): UsageLimitResult {
             /** @var CompanyBotSetting|null $settings */
             $settings = CompanyBotSetting::query()
                 ->where('company_id', $companyId)
@@ -41,8 +37,7 @@ class CompanyUsageLimitsService
                 ->first();
 
             if (! $settings) {
-                // No settings record — allow without tracking
-                return ['allowed' => true, 'warning' => false, 'used' => 0, 'limit' => null];
+                return UsageLimitResult::unlimited();
             }
 
             $this->maybeResetCounters($settings);
@@ -53,28 +48,22 @@ class CompanyUsageLimitsService
             $used  = (int) $settings->{$usedField};
 
             if ($limit !== null && $used >= (int) $limit) {
-                return [
-                    'allowed'       => false,
-                    'used'          => $used,
-                    'limit'         => (int) $limit,
-                    'error_message' => $this->blockedMessage($type, (int) $limit),
-                ];
+                return UsageLimitResult::blocked($used, (int) $limit, $this->blockedMessage($type, (int) $limit));
             }
 
-            // Increment atomically (we already hold the lock)
             $settings->{$usedField} = $used + 1;
             $settings->save();
 
             $newUsed = $used + 1;
-            $warning = $limit !== null && ($newUsed / (int) $limit) >= (self::WARNING_THRESHOLD / 100);
+            $limitInt = $limit !== null ? (int) $limit : null;
+            $warning  = $limitInt !== null && ($newUsed / $limitInt) >= (self::WARNING_THRESHOLD / 100);
 
-            return [
-                'allowed'         => true,
-                'warning'         => $warning,
-                'used'            => $newUsed,
-                'limit'           => $limit !== null ? (int) $limit : null,
-                'warning_message' => $warning ? $this->warningMessage($type, $newUsed, (int) $limit) : null,
-            ];
+            return UsageLimitResult::allowed(
+                count: $newUsed,
+                limit: $limitInt,
+                warning: $warning,
+                warningMessage: $warning ? $this->warningMessage($type, $newUsed, $limitInt) : null,
+            );
         });
     }
 
@@ -82,14 +71,14 @@ class CompanyUsageLimitsService
      * Check user count limit without consuming (users are not monthly-tracked).
      * Call this before User::create().
      */
-    public function checkUserLimit(int $companyId): array
+    public function checkUserLimit(int $companyId): UsageLimitResult
     {
         $settings = CompanyBotSetting::query()
             ->where('company_id', $companyId)
             ->first();
 
         if (! $settings || $settings->max_users === null) {
-            return ['allowed' => true, 'warning' => false, 'current' => null, 'limit' => null];
+            return UsageLimitResult::unlimited();
         }
 
         $current = User::query()
@@ -100,25 +89,22 @@ class CompanyUsageLimitsService
         $limit = (int) $settings->max_users;
 
         if ($current >= $limit) {
-            return [
-                'allowed'       => false,
-                'current'       => $current,
-                'limit'         => $limit,
-                'error_message' => "Limite de usuários atingido ({$current}/{$limit}). Contate o suporte para aumentar seu plano.",
-            ];
+            return UsageLimitResult::blocked(
+                count: $current,
+                limit: $limit,
+                errorMessage: "Limite de usuários atingido ({$current}/{$limit}). Contate o suporte para aumentar seu plano.",
+            );
         }
 
-        $warning = ($current + 1) / $limit >= (self::WARNING_THRESHOLD / 100);
+        $afterCreate = $current + 1;
+        $warning = $afterCreate / $limit >= (self::WARNING_THRESHOLD / 100);
 
-        return [
-            'allowed'         => true,
-            'warning'         => $warning,
-            'current'         => $current + 1,
-            'limit'           => $limit,
-            'warning_message' => $warning
-                ? "Você está próximo do limite de usuários (" . ($current + 1) . "/{$limit})."
-                : null,
-        ];
+        return UsageLimitResult::allowed(
+            count: $afterCreate,
+            limit: $limit,
+            warning: $warning,
+            warningMessage: $warning ? "Você está próximo do limite de usuários ({$afterCreate}/{$limit})." : null,
+        );
     }
 
     /**

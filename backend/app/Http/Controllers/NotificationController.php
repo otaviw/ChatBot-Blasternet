@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Notification;
-use App\Models\User;
 use App\Services\NotificationPreferenceService;
 use App\Services\NotificationService;
 use App\Support\Notifications\NotificationSerializer;
@@ -13,15 +12,15 @@ use Illuminate\Http\Request;
 class NotificationController extends Controller
 {
     public function __construct(
-        private NotificationService $notificationService,
-        private NotificationSerializer $notificationSerializer,
-        private NotificationPreferenceService $preferenceService
+        private readonly NotificationService $notificationService,
+        private readonly NotificationSerializer $notificationSerializer,
+        private readonly NotificationPreferenceService $preferenceService
     ) {}
 
     public function index(Request $request): JsonResponse
     {
-        $user = $this->resolveAuthenticatedUser($request);
-        if (! $user instanceof User) {
+        $user = $request->user();
+        if (! $user) {
             return $this->unauthenticatedResponse();
         }
 
@@ -46,8 +45,8 @@ class NotificationController extends Controller
 
     public function markAsRead(Request $request, Notification $notification): JsonResponse
     {
-        $user = $this->resolveAuthenticatedUser($request);
-        if (! $user instanceof User) {
+        $user = $request->user();
+        if (! $user) {
             return $this->unauthenticatedResponse();
         }
 
@@ -70,8 +69,8 @@ class NotificationController extends Controller
 
     public function unreadCounts(Request $request): JsonResponse
     {
-        $user = $this->resolveAuthenticatedUser($request);
-        if (! $user instanceof User) {
+        $user = $request->user();
+        if (! $user) {
             return $this->unauthenticatedResponse();
         }
 
@@ -86,8 +85,8 @@ class NotificationController extends Controller
 
     public function markReadByReference(Request $request): JsonResponse
     {
-        $user = $this->resolveAuthenticatedUser($request);
-        if (! $user instanceof User) {
+        $user = $request->user();
+        if (! $user) {
             return $this->unauthenticatedResponse();
         }
 
@@ -116,8 +115,8 @@ class NotificationController extends Controller
 
     public function markAllRead(Request $request): JsonResponse
     {
-        $user = $this->resolveAuthenticatedUser($request);
-        if (! $user instanceof User) {
+        $user = $request->user();
+        if (! $user) {
             return $this->unauthenticatedResponse();
         }
 
@@ -134,8 +133,8 @@ class NotificationController extends Controller
 
     public function destroyMany(Request $request): JsonResponse
     {
-        $user = $this->resolveAuthenticatedUser($request);
-        if (! $user instanceof User) {
+        $user = $request->user();
+        if (! $user) {
             return $this->unauthenticatedResponse();
         }
 
@@ -157,8 +156,8 @@ class NotificationController extends Controller
 
     public function getPreferences(Request $request): JsonResponse
     {
-        $user = $this->resolveAuthenticatedUser($request);
-        if (! $user instanceof User) {
+        $user = $request->user();
+        if (! $user) {
             return $this->unauthenticatedResponse();
         }
 
@@ -171,8 +170,8 @@ class NotificationController extends Controller
 
     public function updatePreferences(Request $request): JsonResponse
     {
-        $user = $this->resolveAuthenticatedUser($request);
-        if (! $user instanceof User) {
+        $user = $request->user();
+        if (! $user) {
             return $this->unauthenticatedResponse();
         }
 
@@ -189,18 +188,4 @@ class NotificationController extends Controller
         ]);
     }
 
-    private function resolveAuthenticatedUser(Request $request): ?User
-    {
-        $user = $request->user();
-
-        return $user instanceof User ? $user : null;
-    }
-
-    private function unauthenticatedResponse(): JsonResponse
-    {
-        return response()->json([
-            'authenticated' => false,
-            'redirect' => '/entrar',
-        ], 403);
-    }
 }

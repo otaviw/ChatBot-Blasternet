@@ -1,5 +1,6 @@
 import RealtimeStore from './realtimeStore';
 import RealtimeTransport from './realtimeTransport';
+import { error as logError } from '@/lib/logger';
 
 class RealtimeClient {
   constructor() {
@@ -19,7 +20,7 @@ class RealtimeClient {
   on(eventName, handler) {
     this.store.on(eventName, handler);
     void this.ensureConnected().catch((error) => {
-      console.error('Realtime connection failed', error);
+      logError('Realtime connection failed', error);
     });
 
     return () => this.off(eventName, handler);
@@ -47,7 +48,7 @@ class RealtimeClient {
     try {
       await this.ensureConnected();
     } catch (error) {
-      console.error('Realtime join failed to connect', error);
+      logError('Realtime join failed to connect', error);
       return false;
     }
 
@@ -78,7 +79,7 @@ class RealtimeClient {
     try {
       await this.ensureConnected();
     } catch (error) {
-      console.error('Realtime chat join failed to connect', error);
+      logError('Realtime chat join failed to connect', error);
       return false;
     }
 

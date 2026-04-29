@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Casts\AiChatbotRulesCast;
 use App\Models\Concerns\BelongsToCompany;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CompanyBotSetting extends Model
 {
@@ -84,7 +85,7 @@ class CompanyBotSetting extends Model
         'ai_usage_log_retention_days' => 'integer',
     ];
 
-    public function company()
+    public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
     }

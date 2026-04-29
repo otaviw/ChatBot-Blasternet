@@ -25,6 +25,7 @@ use App\Models\AppointmentStaffProfile;
 use App\Models\Company;
 use App\Models\CompanyBotSetting;
 use App\Models\Conversation;
+use App\Models\Reseller;
 use App\Models\User;
 use App\Support\AppointmentStatus;
 use Illuminate\Support\Facades\Mail;
@@ -38,8 +39,19 @@ describe('WelcomeUserMail', function () {
     it('é enfileirado quando novo usuário ativo é criado pelo admin', function () {
         Mail::fake();
 
-        $actor = User::factory()->create(['role' => User::ROLE_SYSTEM_ADMIN]);
-        $company = Company::create(['name' => 'Empresa Boas Vindas']);
+        $reseller = Reseller::create([
+            'name' => 'Revenda E-mail',
+            'slug' => 'revenda-email',
+        ]);
+        $actor = User::factory()->create([
+            'role' => User::ROLE_RESELLER_ADMIN,
+            'reseller_id' => $reseller->id,
+            'is_active' => true,
+        ]);
+        $company = Company::create([
+            'name' => 'Empresa Boas Vindas',
+            'reseller_id' => $reseller->id,
+        ]);
 
         $this->actingAs($actor)
             ->postJson('/api/admin/users', [
@@ -61,8 +73,19 @@ describe('WelcomeUserMail', function () {
     it('não é enviado quando usuário é criado inativo', function () {
         Mail::fake();
 
-        $actor = User::factory()->create(['role' => User::ROLE_SYSTEM_ADMIN]);
-        $company = Company::create(['name' => 'Empresa Inativo']);
+        $reseller = Reseller::create([
+            'name' => 'Revenda Inativo',
+            'slug' => 'revenda-inativo',
+        ]);
+        $actor = User::factory()->create([
+            'role' => User::ROLE_RESELLER_ADMIN,
+            'reseller_id' => $reseller->id,
+            'is_active' => true,
+        ]);
+        $company = Company::create([
+            'name' => 'Empresa Inativo',
+            'reseller_id' => $reseller->id,
+        ]);
 
         $this->actingAs($actor)
             ->postJson('/api/admin/users', [
@@ -146,6 +169,14 @@ describe('SendAppointmentConfirmedMailJob', function () {
         ]);
         $staff = AppointmentStaffProfile::create([
             'company_id' => $company->id,
+            'user_id' => User::create([
+                'name' => 'Staff Confirmed',
+                'email' => 'staff-confirmed@test.local',
+                'password' => bcrypt('secret123'),
+                'role' => User::ROLE_COMPANY_ADMIN,
+                'company_id' => $company->id,
+                'is_active' => true,
+            ])->id,
             'display_name' => 'Dr. Smith',
             'is_bookable' => true,
         ]);
@@ -170,7 +201,7 @@ describe('SendAppointmentConfirmedMailJob', function () {
 
         (new SendAppointmentConfirmedMailJob($appointment->id))->handle();
 
-        Mail::assertSent(AppointmentConfirmedMail::class, function ($mail) {
+        Mail::assertQueued(AppointmentConfirmedMail::class, function ($mail) {
             return $mail->hasTo('cliente@test.com');
         });
     });
@@ -187,6 +218,14 @@ describe('SendAppointmentConfirmedMailJob', function () {
         ]);
         $staff = AppointmentStaffProfile::create([
             'company_id' => $company->id,
+            'user_id' => User::create([
+                'name' => 'Staff No Email',
+                'email' => 'staff-no-email@test.local',
+                'password' => bcrypt('secret123'),
+                'role' => User::ROLE_COMPANY_ADMIN,
+                'company_id' => $company->id,
+                'is_active' => true,
+            ])->id,
             'display_name' => 'Dr. Jones',
             'is_bookable' => true,
         ]);
@@ -210,7 +249,7 @@ describe('SendAppointmentConfirmedMailJob', function () {
 
         (new SendAppointmentConfirmedMailJob($appointment->id))->handle();
 
-        Mail::assertNotSent(AppointmentConfirmedMail::class);
+        Mail::assertNotQueued(AppointmentConfirmedMail::class);
     });
 });
 
@@ -237,6 +276,14 @@ describe('SendAppointmentReminderJob', function () {
         ]);
         $staff = AppointmentStaffProfile::create([
             'company_id' => $company->id,
+            'user_id' => User::create([
+                'name' => 'Staff Reminder',
+                'email' => 'staff-reminder@test.local',
+                'password' => bcrypt('secret123'),
+                'role' => User::ROLE_COMPANY_ADMIN,
+                'company_id' => $company->id,
+                'is_active' => true,
+            ])->id,
             'display_name' => 'Dra. Lima',
             'is_bookable' => true,
         ]);
@@ -262,7 +309,7 @@ describe('SendAppointmentReminderJob', function () {
 
         (new SendAppointmentReminderJob)->handle();
 
-        Mail::assertSent(AppointmentReminderMail::class, function ($mail) {
+        Mail::assertQueued(AppointmentReminderMail::class, function ($mail) {
             return $mail->hasTo('reminder@test.com');
         });
     });
@@ -279,6 +326,14 @@ describe('SendAppointmentReminderJob', function () {
         ]);
         $staff = AppointmentStaffProfile::create([
             'company_id' => $company->id,
+            'user_id' => User::create([
+                'name' => 'Staff Reenvio',
+                'email' => 'staff-reenvio@test.local',
+                'password' => bcrypt('secret123'),
+                'role' => User::ROLE_COMPANY_ADMIN,
+                'company_id' => $company->id,
+                'is_active' => true,
+            ])->id,
             'display_name' => 'Dr. Reenvio',
             'is_bookable' => true,
         ]);
@@ -303,7 +358,7 @@ describe('SendAppointmentReminderJob', function () {
 
         (new SendAppointmentReminderJob)->handle();
 
-        Mail::assertNotSent(AppointmentReminderMail::class);
+        Mail::assertNotQueued(AppointmentReminderMail::class);
     });
 });
 
@@ -343,7 +398,7 @@ describe('AlertUnattendedConversationsJob', function () {
 
         (new AlertUnattendedConversationsJob)->handle();
 
-        Mail::assertSent(UnattendedConversationsAlertMail::class, function ($mail) use ($admin) {
+        Mail::assertQueued(UnattendedConversationsAlertMail::class, function ($mail) use ($admin) {
             return $mail->hasTo($admin->email)
                 && $mail->unattendedCount === 1;
         });
@@ -381,7 +436,7 @@ describe('AlertUnattendedConversationsJob', function () {
 
         (new AlertUnattendedConversationsJob)->handle();
 
-        Mail::assertNotSent(UnattendedConversationsAlertMail::class);
+        Mail::assertNotQueued(UnattendedConversationsAlertMail::class);
     });
 
     it('não envia alerta quando empresa não tem unattended_alert_hours configurado', function () {
@@ -406,6 +461,6 @@ describe('AlertUnattendedConversationsJob', function () {
 
         (new AlertUnattendedConversationsJob)->handle();
 
-        Mail::assertNotSent(UnattendedConversationsAlertMail::class);
+        Mail::assertNotQueued(UnattendedConversationsAlertMail::class);
     });
 });

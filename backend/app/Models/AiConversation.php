@@ -4,6 +4,9 @@ namespace App\Models;
 
 use App\Models\Concerns\BelongsToCompany;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class AiConversation extends Model
 {
@@ -25,22 +28,22 @@ class AiConversation extends Model
         'last_message_at' => 'datetime',
     ];
 
-    public function company()
+    public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
     }
 
-    public function openedByUser()
+    public function openedByUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'opened_by_user_id');
     }
 
-    public function messages()
+    public function messages(): HasMany
     {
         return $this->hasMany(AiMessage::class)->orderBy('id');
     }
 
-    public function lastMessage()
+    public function lastMessage(): HasOne
     {
         return $this->hasOne(AiMessage::class)->latestOfMany('id');
     }

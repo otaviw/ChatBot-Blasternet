@@ -8,6 +8,7 @@ import useLogout from '@/hooks/useLogout';
 import usePageData from '@/hooks/usePageData';
 import { showError, showSuccess } from '@/services/toastService';
 import useContacts from './hooks/useContacts';
+import ContactDetailModal from './components/ContactDetailModal.jsx';
 
 const formatLastInteraction = (value) => {
   if (!value) return '-';
@@ -26,13 +27,18 @@ function ContactsPage() {
     error: contactsError,
     creating,
     importing,
+    saving,
+    deleting,
     searchContacts,
     refetch,
     createContact,
+    updateContact,
+    deleteContact,
     importCsv,
   } = useContacts();
 
   const csvInputRef = useRef(null);
+  const [selectedContact, setSelectedContact] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
@@ -67,6 +73,17 @@ function ContactsPage() {
     } catch (err) {
       setModalError(err.message || 'Não foi possível criar o contato.');
     }
+  };
+
+  const handleUpdateContact = async (id, fields) => {
+    const updated = await updateContact(id, fields);
+    if (updated) setSelectedContact(updated);
+    showSuccess('Contato atualizado.');
+  };
+
+  const handleDeleteContact = async (id) => {
+    await deleteContact(id);
+    showSuccess('Contato excluído.');
   };
 
   const triggerCsvImport = () => {
@@ -189,7 +206,15 @@ function ContactsPage() {
               </thead>
               <tbody>
                 {contacts.map((contact) => (
-                  <tr key={contact.id}>
+                  <tr
+                    key={contact.id}
+                    className="contacts-table-row--clickable"
+                    onClick={() => setSelectedContact(contact)}
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`Ver detalhes de ${contact.name || contact.phone}`}
+                    onKeyDown={(e) => e.key === 'Enter' && setSelectedContact(contact)}
+                  >
                     <td>{contact.name || '-'}</td>
                     <td>{contact.phone || '-'}</td>
                     <td>{formatLastInteraction(contact.last_interaction_at)}</td>
@@ -200,6 +225,15 @@ function ContactsPage() {
           </div>
         ) : null}
       </section>
+
+      <ContactDetailModal
+        contact={selectedContact}
+        onClose={() => setSelectedContact(null)}
+        onUpdate={handleUpdateContact}
+        onDelete={handleDeleteContact}
+        saving={saving}
+        deleting={deleting}
+      />
 
       {isModalOpen ? (
         <div className="contacts-modal-overlay" onClick={closeCreateModal} role="presentation">

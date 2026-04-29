@@ -143,7 +143,7 @@ class ConversationController extends Controller
             $companyId = (int) ($sender->company_id ?? 0);
 
             $query->where(function ($scope) use ($companyId): void {
-                $scope->whereIn('role', [User::ROLE_SYSTEM_ADMIN, User::ROLE_LEGACY_ADMIN]);
+                $scope->where('role', User::ROLE_SYSTEM_ADMIN);
                 if ($companyId > 0) {
                     $scope->orWhere('company_id', $companyId);
                 }

@@ -8,6 +8,7 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "lint": "eslint --max-warnings=0 \"src/**/*.{js,jsx}\"",
     "format": "prettier \"src/**/*.{js,jsx,css,md}\" --check",
     "check": "npm run lint && npm run test:run && npm run build",
@@ -27,6 +28,7 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.0",
     "@vitejs/plugin-react-swc": "^4.2.3",
+    "@vitest/coverage-v8": "^4.1.0",
     "eslint": "^9.17.0",
     "eslint-plugin-boundaries": "^6.0.2",
     "eslint-plugin-react": "^7.37.0",

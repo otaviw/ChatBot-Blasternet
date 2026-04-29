@@ -33,7 +33,7 @@ class ConversationTransferTest extends TestCase
             'name' => 'Operador A',
             'email' => 'transfer-a@test.local',
             'password' => 'secret123',
-            'role' => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $company->id,
             'is_active' => true,
         ]);
@@ -42,7 +42,7 @@ class ConversationTransferTest extends TestCase
             'name' => 'Operador B',
             'email' => 'transfer-b@test.local',
             'password' => 'secret123',
-            'role' => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $company->id,
             'is_active' => true,
         ]);
@@ -107,7 +107,7 @@ class ConversationTransferTest extends TestCase
             'name' => 'Atendente Suporte',
             'email' => 'suporte@test.local',
             'password' => 'secret123',
-            'role' => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $company->id,
             'is_active' => true,
         ]);
@@ -116,7 +116,7 @@ class ConversationTransferTest extends TestCase
             'name' => 'Atendente Financeiro',
             'email' => 'financeiro@test.local',
             'password' => 'secret123',
-            'role' => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $company->id,
             'is_active' => true,
         ]);
@@ -156,3 +156,4 @@ class ConversationTransferTest extends TestCase
         $validReply->assertJsonPath('conversation.assigned_area', 'Financeiro');
     }
 }
+

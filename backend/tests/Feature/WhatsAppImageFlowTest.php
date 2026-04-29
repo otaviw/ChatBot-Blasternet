@@ -124,7 +124,7 @@ class WhatsAppImageFlowTest extends TestCase
             'name' => 'Operador Midia',
             'email' => 'midia@test.local',
             'password' => 'secret123',
-            'role' => 'company',
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $company->id,
             'is_active' => true,
         ]);
@@ -190,3 +190,4 @@ class WhatsAppImageFlowTest extends TestCase
         $response->assertJsonPath('in_message.media_url', null);
     }
 }
+

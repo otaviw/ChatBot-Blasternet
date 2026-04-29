@@ -46,22 +46,22 @@ export default [
         },
       ],
       'no-console': ['warn', { allow: ['warn', 'error'] }],
-      'boundaries/element-types': [
+      'boundaries/dependencies': [
         'error',
         {
           default: 'allow',
           rules: [
             {
-              from: 'pages',
-              disallow: ['pages'],
+              from: { type: 'pages' },
+              disallow: { to: { type: 'pages' } },
             },
             {
-              from: 'components',
-              disallow: ['pages'],
+              from: { type: 'components' },
+              disallow: { to: { type: 'pages' } },
             },
             {
-              from: 'services',
-              disallow: ['ui'],
+              from: { type: 'services' },
+              disallow: { to: { type: 'ui' } },
             },
           ],
         },

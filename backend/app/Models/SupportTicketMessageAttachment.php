@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class SupportTicketMessageAttachment extends Model
 {
@@ -15,7 +16,7 @@ class SupportTicketMessageAttachment extends Model
         'size_bytes',
     ];
 
-    public function message()
+    public function message(): BelongsTo
     {
         return $this->belongsTo(SupportTicketMessage::class, 'support_ticket_message_id');
     }

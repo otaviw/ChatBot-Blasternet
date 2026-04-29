@@ -2,13 +2,16 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Casts\UserPermissionsCast;
 use App\Support\Enums\UserRole;
 use App\Support\UserPermissions;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class User extends Authenticatable
 {
@@ -16,8 +19,6 @@ class User extends Authenticatable
     public const ROLE_RESELLER_ADMIN = UserRole::RESELLER_ADMIN->value;
     public const ROLE_COMPANY_ADMIN = UserRole::COMPANY_ADMIN->value;
     public const ROLE_AGENT         = UserRole::AGENT->value;
-    public const ROLE_LEGACY_ADMIN  = 'admin';
-    public const ROLE_LEGACY_COMPANY = 'company';
 
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
@@ -94,27 +95,27 @@ class User extends Authenticatable
         return in_array($permission, $this->resolvedPermissions(), true);
     }
 
-    public function company()
+    public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
     }
 
-    public function reseller()
+    public function reseller(): BelongsTo
     {
         return $this->belongsTo(Reseller::class);
     }
 
-    public function notifications()
+    public function notifications(): HasMany
     {
         return $this->hasMany(Notification::class)->latest('id');
     }
 
-    public function aiConversations()
+    public function aiConversations(): HasMany
     {
         return $this->hasMany(AiConversation::class, 'opened_by_user_id')->latest('id');
     }
 
-    public function aiMessages()
+    public function aiMessages(): HasMany
     {
         return $this->hasMany(AiMessage::class)->latest('id');
     }
@@ -127,7 +128,6 @@ class User extends Authenticatable
         return [
             self::ROLE_COMPANY_ADMIN,
             self::ROLE_AGENT,
-            self::ROLE_LEGACY_COMPANY,
         ];
     }
 
@@ -141,8 +141,6 @@ class User extends Authenticatable
             self::ROLE_RESELLER_ADMIN,
             self::ROLE_COMPANY_ADMIN,
             self::ROLE_AGENT,
-            self::ROLE_LEGACY_ADMIN,
-            self::ROLE_LEGACY_COMPANY,
         ];
     }
 
@@ -154,13 +152,17 @@ class User extends Authenticatable
         return [
             self::ROLE_COMPANY_ADMIN,
             self::ROLE_AGENT,
-            self::ROLE_LEGACY_COMPANY,
         ];
     }
 
     public static function normalizeRole(?string $role): string
     {
         return UserRole::normalize((string) $role);
+    }
+
+    public function setRoleAttribute(?string $value): void
+    {
+        $this->attributes['role'] = self::normalizeRole($value);
     }
 
     public function isSystemAdmin(): bool
@@ -208,7 +210,7 @@ class User extends Authenticatable
         return $this->isCompanyAdmin();
     }
 
-    public function areas()
+    public function areas(): BelongsToMany
     {
         return $this->belongsToMany(Area::class, 'area_user')->orderBy('name');
     }
@@ -244,12 +246,12 @@ class User extends Authenticatable
             ->exists();
     }
 
-    public function appointmentStaffProfile()
+    public function appointmentStaffProfile(): HasOne
     {
         return $this->hasOne(AppointmentStaffProfile::class, 'user_id');
     }
 
-    public function createdAppointments()
+    public function createdAppointments(): HasMany
     {
         return $this->hasMany(Appointment::class, 'created_by_user_id')->latest('id');
     }

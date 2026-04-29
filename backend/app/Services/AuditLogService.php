@@ -9,6 +9,19 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Throwable;
 
+/**
+ * Auditoria de ações de usuário via HTTP (quem fez o quê, quando, de onde).
+ *
+ * Use este serviço quando precisar registrar A AÇÃO de um usuário autenticado:
+ * bot settings atualizado, usuário criado, empresa editada etc. Requer injeção
+ * de dependência no construtor do controller e um Request explícito em cada chamada.
+ * Registra IP, rota, método HTTP, role do ator e company_id do contexto.
+ *
+ * Para registrar mudanças em entidades sem contexto HTTP (eventos de domínio,
+ * jobs, observers), use AuditService, que é estático e auto-resolve o request.
+ *
+ * @see AuditService Para auditoria de mudanças em entidades de domínio
+ */
 class AuditLogService
 {
     /** @var array<int, string>|null */
