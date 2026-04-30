@@ -32,6 +32,17 @@ class CompanyConversationCountersService
     /** @return array<string, mixed> */
     public function buildFreshForCompany(int $companyId): array
     {
+        // Debounce: impede rebuilds repetidos em rajadas de mensagens.
+        // Se o cache já foi reconstruído nos últimos 10 s, retorna o valor existente.
+        // Garante no máximo 6 rebuilds/minuto por empresa, independente do volume de mensagens.
+        $debounceKey = CacheKeys::conversationCounters($companyId) . ':debounce';
+
+        if (Cache::has($debounceKey)) {
+            return $this->buildForCompany($companyId);
+        }
+
+        Cache::put($debounceKey, true, now()->addSeconds(10));
+
         $this->forgetForCompany($companyId);
 
         return $this->buildForCompany($companyId);

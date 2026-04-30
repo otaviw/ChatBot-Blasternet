@@ -6,6 +6,7 @@ use GuzzleHttp\Client as GuzzleClient;
 use GuzzleHttp\Exception\ConnectException as GuzzleConnectException;
 use GuzzleHttp\Exception\RequestException as GuzzleRequestException;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class OllamaAiProvider implements AiProvider, AiStreamingProvider
@@ -57,16 +58,24 @@ class OllamaAiProvider implements AiProvider, AiStreamingProvider
             $isTimeout = str_contains($normalizedException, 'timed out')
                 || str_contains($normalizedException, 'timeout');
 
-            $message = $isTimeout
-                ? "Ollama demorou mais que {$timeoutSeconds}s para responder. Aumente AI_REQUEST_TIMEOUT_MS e/ou reduza AI_MAX_RESPONSE_TOKENS."
-                : "Falha ao conectar no Ollama em {$url}. Verifique se o servidor esta ativo.";
+            if ($isTimeout) {
+                Log::warning('ai.provider.timeout', [
+                    'provider'        => 'ollama',
+                    'model'           => $model,
+                    'url'             => $url,
+                    'timeout_seconds' => $timeoutSeconds,
+                    'exception'       => $exceptionMessage,
+                ]);
+
+                return $this->timeoutResult($model, $url, $timeoutSeconds, $exceptionMessage);
+            }
 
             return $this->errorResult(
-                $message,
+                "Falha ao conectar no Ollama em {$url}. Verifique se o servidor esta ativo.",
                 [
-                    'provider' => 'ollama',
-                    'model' => $model,
-                    'url' => $url,
+                    'provider'  => 'ollama',
+                    'model'     => $model,
+                    'url'       => $url,
                     'exception' => $exceptionMessage,
                 ]
             );
@@ -190,16 +199,28 @@ class OllamaAiProvider implements AiProvider, AiStreamingProvider
             $isTimeout = str_contains($normalizedException, 'timed out')
                 || str_contains($normalizedException, 'timeout');
 
-            $message = $isTimeout
-                ? "Ollama demorou mais que {$timeoutSeconds}s para responder. Aumente AI_REQUEST_TIMEOUT_MS e/ou reduza AI_MAX_RESPONSE_TOKENS."
-                : "Erro na requisicao ao Ollama em {$url}: {$exceptionMessage}";
+            if ($isTimeout) {
+                Log::warning('ai.provider.timeout', [
+                    'provider'        => 'ollama',
+                    'model'           => $model,
+                    'url'             => $url,
+                    'timeout_seconds' => $timeoutSeconds,
+                    'exception'       => $exceptionMessage,
+                    'streaming'       => true,
+                ]);
 
-            return $this->errorResult($message, [
-                'provider' => 'ollama',
-                'model' => $model,
-                'url' => $url,
-                'exception' => $exceptionMessage,
-            ]);
+                return $this->timeoutResult($model, $url, $timeoutSeconds, $exceptionMessage);
+            }
+
+            return $this->errorResult(
+                "Erro na requisicao ao Ollama em {$url}: {$exceptionMessage}",
+                [
+                    'provider'  => 'ollama',
+                    'model'     => $model,
+                    'url'       => $url,
+                    'exception' => $exceptionMessage,
+                ]
+            );
         } catch (Throwable $exception) {
             return $this->errorResult(
                 "Erro inesperado ao conectar no Ollama em {$url}.",
@@ -382,6 +403,30 @@ class OllamaAiProvider implements AiProvider, AiStreamingProvider
         $parsed = (int) $value;
 
         return $parsed > 0 ? $parsed : null;
+    }
+
+    /**
+     * Resultado padronizado para timeout — error code distinto para facilitar
+     * monitoramento e métricas. A mensagem em meta.message é exibida ao usuário;
+     * os demais campos (exception, timeout_seconds) ficam apenas no log/meta interno.
+     *
+     * @return array{ok:false,text:null,error:string,meta:array<string,mixed>}
+     */
+    private function timeoutResult(string $model, string $url, int $timeoutSeconds, string $exceptionMessage): array
+    {
+        return [
+            'ok'    => false,
+            'text'  => null,
+            'error' => 'ollama_timeout',
+            'meta'  => [
+                'provider'        => 'ollama',
+                'model'           => $model,
+                'url'             => $url,
+                'timeout_seconds' => $timeoutSeconds,
+                'exception'       => $exceptionMessage,
+                'message'         => 'Assistente temporariamente indisponível. Tente novamente em instantes.',
+            ],
+        ];
     }
 
     /**

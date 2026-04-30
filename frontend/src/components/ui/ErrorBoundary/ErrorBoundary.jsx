@@ -3,20 +3,18 @@ import Button from '@/components/ui/Button/Button.jsx';
 import { Sentry } from '@/lib/sentry';
 import './ErrorBoundary.css';
 
-/** @typedef {import('@/types/ui').ErrorBoundaryProps} ErrorBoundaryProps */
-
 /**
  * Captura erros de render na árvore de children, exibe UI de fallback e reporta ao Sentry.
- * Use `resetKey` para limpar o erro quando o contexto da página muda.
  *
- * @extends {Component<ErrorBoundaryProps>}
+ * Props:
+ *   resetKey  {any}     — quando muda, limpa o estado de erro (usar pathname da rota).
+ *   label     {string}  — nome da seção exibido no painel de erro (ex: "Inbox", "Chat").
+ *   children  {node}    — árvore de componentes a proteger.
  */
 class ErrorBoundary extends Component {
   constructor(props) {
     super(props);
-    this.state = {
-      hasError: false,
-    };
+    this.state = { hasError: false };
   }
 
   static getDerivedStateFromError() {
@@ -26,6 +24,7 @@ class ErrorBoundary extends Component {
   componentDidCatch(error, errorInfo) {
     Sentry.captureException(error, {
       contexts: { react: { componentStack: errorInfo.componentStack } },
+      tags: { section: this.props.label ?? 'unknown' },
     });
   }
 
@@ -41,26 +40,33 @@ class ErrorBoundary extends Component {
   };
 
   render() {
-    if (this.state.hasError) {
-      return (
-        <div className="error-boundary">
-          <div className="error-boundary__panel">
-            <h1 className="error-boundary__title">Algo deu errado. Recarregue a pagina.</h1>
-            <p className="error-boundary__subtitle">O sistema encontrou um erro inesperado de interface.</p>
-            <div className="error-boundary__actions">
-              <Button type="button" variant="secondary" onClick={this.handleTryAgain}>
-                Tentar novamente
-              </Button>
-              <Button type="button" variant="primary" onClick={() => window.location.reload()}>
-                Recarregar pagina
-              </Button>
-            </div>
-          </div>
-        </div>
-      );
+    if (!this.state.hasError) {
+      return this.props.children;
     }
 
-    return this.props.children;
+    const { label } = this.props;
+
+    return (
+      <div className="error-boundary" role="alert">
+        <div className="error-boundary__panel">
+          {label && (
+            <p className="error-boundary__label">{label}</p>
+          )}
+          <h1 className="error-boundary__title">Algo deu errado. Recarregue a página.</h1>
+          <p className="error-boundary__subtitle">
+            O sistema encontrou um erro inesperado de interface.
+          </p>
+          <div className="error-boundary__actions">
+            <Button type="button" variant="secondary" onClick={this.handleTryAgain}>
+              Tentar novamente
+            </Button>
+            <Button type="button" variant="primary" onClick={() => window.location.reload()}>
+              Recarregar página
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
   }
 }
 

@@ -129,20 +129,10 @@ export default function useCompanyInboxConversations({ data, loading }) {
     }
 
     setConversations((prev) => {
-      let found = false;
-      const next = prev.map((item) => {
-        if (Number(item.id) !== Number(conversation.id)) {
-          return item;
-        }
-
-        found = true;
-        return {
-          ...item,
-          ...conversation,
-        };
-      });
-
-      return sortConversationsByActivity(found ? next : [conversation, ...next]);
+      const map = new Map(prev.map((item) => [Number(item.id), item]));
+      const id = Number(conversation.id);
+      map.set(id, { ...(map.get(id) ?? {}), ...conversation });
+      return sortConversationsByActivity(Array.from(map.values()));
     });
   }, []);
 

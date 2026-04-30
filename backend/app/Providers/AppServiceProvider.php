@@ -36,6 +36,7 @@ use App\Policies\ChatPolicy;
 use App\Policies\ConversationPolicy;
 use App\Policies\QuickReplyPolicy;
 use App\Policies\TagPolicy;
+use App\Console\Commands\GenerateSecretsCommand;
 use App\Services\Ai\AiProviderResolver;
 use App\Services\Ai\Providers\AiProvider;
 use Carbon\Carbon;
@@ -65,17 +66,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Valida configuração obrigatória em contexto HTTP (não em console/artisan).
-        // Em console (migrations, queue workers, etc.) a variável pode não estar disponível
-        // sem prejuízo, já que a validação de assinatura só acontece no controller.
+        // Valida secrets críticos em contexto HTTP — falha rápida e explícita antes de
+        // qualquer request ser processado. Console/Artisan/tests ficam de fora porque
+        // migrations e workers podem rodar sem todas as variáveis de runtime.
         if (! $this->app->runningInConsole() && ! $this->app->environment('testing')) {
-            $appSecret = (string) config('whatsapp.app_secret', '');
-            if ($appSecret === '') {
-                throw new ConfigurationException(
-                    'WHATSAPP_APP_SECRET não está configurado. ' .
-                    'Defina esta variável de ambiente com a chave secreta do App no painel Meta for Developers.'
-                );
-            }
+            $this->validateCriticalSecrets();
         }
 
         Carbon::setLocale('pt_BR');
@@ -215,5 +210,58 @@ class AppServiceProvider extends ServiceProvider
         $userId = $user ? (string) $user->id : 'guest';
 
         return "{$request->ip()}|{$userId}";
+    }
+
+    // -------------------------------------------------------------------------
+    // Validação de secrets críticos
+    // -------------------------------------------------------------------------
+
+    /**
+     * Falha explicitamente se algum secret crítico estiver ausente ou for um
+     * placeholder de exemplo. Chamado apenas em contexto HTTP, antes do primeiro
+     * request ser processado.
+     *
+     * Por que aqui e não em um middleware?
+     * Middleware roda por request; um secret inválido indica misconfiguration
+     * que afeta TODAS as requests — melhor abortar o boot inteiro com mensagem clara.
+     */
+    private function validateCriticalSecrets(): void
+    {
+        // WhatsApp — obrigatório para validar assinatura de webhooks
+        $this->assertSecret(
+            (string) config('whatsapp.app_secret', ''),
+            'WHATSAPP_APP_SECRET',
+            'Obtenha em: Meta for Developers → Configurações do app → Básico → Chave secreta do app.'
+        );
+
+        // Realtime JWT — obrigatório para emitir tokens de socket e join
+        $this->assertSecret(
+            (string) config('realtime.jwt.secret', ''),
+            'REALTIME_JWT_SECRET',
+            'Execute: php artisan app:generate-secrets --write'
+        );
+
+        // Realtime internal key — obrigatório apenas quando fallback HTTP está ativo
+        $internalEmitUrl = trim((string) config('realtime.fallback.internal_emit_url', ''));
+        if ($internalEmitUrl !== '') {
+            $this->assertSecret(
+                (string) config('realtime.fallback.internal_key', ''),
+                'REALTIME_INTERNAL_KEY',
+                'REALTIME_INTERNAL_EMIT_URL está configurado mas REALTIME_INTERNAL_KEY não. ' .
+                'Execute: php artisan app:generate-secrets --write'
+            );
+        }
+    }
+
+    /**
+     * Lança ConfigurationException se o valor estiver vazio ou for um placeholder.
+     */
+    private function assertSecret(string $value, string $varName, string $hint): void
+    {
+        if ($value === '' || GenerateSecretsCommand::isPlaceholder($value)) {
+            throw new ConfigurationException(
+                "{$varName} não está configurado ou contém um valor de exemplo. {$hint}"
+            );
+        }
     }
 }

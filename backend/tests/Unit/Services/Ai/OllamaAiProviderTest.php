@@ -4,6 +4,7 @@ namespace Tests\Unit\Services\Ai;
 
 use App\Services\Ai\Providers\OllamaAiProvider;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
 class OllamaAiProviderTest extends TestCase
@@ -76,6 +77,77 @@ class OllamaAiProviderTest extends TestCase
         $this->assertStringContainsString(
             'Ollama',
             (string) ($result['meta']['message'] ?? '')
+        );
+    }
+
+    public function test_reply_returns_user_friendly_message_on_timeout(): void
+    {
+        config()->set('ai.providers.ollama.base_url', 'http://127.0.0.1:11434');
+        config()->set('ai.providers.ollama.chat_path', '/api/chat');
+
+        Http::fake(function () {
+            throw new \RuntimeException('cURL error 28: Operation timed out after 30000 milliseconds');
+        });
+
+        $provider = $this->app->make(OllamaAiProvider::class);
+        $result = $provider->reply([
+            ['role' => 'user', 'content' => 'Mensagem de teste'],
+        ], [
+            'model'               => 'gemma3:4b',
+            'request_timeout_ms'  => 30000,
+        ]);
+
+        $this->assertFalse((bool) ($result['ok'] ?? true));
+        $this->assertSame('ollama_timeout', $result['error'] ?? null);
+        $this->assertSame(
+            'Assistente temporariamente indisponível. Tente novamente em instantes.',
+            $result['meta']['message'] ?? null
+        );
+        $this->assertSame(30, $result['meta']['timeout_seconds'] ?? null);
+    }
+
+    public function test_reply_logs_warning_on_timeout(): void
+    {
+        config()->set('ai.providers.ollama.base_url', 'http://127.0.0.1:11434');
+        config()->set('ai.providers.ollama.chat_path', '/api/chat');
+
+        Log::spy();
+
+        Http::fake(function () {
+            throw new \RuntimeException('cURL error 28: Operation timed out after 30000 milliseconds');
+        });
+
+        $provider = $this->app->make(OllamaAiProvider::class);
+        $provider->reply([
+            ['role' => 'user', 'content' => 'Mensagem de teste'],
+        ], [
+            'model'              => 'gemma3:4b',
+            'request_timeout_ms' => 30000,
+        ]);
+
+        Log::shouldHaveReceived('warning')
+            ->atLeast()->once()
+            ->with('ai.provider.timeout', \Mockery::on(
+                fn (array $ctx) => ($ctx['provider'] ?? '') === 'ollama'
+                    && ($ctx['timeout_seconds'] ?? 0) === 30
+            ));
+    }
+
+    public function test_connection_refused_uses_generic_error_code_not_timeout(): void
+    {
+        config()->set('ai.providers.ollama.base_url', 'http://127.0.0.1:11434');
+        config()->set('ai.providers.ollama.chat_path', '/api/chat');
+
+        Http::fake(fn () => throw new \RuntimeException('Connection refused'));
+
+        $provider = $this->app->make(OllamaAiProvider::class);
+        $result = $provider->reply([['role' => 'user', 'content' => 'a']], ['model' => 'gemma3:4b']);
+
+        $this->assertSame('ollama_provider_error', $result['error'] ?? null);
+        $this->assertStringContainsString('Ollama', $result['meta']['message'] ?? '');
+        $this->assertStringNotContainsString(
+            'Assistente temporariamente',
+            $result['meta']['message'] ?? ''
         );
     }
 }

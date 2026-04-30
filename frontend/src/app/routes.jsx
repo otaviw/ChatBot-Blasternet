@@ -4,6 +4,20 @@ import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-do
 import useAuth from '@/hooks/useAuth';
 import { PERM, hasPermission } from '@/constants/permissions';
 import { getScopedAuthPaths } from '@/utils/tenantRouting';
+import ErrorBoundary from '@/components/ui/ErrorBoundary/ErrorBoundary.jsx';
+
+/**
+ * Boundary por rota: isola o crash de uma página sem derrubar o restante do app.
+ * Usa o pathname como resetKey — ao navegar para outra rota e voltar, o erro é limpo.
+ */
+function PageBoundary({ label, children }) {
+  const { pathname } = useLocation();
+  return (
+    <ErrorBoundary resetKey={pathname} label={label}>
+      {children}
+    </ErrorBoundary>
+  );
+}
 
 const EntrarPage = lazy(() => import('@/pages/Entrar/EntrarPage.jsx'));
 const EsqueceuSenhaPage = lazy(() => import('@/pages/EsqueceuSenha/EsqueceuSenhaPage.jsx'));
@@ -148,10 +162,10 @@ function AppRoutes() {
           element={<ResellerAdminRoute><AdminMyResellerPage /></ResellerAdminRoute>}
         />
         <Route path="/companies/:id/edit" element={<CompanyEditRoute />} />
-        <Route path="/admin/conversas" element={<ResellerAdminRoute><AdminInboxPage /></ResellerAdminRoute>} />
+        <Route path="/admin/conversas" element={<ResellerAdminRoute><PageBoundary label="Inbox"><AdminInboxPage /></PageBoundary></ResellerAdminRoute>} />
         <Route path="/admin/auditoria" element={<ResellerAdminRoute><CompanyAuditPage /></ResellerAdminRoute>} />
-        <Route path="/admin/chat-interno" element={<InternalChatPage />} />
-        <Route path="/admin/chat-ia" element={<InternalAiChatPage />} />
+        <Route path="/admin/chat-interno" element={<PageBoundary label="Chat Interno"><InternalChatPage /></PageBoundary>} />
+        <Route path="/admin/chat-ia" element={<PageBoundary label="Chat IA"><InternalAiChatPage /></PageBoundary>} />
         <Route path="/admin/usuarios" element={<AdminUsersPage />} />
         <Route path="/admin/suporte" element={<AdminSupportTicketsPage />} />
         <Route
@@ -160,10 +174,10 @@ function AppRoutes() {
         />
 
         {/* Rotas de company account com permissao explicita via PermissionRoute */}
-        <Route path="/minha-conta/conversas" element={<PermissionRoute permission={PERM.PAGE_INBOX}><CompanyInboxPage /></PermissionRoute>} />
-        <Route path="/minha-conta/chat-interno" element={<PermissionRoute permission={PERM.PAGE_INTERNAL_CHAT}><InternalChatPage /></PermissionRoute>} />
+        <Route path="/minha-conta/conversas" element={<PermissionRoute permission={PERM.PAGE_INBOX}><PageBoundary label="Inbox"><CompanyInboxPage /></PageBoundary></PermissionRoute>} />
+        <Route path="/minha-conta/chat-interno" element={<PermissionRoute permission={PERM.PAGE_INTERNAL_CHAT}><PageBoundary label="Chat Interno"><InternalChatPage /></PageBoundary></PermissionRoute>} />
         {/* Rotas de IA: atualmente restritas a system_admin (SuperAdminRoute/AiManagementRoute) */}
-        <Route path="/minha-conta/chat-ia" element={<SuperAdminRoute><InternalAiChatPage /></SuperAdminRoute>} />
+        <Route path="/minha-conta/chat-ia" element={<SuperAdminRoute><PageBoundary label="Chat IA"><InternalAiChatPage /></PageBoundary></SuperAdminRoute>} />
         <Route path="/minha-conta/ia/analytics" element={<AiManagementRoute><CompanyAiAnalyticsPage /></AiManagementRoute>} />
         <Route path="/minha-conta/ia/auditoria" element={<AiManagementRoute><CompanyAiAuditPage /></AiManagementRoute>} />
         <Route path="/minha-conta/auditoria" element={<PermissionRoute permission={PERM.PAGE_AUDIT}><CompanyAuditPage /></PermissionRoute>} />

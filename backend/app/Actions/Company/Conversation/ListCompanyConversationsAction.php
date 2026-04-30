@@ -86,8 +86,8 @@ class ListCompanyConversationsAction
                 'tags' => fn ($q) => $q->select('tags.id', 'tags.name', 'tags.color')->orderBy('tags.name'),
             ])
             ->withCount('messages')
-            ->orderByRaw("COALESCE(({$lastMessageAtSubquery->toSql()}), conversations.created_at) DESC")
-            ->addBinding($lastMessageAtSubquery->getBindings(), 'order')
+            // MySQL resolve aliases do SELECT antes do ORDER BY, eliminando a 5ª avaliação da subquery.
+            ->orderByRaw('COALESCE(last_message_at, conversations.created_at) DESC')
             ->orderByDesc('conversations.id');
         $this->conversationSupport->applyInboxVisibilityScope($query, $user);
 
@@ -104,8 +104,10 @@ class ListCompanyConversationsAction
         }
 
         if ($filterArea !== '') {
+            // Comparação direta usa o índice UNIQUE(company_id, name).
+            // utf8mb4_unicode_ci é case-insensitive por padrão — LOWER() era desnecessário e impedia o índice.
             $query->whereHas('currentArea', function ($q) use ($filterArea) {
-                $q->whereRaw('LOWER(areas.name) = ?', [mb_strtolower($filterArea)]);
+                $q->where('areas.name', $filterArea);
             });
         }
 

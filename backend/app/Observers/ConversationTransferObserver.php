@@ -45,28 +45,6 @@ class ConversationTransferObserver implements ShouldHandleEventsAfterCommit
 
         $conversation = Conversation::query()
             ->whereKey($transfer->conversation_id)
-            ->addSelect([
-                'last_message_id' => Message::query()
-                    ->select('id')
-                    ->whereColumn('messages.conversation_id', 'conversations.id')
-                    ->latest('id')
-                    ->limit(1),
-                'last_message_at' => Message::query()
-                    ->select('created_at')
-                    ->whereColumn('messages.conversation_id', 'conversations.id')
-                    ->latest('id')
-                    ->limit(1),
-                'last_message_text' => Message::query()
-                    ->select('text')
-                    ->whereColumn('messages.conversation_id', 'conversations.id')
-                    ->latest('id')
-                    ->limit(1),
-                'last_message_direction' => Message::query()
-                    ->select('direction')
-                    ->whereColumn('messages.conversation_id', 'conversations.id')
-                    ->latest('id')
-                    ->limit(1),
-            ])
             ->with(['assignedUser:id,name,email', 'currentArea:id,name'])
             ->withCount('messages')
             ->first([
@@ -83,6 +61,20 @@ class ConversationTransferObserver implements ShouldHandleEventsAfterCommit
                 'created_at',
                 'updated_at',
             ]);
+
+        // 1 query simples no lugar de 4 subqueries aninhadas.
+        // O índice (conversation_id, id) garante busca O(log n).
+        if ($conversation) {
+            $lastMsg = Message::query()
+                ->where('conversation_id', $transfer->conversation_id)
+                ->latest('id')
+                ->first(['id', 'created_at', 'text', 'direction']);
+
+            $conversation->last_message_id        = $lastMsg?->id;
+            $conversation->last_message_at         = $lastMsg?->created_at;
+            $conversation->last_message_text       = $lastMsg?->text;
+            $conversation->last_message_direction  = $lastMsg?->direction;
+        }
 
         $this->publisher->publish(
             RealtimeEvents::CONVERSATION_TRANSFERRED,

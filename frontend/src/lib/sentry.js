@@ -10,7 +10,9 @@ export function initSentry() {
 
   Sentry.init({
     dsn,
-    environment: import.meta.env.MODE,
+    // VITE_SENTRY_ENVIRONMENT permite distinguir staging/production sem mudar o build mode.
+    // Fallback para import.meta.env.MODE ('development' | 'production') se não configurado.
+    environment: import.meta.env.VITE_SENTRY_ENVIRONMENT || import.meta.env.MODE,
     release: import.meta.env.VITE_APP_VERSION,
     // Captura 10% das transações para performance monitoring
     tracesSampleRate: 0.1,

@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 
 class NotificationService
 {
@@ -41,6 +42,10 @@ class NotificationService
         $notification->read_at = Carbon::now();
         $notification->save();
 
+        if ($notification->user_id) {
+            $this->forgetUnreadCache((int) $notification->user_id);
+        }
+
         return $notification->refresh();
     }
 
@@ -58,7 +63,7 @@ class NotificationService
             return 0;
         }
 
-        return Notification::query()
+        $updated = Notification::query()
             ->where('user_id', $userId)
             ->where('module', $moduleValue)
             ->where('reference_type', $referenceTypeValue)
@@ -69,6 +74,12 @@ class NotificationService
                 'read_at' => Carbon::now(),
                 'updated_at' => Carbon::now(),
             ]);
+
+        if ($updated > 0) {
+            $this->forgetUnreadCache($userId);
+        }
+
+        return $updated;
     }
 
     public function markAllAsReadForUser(User|int $user): int
@@ -78,7 +89,7 @@ class NotificationService
             return 0;
         }
 
-        return Notification::query()
+        $updated = Notification::query()
             ->where('user_id', $userId)
             ->where('is_read', false)
             ->update([
@@ -86,6 +97,12 @@ class NotificationService
                 'read_at' => Carbon::now(),
                 'updated_at' => Carbon::now(),
             ]);
+
+        if ($updated > 0) {
+            $this->forgetUnreadCache($userId);
+        }
+
+        return $updated;
     }
 
     /**
@@ -142,14 +159,31 @@ class NotificationService
     {
         $userId = $user instanceof User ? (int) $user->id : (int) $user;
 
-        return Notification::query()
-            ->where('user_id', $userId)
-            ->where('is_read', false)
-            ->selectRaw('module, COUNT(*) as total')
-            ->groupBy('module')
-            ->pluck('total', 'module')
-            ->map(fn ($value) => (int) $value)
-            ->toArray();
+        // Cache de 10 s por usuário: limita o GROUP BY a 6 execuções/min mesmo em rajadas
+        // de notificações (ex.: transferência simultânea para vários atendentes).
+        // Invalidado explicitamente pelos métodos de mark-as-read para manter consistência.
+        return Cache::remember(
+            $this->unreadCacheKey($userId),
+            now()->addSeconds(10),
+            fn () => Notification::query()
+                ->where('user_id', $userId)
+                ->where('is_read', false)
+                ->selectRaw('module, COUNT(*) as total')
+                ->groupBy('module')
+                ->pluck('total', 'module')
+                ->map(fn ($value) => (int) $value)
+                ->toArray()
+        );
+    }
+
+    private function unreadCacheKey(int $userId): string
+    {
+        return "notifications:unread_by_module:{$userId}";
+    }
+
+    private function forgetUnreadCache(int $userId): void
+    {
+        Cache::forget($this->unreadCacheKey($userId));
     }
 
     /**

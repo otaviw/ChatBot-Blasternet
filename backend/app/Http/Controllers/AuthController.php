@@ -13,6 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
@@ -36,20 +37,42 @@ class AuthController extends Controller
         );
 
         if (! Auth::attempt($credentials, true)) {
-            return $this->errorResponse('Credenciais invalidas.', 'invalid_credentials', 401);
+            // Determina a razão do falha apenas para log interno — jamais exposta ao cliente.
+            // A query extra só ocorre em falhas (caminho frio) e não afeta logins bem-sucedidos.
+            $reason = User::where('email', $credentials['email'] ?? '')->exists()
+                ? 'invalid_password'
+                : 'unknown_user';
+
+            Log::warning('auth.login_failed', [
+                'reason'     => $reason,
+                'email_hash' => $emailHash,
+                'ip'         => $request->ip(),
+            ]);
+
+            return $this->invalidCredentialsResponse();
         }
 
         $request->session()->regenerate();
         $user = $request->user();
+
         if (! $user) {
             return $this->errorResponse('Falha ao autenticar usuário.', 'auth_failed', 500);
         }
+
         if (! $user->is_active) {
+            // Invalida a sessão criada pelo Auth::attempt() para evitar token ativo residual.
             Auth::logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
-            return $this->errorResponse('Usuário inativo. Procure um administrador.', 'user_inactive', 403);
+            Log::warning('auth.login_failed', [
+                'reason'     => 'inactive_user',
+                'email_hash' => $emailHash,
+                'ip'         => $request->ip(),
+                'user_id'    => (int) $user->id,
+            ]);
+
+            return $this->invalidCredentialsResponse();
         }
 
         $user->loadMissing('company.reseller', 'reseller');
@@ -65,9 +88,18 @@ class AuthController extends Controller
 
         return response()->json([
             'authenticated' => true,
-            'user' => $this->userPayload($user),
-            'reseller' => $this->resellerPayload($user),
+            'user'          => $this->userPayload($user),
+            'reseller'      => $this->resellerPayload($user),
         ]);
+    }
+
+    /**
+     * Resposta genérica para credenciais inválidas.
+     * Única resposta possível para falha de login — impede enumeração de usuários.
+     */
+    private function invalidCredentialsResponse(): JsonResponse
+    {
+        return $this->errorResponse('Credenciais inválidas.', 'invalid_credentials', 401);
     }
 
     public function me(Request $request): JsonResponse
