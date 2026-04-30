@@ -1,57 +1,68 @@
 <?php
 
+declare(strict_types=1);
+
+
 namespace App\Logging;
 
+use App\Http\Middleware\RequestTrackingMiddleware;
+use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Monolog\LogRecord;
 use Monolog\Processor\ProcessorInterface;
-use Illuminate\Support\Str;
 
 /**
  * Monolog processor: injeta campos de contexto fixos em todos os log records.
  *
  * Campos adicionados em $record->extra:
- *  - request_id : UUID gerado uma vez por processo (estável durante toda a request)
- *  - service    : nome da aplicação (config app.name)
+ *  - request_id : ID da request atual (header/attribute) ou UUID fallback
+ *  - service    : nome da aplicacao (config app.name)
  *  - env        : ambiente (config app.env)
- *  - user_id    : ID do usuário autenticado (null em jobs/artisan)
- *  - company_id : ID da company do usuário (null para system admins e jobs)
- *
- * Esses campos terminam no JSON final porque AppJsonFormatter os promove
- * de extra para o topo do objeto JSON.
+ *  - user_id    : ID do usuario autenticado (null em jobs/artisan)
+ *  - company_id : ID da company do usuario (null para system admins e jobs)
  */
 class AddRequestContext implements ProcessorInterface
 {
-    /** UUID único por processo (mesma request = mesmo ID). */
-    private static ?string $requestId = null;
-
     public function __invoke(LogRecord $record): LogRecord
     {
         return $record->with(extra: array_merge($record->extra, [
             'request_id' => static::getRequestId(),
-            'service'    => config('app.name', 'laravel'),
-            'env'        => config('app.env', 'production'),
-            'user_id'    => static::resolveUserId(),
+            'service' => config('app.name', 'laravel'),
+            'env' => config('app.env', 'production'),
+            'user_id' => static::resolveUserId(),
             'company_id' => static::resolveCompanyId(),
         ]));
     }
 
     private static function getRequestId(): string
     {
-        if (static::$requestId === null) {
-            // Preferência: X-Request-ID enviado pelo load balancer/proxy
-            $header = request()->header('X-Request-ID');
-            static::$requestId = (is_string($header) && $header !== '')
-                ? $header
-                : Str::uuid()->toString();
+        try {
+            if (app()->bound('request')) {
+                /** @var Request $request */
+                $request = app('request');
+
+                $attributeId = trim((string) $request->attributes->get(RequestTrackingMiddleware::ATTRIBUTE_KEY, ''));
+                if ($attributeId !== '') {
+                    return $attributeId;
+                }
+
+                $headerId = trim((string) $request->header(RequestTrackingMiddleware::HEADER_NAME, ''));
+                if ($headerId !== '') {
+                    return $headerId;
+                }
+            }
+        } catch (\Throwable) {
+            // fallback abaixo
         }
 
-        return static::$requestId;
+        return (string) Str::uuid();
     }
 
     private static function resolveUserId(): ?int
     {
         try {
             $user = auth()->user();
+
             return $user ? (int) $user->id : null;
         } catch (\Throwable) {
             return null;
@@ -63,6 +74,7 @@ class AddRequestContext implements ProcessorInterface
         try {
             $user = auth()->user();
             $id = $user?->company_id;
+
             return ($id !== null && $id > 0) ? (int) $id : null;
         } catch (\Throwable) {
             return null;

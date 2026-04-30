@@ -2,6 +2,7 @@
 
 use App\Services\Ai\Providers\NullAiProvider;
 use App\Services\Ai\Providers\OllamaAiProvider;
+use App\Services\Ai\Providers\AnthropicAiProvider;
 use App\Services\Ai\Providers\TestAiProvider;
 
 return [
@@ -50,6 +51,7 @@ return [
     |
     */
     'provider_classes' => [
+        'anthropic' => AnthropicAiProvider::class,
         'ollama' => OllamaAiProvider::class,
         'test' => TestAiProvider::class,
         'null' => NullAiProvider::class,
@@ -111,6 +113,15 @@ return [
     ],
 
     'providers' => [
+        'anthropic' => [
+            'api_key' => env('ANTHROPIC_API_KEY', ''),
+            'model' => env('ANTHROPIC_MODEL', 'claude-3-5-sonnet-latest'),
+            'base_url' => env('AI_ANTHROPIC_BASE_URL', 'https://api.anthropic.com'),
+            'messages_path' => env('AI_ANTHROPIC_MESSAGES_PATH', '/v1/messages'),
+            'version' => env('AI_ANTHROPIC_VERSION', '2023-06-01'),
+            'max_response_tokens' => (int) env('AI_ANTHROPIC_MAX_RESPONSE_TOKENS', 1024),
+        ],
+
         'ollama' => [
             'base_url' => env('AI_OLLAMA_BASE_URL', 'http://127.0.0.1:11434'),
             'chat_path' => env('AI_OLLAMA_CHAT_PATH', '/api/chat'),

@@ -1,5 +1,8 @@
 <?php
 
+declare(strict_types=1);
+
+
 namespace App\Services\Ai\Providers;
 
 class TestAiProvider implements AiProvider, AiStreamingProvider

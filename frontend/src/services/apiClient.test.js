@@ -11,15 +11,18 @@ async function loadApiClient(pathname = '/painel') {
 
   const mod = await import('./apiClient');
   const apiClient = mod.default;
+  const requestFulfilled = apiClient.interceptors.request.handlers.find(
+    (handler) => typeof handler?.fulfilled === 'function'
+  )?.fulfilled;
   const rejected = apiClient.interceptors.response.handlers.find(
     (handler) => typeof handler?.rejected === 'function'
   )?.rejected;
 
-  if (!rejected) {
-    throw new Error('Response interceptor rejected handler not found');
+  if (!requestFulfilled || !rejected) {
+    throw new Error('Interceptor handlers not found');
   }
 
-  return { rejected, windowMock: globalThis.window };
+  return { requestFulfilled, rejected, windowMock: globalThis.window };
 }
 
 function makeAxiosError({ status, data, code, url = '/api/recurso', skipAuthRedirect = false } = {}) {
@@ -53,6 +56,7 @@ describe('apiClient', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     delete globalThis.window;
+    delete globalThis.crypto;
   });
 
   describe('resolveValidationErrors (via normalizeApiError)', () => {
@@ -102,6 +106,27 @@ describe('apiClient', () => {
       expect(normalized.status).toBe(422);
       expect(normalized.validationErrors).toEqual({});
       expect(normalized.response.data.errors).toEqual({});
+    });
+  });
+
+  describe('request-id header injection', () => {
+    it('injeta X-Request-ID quando não existir no request', async () => {
+      const { requestFulfilled } = await loadApiClient();
+      const randomUUID = vi.fn(() => 'uuid-test-123');
+      globalThis.crypto = { randomUUID };
+
+      const config = requestFulfilled({ headers: {} });
+
+      expect(config.headers['X-Request-ID']).toBe('uuid-test-123');
+      expect(randomUUID).toHaveBeenCalledOnce();
+      delete globalThis.crypto;
+    });
+
+    it('preserva X-Request-ID existente no request', async () => {
+      const { requestFulfilled } = await loadApiClient();
+      const config = requestFulfilled({ headers: { 'X-Request-ID': 'frontend-existing-id' } });
+
+      expect(config.headers['X-Request-ID']).toBe('frontend-existing-id');
     });
   });
 

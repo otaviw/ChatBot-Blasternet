@@ -1,5 +1,8 @@
 <?php
 
+declare(strict_types=1);
+
+
 namespace App\Actions\Chat;
 
 use App\Models\ChatConversation;
@@ -64,10 +67,17 @@ class ListConversationsAction
         }
 
         $pagination = $query->paginate($perPage)->withQueryString();
+        $conversationsCollection = collect($pagination->items());
+        $listContext = $this->chatService->preloadListContext($conversationsCollection, $user);
 
-        $conversations = collect($pagination->items())
-            ->map(function (ChatConversation $conversation) use ($user): array {
-                return $this->chatService->serializeConversationSummary($conversation, $user);
+        $conversations = $conversationsCollection
+            ->map(function (ChatConversation $conversation) use ($user, $listContext): array {
+                return $this->chatService->serializeConversationSummaryForList(
+                    $conversation,
+                    $user,
+                    $listContext['unread_counts'] ?? [],
+                    $listContext['viewer_is_admin'] ?? []
+                );
             })
             ->values()
             ->all();

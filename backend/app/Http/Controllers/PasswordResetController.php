@@ -1,9 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers;
 
 use App\Mail\ResetPasswordMail;
 use App\Models\User;
+use App\Support\Security\PasswordRules;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -35,19 +38,20 @@ class PasswordResetController extends Controller
     public function reset(Request $request): JsonResponse
     {
         $request->validate([
-            'token'    => ['required', 'string'],
-            'email'    => ['required', 'email'],
-            'password' => ['required', 'string', 'min:6', 'confirmed'],
+            'token' => ['required', 'string'],
+            'email' => ['required', 'email'],
+            'password' => [...PasswordRules::required(), 'confirmed'],
         ], [
-            'password.min'       => 'A senha deve ter pelo menos 6 caracteres.',
+            'password.min' => 'A senha deve ter pelo menos 8 caracteres.',
+            'password.numbers' => 'A senha deve incluir pelo menos 1 numero.',
             'password.confirmed' => 'A confirmação da senha não confere.',
         ]);
 
         $status = Password::reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
-            function (User $user, string $password) {
+            function (User $user, string $password): void {
                 $user->forceFill([
-                    'password'       => Hash::make($password),
+                    'password' => Hash::make($password),
                     'remember_token' => Str::random(60),
                 ])->save();
 
@@ -61,14 +65,13 @@ class PasswordResetController extends Controller
             ]);
         }
 
-        // Mensagem genérica para INVALID_TOKEN e INVALID_USER — não revelar
-        // se o e-mail existe ou se o token é o problema específico.
         if ($status === Password::RESET_THROTTLED) {
             return response()->json([
                 'message' => 'Aguarde antes de tentar novamente.',
             ], 429);
         }
 
+        // Generic message for invalid token and invalid user to avoid account enumeration.
         return response()->json([
             'message' => 'Link inválido ou expirado. Solicite um novo.',
         ], 422);

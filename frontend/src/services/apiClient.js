@@ -11,6 +11,14 @@ const apiClient = axios.create({
   headers: { Accept: 'application/json' },
 });
 
+function generateRequestId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return `req-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
+}
+
 function readObject(value) {
   return value && typeof value === 'object' ? value : {};
 }
@@ -155,7 +163,15 @@ function normalizeApiError(error) {
 }
 
 // Auth is session-based (HttpOnly cookie). No Bearer token injection needed.
-apiClient.interceptors.request.use((config) => config);
+apiClient.interceptors.request.use((config) => {
+  const headers = config.headers ?? {};
+  if (!headers['X-Request-ID'] && !headers['x-request-id']) {
+    headers['X-Request-ID'] = generateRequestId();
+  }
+  config.headers = headers;
+
+  return config;
+});
 
 apiClient.interceptors.response.use(
   (response) => response,

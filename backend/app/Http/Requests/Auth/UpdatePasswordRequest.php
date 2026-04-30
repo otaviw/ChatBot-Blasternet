@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Requests\Auth;
 
+use App\Support\Security\PasswordRules;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdatePasswordRequest extends FormRequest
@@ -11,14 +14,12 @@ class UpdatePasswordRequest extends FormRequest
         return true;
     }
 
-    // Senhas NÃO são sanitizadas — strip_tags quebraria caracteres como <, >, &
-    // que são válidos em senhas. A validação de comprimento já impede abuso.
-
+    // Passwords are not sanitized to avoid breaking valid special characters.
     public function rules(): array
     {
         return [
             'current_password' => ['required', 'string', 'max:255'],
-            'password'         => ['required', 'string', 'min:8', 'max:255', 'confirmed'],
+            'password' => [...PasswordRules::required(), 'confirmed'],
         ];
     }
 
@@ -26,10 +27,11 @@ class UpdatePasswordRequest extends FormRequest
     {
         return [
             'current_password.required' => 'Informe a senha atual.',
-            'password.required'         => 'Informe a nova senha.',
-            'password.min'              => 'A nova senha deve ter pelo menos 8 caracteres.',
-            'password.max'              => 'A nova senha não pode ultrapassar 255 caracteres.',
-            'password.confirmed'        => 'A confirmacao da nova senha não confere.',
+            'password.required' => 'Informe a nova senha.',
+            'password.min' => 'A nova senha deve ter pelo menos 8 caracteres.',
+            'password.numbers' => 'A nova senha deve incluir pelo menos 1 numero.',
+            'password.max' => 'A nova senha nao pode ultrapassar 255 caracteres.',
+            'password.confirmed' => 'A confirmacao da nova senha nao confere.',
         ];
     }
 }

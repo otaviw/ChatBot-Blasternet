@@ -1,5 +1,8 @@
 <?php
 
+declare(strict_types=1);
+
+
 namespace App\Actions\Company\Conversation;
 
 use App\Models\Conversation;

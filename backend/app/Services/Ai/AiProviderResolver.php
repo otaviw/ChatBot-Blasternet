@@ -1,8 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
+
 namespace App\Services\Ai;
 
 use App\Services\Ai\Providers\AiProvider;
+use App\Services\Ai\Providers\AnthropicAiProvider;
+use App\Services\Ai\Providers\FailoverAiProvider;
 use App\Services\Ai\Providers\NullAiProvider;
 use App\Services\Ai\Providers\OllamaAiProvider;
 use App\Services\Ai\Providers\TestAiProvider;
@@ -15,6 +20,7 @@ class AiProviderResolver
      * @var array<string, class-string<AiProvider>>
      */
     private const DEFAULT_PROVIDER_CLASSES = [
+        'anthropic' => AnthropicAiProvider::class,
         'ollama' => OllamaAiProvider::class,
         'test' => TestAiProvider::class,
         'null' => NullAiProvider::class,
@@ -65,7 +71,31 @@ class AiProviderResolver
             return $this->resolveInvalidProvider($resolvedProviderName);
         }
 
-        return $this->makeProvider($providerClass, $resolvedProviderName);
+        $provider = $this->makeProvider($providerClass, $resolvedProviderName);
+        $fallbackProviderName = $this->fallbackProviderName();
+
+        // Fallback automatico em runtime e aplicado apenas quando o fallback
+        // configurado e diferente de "null" para preservar comportamento legado.
+        if (
+            $fallbackProviderName !== ''
+            && $fallbackProviderName !== self::FALLBACK_PROVIDER
+            && $fallbackProviderName !== $resolvedProviderName
+            && $this->supports($fallbackProviderName)
+        ) {
+            $fallbackClass = $this->providerClasses()[$fallbackProviderName] ?? null;
+            if ($fallbackClass !== null) {
+                $fallbackProvider = $this->makeProvider($fallbackClass, $fallbackProviderName);
+
+                return new FailoverAiProvider(
+                    $resolvedProviderName,
+                    $provider,
+                    $fallbackProviderName,
+                    $fallbackProvider
+                );
+            }
+        }
+
+        return $provider;
     }
 
     public function defaultProviderName(): string

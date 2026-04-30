@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services\Company;
 
 use App\Models\Conversation;
@@ -16,12 +18,6 @@ class CompanyConversationCountersService
      */
     public function buildForCompany(int $companyId): array
     {
-        // Cache curto (30 s): equilibra consistência e custo de query.
-        // Este método é chamado em dois pontos quentes:
-        //   1. Polling do frontend (/conversas/contadores) — frequência alta
-        //   2. MessageObserver.created() — dispara a cada mensagem recebida/enviada
-        // Sem cache, cada mensagem nova causaria round-trips pesados ao banco.
-        // Observers usam buildFreshForCompany() para publicar contadores atuais.
         return Cache::remember(
             CacheKeys::conversationCounters($companyId),
             now()->addSeconds(30),
@@ -32,17 +28,7 @@ class CompanyConversationCountersService
     /** @return array<string, mixed> */
     public function buildFreshForCompany(int $companyId): array
     {
-        // Debounce: impede rebuilds repetidos em rajadas de mensagens.
-        // Se o cache já foi reconstruído nos últimos 10 s, retorna o valor existente.
-        // Garante no máximo 6 rebuilds/minuto por empresa, independente do volume de mensagens.
-        $debounceKey = CacheKeys::conversationCounters($companyId) . ':debounce';
-
-        if (Cache::has($debounceKey)) {
-            return $this->buildForCompany($companyId);
-        }
-
-        Cache::put($debounceKey, true, now()->addSeconds(10));
-
+        // Always rebuild after mutations to avoid stale counters on rapid events.
         $this->forgetForCompany($companyId);
 
         return $this->buildForCompany($companyId);
@@ -64,6 +50,7 @@ class CompanyConversationCountersService
 
         $openConversationsWithLastDirection = Conversation::withoutGlobalScopes()
             ->where('conversations.company_id', $companyId)
+            ->whereNull('conversations.deleted_at')
             ->where('conversations.status', '!=', ConversationStatus::CLOSED)
             ->select(['conversations.id', 'conversations.current_area_id'])
             ->addSelect([

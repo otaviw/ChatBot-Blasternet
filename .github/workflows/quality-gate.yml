@@ -19,6 +19,27 @@ env:
 jobs:
   quality-gate:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: chatbot_test
+          POSTGRES_USER: chatbot
+          POSTGRES_PASSWORD: chatbot
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U chatbot -d chatbot_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: chatbot_test
+      DB_USERNAME: chatbot
+      DB_PASSWORD: chatbot
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,7 +48,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: "8.2"
-          extensions: mbstring, pdo, pdo_sqlite, sqlite3, gd
+          extensions: mbstring, pdo, pdo_pgsql, pgsql, gd
           coverage: pcov
 
       - name: Install Composer dependencies
@@ -42,17 +63,8 @@ jobs:
         working-directory: backend
         run: php artisan key:generate
 
-      - name: Create sqlite database
-        working-directory: backend
-        run: |
-          mkdir -p database
-          touch database/database.sqlite
-
       - name: Run migrations
         working-directory: backend
-        env:
-          DB_CONNECTION: sqlite
-          DB_DATABASE: database/database.sqlite
         run: php artisan migrate --force
 
       - name: Run backend lint
@@ -63,8 +75,6 @@ jobs:
         working-directory: backend
         env:
           APP_ENV: testing
-          DB_CONNECTION: sqlite
-          DB_DATABASE: database/database.sqlite
         run: php vendor/bin/pest --coverage --min="${BACKEND_COVERAGE_MIN:-60}"
 
       - name: Setup Node.js

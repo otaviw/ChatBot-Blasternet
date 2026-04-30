@@ -8,6 +8,7 @@ use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\EnsureCompanyUser;
 use App\Http\Middleware\EnsureSystemAdmin;
 use App\Http\Middleware\RequestMetricsMiddleware;
+use App\Http\Middleware\RequestTrackingMiddleware;
 use App\Http\Middleware\SecurityHeadersMiddleware;
 use App\Http\Middleware\ValidateWhatsAppWebhookSignature;
 
@@ -19,6 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->append(RequestTrackingMiddleware::class);
         $middleware->append(SecurityHeadersMiddleware::class);
 
         // throttle:api-global cobre qualquer rota em routes/api.php que não tenha

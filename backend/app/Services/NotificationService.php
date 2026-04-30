@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services;
 
 use App\Models\Notification;
@@ -12,13 +14,13 @@ use Illuminate\Support\Facades\Cache;
 class NotificationService
 {
     /**
-     * @param  array<string, mixed>  $data
+     * @param array<string, mixed> $data
      */
     public function createForUser(User|int $user, array $data): Notification
     {
         $userId = $user instanceof User ? (int) $user->id : (int) $user;
 
-        return Notification::create([
+        $notification = Notification::create([
             'user_id' => $userId,
             'type' => (string) ($data['type'] ?? 'generic'),
             'module' => (string) ($data['module'] ?? 'general'),
@@ -30,6 +32,10 @@ class NotificationService
             'reference_meta' => is_array($data['reference_meta'] ?? null) ? $data['reference_meta'] : null,
             'read_at' => null,
         ]);
+
+        $this->forgetUnreadCache($userId);
+
+        return $notification;
     }
 
     public function markAsRead(Notification $notification): Notification
@@ -106,7 +112,7 @@ class NotificationService
     }
 
     /**
-     * @param  array<int, int>  $ids
+     * @param array<int, int> $ids
      */
     public function deleteManyForUser(User|int $user, array $ids): int
     {
@@ -120,10 +126,16 @@ class NotificationService
             return 0;
         }
 
-        return Notification::query()
+        $deleted = Notification::query()
             ->where('user_id', $userId)
             ->whereIn('id', $uniqueIds)
             ->delete();
+
+        if ($deleted > 0) {
+            $this->forgetUnreadCache($userId);
+        }
+
+        return $deleted;
     }
 
     /**
@@ -159,20 +171,14 @@ class NotificationService
     {
         $userId = $user instanceof User ? (int) $user->id : (int) $user;
 
-        // Cache de 10 s por usuário: limita o GROUP BY a 6 execuções/min mesmo em rajadas
-        // de notificações (ex.: transferência simultânea para vários atendentes).
-        // Invalidado explicitamente pelos métodos de mark-as-read para manter consistência.
+        if (app()->environment('testing')) {
+            return $this->queryUnreadCountByModule($userId);
+        }
+
         return Cache::remember(
             $this->unreadCacheKey($userId),
             now()->addSeconds(10),
-            fn () => Notification::query()
-                ->where('user_id', $userId)
-                ->where('is_read', false)
-                ->selectRaw('module, COUNT(*) as total')
-                ->groupBy('module')
-                ->pluck('total', 'module')
-                ->map(fn ($value) => (int) $value)
-                ->toArray()
+            fn () => $this->queryUnreadCountByModule($userId)
         );
     }
 
@@ -187,7 +193,7 @@ class NotificationService
     }
 
     /**
-     * @param  array<string, int>  $byModule
+     * @param array<string, int> $byModule
      */
     public function totalUnread(array $byModule): int
     {
@@ -203,5 +209,20 @@ class NotificationService
         $normalized = trim((string) $value);
 
         return $normalized === '' ? null : $normalized;
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function queryUnreadCountByModule(int $userId): array
+    {
+        return Notification::query()
+            ->where('user_id', $userId)
+            ->where('is_read', false)
+            ->selectRaw('module, COUNT(*) as total')
+            ->groupBy('module')
+            ->pluck('total', 'module')
+            ->map(fn ($value) => (int) $value)
+            ->toArray();
     }
 }

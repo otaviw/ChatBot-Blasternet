@@ -1,5 +1,8 @@
 <?php
 
+declare(strict_types=1);
+
+
 namespace App\Http\Requests\Chat;
 
 use App\Http\Requests\Concerns\SanitizesInput;

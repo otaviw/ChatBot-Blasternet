@@ -1,5 +1,8 @@
 <?php
 
+declare(strict_types=1);
+
+
 namespace App\Services\Chat;
 
 use App\Models\ChatAttachment;
@@ -10,6 +13,7 @@ use App\Models\User;
 use App\Support\Chat\ChatConversationSerializer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 
 class InternalChatConversationService
 {
@@ -178,11 +182,20 @@ class InternalChatConversationService
     /**
      * @return array<string, mixed>
      */
-    public function serializeConversationSummary(ChatConversation $conversation, User $viewer): array
+    public function serializeConversationSummary(
+        ChatConversation $conversation,
+        User $viewer,
+        ?int $preloadedUnreadCount = null,
+        ?bool $preloadedViewerIsAdmin = null
+    ): array
     {
         $lastMessage = $conversation->lastMessage;
-        $viewerPivot = $this->findParticipantPivot($conversation, (int) $viewer->id);
-        $viewerIsAdmin = (bool) ($viewerPivot?->is_admin ?? false);
+        $viewerPivot = $preloadedViewerIsAdmin === null
+            ? ($this->findLoadedParticipantPivot($conversation, (int) $viewer->id)
+                ?? $this->findParticipantPivot($conversation, (int) $viewer->id))
+            : null;
+        $viewerIsAdmin = $preloadedViewerIsAdmin ?? (bool) ($viewerPivot?->is_admin ?? false);
+        $unreadCount = $preloadedUnreadCount ?? $this->calculateUnreadCount($conversation, $viewer);
 
         return [
             'id' => (int) $conversation->id,
@@ -200,10 +213,87 @@ class InternalChatConversationService
             'last_message_at' => $lastMessage?->created_at?->toISOString()
                 ?? $conversation->updated_at?->toISOString()
                 ?? $conversation->created_at?->toISOString(),
-            'unread_count' => $this->calculateUnreadCount($conversation, $viewer),
+            'unread_count' => $unreadCount,
             'created_at' => $conversation->created_at?->toISOString(),
             'updated_at' => $conversation->updated_at?->toISOString(),
             'deleted_at' => $conversation->deleted_at?->toISOString(),
+        ];
+    }
+
+    /**
+     * @param  Collection<int, ChatConversation>  $conversations
+     * @return array{
+     *   unread_counts: array<int, int>,
+     *   viewer_is_admin: array<int, bool>
+     * }
+     */
+    public function preloadListContext(Collection $conversations, User $viewer): array
+    {
+        $conversationIds = $conversations
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->values()
+            ->all();
+
+        if ($conversationIds === []) {
+            return [
+                'unread_counts' => [],
+                'viewer_is_admin' => [],
+            ];
+        }
+
+        $participantRows = ChatParticipant::query()
+            ->where('user_id', (int) $viewer->id)
+            ->whereNull('left_at')
+            ->whereIn('conversation_id', $conversationIds)
+            ->get(['conversation_id', 'last_read_at', 'is_admin']);
+
+        $viewerIsAdminByConversation = [];
+        $conversationIdsWithoutLastReadAt = [];
+        $cutoffsByConversation = [];
+
+        foreach ($participantRows as $participant) {
+            $conversationId = (int) $participant->conversation_id;
+            $viewerIsAdminByConversation[$conversationId] = (bool) $participant->is_admin;
+
+            if (! $participant->last_read_at) {
+                $conversationIdsWithoutLastReadAt[] = $conversationId;
+                continue;
+            }
+
+            $cutoffsByConversation[$conversationId] = $participant->last_read_at;
+        }
+
+        $unreadByConversation = [];
+        $query = ChatMessage::query()
+            ->whereIn('conversation_id', $conversationIds)
+            ->where('sender_id', '!=', (int) $viewer->id)
+            ->whereNull('deleted_at')
+            ->where(function ($scope) use ($conversationIdsWithoutLastReadAt, $cutoffsByConversation): void {
+                if ($conversationIdsWithoutLastReadAt !== []) {
+                    $scope->orWhereIn('conversation_id', array_values(array_unique($conversationIdsWithoutLastReadAt)));
+                }
+
+                foreach ($cutoffsByConversation as $conversationId => $lastReadAt) {
+                    $scope->orWhere(function ($conversationScope) use ($conversationId, $lastReadAt): void {
+                        $conversationScope
+                            ->where('conversation_id', (int) $conversationId)
+                            ->where('created_at', '>', $lastReadAt);
+                    });
+                }
+            })
+            ->selectRaw('conversation_id, COUNT(*) as total')
+            ->groupBy('conversation_id')
+            ->get();
+
+        foreach ($query as $row) {
+            $unreadByConversation[(int) $row->conversation_id] = (int) $row->total;
+        }
+
+        return [
+            'unread_counts' => $unreadByConversation,
+            'viewer_is_admin' => $viewerIsAdminByConversation,
         ];
     }
 
@@ -294,6 +384,48 @@ class InternalChatConversationService
         }
 
         return (int) $query->count();
+    }
+
+    private function findLoadedParticipantPivot(ChatConversation $conversation, int $userId): ?ChatParticipant
+    {
+        if (! $conversation->relationLoaded('participants')) {
+            return null;
+        }
+
+        $participant = $conversation->participants
+            ->first(fn (User $item): bool => (int) $item->id === $userId);
+
+        if (! $participant?->pivot) {
+            return null;
+        }
+
+        $pivot = new ChatParticipant();
+        $pivot->conversation_id = (int) $conversation->id;
+        $pivot->user_id = $userId;
+        $pivot->is_admin = (bool) $participant->pivot->is_admin;
+        $pivot->last_read_at = $participant->pivot->last_read_at;
+
+        return $pivot;
+    }
+
+    /**
+     * @param  array<int, int>  $unreadCounts
+     * @param  array<int, bool>  $viewerIsAdmin
+     * @return array<string, mixed>
+     */
+    public function serializeConversationSummaryForList(
+        ChatConversation $conversation,
+        User $viewer,
+        array $unreadCounts,
+        array $viewerIsAdmin
+    ): array {
+        $conversationId = (int) $conversation->id;
+        return $this->serializeConversationSummary(
+            $conversation,
+            $viewer,
+            (int) ($unreadCounts[$conversationId] ?? 0),
+            (bool) ($viewerIsAdmin[$conversationId] ?? false)
+        );
     }
 
 }

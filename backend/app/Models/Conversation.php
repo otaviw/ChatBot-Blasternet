@@ -1,18 +1,22 @@
 <?php
 
+declare(strict_types=1);
+
+
 namespace App\Models;
 
 use App\Casts\BotContextCast;
 use App\Models\Concerns\BelongsToCompany;
 use App\Support\ConversationHandlingMode;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Conversation extends Model
 {
-    use BelongsToCompany;
+    use BelongsToCompany, SoftDeletes;
 
     /** @var array<int, string>|null */
     private ?array $pendingTagNames = null;

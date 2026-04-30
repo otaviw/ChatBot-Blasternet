@@ -1,5 +1,8 @@
 <?php
 
+declare(strict_types=1);
+
+
 namespace App\Actions\Admin\User;
 
 use App\Models\Company;

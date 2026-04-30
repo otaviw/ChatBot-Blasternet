@@ -74,6 +74,11 @@ cd frontend
 npm run build
 ```
 
+Workers de fila em producao (Supervisor):
+
+- Config pronta: [docs/supervisor.conf](docs/supervisor.conf)
+- Guia de uso: [docs/queue-workers-supervisor.md](docs/queue-workers-supervisor.md)
+
 ## Backup do banco de dados
 
 O scheduler do Laravel executa o backup automaticamente todo dia às **03:00** via `php artisan backup:database`.

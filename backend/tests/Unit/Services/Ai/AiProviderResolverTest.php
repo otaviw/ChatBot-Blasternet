@@ -6,6 +6,8 @@ use App\Services\Ai\AiProviderResolver;
 use App\Services\Ai\Providers\NullAiProvider;
 use App\Services\Ai\Providers\OllamaAiProvider;
 use App\Services\Ai\Providers\TestAiProvider;
+use Tests\Fakes\Ai\AlwaysFailAiProvider;
+use Tests\Fakes\Ai\AlwaysSuccessAiProvider;
 use Tests\TestCase;
 
 class AiProviderResolverTest extends TestCase
@@ -62,6 +64,7 @@ class AiProviderResolverTest extends TestCase
         $this->assertTrue($resolver->supports('test'));
         $this->assertTrue($resolver->supports('null'));
         $this->assertTrue($resolver->supports('ollama'));
+        $this->assertTrue($resolver->supports('anthropic'));
         $this->assertFalse($resolver->supports('broken'));
     }
 
@@ -78,5 +81,29 @@ class AiProviderResolverTest extends TestCase
         $this->assertTrue((bool) ($result['ok'] ?? false));
         $this->assertSame('[TEST] Oi, tudo bem?', $result['text'] ?? null);
         $this->assertSame('test', $result['meta']['provider'] ?? null);
+    }
+
+    public function test_resolver_uses_runtime_fallback_provider_when_primary_provider_fails(): void
+    {
+        config()->set('ai.provider', 'always_fail');
+        config()->set('ai.fallback_provider', 'anthropic');
+        config()->set('ai.provider_classes', [
+            'always_fail' => AlwaysFailAiProvider::class,
+            'anthropic' => AlwaysSuccessAiProvider::class,
+            'null' => NullAiProvider::class,
+        ]);
+
+        $resolver = $this->app->make(AiProviderResolver::class);
+        $provider = $resolver->resolve();
+        $result = $provider->reply([
+            ['role' => 'user', 'content' => 'Teste de fallback'],
+        ], [
+            'model' => 'modelo-principal',
+        ]);
+
+        $this->assertTrue((bool) ($result['ok'] ?? false));
+        $this->assertSame('Fallback anthropic success', $result['text'] ?? null);
+        $this->assertSame('always_fail', $result['meta']['failover']['from'] ?? null);
+        $this->assertSame('anthropic', $result['meta']['failover']['to'] ?? null);
     }
 }

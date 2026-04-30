@@ -1,8 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
+
 namespace App\Http\Requests\Company;
 
 use App\Models\User;
+use App\Support\Security\PasswordRules;
 use App\Support\UserPermissions;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -20,7 +24,7 @@ class StoreUserRequest extends FormRequest
         return [
             'name'                     => ['required', 'string', 'max:120'],
             'email'                    => ['required', 'email', 'max:190', 'unique:users,email'],
-            'password'                 => ['required', 'string', 'min:8', 'max:100'],
+            'password'                 => PasswordRules::required(100),
             'role'                     => ['required', Rule::in(User::assignableRoleValuesForCompanyAdmin())],
             'is_active'                => ['sometimes', 'boolean'],
             'can_use_ai'               => ['sometimes', 'boolean'],
@@ -32,6 +36,15 @@ class StoreUserRequest extends FormRequest
             'appointment_display_name' => ['nullable', 'string', 'max:120'],
             'permissions'              => ['sometimes', 'nullable', 'array'],
             'permissions.*'            => ['string', Rule::in(UserPermissions::ALL)],
+        ];
+    }
+
+    /** @return array<string, string> */
+    public function messages(): array
+    {
+        return [
+            'password.min' => 'A senha deve ter pelo menos 8 caracteres.',
+            'password.numbers' => 'A senha deve incluir pelo menos 1 número.',
         ];
     }
 }

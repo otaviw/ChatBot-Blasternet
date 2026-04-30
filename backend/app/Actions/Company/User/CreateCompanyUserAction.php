@@ -1,5 +1,8 @@
 <?php
 
+declare(strict_types=1);
+
+
 namespace App\Actions\Company\User;
 
 use App\Data\ActionResponse;
