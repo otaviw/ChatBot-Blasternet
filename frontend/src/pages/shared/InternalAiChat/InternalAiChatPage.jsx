@@ -2,8 +2,10 @@ import './InternalAiChatPage.css';
 import { useMemo } from 'react';
 import Layout from '@/components/layout/Layout/Layout.jsx';
 import Notice from '@/components/ui/Notice/Notice.jsx';
-import PageLoading from '@/components/ui/PageLoading/PageLoading.jsx';
 import PageHeader from '@/components/ui/PageHeader/PageHeader.jsx';
+import SkeletonCard from '@/components/ui/SkeletonCard/SkeletonCard.jsx';
+import SkeletonConversationItem from '@/components/ui/SkeletonConversationItem/SkeletonConversationItem.jsx';
+import SkeletonText from '@/components/ui/SkeletonText/SkeletonText.jsx';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
 import useAdminCompanySelector from '@/hooks/useAdminCompanySelector';
@@ -127,7 +129,13 @@ function InternalAiChatPage() {
   if (loading) {
     return (
       <Layout role={role} onLogout={logout}>
-        <PageLoading cards={2} cardClassName="h-[420px] w-full" />
+        <div className="space-y-4">
+          <SkeletonText lines={2} lineClassName="h-4 w-80 max-w-full" />
+          <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-4">
+            <SkeletonCard className="h-[420px]" lines={6} />
+            <SkeletonCard className="h-[420px]" lines={8} />
+          </div>
+        </div>
       </Layout>
     );
   }
@@ -246,9 +254,9 @@ function InternalAiChatPage() {
             >
               {conversationsLoading && !conversations.length ? (
                 <>
-                  <li className="internal-ai-chat__conversation-skeleton" aria-hidden="true" />
-                  <li className="internal-ai-chat__conversation-skeleton" aria-hidden="true" />
-                  <li className="internal-ai-chat__conversation-skeleton" aria-hidden="true" />
+                  <li><SkeletonConversationItem /></li>
+                  <li><SkeletonConversationItem /></li>
+                  <li><SkeletonConversationItem /></li>
                 </>
               ) : null}
 
@@ -340,10 +348,7 @@ function InternalAiChatPage() {
 
             {selectedConversationId && detailLoading ? (
               <div className="internal-ai-chat__panel-loading" role="status" aria-live="polite">
-                <p className="internal-ai-chat__panel-empty-title">Carregando conversa...</p>
-                <div className="internal-ai-chat__message-skeleton" aria-hidden="true" />
-                <div className="internal-ai-chat__message-skeleton internal-ai-chat__message-skeleton--short" aria-hidden="true" />
-                <div className="internal-ai-chat__message-skeleton" aria-hidden="true" />
+                <SkeletonCard className="w-full" lines={4} />
               </div>
             ) : null}
 

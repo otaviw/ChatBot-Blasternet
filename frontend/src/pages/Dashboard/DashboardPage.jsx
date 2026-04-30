@@ -4,7 +4,8 @@ import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
 import Card from '@/components/ui/Card/Card.jsx';
 import PageHeader from '@/components/ui/PageHeader/PageHeader.jsx';
-import LoadingSkeleton from '@/components/ui/LoadingSkeleton/LoadingSkeleton.jsx';
+import SkeletonCard from '@/components/ui/SkeletonCard/SkeletonCard.jsx';
+import SkeletonText from '@/components/ui/SkeletonText/SkeletonText.jsx';
 
 function DashboardPage() {
   const { data, loading, error } = usePageData('/dashboard');
@@ -14,16 +15,11 @@ function DashboardPage() {
     return (
       <Layout>
         <div className="space-y-4">
-          <LoadingSkeleton className="h-6 w-52" />
-          <LoadingSkeleton className="h-4 w-96 max-w-full" />
+          <SkeletonText lines={2} lineClassName="h-4 w-96 max-w-full" />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {Array.from({ length: 6 }).map((_, index) => (
-              <Card key={`dashboard-skeleton-${index}`} className="h-full">
-                <LoadingSkeleton className="h-5 w-40" />
-                <LoadingSkeleton className="mt-3 h-3 w-full" />
-                <LoadingSkeleton className="mt-2 h-3 w-11/12" />
-                <LoadingSkeleton className="mt-2 h-3 w-9/12" />
-                <LoadingSkeleton className="mt-5 h-3 w-24" />
+              <Card key={`dashboard-skeleton-${index}`} className="h-full p-0">
+                <SkeletonCard className="h-full border-0" />
               </Card>
             ))}
           </div>

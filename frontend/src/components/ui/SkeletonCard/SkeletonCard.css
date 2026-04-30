@@ -1,0 +1,15 @@
+.skeleton-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  padding: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+body.theme-dark .skeleton-card {
+  border-color: #252836;
+  background: #1a1d27;
+}
+

@@ -1,4 +1,5 @@
 import { buildConversationPreview, buildConversationTitle } from '@/services/internalChatService';
+import SkeletonConversationItem from '@/components/ui/SkeletonConversationItem/SkeletonConversationItem.jsx';
 
 function InternalChatSidebar({
   conversationListRef,
@@ -59,7 +60,11 @@ function InternalChatSidebar({
         className="internal-chat-conversation-list"
       >
         {conversationsLoading && !conversations.length ? (
-          <li className="internal-chat-list-state">Carregando conversas...</li>
+          <li className="space-y-2">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <SkeletonConversationItem key={`internal-chat-conv-skeleton-${index}`} />
+            ))}
+          </li>
         ) : null}
 
         {!conversationsLoading && !conversations.length ? (

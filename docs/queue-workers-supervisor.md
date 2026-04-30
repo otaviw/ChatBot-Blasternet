@@ -4,7 +4,7 @@ Este guia usa o arquivo [supervisor.conf](./supervisor.conf) para subir workers 
 
 - `default` (tambem processa `emails`, `webhooks`, `campaigns`)
 - `realtime`
-- `ai`
+- `ai` (2 processos)
 
 Todos os workers estao com:
 
@@ -50,4 +50,43 @@ Depois de qualquer ajuste:
 sudo supervisorctl reread
 sudo supervisorctl update
 sudo supervisorctl restart chatbot-workers:*
+```
+
+## 5) Comandos uteis
+
+Status geral e por grupo:
+
+```bash
+sudo supervisorctl status
+sudo supervisorctl status chatbot-workers:*
+```
+
+Reiniciar apenas uma fila:
+
+```bash
+sudo supervisorctl restart chatbot-worker-default:*
+sudo supervisorctl restart chatbot-worker-realtime:*
+sudo supervisorctl restart chatbot-worker-ai:*
+```
+
+Parar/iniciar grupo completo:
+
+```bash
+sudo supervisorctl stop chatbot-workers:*
+sudo supervisorctl start chatbot-workers:*
+```
+
+Inspecionar logs em tempo real:
+
+```bash
+sudo tail -f /var/log/supervisor/chatbot-worker-default.log
+sudo tail -f /var/log/supervisor/chatbot-worker-realtime.log
+sudo tail -f /var/log/supervisor/chatbot-worker-ai.log
+```
+
+Checar backlog de filas no Laravel:
+
+```bash
+php artisan queue:monitor redis:default redis:realtime redis:ai
+php artisan queue:failed
 ```

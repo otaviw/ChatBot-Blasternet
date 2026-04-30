@@ -1,5 +1,7 @@
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton/LoadingSkeleton.jsx';
 import LoadingSpinner from '@/components/ui/LoadingSpinner/LoadingSpinner.jsx';
+import SkeletonCard from '@/components/ui/SkeletonCard/SkeletonCard.jsx';
+import SkeletonText from '@/components/ui/SkeletonText/SkeletonText.jsx';
 
 function PageLoading({
   loadingLabel = 'Carregando...',
@@ -19,7 +21,12 @@ function PageLoading({
     <div className={['space-y-4', className].filter(Boolean).join(' ')}>
       <LoadingSpinner label={loadingLabel} />
       <LoadingSkeleton className={`h-6 ${titleWidth}`.trim()} />
-      <LoadingSkeleton className={`h-4 ${subtitleWidth}`.trim()} />
+      <SkeletonText
+        lines={1}
+        lineClassName={`h-4 ${subtitleWidth}`.trim()}
+        lastLineWidth={subtitleWidth}
+        className="max-w-full"
+      />
 
       {safeRows > 0 ? (
         <div className="space-y-3">
@@ -32,7 +39,11 @@ function PageLoading({
       {safeCards > 0 ? (
         <div className={cardsGridClassName}>
           {Array.from({ length: safeCards }).map((_, index) => (
-            <LoadingSkeleton key={`page-loading-card-${index}`} className={cardClassName} />
+            <SkeletonCard
+              key={`page-loading-card-${index}`}
+              className={cardClassName}
+              lines={3}
+            />
           ))}
         </div>
       ) : null}

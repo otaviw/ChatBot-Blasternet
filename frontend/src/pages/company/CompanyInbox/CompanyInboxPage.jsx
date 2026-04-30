@@ -2,8 +2,9 @@ import './CompanyInboxPage.css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Layout from '@/components/layout/Layout/Layout.jsx';
 import InboxBackButton from '@/components/ui/InboxBackButton/InboxBackButton.jsx';
-import LoadingSkeleton from '@/components/ui/LoadingSkeleton/LoadingSkeleton.jsx';
 import EmptyState from '@/components/ui/EmptyState/EmptyState.jsx';
+import SkeletonCard from '@/components/ui/SkeletonCard/SkeletonCard.jsx';
+import SkeletonText from '@/components/ui/SkeletonText/SkeletonText.jsx';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
 import { useNotificationsContext } from '@/hooks/useNotificationsContext';
@@ -373,10 +374,10 @@ function CompanyInboxPage() {
     return (
       <Layout role="company" onLogout={logout}>
         <div className="space-y-3">
-          <LoadingSkeleton className="h-6 w-56" />
+          <SkeletonText lines={1} lineClassName="h-6 w-56" />
           <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-3">
-            <LoadingSkeleton className="h-[420px] w-full" />
-            <LoadingSkeleton className="h-[420px] w-full" />
+            <SkeletonCard className="h-[420px]" lines={6} />
+            <SkeletonCard className="h-[420px]" lines={8} />
           </div>
         </div>
       </Layout>
@@ -433,7 +434,9 @@ function CompanyInboxPage() {
           <section className={`inbox-messages flex-col${selectedId ? ' inbox-messages--visible' : ''}`}>
             {selectedId && <InboxBackButton onClick={() => setSelectedId(null)} />}
             {detailLoading && (
-              <p className="inbox-empty-state text-sm text-[#737373]">Carregando conversa...</p>
+              <div className="inbox-empty-state">
+                <SkeletonCard lines={4} />
+              </div>
             )}
             {detailError && <p className="inbox-empty-state text-sm text-red-600">{detailError}</p>}
             {!detailLoading && !detail && !detailError && (

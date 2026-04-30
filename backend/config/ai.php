@@ -29,6 +29,10 @@ return [
     */
     'fallback_provider' => env('AI_FALLBACK_PROVIDER', 'null'),
 
+    // Fallback dedicado ao fluxo Ollama. Quando configurado, tem precedencia
+    // apenas para requisicoes cujo provider principal resolvido seja "ollama".
+    'ollama_fallback_provider' => env('AI_OLLAMA_FALLBACK_PROVIDER', 'anthropic'),
+
     'model' => env('AI_MODEL', 'test-model'),
 
     'system_prompt' => env('AI_SYSTEM_PROMPT'),
@@ -40,6 +44,12 @@ return [
     'history_messages_limit' => (int) env('AI_HISTORY_MESSAGES_LIMIT', 20),
 
     'request_timeout_ms' => (int) env('AI_REQUEST_TIMEOUT_MS', 30000),
+
+    'circuit_breaker' => [
+        'enabled' => (bool) env('AI_CIRCUIT_BREAKER_ENABLED', true),
+        'failure_threshold' => (int) env('AI_CIRCUIT_BREAKER_FAILURE_THRESHOLD', 5),
+        'cooldown_seconds' => (int) env('AI_CIRCUIT_BREAKER_COOLDOWN_SECONDS', 60),
+    ],
 
     /*
     |--------------------------------------------------------------------------

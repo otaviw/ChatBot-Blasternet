@@ -7,6 +7,7 @@ namespace App\Services\Ai;
 
 use App\Services\Ai\Providers\AiProvider;
 use App\Services\Ai\Providers\AnthropicAiProvider;
+use App\Services\Ai\Providers\CircuitBreakerAiProvider;
 use App\Services\Ai\Providers\FailoverAiProvider;
 use App\Services\Ai\Providers\NullAiProvider;
 use App\Services\Ai\Providers\OllamaAiProvider;
@@ -72,7 +73,7 @@ class AiProviderResolver
         }
 
         $provider = $this->makeProvider($providerClass, $resolvedProviderName);
-        $fallbackProviderName = $this->fallbackProviderName();
+        $fallbackProviderName = $this->fallbackProviderNameFor($resolvedProviderName);
 
         // Fallback automatico em runtime e aplicado apenas quando o fallback
         // configurado e diferente de "null" para preservar comportamento legado.
@@ -115,6 +116,20 @@ class AiProviderResolver
         }
 
         return self::FALLBACK_PROVIDER;
+    }
+
+    public function fallbackProviderNameFor(string $resolvedProviderName): string
+    {
+        $normalizedProviderName = $this->normalizeProviderName($resolvedProviderName);
+
+        if ($normalizedProviderName === 'ollama') {
+            $ollamaFallback = $this->normalizeProviderName((string) config('ai.ollama_fallback_provider', ''));
+            if ($ollamaFallback !== '' && $this->supports($ollamaFallback) && $ollamaFallback !== $normalizedProviderName) {
+                return $ollamaFallback;
+            }
+        }
+
+        return $this->fallbackProviderName();
     }
 
     public function resolveProviderName(?string $providerName = null, ?string $fallbackProviderName = null): string
@@ -209,7 +224,7 @@ class AiProviderResolver
         $provider = $this->container->make($providerClass);
 
         if ($provider instanceof AiProvider) {
-            return $provider;
+            return $this->withCircuitBreaker($providerName, $provider);
         }
 
         Log::warning('ai.provider.instance_invalid', [
@@ -219,5 +234,18 @@ class AiProviderResolver
         ]);
 
         return $this->container->make(NullAiProvider::class);
+    }
+
+    private function withCircuitBreaker(string $providerName, AiProvider $provider): AiProvider
+    {
+        if (! (bool) config('ai.circuit_breaker.enabled', true)) {
+            return $provider;
+        }
+
+        if ($providerName === self::FALLBACK_PROVIDER) {
+            return $provider;
+        }
+
+        return new CircuitBreakerAiProvider($providerName, $provider);
     }
 }

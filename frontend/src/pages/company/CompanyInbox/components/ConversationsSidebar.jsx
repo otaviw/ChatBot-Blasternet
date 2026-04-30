@@ -4,8 +4,8 @@ import {
 } from '@/constants/conversation';
 import ServiceAreaBadge from '@/components/company/ServiceAreaBadge/ServiceAreaBadge.jsx';
 import AssignedUserBadge from '@/components/company/AssignedUserBadge/AssignedUserBadge.jsx';
-import LoadingSkeleton from '@/components/ui/LoadingSkeleton/LoadingSkeleton.jsx';
 import EmptyState from '@/components/ui/EmptyState/EmptyState.jsx';
+import SkeletonConversationItem from '@/components/ui/SkeletonConversationItem/SkeletonConversationItem.jsx';
 import ConversationsFilter from './ConversationsFilter.jsx';
 
 function InlineTagBadge({ name, color }) {
@@ -183,10 +183,7 @@ function ConversationsSidebar({
         {conversationsLoading && !conversations.length ? (
           <li className="space-y-2 py-1">
             {Array.from({ length: 6 }).map((_, index) => (
-              <div key={`conv-skeleton-${index}`} className="rounded-lg border border-[#e2e8f0] bg-white p-3">
-                <LoadingSkeleton className="h-4 w-10/12" />
-                <LoadingSkeleton className="h-3 w-8/12 mt-2" />
-              </div>
+              <SkeletonConversationItem key={`conv-skeleton-${index}`} />
             ))}
           </li>
         ) : null}

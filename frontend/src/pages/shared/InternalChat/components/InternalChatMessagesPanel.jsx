@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import InboxBackButton from '@/components/ui/InboxBackButton/InboxBackButton.jsx';
+import SkeletonCard from '@/components/ui/SkeletonCard/SkeletonCard.jsx';
 import InternalChatComposer from './InternalChatComposer.jsx';
 
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -376,7 +377,9 @@ function InternalChatMessagesPanel({
       ) : null}
 
       {selectedConversationId && detailLoading ? (
-        <div className="internal-chat-empty-state">Carregando conversa...</div>
+        <div className="internal-chat-empty-state">
+          <SkeletonCard className="w-full max-w-xl mx-auto" lines={4} />
+        </div>
       ) : null}
 
       {selectedConversationId && detailError ? (

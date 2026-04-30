@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import Layout from '@/components/layout/Layout/Layout.jsx';
-import PageLoading from '@/components/ui/PageLoading/PageLoading.jsx';
 import PageHeader from '@/components/ui/PageHeader/PageHeader.jsx';
+import SkeletonCard from '@/components/ui/SkeletonCard/SkeletonCard.jsx';
+import SkeletonText from '@/components/ui/SkeletonText/SkeletonText.jsx';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
 import { useNotificationsContext } from '@/hooks/useNotificationsContext';
@@ -168,7 +169,11 @@ function NotificationsPage() {
   if (loading) {
     return (
       <Layout>
-        <PageLoading rows={1} cards={2} />
+        <div className="space-y-4">
+          <SkeletonText lines={2} lineClassName="h-4 w-96 max-w-full" />
+          <SkeletonCard lines={2} />
+          <SkeletonCard lines={2} />
+        </div>
       </Layout>
     );
   }

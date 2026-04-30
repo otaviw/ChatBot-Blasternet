@@ -1,7 +1,8 @@
 import './InternalChatPage.css';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import Layout from '@/components/layout/Layout/Layout.jsx';
-import PageLoading from '@/components/ui/PageLoading/PageLoading.jsx';
+import SkeletonCard from '@/components/ui/SkeletonCard/SkeletonCard.jsx';
+import SkeletonText from '@/components/ui/SkeletonText/SkeletonText.jsx';
 import { useNotificationsContext } from '@/hooks/useNotificationsContext';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
@@ -230,7 +231,13 @@ function InternalChatPage() {
   if (loading) {
     return (
       <Layout role="company" onLogout={logout}>
-        <PageLoading cards={2} cardClassName="h-[420px] w-full" />
+        <div className="space-y-4">
+          <SkeletonText lines={2} lineClassName="h-4 w-80 max-w-full" />
+          <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-4">
+            <SkeletonCard className="h-[420px]" lines={6} />
+            <SkeletonCard className="h-[420px]" lines={8} />
+          </div>
+        </div>
       </Layout>
     );
   }

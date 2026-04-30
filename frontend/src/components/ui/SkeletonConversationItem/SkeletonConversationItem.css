@@ -1,0 +1,22 @@
+.skeleton-conversation-item {
+  border: 1px solid #e2e8f0;
+  border-radius: 0.65rem;
+  background: #ffffff;
+  padding: 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.skeleton-conversation-item__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+body.theme-dark .skeleton-conversation-item {
+  background: #1a1d27;
+  border-color: #252836;
+}
+
