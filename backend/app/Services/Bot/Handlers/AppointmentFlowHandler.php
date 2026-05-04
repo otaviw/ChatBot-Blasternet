@@ -112,6 +112,7 @@ class AppointmentFlowHandler
             'nearest_select' => $this->handleAppointmentNearestSelection($companyEntity, $conversation, $normalizedText, $context),
             'collect_email'  => $this->handleAppointmentEmailCollection($companyEntity, $conversation, $normalizedText, $context),
             'confirm'        => $this->handleAppointmentConfirmation($companyEntity, $conversation, $normalizedText, $context),
+            'collect_customer_name' => $this->handleAppointmentCustomerNameCollection($companyEntity, $conversation, $normalizedText, $context),
             default          => $this->buildInitialMenuResponse($this->registry->definitionForCompany($companyEntity)),
         };
     }
@@ -574,6 +575,42 @@ class AppointmentFlowHandler
             );
         }
 
+        return $this->botStateResult(
+            'Perfeito. Agora me informe o nome do cliente que vai ser atendido no agendamento.',
+            [
+                'flow'    => BotFlow::APPOINTMENTS->value,
+                'step'    => 'collect_customer_name',
+                'context' => ['appointment' => $context],
+            ]
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     * @return array<string, mixed>
+     */
+    private function handleAppointmentCustomerNameCollection(
+        ?Company $company,
+        Conversation $conversation,
+        string $normalizedText,
+        array $context
+    ): array {
+        $companyEntity = $this->resolveCompany($company, $conversation);
+        $customerName  = trim($normalizedText);
+
+        if (mb_strlen($customerName) < 2) {
+            return $this->botStateResult(
+                'Nome invalido. Informe o nome do cliente para concluir o agendamento.',
+                [
+                    'flow'    => BotFlow::APPOINTMENTS->value,
+                    'step'    => 'collect_customer_name',
+                    'context' => ['appointment' => $context],
+                ]
+            );
+        }
+
+        $context['customer_name'] = $customerName;
+
         if (! $companyEntity?->id) {
             return $this->handoffResult(
                 $companyEntity,
@@ -590,7 +627,7 @@ class AppointmentFlowHandler
                     'service_id'       => (int) ($context['service_id'] ?? 0),
                     'staff_profile_id' => (int) ($context['staff_profile_id'] ?? 0),
                     'starts_at'        => (string) ($context['slot_starts_at'] ?? ''),
-                    'customer_name'    => $conversation->customer_name,
+                    'customer_name'    => (string) ($context['customer_name'] ?? $conversation->customer_name),
                     'customer_phone'   => $conversation->customer_phone,
                     'customer_email'   => $this->nullableContextEmail($context['customer_email'] ?? null),
                     'source'           => 'whatsapp',
@@ -613,6 +650,7 @@ class AppointmentFlowHandler
             );
         }
 
+        $timezone     = $this->appointmentSettings($companyEntity)?->timezone ?: 'America/Sao_Paulo';
         $startsAt     = $appointment->starts_at?->setTimezone($timezone);
         $dayName      = $startsAt?->translatedFormat('l') ?? '';
         $startsAtDate = $startsAt?->format('d/m/Y') ?? '';

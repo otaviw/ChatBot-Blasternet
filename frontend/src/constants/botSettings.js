@@ -12,6 +12,7 @@ const DAY_LABELS = {
 
 const DEFAULT_SETTINGS = {
   is_active: true,
+  ai_chatbot_enabled: false,
   timezone: 'America/Sao_Paulo',
   welcome_message: 'Oi. Como posso ajudar?',
   fallback_message: 'Não entendi sua mensagem. Pode reformular?',
@@ -117,6 +118,7 @@ function normalizeSettings(input) {
 
   return {
     ...merged,
+    ai_chatbot_enabled: Boolean(merged.ai_chatbot_enabled),
     keyword_replies: Array.isArray(merged.keyword_replies) ? merged.keyword_replies : [],
     inactivity_close_hours:
       Number.isFinite(Number(merged.inactivity_close_hours)) &&

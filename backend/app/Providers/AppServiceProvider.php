@@ -236,12 +236,16 @@ class AppServiceProvider extends ServiceProvider
      */
     private function validateCriticalSecrets(): void
     {
-        // WhatsApp — obrigatório para validar assinatura de webhooks
-        $this->assertSecret(
-            (string) config('whatsapp.app_secret', ''),
-            'WHATSAPP_APP_SECRET',
-            'Obtenha em: Meta for Developers → Configurações do app → Básico → Chave secreta do app.'
-        );
+        // WhatsApp — obrigatório em produção. Em ambientes não-prod, o webhook
+        // já é bloqueado pelo middleware de assinatura quando o secret não existe,
+        // sem derrubar toda a aplicação local.
+        if ($this->app->environment('production')) {
+            $this->assertSecret(
+                (string) config('whatsapp.app_secret', ''),
+                'WHATSAPP_APP_SECRET',
+                'Obtenha em: Meta for Developers → Configurações do app → Básico → Chave secreta do app.'
+            );
+        }
 
         // Realtime JWT — obrigatório para emitir tokens de socket e join
         $this->assertSecret(

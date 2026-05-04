@@ -303,7 +303,11 @@
     box-shadow: var(--ui-shadow-sm);
   }
 
-  .app-btn {
+  .app-btn,
+  .app-btn-primary,
+  .app-btn-secondary,
+  .app-btn-danger,
+  .app-btn-ghost {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -318,7 +322,11 @@
     transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
   }
 
-  .app-btn:disabled {
+  .app-btn:disabled,
+  .app-btn-primary:disabled,
+  .app-btn-secondary:disabled,
+  .app-btn-danger:disabled,
+  .app-btn-ghost:disabled {
     opacity: 0.5;
     cursor: not-allowed;
   }

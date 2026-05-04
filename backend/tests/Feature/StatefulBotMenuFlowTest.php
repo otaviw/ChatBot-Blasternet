@@ -344,6 +344,10 @@ class StatefulBotMenuFlowTest extends TestCase
 
         $confirmed = $this->simulateInbound($user, $company, '551187654321', '1');
         $confirmed->assertOk();
+        $this->assertStringContainsString('informe o nome do cliente', (string) $confirmed->json('reply'));
+
+        $confirmed = $this->simulateInbound($user, $company, '551187654321', 'Maria Oliveira');
+        $confirmed->assertOk();
         $this->assertStringContainsString('Agendamento confirmado', (string) $confirmed->json('reply'));
 
         $appointment = Appointment::query()->where('company_id', $company->id)->first();
@@ -351,6 +355,7 @@ class StatefulBotMenuFlowTest extends TestCase
         $this->assertSame((int) $service->id, (int) $appointment->service_id);
         $this->assertSame((int) $staffProfile->id, (int) $appointment->staff_profile_id);
         $this->assertSame('5511987654321', (string) $appointment->customer_phone);
+        $this->assertSame('Maria Oliveira', (string) $appointment->customer_name);
         $this->assertNull($appointment->customer_email);
     }
 

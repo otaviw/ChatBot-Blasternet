@@ -89,8 +89,11 @@ class ListCompanyConversationsAction
                 'tags' => fn ($q) => $q->select('tags.id', 'tags.name', 'tags.color')->orderBy('tags.name'),
             ])
             ->withCount('messages')
-            // MySQL resolve aliases do SELECT antes do ORDER BY, eliminando a 5ª avaliação da subquery.
-            ->orderByRaw('COALESCE(last_message_at, conversations.created_at) DESC')
+            // PostgreSQL não permite usar alias de SELECT dentro de expressão no ORDER BY
+            // (ex.: COALESCE(last_message_at, ...)). Ordenamos em duas etapas para manter
+            // o mesmo resultado: conversas com última mensagem primeiro, depois sem mensagem.
+            ->orderByRaw('last_message_at DESC NULLS LAST')
+            ->orderByDesc('conversations.created_at')
             ->orderByDesc('conversations.id');
         $this->conversationSupport->applyInboxVisibilityScope($query, $user);
 

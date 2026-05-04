@@ -34,6 +34,7 @@ const AdminUsersPage = lazy(() => import('@/pages/admin/AdminUsers/AdminUsersPag
 const AdminSupportTicketsPage = lazy(
   () => import('@/pages/admin/AdminSupportTickets/AdminSupportTicketsPage.jsx')
 );
+const AdminSimulatorPage = lazy(() => import('@/pages/admin/AdminSimulator/AdminSimulatorPage.jsx'));
 const AdminTicketIndex = lazy(() => import('@/pages/admin/AdminSupportTickets/AdminTicketIndex.jsx'));
 const CompanyBotPage = lazy(() => import('@/pages/company/CompanyBot/CompanyBotPage.jsx'));
 const CompanyInboxPage = lazy(() => import('@/pages/company/CompanyInbox/CompanyInboxPage.jsx'));
@@ -167,6 +168,10 @@ function AppRoutes() {
         <Route path="/admin/chat-interno" element={<PageBoundary label="Chat Interno"><InternalChatPage /></PageBoundary>} />
         <Route path="/admin/chat-ia" element={<PageBoundary label="Chat IA"><InternalAiChatPage /></PageBoundary>} />
         <Route path="/admin/usuarios" element={<AdminUsersPage />} />
+        <Route
+          path="/admin/simulador"
+          element={<SuperAdminRoute><AdminSimulatorPage /></SuperAdminRoute>}
+        />
         <Route path="/admin/suporte" element={<AdminSupportTicketsPage />} />
         <Route
           path="/admin/suporte/solicitacoes/:ticketId"

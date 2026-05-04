@@ -189,6 +189,20 @@ function SettingsTab({
                 </label>
               </label>
               <label className="bot-config-field">
+                <span className="bot-config-label">IA assistiva no bot</span>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(settings.ai_chatbot_enabled)}
+                    onChange={(e) => updateMessageField('ai_chatbot_enabled', e.target.checked)}
+                  />
+                  <span className="text-sm">Permitir IA sugerir e melhorar respostas do bot</span>
+                </label>
+                <p className="text-xs text-[#706f6c] mt-1">
+                  Essa opção só funciona quando a empresa estiver autorizada pela revenda e com feature global liberada.
+                </p>
+              </label>
+              <label className="bot-config-field">
                 <span className="bot-config-label">Fuso horario</span>
                 <input
                   type="text"
@@ -332,9 +346,9 @@ function SettingsTab({
           <BotConfigStep
             step={5}
             title="Menu numerado do bot"
-            intro="Fluxo principal: opcoes numeradas, blocos e transferencias para as areas do passo 2."
+            intro="Fluxo principal: opções numeradas, blocos e transferencias para as areas do passo 2."
             rules={[
-              'Com modelo automatico, revise textos antes de publicar; com fluxo personalizado, mantenha opcoes objetivas.',
+              'Com modelo automatico, revise textos antes de publicar; com fluxo personalizado, mantenha opções objetivas.',
               'O menu pode iniciar automaticamente na primeira mensagem. O comando # faz o cliente voltar ao inicio.',
             ]}
           >
@@ -381,7 +395,7 @@ function SettingsTab({
               </label>
 
               <p className="mt-2 text-xs text-[#706f6c]">
-                Desmarque para montar um fluxo personalizado com blocos, opcoes, perguntas abertas e transferencias.
+                Desmarque para montar um fluxo personalizado com blocos, opções, perguntas abertas e transferencias.
               </p>
             </div>
 

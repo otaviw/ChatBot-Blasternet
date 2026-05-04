@@ -39,7 +39,7 @@ function InternalChatConversationOptionsModal({
       <div className="internal-chat-modal-overlay" role="dialog" aria-modal="true">
         <div className="internal-chat-modal internal-chat-conversation-options-modal">
           <header className="internal-chat-modal-header">
-            <h3>Opcoes da conversa</h3>
+            <h3>Opções da conversa</h3>
             <button
               type="button"
               className="app-btn-ghost"

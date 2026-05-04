@@ -111,7 +111,7 @@ function ActionEditor({
     <div className="stateful-editor-card stateful-editor-card--soft">
       <div className="stateful-editor-card-header">
         <div>
-          <h5 className="stateful-editor-card-title">O que esta opcao vai fazer</h5>
+          <h5 className="stateful-editor-card-title">O que esta opção vai fazer</h5>
           <p className="stateful-editor-card-subtitle">
             {getActionSummary(safeAction, stepOptions)}
           </p>
@@ -305,7 +305,7 @@ export default function NodeEditor({
               }
               className="stateful-input"
             >
-              <option value="numeric_menu">Menu com opcoes</option>
+              <option value="numeric_menu">Menu com opções</option>
               <option value="free_text">Pergunta aberta</option>
             </select>
           </label>
@@ -325,9 +325,9 @@ export default function NodeEditor({
                 }
                 className="stateful-input"
               >
-                <option value="auto">Automatico (ate 3 opcoes: botoes | mais de 3: lista)</option>
-                <option value="button">Botoes (maximo 3 opcoes)</option>
-                <option value="list">Lista de opcoes (ate 10 opcoes)</option>
+                <option value="auto">Automatico (ate 3 opções: botoes | mais de 3: lista)</option>
+                <option value="button">Botoes (maximo 3 opções)</option>
+                <option value="list">Lista de opções (ate 10 opções)</option>
                 <option value="text">Resposta por texto (comportamento classico)</option>
               </select>
             </label>
@@ -361,7 +361,7 @@ export default function NodeEditor({
                         button_footer_text: e.target.value,
                       }))
                     }
-                    placeholder="Ex: Responda clicando em uma opcao"
+                    placeholder="Ex: Responda clicando em uma opção"
                     className="stateful-input"
                   />
                 </label>
@@ -382,7 +382,7 @@ export default function NodeEditor({
                       button_action_label: e.target.value,
                     }))
                   }
-                  placeholder="Ver opcoes"
+                  placeholder="Ver opções"
                   className="stateful-input"
                 />
               </label>
@@ -401,7 +401,7 @@ export default function NodeEditor({
               }))
             }
             rows={5}
-            placeholder="Ex.: Ola! Escolha uma das opcoes abaixo."
+            placeholder="Ex.: Ola! Escolha uma das opções abaixo."
             className="stateful-input stateful-input-textarea"
           />
         </label>
@@ -412,7 +412,7 @@ export default function NodeEditor({
           const effectiveMode = mode === 'auto' ? (optionCount <= 3 ? 'button' : 'list') : mode;
           const header = (selectedStep.button_header_text || '').trim();
           const footer = (selectedStep.button_footer_text || '').trim();
-          const actionLabel = (selectedStep.button_action_label || '').trim() || 'Ver opcoes';
+          const actionLabel = (selectedStep.button_action_label || '').trim() || 'Ver opções';
           const body = (selectedStep.reply_text || '').trim() || 'A mensagem deste bloco aparecera aqui.';
           const options = selectedStep.options ?? [];
 
@@ -427,13 +427,13 @@ export default function NodeEditor({
                 {effectiveMode === 'text' ? (
                   options.map((opt, i) => (
                     <p key={opt.id} className="stateful-preview-text-option">
-                      {(opt.key || String(i + 1)).trim()} - {(opt.label || 'Opcao').trim()}
+                      {(opt.key || String(i + 1)).trim()} - {(opt.label || 'Opção').trim()}
                     </p>
                   ))
                 ) : effectiveMode === 'button' ? (
                   options.slice(0, 3).map((opt) => (
                     <div key={opt.id} className="stateful-preview-button">
-                      {(opt.label || 'Opcao').trim()}
+                      {(opt.label || 'Opção').trim()}
                     </div>
                   ))
                 ) : (
@@ -459,9 +459,9 @@ export default function NodeEditor({
           <section className="stateful-editor-card">
             <div className="stateful-editor-card-header">
               <div>
-                <h4 className="stateful-editor-card-title">Opcoes do menu</h4>
+                <h4 className="stateful-editor-card-title">Opções do menu</h4>
                 <p className="stateful-editor-card-subtitle">
-                  Clique em uma opcao para configurar o que ela faz.
+                  Clique em uma opção para configurar o que ela faz.
                 </p>
               </div>
 
@@ -470,14 +470,14 @@ export default function NodeEditor({
                 onClick={() => onAddOption?.(selectedStep.id)}
                 className="stateful-btn stateful-btn-secondary"
               >
-                Nova opcao
+                Nova opção
               </button>
             </div>
 
             {(selectedStep.interaction_mode || 'auto') === 'text' && (
               <label className="stateful-field">
                 <span className="stateful-field-label">
-                  Resposta se o cliente digitar uma opcao que nao existe
+                  Resposta se o cliente digitar uma opção que nao existe
                 </span>
                 <input
                   type="text"
@@ -503,7 +503,7 @@ export default function NodeEditor({
                   className={`stateful-option-list-item ${selectedOptionId === option.id ? 'stateful-option-list-item--active' : ''}`}
                 >
                   <div>
-                    <p className="stateful-option-list-title">Opcao {optionIndex + 1}</p>
+                    <p className="stateful-option-list-title">Opção {optionIndex + 1}</p>
                     <p className="stateful-option-list-meta">
                       {(option.key || '?').trim()} - {(option.label || 'Sem texto').trim()}
                     </p>
@@ -516,7 +516,7 @@ export default function NodeEditor({
               ))}
 
               {!selectedStep.options?.length && (
-                <p className="text-sm text-[#706f6c]">Nenhuma opcao criada ainda.</p>
+                <p className="text-sm text-[#706f6c]">Nenhuma opção criada ainda.</p>
               )}
             </div>
           </section>
@@ -526,10 +526,10 @@ export default function NodeEditor({
               <div className="stateful-editor-card-header">
                 <div>
                   <h4 className="stateful-editor-card-title">
-                    Editando opcao {(selectedStep.options ?? []).findIndex((item) => item.id === selectedOption.id) + 1}
+                    Editando opção {(selectedStep.options ?? []).findIndex((item) => item.id === selectedOption.id) + 1}
                   </h4>
                   <p className="stateful-editor-card-subtitle">
-                    Defina o texto mostrado e o destino desta opcao.
+                    Defina o texto mostrado e o destino desta opção.
                   </p>
                 </div>
 
@@ -538,7 +538,7 @@ export default function NodeEditor({
                   onClick={() => onRemoveOption?.(selectedStep.id, selectedOption.id)}
                   className="stateful-btn stateful-btn-danger"
                 >
-                  Excluir opcao
+                  Excluir opção
                 </button>
               </div>
 

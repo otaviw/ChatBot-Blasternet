@@ -117,7 +117,7 @@ function CompanyBotPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
           <div>
             <p className="text-xs text-[#737373] mb-0.5">ID do número (phone_number_id)</p>
-            <p className="text-sm font-mono text-[#171717]">{company.meta_phone_number_id || '—'}</p>
+            <p className="text-sm font-mono text-[#171717]">{company.meta_phone_number_id || '-'}</p>
           </div>
           <div>
             <p className="text-xs text-[#737373] mb-0.5">Token configurado</p>
@@ -139,13 +139,13 @@ function CompanyBotPage() {
 
           {testState === 'ok' && testResult?.display_phone_number && (
             <span className="text-sm text-emerald-700 flex items-center gap-1">
-              ✓ Conexão OK — Número: {testResult.display_phone_number}
+              Conexão OK - Número: {testResult.display_phone_number}
               {testResult.verified_name ? ` (${testResult.verified_name})` : ''}
             </span>
           )}
           {testState === 'error' && (
             <span className="text-sm text-red-600 flex items-center gap-1">
-              ✗ {testResult?.error || 'Credenciais inválidas.'}
+              Erro - {testResult?.error || 'Credenciais inválidas.'}
             </span>
           )}
           {!company.has_meta_credentials && (
@@ -175,6 +175,20 @@ function CompanyBotPage() {
                 />
                 <span className="text-sm">Ativar respostas automáticas</span>
               </label>
+            </label>
+            <label className="bot-config-field">
+              <span className="bot-config-label">IA assistiva no bot</span>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={Boolean(settings.ai_chatbot_enabled)}
+                  onChange={(e) => updateMessageField('ai_chatbot_enabled', e.target.checked)}
+                />
+                <span className="text-sm">Permitir IA sugerir e melhorar respostas do bot</span>
+              </label>
+              <p className="text-xs text-[#706f6c] mt-1">
+                Essa opção só funciona quando a empresa estiver autorizada pela revenda e com feature global liberada.
+              </p>
             </label>
             <label className="bot-config-field">
               <span className="bot-config-label">Fuso horário</span>
