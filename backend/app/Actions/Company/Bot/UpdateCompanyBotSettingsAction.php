@@ -13,12 +13,14 @@ use App\Services\AuditLogService;
 use App\Services\Ai\AiAccessService;
 use App\Services\Bot\AiSettingsPayloadBuilder;
 use App\Services\Bot\BotSettingsSupportService;
+use App\Services\CriticalAuditLogService;
 use App\Services\WhatsAppCredentialsValidatorService;
 
 class UpdateCompanyBotSettingsAction
 {
     public function __construct(
         private readonly AuditLogService $auditLog,
+        private readonly CriticalAuditLogService $criticalAuditLog,
         private readonly AiSettingsPayloadBuilder $aiSettingsPayloadBuilder,
         private readonly BotSettingsSupportService $botSettingsSupport,
         private readonly WhatsAppCredentialsValidatorService $credentialsValidator,
@@ -28,7 +30,8 @@ class UpdateCompanyBotSettingsAction
     {
         $validated = $request->validated();
 
-        $credentialError = $this->handleCredentials($company, $validated);
+        $credentialsChanged = false;
+        $credentialError = $this->handleCredentials($company, $validated, $credentialsChanged);
         if ($credentialError !== null) {
             return ActionResponse::unprocessable($credentialError);
         }
@@ -70,6 +73,14 @@ class UpdateCompanyBotSettingsAction
             ]
         );
 
+        if ($credentialsChanged) {
+            $this->criticalAuditLog->record(
+                $request,
+                'settings.integrations_config_updated',
+                (int) $company->id
+            );
+        }
+
         return ActionResponse::ok(['ok' => true, 'settings' => $settings]);
     }
 
@@ -77,8 +88,9 @@ class UpdateCompanyBotSettingsAction
      * Valida e persiste credenciais WhatsApp quando enviadas e alteradas.
      * Retorna uma mensagem de erro ou null quando tudo estiver ok.
      */
-    private function handleCredentials(Company $company, array $validated): ?string
+    private function handleCredentials(Company $company, array $validated, bool &$credentialsChanged): ?string
     {
+        $credentialsChanged = false;
         $hasPhone = array_key_exists('meta_phone_number_id', $validated);
         $hasToken = array_key_exists('meta_access_token', $validated);
 
@@ -114,6 +126,7 @@ class UpdateCompanyBotSettingsAction
             $company->meta_access_token = $newToken;
         }
         if ($company->isDirty()) {
+            $credentialsChanged = true;
             $company->save();
         }
 

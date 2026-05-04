@@ -42,6 +42,7 @@ use App\Policies\TagPolicy;
 use App\Console\Commands\GenerateSecretsCommand;
 use App\Services\Ai\AiProviderResolver;
 use App\Services\Ai\Providers\AiProvider;
+use App\Support\Security\ProductionDebugGuard;
 use Carbon\Carbon;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -69,6 +70,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        ProductionDebugGuard::assertSafe(
+            (string) config('app.env', 'production'),
+            (bool) config('app.debug', false)
+        );
+
         // Valida secrets críticos em contexto HTTP — falha rápida e explícita antes de
         // qualquer request ser processado. Console/Artisan/tests ficam de fora porque
         // migrations e workers podem rodar sem todas as variáveis de runtime.

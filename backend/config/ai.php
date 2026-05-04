@@ -45,6 +45,10 @@ return [
 
     'request_timeout_ms' => (int) env('AI_REQUEST_TIMEOUT_MS', 30000),
 
+    // Feature flag global para liberar IA no chatbot de atendimento.
+    // Default seguro: desligado.
+    'chatbot_feature_enabled' => (bool) env('AI_CHATBOT_FEATURE_ENABLED', false),
+
     'circuit_breaker' => [
         'enabled' => (bool) env('AI_CIRCUIT_BREAKER_ENABLED', true),
         'failure_threshold' => (int) env('AI_CIRCUIT_BREAKER_FAILURE_THRESHOLD', 5),

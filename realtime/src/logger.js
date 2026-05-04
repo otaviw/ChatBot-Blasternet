@@ -6,6 +6,32 @@ const LEVELS = {
 };
 
 const currentLevelValue = LEVELS[process.env.REALTIME_LOG_LEVEL ?? 'info'] ?? LEVELS.info;
+const MAX_STRING_LEN = 500;
+
+const sanitizeString = (value) =>
+  String(value)
+    .replace(/[\r\n\t]+/g, ' ')
+    .slice(0, MAX_STRING_LEN);
+
+const sanitizeValue = (value) => {
+  if (typeof value === 'string') {
+    return sanitizeString(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.slice(0, 50).map(sanitizeValue);
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value)
+        .slice(0, 50)
+        .map(([key, item]) => [sanitizeString(key), sanitizeValue(item)])
+    );
+  }
+
+  return value;
+};
 
 const write = (level, message, context = {}) => {
   if ((LEVELS[level] ?? 100) < currentLevelValue) {
@@ -14,9 +40,9 @@ const write = (level, message, context = {}) => {
 
   const record = {
     level,
-    message,
+    message: sanitizeString(message),
     timestamp: new Date().toISOString(),
-    ...context,
+    ...sanitizeValue(context),
   };
 
   process.stdout.write(`${JSON.stringify(record)}\n`);

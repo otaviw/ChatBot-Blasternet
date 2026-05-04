@@ -5,12 +5,18 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\AiChatbotDecisionLog;
 use App\Models\AiUsageLog;
 use App\Models\Company;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Services\Ai\AiMetricsService;
 use App\Services\Ai\AiSafetyPipelineService;
+use App\Services\Ai\ChatbotAiDecisionLoggerService;
+use App\Services\Ai\ChatbotAiGuardService;
+use App\Services\Ai\ChatbotAiIntentClassifier;
+use App\Services\Ai\ChatbotAiPolicyService;
+use App\Services\Ai\ChatbotAiSuggestionResultNormalizer;
 use App\Services\Ai\ChatbotAiDecisionService;
 use App\Services\Ai\ConversationAiSuggestionService;
 use App\Services\Bot\StatefulBotService;
@@ -36,6 +42,10 @@ class InboundMessageService
         private ConversationBootstrapService $conversationBootstrap,
         private ConversationStateService $conversationState,
         private ChatbotAiDecisionService $chatbotAiDecision,
+        private ChatbotAiGuardService $chatbotAiGuard,
+        private ChatbotAiIntentClassifier $chatbotAiIntentClassifier,
+        private ChatbotAiPolicyService $chatbotAiPolicy,
+        private ChatbotAiDecisionLoggerService $chatbotAiDecisionLogger,
         private ConversationAiSuggestionService $chatbotAiSuggestion,
         private AiMetricsService $aiMetrics,
         private AiSafetyPipelineService $safetyPipeline,
@@ -144,25 +154,35 @@ class InboundMessageService
         }
 
         // Tenta substituir resposta clássica por resposta gerada via IA, quando habilitado
-        if ($company !== null && $this->chatbotAiDecision->shouldUseAi($company)) {
-            $safetyResult = $this->safetyPipeline->run($normalizedText);
-            if ($safetyResult->blocked) {
-                Log::info('chatbot.safety_blocked', [
+        $gateResult = null;
+        if ($company !== null) {
+            $gateResult = $this->chatbotAiGuard->gateResult($company, $conversation, [
+                'channel' => 'whatsapp',
+                'entrypoint' => 'inbound_text',
+            ]);
+
+            if (! (bool) ($gateResult['allowed'] ?? false)) {
+                Log::info('chatbot.ai_guard_blocked', [
                     'conversation_id' => (int) $conversation->id,
                     'company_id' => (int) ($company->id ?? 0),
-                    'stage' => $safetyResult->blockStage,
-                    'reason' => $safetyResult->blockReason,
-                    'flags' => $safetyResult->flags,
+                    'reasons' => $gateResult['reasons'] ?? [],
+                    'gates' => $gateResult['gates'] ?? [],
                 ]);
-            } else {
-                $aiReply = $this->generateChatbotAiReply($company, $conversation);
-                if ($aiReply !== null) {
-                    $reply = $aiReply;
-                    $statefulHandled = false;
-                    $replyMessage = null;
-                }
             }
         }
+
+        [$reply, $replyMessage] = $this->applyAiAssistiveDecision(
+            $reply,
+            $replyMessage,
+            $statefulHandled,
+            $company,
+            $conversation,
+            $inMessage,
+            $gateResult,
+            $normalizedFrom,
+            $normalizedText,
+            $inMeta
+        );
 
         [$outMessage, $updatedConversation] = DB::transaction(function () use (
             $conversation,
@@ -598,9 +618,9 @@ class InboundMessageService
         }
 
         try {
-            $reply = $this->chatbotAiSuggestion->generateSuggestion($conversation, $settings);
+            $result = $this->chatbotAiSuggestion->generateSuggestion($conversation, $settings);
 
-            return $reply !== '' ? $reply : null;
+            return ChatbotAiSuggestionResultNormalizer::toReplyText($result);
         } catch (Throwable $exception) {
             // A métrica de erro já foi registrada dentro de generateSuggestion.
             // Aqui apenas garantimos o fallback silencioso para o bot clássico.
@@ -612,5 +632,297 @@ class InboundMessageService
 
             return null;
         }
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $gateResult
+     * @param  array<string, mixed>|string|null  $replyMessage
+     * @param  array<string, mixed>  $inMeta
+     * @return array{0: string, 1: array<string, mixed>|string|null}
+     */
+    private function applyAiAssistiveDecision(
+        string $legacyReply,
+        mixed $replyMessage,
+        bool $statefulHandled,
+        ?Company $company,
+        Conversation $conversation,
+        Message $inMessage,
+        ?array $gateResult,
+        string $normalizedFrom,
+        string $normalizedText,
+        array $inMeta
+    ): array {
+        if ($company === null || ! is_array($gateResult)) {
+            return [$legacyReply, $replyMessage];
+        }
+
+        $settings = $company->botSetting;
+        if (! $settings) {
+            return [$legacyReply, $replyMessage];
+        }
+
+        $allowed = (bool) ($gateResult['allowed'] ?? false);
+        if (! $allowed) {
+            return [$legacyReply, $replyMessage];
+        }
+
+        $shadowEnabled = (bool) ($settings->ai_chatbot_shadow_mode ?? false);
+        $sandboxEnabled = (bool) ($settings->ai_chatbot_sandbox_enabled ?? false);
+        $sandboxNumberAllowed = $sandboxEnabled && $this->isSandboxTestNumberAllowed($settings->ai_chatbot_test_numbers, $normalizedFrom);
+        $mode = $sandboxNumberAllowed
+            ? AiChatbotDecisionLog::MODE_SANDBOX
+            : ($shadowEnabled ? AiChatbotDecisionLog::MODE_SHADOW : AiChatbotDecisionLog::MODE_OFF);
+
+        if ($mode === AiChatbotDecisionLog::MODE_OFF) {
+            return [$legacyReply, $replyMessage];
+        }
+
+        $provider = trim((string) ($settings->ai_provider ?? config('ai.provider', '')));
+        $model = trim((string) ($settings->ai_model ?? config('ai.model', '')));
+        $startedNs = hrtime(true);
+
+        try {
+            $classification = $this->chatbotAiIntentClassifier->classify(
+                $conversation,
+                $settings,
+                $normalizedText,
+                ['message_meta' => $inMeta]
+            );
+
+            $policyDecision = $this->chatbotAiPolicy->decide(
+                $conversation,
+                $settings,
+                $classification,
+                ['message_text' => $normalizedText]
+            );
+
+            $confidence = is_numeric($policyDecision['confidence'] ?? null)
+                ? (float) $policyDecision['confidence']
+                : 0.0;
+            $intent = trim((string) ($policyDecision['intent'] ?? 'fallback'));
+            $reason = trim((string) ($policyDecision['reason'] ?? ''));
+            $action = trim((string) ($policyDecision['action'] ?? ChatbotAiPolicyService::ACTION_FALLBACK_LEGACY));
+
+            $finalReply = $legacyReply;
+            $finalReplyMessage = $replyMessage;
+            $suggestionPayload = null;
+            $aiReply = null;
+            $aiApplied = false;
+            $error = null;
+
+            if (
+                $mode === AiChatbotDecisionLog::MODE_SANDBOX
+                && $action === ChatbotAiPolicyService::ACTION_SUGGEST_REPLY
+                && ! $statefulHandled
+            ) {
+                $suggestionPayload = $this->generateChatbotAiSuggestionPayload($company, $conversation);
+                $aiReply = isset($suggestionPayload['reply']) ? trim((string) $suggestionPayload['reply']) : null;
+
+                if ($aiReply !== null && $aiReply !== '') {
+                    $finalReply = $aiReply;
+                    $aiApplied = true;
+                    $this->productMetrics->track(
+                        ProductFunnels::CHATBOT,
+                        'ai_sandbox_reply_applied',
+                        'chatbot_ai_sandbox_reply_applied',
+                        (int) ($company->id ?? 0),
+                        null,
+                        [
+                            'conversation_id' => (int) $conversation->id,
+                            'message_id' => (int) $inMessage->id,
+                            'intent' => $intent,
+                            'policy_action' => $action,
+                        ],
+                    );
+                } else {
+                    $error = 'ai_reply_unavailable';
+                    $action = ChatbotAiPolicyService::ACTION_FALLBACK_LEGACY;
+                }
+            }
+
+            $latencyMs = max(0, (int) floor((hrtime(true) - $startedNs) / 1_000_000));
+            $normalizedGateResult = $this->mergeReplyComparison(
+                $gateResult,
+                $legacyReply,
+                $aiReply,
+                $finalReply,
+                $aiApplied,
+                $statefulHandled,
+                $sandboxNumberAllowed,
+            );
+
+            $this->chatbotAiDecisionLogger->logDecision([
+                'company_id' => (int) $company->id,
+                'conversation_id' => (int) $conversation->id,
+                'message_id' => (int) $inMessage->id,
+                'user_id' => null,
+                'mode' => $mode,
+                'gate_result' => $normalizedGateResult,
+                'intent' => $intent,
+                'confidence' => $confidence,
+                'action' => $action,
+                'handoff_reason' => isset($policyDecision['handoff_reason']) && is_string($policyDecision['handoff_reason'])
+                    ? $policyDecision['handoff_reason']
+                    : null,
+                'used_knowledge' => (bool) ($suggestionPayload['raw']['used_rag'] ?? false),
+                'knowledge_refs' => $this->normalizeShadowKnowledgeRefs($suggestionPayload['raw']['rag_chunks'] ?? null),
+                'latency_ms' => $latencyMs,
+                'tokens_used' => null,
+                'provider' => $provider !== '' ? $provider : null,
+                'model' => $model !== '' ? $model : null,
+                'error' => $error ?? ((str_starts_with($reason, 'provider_') || $reason === 'policy_exception') ? $reason : null),
+            ]);
+
+            return [$finalReply, $finalReplyMessage];
+        } catch (Throwable $exception) {
+            $latencyMs = max(0, (int) floor((hrtime(true) - $startedNs) / 1_000_000));
+
+            try {
+                $this->chatbotAiDecisionLogger->logDecision([
+                    'company_id' => (int) $company->id,
+                    'conversation_id' => (int) $conversation->id,
+                    'message_id' => (int) $inMessage->id,
+                    'user_id' => null,
+                    'mode' => $mode,
+                    'gate_result' => $this->mergeReplyComparison(
+                        $gateResult,
+                        $legacyReply,
+                        null,
+                        $legacyReply,
+                        false,
+                        $statefulHandled,
+                        $sandboxNumberAllowed,
+                    ),
+                    'intent' => 'fallback',
+                    'confidence' => 0.0,
+                    'action' => ChatbotAiPolicyService::ACTION_FALLBACK_LEGACY,
+                    'handoff_reason' => null,
+                    'used_knowledge' => false,
+                    'knowledge_refs' => null,
+                    'latency_ms' => $latencyMs,
+                    'tokens_used' => null,
+                    'provider' => $provider !== '' ? $provider : null,
+                    'model' => $model !== '' ? $model : null,
+                    'error' => $exception->getMessage(),
+                ]);
+            } catch (Throwable $logException) {
+                Log::warning('chatbot.ai_shadow_log_failed', [
+                    'company_id' => (int) $company->id,
+                    'conversation_id' => (int) $conversation->id,
+                    'error' => $logException->getMessage(),
+                ]);
+            }
+
+            return [$legacyReply, $replyMessage];
+        }
+    }
+
+    /**
+     * @param  mixed  $configuredTestNumbers
+     */
+    private function isSandboxTestNumberAllowed(mixed $configuredTestNumbers, string $normalizedFrom): bool
+    {
+        $numbers = [];
+
+        if (is_array($configuredTestNumbers)) {
+            $numbers = $configuredTestNumbers;
+        } elseif (is_string($configuredTestNumbers)) {
+            $numbers = preg_split('/[\n,;]+/', $configuredTestNumbers) ?: [];
+        }
+
+        if ($numbers === []) {
+            return false;
+        }
+
+        foreach ($numbers as $rawNumber) {
+            $candidate = $this->normalizePhone((string) $rawNumber);
+            if ($candidate !== '' && $candidate === $normalizedFrom) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string, mixed>  $gateResult
+     * @return array<string, mixed>
+     */
+    private function mergeReplyComparison(
+        array $gateResult,
+        string $legacyReply,
+        ?string $aiReply,
+        string $finalReply,
+        bool $aiApplied,
+        bool $statefulHandled,
+        bool $sandboxNumberAllowed
+    ): array {
+        $gateResult['reply_comparison'] = [
+            'legacy_reply' => $legacyReply,
+            'ai_reply' => $aiReply,
+            'final_reply' => $finalReply,
+            'ai_applied' => $aiApplied,
+            'stateful_handled' => $statefulHandled,
+            'sandbox_number_allowed' => $sandboxNumberAllowed,
+        ];
+
+        return $gateResult;
+    }
+
+    /**
+     * @return array{reply:string,raw:array<string,mixed>}|null
+     */
+    private function generateChatbotAiSuggestionPayload(Company $company, Conversation $conversation): ?array
+    {
+        $settings = $company->botSetting;
+        if (! $settings) {
+            return null;
+        }
+
+        try {
+            $result = $this->chatbotAiSuggestion->generateSuggestion($conversation, $settings);
+            $reply = ChatbotAiSuggestionResultNormalizer::toReplyText($result);
+            if ($reply === null || trim($reply) === '') {
+                return null;
+            }
+
+            return [
+                'reply' => trim($reply),
+                'raw' => is_array($result) ? $result : [],
+            ];
+        } catch (Throwable $exception) {
+            Log::warning('chatbot.ai_reply_fallback', [
+                'conversation_id' => (int) $conversation->id,
+                'company_id' => (int) $company->id,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * @param  mixed  $rawRefs
+     * @return array<int, array<string, mixed>>|null
+     */
+    private function normalizeShadowKnowledgeRefs(mixed $rawRefs): ?array
+    {
+        if (! is_array($rawRefs)) {
+            return null;
+        }
+
+        $normalized = [];
+        foreach ($rawRefs as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+
+            $normalized[] = [
+                'title' => isset($item['title']) ? (string) $item['title'] : null,
+                'score' => isset($item['score']) && is_numeric($item['score']) ? (float) $item['score'] : null,
+            ];
+        }
+
+        return $normalized !== [] ? $normalized : null;
     }
 }

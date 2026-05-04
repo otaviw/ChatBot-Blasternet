@@ -66,6 +66,7 @@ Sobe os três serviços em processos separados. O Redis precisa ser compartilhad
 
 - `REALTIME_JWT_SECRET` — mesma chave no backend e no realtime
 - `REALTIME_INTERNAL_KEY` — mesma chave no backend e no realtime
+- `APP_ENV=production` e `APP_DEBUG=false` — combinação obrigatória de segurança (o backend e o CI bloqueiam `APP_DEBUG=true` em produção)
 
 Build do frontend:
 

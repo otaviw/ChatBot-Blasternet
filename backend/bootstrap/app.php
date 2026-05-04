@@ -10,6 +10,7 @@ use App\Http\Middleware\EnsureSystemAdmin;
 use App\Http\Middleware\RequestMetricsMiddleware;
 use App\Http\Middleware\RequestTrackingMiddleware;
 use App\Http\Middleware\SecurityHeadersMiddleware;
+use App\Http\Middleware\LogCriticalAction;
 use App\Http\Middleware\ValidateWhatsAppWebhookSignature;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -36,6 +37,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'company.user'       => EnsureCompanyUser::class,
             'system.admin'       => EnsureSystemAdmin::class,
             'webhook.signature'  => ValidateWhatsAppWebhookSignature::class,
+            'critical.audit'     => LogCriticalAction::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

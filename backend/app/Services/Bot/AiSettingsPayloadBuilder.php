@@ -11,6 +11,8 @@ class AiSettingsPayloadBuilder
         'ai_enabled',
         'ai_internal_chat_enabled',
         'ai_chatbot_enabled',
+        'ai_chatbot_shadow_mode',
+        'ai_chatbot_sandbox_enabled',
         'ai_chatbot_auto_reply_enabled',
         'ai_usage_enabled',
     ];
@@ -22,10 +24,16 @@ class AiSettingsPayloadBuilder
         'max_template_messages_monthly',
         'ai_max_context_messages',
         'ai_max_response_tokens',
+        'ai_chatbot_handoff_repeat_limit',
+    ];
+
+    private const FLOAT_FIELDS = [
+        'ai_chatbot_confidence_threshold',
     ];
 
     private const PASSTHROUGH_FIELDS = [
         'ai_chatbot_rules',
+        'ai_chatbot_test_numbers',
         'ai_chatbot_mode',
         'ai_persona',
         'ai_tone',
@@ -45,6 +53,7 @@ class AiSettingsPayloadBuilder
         return array_values(array_unique(array_merge(
             self::BOOLEAN_FIELDS,
             self::NULLABLE_INTEGER_FIELDS,
+            self::FLOAT_FIELDS,
             self::PASSTHROUGH_FIELDS
         )));
     }
@@ -71,6 +80,13 @@ class AiSettingsPayloadBuilder
             if (in_array($field, self::NULLABLE_INTEGER_FIELDS, true)) {
                 $payload[$field] = $validated[$field] !== null
                     ? (int) $validated[$field]
+                    : null;
+                continue;
+            }
+
+            if (in_array($field, self::FLOAT_FIELDS, true)) {
+                $payload[$field] = $validated[$field] !== null
+                    ? (float) $validated[$field]
                     : null;
                 continue;
             }

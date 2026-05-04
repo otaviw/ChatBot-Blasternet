@@ -92,4 +92,19 @@ class AiSettingsPayloadBuilderTest extends TestCase
             'ai_enabled' => false,
         ], $payload);
     }
+
+    public function test_from_validated_casts_confidence_threshold_to_float(): void
+    {
+        $builder = new AiSettingsPayloadBuilder();
+
+        $payload = $builder->fromValidated([
+            'ai_chatbot_confidence_threshold' => '0.75',
+        ], [
+            'ai_chatbot_confidence_threshold',
+        ]);
+
+        $this->assertSame([
+            'ai_chatbot_confidence_threshold' => 0.75,
+        ], $payload);
+    }
 }

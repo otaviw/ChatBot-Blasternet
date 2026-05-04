@@ -25,7 +25,7 @@ Route::middleware(['web', 'auth', 'company.user'])->group(function () {
 
     Route::prefix('minha-conta')->group(function () {
         Route::get('/bot', [BotController::class, 'index']);
-        Route::put('/bot', [BotController::class, 'update'])->middleware('throttle:bot-write');
+        Route::put('/bot', [BotController::class, 'update'])->middleware(['throttle:bot-write', 'critical.audit:settings.ai_config_updated']);
         Route::post('/bot/validar-whatsapp', [BotController::class, 'validateWhatsApp'])->middleware('throttle:bot-write');
         Route::get('/uso', [BotController::class, 'usageSnapshot'])->middleware('throttle:inbox-read');
         Route::get('/produto/funil', [ProductMetricsController::class, 'funnel'])->middleware('throttle:inbox-read');
@@ -88,9 +88,9 @@ Route::middleware(['web', 'auth', 'company.user'])->group(function () {
         Route::delete('/base-conhecimento/{knowledgeItem}', [AiCompanyKnowledgeController::class, 'destroy'])->middleware('throttle:bot-write');
 
         Route::get('/users', [CompanyUserController::class, 'index'])->middleware('throttle:inbox-read');
-        Route::post('/users', [CompanyUserController::class, 'store'])->middleware('throttle:bot-write');
-        Route::put('/users/{user}', [CompanyUserController::class, 'update'])->middleware('throttle:bot-write');
-        Route::delete('/users/{user}', [CompanyUserController::class, 'destroy'])->middleware('throttle:bot-write');
+        Route::post('/users', [CompanyUserController::class, 'store'])->middleware(['throttle:bot-write', 'critical.audit:user.created']);
+        Route::put('/users/{user}', [CompanyUserController::class, 'update'])->middleware(['throttle:bot-write', 'critical.audit:user.permissions_changed']);
+        Route::delete('/users/{user}', [CompanyUserController::class, 'destroy'])->middleware(['throttle:bot-write', 'critical.audit:user.deleted']);
 
         // Auditoria: listagem com escopo multi-tenant e paginação obrigatória.
         Route::get('/audit-logs', [AuditLogController::class, 'index'])->middleware('throttle:inbox-read');
@@ -178,4 +178,3 @@ Route::middleware(['web', 'auth', 'company.user'])->group(function () {
                 ->middleware('throttle:bot-write');
     });
 });
-

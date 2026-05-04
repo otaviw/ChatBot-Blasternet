@@ -19,9 +19,9 @@ Route::middleware(['web', 'auth', 'admin'])->group(function () {
         Route::get('/empresas', [CompanyController::class, 'index']);
         Route::post('/empresas', [CompanyController::class, 'store'])->middleware('throttle:bot-write');
         Route::get('/empresas/{company}', [CompanyController::class, 'show']);
-        Route::put('/empresas/{company}', [CompanyController::class, 'update'])->middleware('throttle:bot-write');
+        Route::put('/empresas/{company}', [CompanyController::class, 'update'])->middleware(['throttle:bot-write', 'critical.audit:settings.integrations_config_updated']);
         Route::put('/empresas/{company}/bot', [CompanyController::class, 'updateBotSettings'])
-            ->middleware('throttle:bot-write');
+            ->middleware(['throttle:bot-write', 'critical.audit:settings.ai_config_updated']);
         Route::post('/empresas/{company}/validar-whatsapp', [CompanyController::class, 'validateWhatsApp'])
             ->middleware('throttle:bot-write');
         Route::delete('/empresas/{company}', [CompanyController::class, 'destroy'])
@@ -30,11 +30,11 @@ Route::middleware(['web', 'auth', 'admin'])->group(function () {
         Route::get('/users', [AdminUserController::class, 'index'])
             ->middleware(['throttle:inbox-read']);
         Route::post('/users', [AdminUserController::class, 'store'])
-            ->middleware(['throttle:bot-write']);
+            ->middleware(['throttle:bot-write', 'critical.audit:user.created']);
         Route::put('/users/{user}', [AdminUserController::class, 'update'])
-            ->middleware(['throttle:bot-write']);
+            ->middleware(['throttle:bot-write', 'critical.audit:user.permissions_changed']);
         Route::delete('/users/{user}', [AdminUserController::class, 'destroy'])
-            ->middleware(['throttle:bot-write']);
+            ->middleware(['throttle:bot-write', 'critical.audit:user.deleted']);
 
         Route::get('/conversas', [AdminConversationController::class, 'index'])
             ->middleware(['throttle:inbox-read']);

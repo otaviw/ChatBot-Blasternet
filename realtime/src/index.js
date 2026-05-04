@@ -66,7 +66,7 @@ const handleIncomingEnvelope = (rawPayload, source) => {
   }
 
   emitEnvelope(io, normalized);
-  logger.info('realtime.envelope.emitted', {
+  logger.debug('realtime.envelope.emitted', {
     source,
     event: normalized.event,
     rooms: normalized.rooms,
@@ -125,7 +125,7 @@ io.on('connection', (socket) => {
   socket.join(chatUserRoom);
   socket.join(companyRoom);
 
-  logger.info('socket.connected', {
+  logger.debug('socket.connected', {
     socketId: socket.id,
     userId: user.userId,
     companyId: user.companyId,
@@ -168,7 +168,7 @@ io.on('connection', (socket) => {
       const room = `conversation:${conversationId}`;
       socket.join(room);
 
-      logger.info('socket.join_conversation', {
+      logger.debug('socket.join_conversation', {
         socketId: socket.id,
         userId: user.userId,
         conversationId,
@@ -220,7 +220,7 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', (reason) => {
     clearTimeout(expirationTimer);
-    logger.info('socket.disconnected', {
+    logger.debug('socket.disconnected', {
       socketId: socket.id,
       userId: user.userId,
       reason,
@@ -254,7 +254,7 @@ io.on('connection', (socket) => {
       const room = `chat:conversation:${conversationId}`;
       socket.join(room);
 
-      logger.info('socket.chat_join', {
+      logger.debug('socket.chat_join', {
         socketId: socket.id,
         userId: user.userId,
         conversationId,

@@ -29,6 +29,7 @@ class AuditLogService
 {
     /** @var array<int, string>|null */
     private static ?array $auditLogColumns = null;
+    private const MAX_USER_AGENT_LENGTH = 1024;
 
     public function record(
         Request $request,
@@ -60,8 +61,8 @@ class AuditLogService
             'entity_id' => $entityId,
             'method' => $request->method(),
             'route' => $request->path(),
-            'ip_address' => $request->ip(),
-            'user_agent' => $request->userAgent(),
+            'ip_address' => $this->sanitizeIp($request->ip()),
+            'user_agent' => $this->sanitizeUserAgent($request->userAgent()),
             'changes' => $normalizedChanges,
             'meta' => $normalizedMeta,
             'old_data' => $normalizedMeta,
@@ -220,5 +221,25 @@ class AuditLogService
         if (self::$auditLogColumns === null) {
             self::$auditLogColumns = Schema::getColumnListing('audit_logs');
         }
+    }
+
+    private function sanitizeIp(?string $ip): ?string
+    {
+        $value = trim((string) $ip);
+        if ($value === '') {
+            return null;
+        }
+
+        return mb_substr($value, 0, 45);
+    }
+
+    private function sanitizeUserAgent(?string $userAgent): ?string
+    {
+        $value = trim((string) $userAgent);
+        if ($value === '') {
+            return null;
+        }
+
+        return mb_substr($value, 0, self::MAX_USER_AGENT_LENGTH);
     }
 }

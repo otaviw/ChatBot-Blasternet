@@ -59,6 +59,24 @@ jobs:
         working-directory: backend
         run: cp .env.example .env
 
+      - name: Enforce safe production debug configuration
+        shell: bash
+        run: |
+          normalize() {
+            echo "$1" | tr '[:upper:]' '[:lower:]' | tr -d '"'"'"'\''[:space:]'
+          }
+
+          file_env="$(grep -E '^APP_ENV=' backend/.env | tail -n1 | cut -d= -f2-)"
+          file_debug="$(grep -E '^APP_DEBUG=' backend/.env | tail -n1 | cut -d= -f2-)"
+
+          app_env="$(normalize "${APP_ENV:-$file_env}")"
+          app_debug="$(normalize "${APP_DEBUG:-$file_debug}")"
+
+          if [[ "$app_env" == "production" && "$app_debug" == "true" ]]; then
+            echo "Unsafe configuration: APP_DEBUG=true with APP_ENV=production."
+            exit 1
+          fi
+
       - name: Generate app key
         working-directory: backend
         run: php artisan key:generate
