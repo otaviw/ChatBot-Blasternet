@@ -19,6 +19,7 @@ use App\Services\Ai\ChatbotAiPolicyService;
 use App\Services\Ai\ChatbotAiSuggestionResultNormalizer;
 use App\Services\Ai\ChatbotAiDecisionService;
 use App\Services\Ai\ConversationAiSuggestionService;
+use App\Services\Ai\Safety\AiSafetyResult;
 use App\Services\Bot\StatefulBotService;
 use App\Services\WhatsApp\WhatsAppSendService;
 use App\Support\ConversationStatus;
@@ -680,12 +681,85 @@ class InboundMessageService
         $provider = trim((string) ($settings->ai_provider ?? config('ai.provider', '')));
         $model = trim((string) ($settings->ai_model ?? config('ai.model', '')));
         $startedNs = hrtime(true);
+        $safeMessageText = $normalizedText;
+
+        try {
+            $safety = $this->safetyPipeline->run($normalizedText);
+        } catch (Throwable $exception) {
+            $latencyMs = max(0, (int) floor((hrtime(true) - $startedNs) / 1_000_000));
+
+            $this->chatbotAiDecisionLogger->logDecision([
+                'company_id' => (int) $company->id,
+                'conversation_id' => (int) $conversation->id,
+                'message_id' => (int) $inMessage->id,
+                'user_id' => null,
+                'mode' => $mode,
+                'gate_result' => $this->mergeReplyComparison(
+                    $this->mergeSafetyResult($gateResult, new AiSafetyResult(true, $normalizedText, 'safety_pipeline_exception', 'safety_pipeline', [])),
+                    $legacyReply,
+                    null,
+                    $legacyReply,
+                    false,
+                    $statefulHandled,
+                    $sandboxNumberAllowed,
+                ),
+                'intent' => 'fallback',
+                'confidence' => 0.0,
+                'action' => ChatbotAiPolicyService::ACTION_FALLBACK_LEGACY,
+                'handoff_reason' => null,
+                'used_knowledge' => false,
+                'knowledge_refs' => null,
+                'latency_ms' => $latencyMs,
+                'tokens_used' => null,
+                'provider' => $provider !== '' ? $provider : null,
+                'model' => $model !== '' ? $model : null,
+                'error' => 'safety_pipeline_exception',
+            ]);
+
+            return [$legacyReply, $replyMessage];
+        }
+
+        if ($safety->blocked) {
+            $latencyMs = max(0, (int) floor((hrtime(true) - $startedNs) / 1_000_000));
+
+            $this->chatbotAiDecisionLogger->logDecision([
+                'company_id' => (int) $company->id,
+                'conversation_id' => (int) $conversation->id,
+                'message_id' => (int) $inMessage->id,
+                'user_id' => null,
+                'mode' => $mode,
+                'gate_result' => $this->mergeReplyComparison(
+                    $this->mergeSafetyResult($gateResult, $safety),
+                    $legacyReply,
+                    null,
+                    $legacyReply,
+                    false,
+                    $statefulHandled,
+                    $sandboxNumberAllowed,
+                ),
+                'intent' => 'fallback',
+                'confidence' => 0.0,
+                'action' => ChatbotAiPolicyService::ACTION_FALLBACK_LEGACY,
+                'handoff_reason' => null,
+                'used_knowledge' => false,
+                'knowledge_refs' => null,
+                'latency_ms' => $latencyMs,
+                'tokens_used' => null,
+                'provider' => $provider !== '' ? $provider : null,
+                'model' => $model !== '' ? $model : null,
+                'error' => 'safety_blocked',
+            ]);
+
+            return [$legacyReply, $replyMessage];
+        }
+
+        $safeMessageText = $safety->sanitizedInput;
 
         try {
             $classification = $this->chatbotAiIntentClassifier->classify(
                 $conversation,
                 $settings,
-                $normalizedText,
+                $safeMessageText,
                 ['message_meta' => $inMeta]
             );
 
@@ -693,7 +767,7 @@ class InboundMessageService
                 $conversation,
                 $settings,
                 $classification,
-                ['message_text' => $normalizedText]
+                ['message_text' => $safeMessageText]
             );
 
             $confidence = is_numeric($policyDecision['confidence'] ?? null)
@@ -750,6 +824,13 @@ class InboundMessageService
                 $statefulHandled,
                 $sandboxNumberAllowed,
             );
+            $providerFromSuggestion = is_string($suggestionPayload['raw']['provider'] ?? null)
+                ? trim((string) $suggestionPayload['raw']['provider'])
+                : '';
+            $modelFromSuggestion = is_string($suggestionPayload['raw']['model'] ?? null)
+                ? trim((string) $suggestionPayload['raw']['model'])
+                : '';
+            $tokensUsed = $this->extractAssistiveTokensUsed($suggestionPayload['raw'] ?? null);
 
             $this->chatbotAiDecisionLogger->logDecision([
                 'company_id' => (int) $company->id,
@@ -767,9 +848,13 @@ class InboundMessageService
                 'used_knowledge' => (bool) ($suggestionPayload['raw']['used_rag'] ?? false),
                 'knowledge_refs' => $this->normalizeShadowKnowledgeRefs($suggestionPayload['raw']['rag_chunks'] ?? null),
                 'latency_ms' => $latencyMs,
-                'tokens_used' => null,
-                'provider' => $provider !== '' ? $provider : null,
-                'model' => $model !== '' ? $model : null,
+                'tokens_used' => $tokensUsed,
+                'provider' => $providerFromSuggestion !== ''
+                    ? $providerFromSuggestion
+                    : ($provider !== '' ? $provider : null),
+                'model' => $modelFromSuggestion !== ''
+                    ? $modelFromSuggestion
+                    : ($model !== '' ? $model : null),
                 'error' => $error ?? ((str_starts_with($reason, 'provider_') || $reason === 'policy_exception') ? $reason : null),
             ]);
 
@@ -924,5 +1009,52 @@ class InboundMessageService
         }
 
         return $normalized !== [] ? $normalized : null;
+    }
+
+    /**
+     * @param  mixed  $suggestionRaw
+     */
+    private function extractAssistiveTokensUsed(mixed $suggestionRaw): ?int
+    {
+        if (! is_array($suggestionRaw)) {
+            return null;
+        }
+
+        $meta = is_array($suggestionRaw['meta'] ?? null) ? $suggestionRaw['meta'] : [];
+        $candidates = [
+            $suggestionRaw['tokens_used'] ?? null,
+            $meta['tokens_used'] ?? null,
+            data_get($meta, 'usage.total_tokens'),
+            data_get($meta, 'usage.tokens'),
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (! is_numeric($candidate)) {
+                continue;
+            }
+
+            $value = (int) $candidate;
+            if ($value >= 0) {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $gateResult
+     * @return array<string, mixed>
+     */
+    private function mergeSafetyResult(array $gateResult, AiSafetyResult $safety): array
+    {
+        $gateResult['safety'] = [
+            'blocked' => $safety->blocked,
+            'stage' => $safety->blockStage,
+            'reason' => $safety->blockReason,
+            'flags' => $safety->flags,
+        ];
+
+        return $gateResult;
     }
 }

@@ -26,6 +26,7 @@ class AiAuditService
         }
 
         $normalizedAction = $this->normalizeAction($action);
+        $sanitizedMetadata = $this->sanitizeMetadata($metadata, $normalizedAction);
 
         try {
             AiAuditLog::query()->create([
@@ -33,7 +34,7 @@ class AiAuditService
                 'user_id' => $userId,
                 'conversation_id' => $conversationId,
                 'action' => $normalizedAction,
-                'metadata' => $metadata,
+                'metadata' => $sanitizedMetadata,
                 'created_at' => now(),
             ]);
         } catch (Throwable $exception) {
@@ -112,5 +113,41 @@ class AiAuditService
 
         return AiAuditLog::ACTION_MESSAGE_SENT;
     }
-}
 
+    /**
+     * @param  array<string, mixed>  $metadata
+     * @return array<string, mixed>
+     */
+    private function sanitizeMetadata(array $metadata, string $action): array
+    {
+        $gateResult = is_array($metadata['gate_result'] ?? null) ? $metadata['gate_result'] : null;
+        $replyComparison = is_array($gateResult['reply_comparison'] ?? null) ? $gateResult['reply_comparison'] : null;
+        if ($gateResult === null || $replyComparison === null) {
+            return $metadata;
+        }
+
+        $legacyReply = trim((string) ($replyComparison['legacy_reply'] ?? ''));
+        $aiReply = trim((string) ($replyComparison['ai_reply'] ?? ''));
+        $existingChangedResponse = $replyComparison['changed_response'] ?? null;
+        $changedResponse = is_bool($existingChangedResponse)
+            ? $existingChangedResponse
+            : $legacyReply !== $aiReply;
+
+        unset($replyComparison['legacy_reply'], $replyComparison['ai_reply']);
+
+        $replyComparison['legacy_reply_length'] = mb_strlen($legacyReply);
+        $replyComparison['ai_reply_length'] = mb_strlen($aiReply);
+        $replyComparison['legacy_reply_hash'] = hash('sha256', $legacyReply);
+        $replyComparison['ai_reply_hash'] = hash('sha256', $aiReply);
+        $replyComparison['changed_response'] = $changedResponse;
+        $replyComparison['action'] = trim((string) ($replyComparison['action'] ?? $action));
+        $replyComparison['confidence'] = is_numeric($replyComparison['confidence'] ?? null)
+            ? (float) $replyComparison['confidence']
+            : null;
+
+        $gateResult['reply_comparison'] = $replyComparison;
+        $metadata['gate_result'] = $gateResult;
+
+        return $metadata;
+    }
+}

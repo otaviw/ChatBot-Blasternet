@@ -31,7 +31,15 @@ class ConversationAiSuggestionService
     /**
      * Generate a suggestion and return it with metadata.
      *
-     * @return array{suggestion: string, confidence_score: float, used_rag: bool, rag_chunks: list<array{title:string,content:string,score:float|null}>}
+     * @return array{
+     *   suggestion: string,
+     *   confidence_score: float,
+     *   used_rag: bool,
+     *   rag_chunks: list<array{title:string,content:string,score:float|null}>,
+     *   provider: string,
+     *   model: ?string,
+     *   tokens_used: ?int
+     * }
      */
     public function generateSuggestion(Conversation $conversation, CompanyBotSetting $settings): array
     {
@@ -168,6 +176,9 @@ class ConversationAiSuggestionService
             'confidence_score' => $this->calculateConfidenceScore($usedRag, $ragChunks),
             'used_rag'         => $usedRag,
             'rag_chunks'       => $ragChunks,
+            'provider'         => $providerName,
+            'model'            => $modelName,
+            'tokens_used'      => $tokensUsed,
         ];
     }
 

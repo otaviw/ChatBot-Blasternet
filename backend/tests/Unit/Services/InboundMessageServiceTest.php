@@ -23,6 +23,7 @@ use App\Services\MessageDeliveryStatusService;
 use App\Services\MessageMediaStorageService;
 use App\Services\ProductMetricsService;
 use App\Services\WhatsApp\WhatsAppSendService;
+use App\Services\Ai\Safety\AiSafetyResult;
 use Illuminate\Config\Repository as ConfigRepository;
 use Illuminate\Container\Container;
 use Illuminate\Support\Facades\Facade;
@@ -155,6 +156,160 @@ class InboundMessageServiceTest extends TestCase
         );
 
         $this->assertSame('Resposta real do fluxo legado', $reply);
+    }
+
+    public function test_safety_prompt_injection_blocks_before_intent_classifier_and_falls_back_to_legacy(): void
+    {
+        $chatbotAiSuggestion = Mockery::mock(ConversationAiSuggestionService::class);
+        $chatbotAiSuggestion->shouldNotReceive('generateSuggestion');
+
+        $intentClassifier = Mockery::mock(ChatbotAiIntentClassifier::class);
+        $intentClassifier->shouldNotReceive('classify');
+
+        $safetyPipeline = Mockery::mock(AiSafetyPipelineService::class);
+        $safetyPipeline
+            ->shouldReceive('run')
+            ->once()
+            ->andReturn(new AiSafetyResult(
+                blocked: true,
+                sanitizedInput: 'texto sanitizado',
+                blockReason: 'prompt_injection:jailbreak',
+                blockStage: 'prompt_injection',
+                flags: ['prompt_injection:jailbreak']
+            ));
+
+        $decisionLogger = Mockery::mock(ChatbotAiDecisionLoggerService::class);
+        $decisionLogger
+            ->shouldReceive('logDecision')
+            ->once()
+            ->with(Mockery::on(function (array $payload): bool {
+                $safety = is_array($payload['gate_result']['safety'] ?? null)
+                    ? $payload['gate_result']['safety']
+                    : [];
+
+                return ($payload['mode'] ?? null) === 'shadow'
+                    && ($payload['action'] ?? null) === 'fallback_legacy'
+                    && ($payload['error'] ?? null) === 'safety_blocked'
+                    && ($safety['blocked'] ?? null) === true
+                    && ($safety['stage'] ?? null) === 'prompt_injection';
+            }));
+
+        $service = $this->makeService(
+            chatbotAiIntentClassifier: $intentClassifier,
+            chatbotAiSuggestion: $chatbotAiSuggestion,
+            chatbotAiDecisionLogger: $decisionLogger,
+            safetyPipeline: $safetyPipeline,
+        );
+
+        [$reply] = $this->invokeAiAssistiveDecision(
+            $service,
+            legacyReply: 'Resposta legado',
+            company: $this->makeCompany(shadowEnabled: true, sandboxEnabled: false),
+            gateResult: ['allowed' => true]
+        );
+
+        $this->assertSame('Resposta legado', $reply);
+    }
+
+    public function test_safety_pii_redaction_sanitizes_input_before_intent_classifier(): void
+    {
+        $chatbotAiSuggestion = Mockery::mock(ConversationAiSuggestionService::class);
+        $chatbotAiSuggestion->shouldNotReceive('generateSuggestion');
+
+        $intentClassifier = Mockery::mock(ChatbotAiIntentClassifier::class);
+        $intentClassifier
+            ->shouldReceive('classify')
+            ->once()
+            ->with(
+                Mockery::type(Conversation::class),
+                Mockery::type(CompanyBotSetting::class),
+                'texto com [PII_REDACTED]',
+                Mockery::type('array')
+            )
+            ->andReturn([
+                'intent' => 'duvida_geral',
+                'confidence' => 0.83,
+                'extracted_data' => [],
+                'suggested_reply' => null,
+                'should_transfer_to_human' => false,
+                'reason' => 'provider_classification',
+            ]);
+
+        $safetyPipeline = Mockery::mock(AiSafetyPipelineService::class);
+        $safetyPipeline
+            ->shouldReceive('run')
+            ->once()
+            ->andReturn(new AiSafetyResult(
+                blocked: false,
+                sanitizedInput: 'texto com [PII_REDACTED]',
+                blockReason: null,
+                blockStage: null,
+                flags: ['pii:cpf']
+            ));
+
+        $decisionLogger = Mockery::mock(ChatbotAiDecisionLoggerService::class);
+        $decisionLogger
+            ->shouldReceive('logDecision')
+            ->once()
+            ->with(Mockery::type('array'));
+
+        $service = $this->makeService(
+            chatbotAiIntentClassifier: $intentClassifier,
+            chatbotAiSuggestion: $chatbotAiSuggestion,
+            chatbotAiDecisionLogger: $decisionLogger,
+            safetyPipeline: $safetyPipeline,
+        );
+
+        [$reply] = $this->invokeAiAssistiveDecision(
+            $service,
+            legacyReply: 'Resposta legado',
+            company: $this->makeCompany(shadowEnabled: true, sandboxEnabled: false),
+            gateResult: ['allowed' => true],
+            messageText: 'texto com cpf 123.456.789-00'
+        );
+
+        $this->assertSame('Resposta legado', $reply);
+    }
+
+    public function test_safety_pipeline_error_falls_back_to_legacy_and_logs_error(): void
+    {
+        $chatbotAiSuggestion = Mockery::mock(ConversationAiSuggestionService::class);
+        $chatbotAiSuggestion->shouldNotReceive('generateSuggestion');
+
+        $intentClassifier = Mockery::mock(ChatbotAiIntentClassifier::class);
+        $intentClassifier->shouldNotReceive('classify');
+
+        $safetyPipeline = Mockery::mock(AiSafetyPipelineService::class);
+        $safetyPipeline
+            ->shouldReceive('run')
+            ->once()
+            ->andThrow(new \RuntimeException('safety unavailable'));
+
+        $decisionLogger = Mockery::mock(ChatbotAiDecisionLoggerService::class);
+        $decisionLogger
+            ->shouldReceive('logDecision')
+            ->once()
+            ->with(Mockery::on(function (array $payload): bool {
+                return ($payload['mode'] ?? null) === 'shadow'
+                    && ($payload['action'] ?? null) === 'fallback_legacy'
+                    && ($payload['error'] ?? null) === 'safety_pipeline_exception';
+            }));
+
+        $service = $this->makeService(
+            chatbotAiIntentClassifier: $intentClassifier,
+            chatbotAiSuggestion: $chatbotAiSuggestion,
+            chatbotAiDecisionLogger: $decisionLogger,
+            safetyPipeline: $safetyPipeline,
+        );
+
+        [$reply] = $this->invokeAiAssistiveDecision(
+            $service,
+            legacyReply: 'Resposta legado',
+            company: $this->makeCompany(shadowEnabled: true, sandboxEnabled: false),
+            gateResult: ['allowed' => true]
+        );
+
+        $this->assertSame('Resposta legado', $reply);
     }
 
     public function test_sandbox_on_with_test_number_can_override_reply(): void
@@ -304,6 +459,116 @@ class InboundMessageServiceTest extends TestCase
         $this->assertSame('Resposta legado', $reply);
     }
 
+    public function test_sandbox_log_includes_tokens_used_when_provider_returns_usage(): void
+    {
+        $chatbotAiSuggestion = Mockery::mock(ConversationAiSuggestionService::class);
+        $chatbotAiSuggestion
+            ->shouldReceive('generateSuggestion')
+            ->once()
+            ->andReturn([
+                'suggestion' => 'Resposta assistida com token',
+                'confidence_score' => 0.9,
+                'used_rag' => false,
+                'rag_chunks' => [],
+                'provider' => 'test-provider-runtime',
+                'model' => 'test-model-runtime',
+                'tokens_used' => 77,
+            ]);
+
+        $intentClassifier = Mockery::mock(ChatbotAiIntentClassifier::class);
+        $intentClassifier
+            ->shouldReceive('classify')
+            ->once()
+            ->andReturn([
+                'intent' => 'duvida_geral',
+                'confidence' => 0.91,
+                'extracted_data' => [],
+                'suggested_reply' => null,
+                'should_transfer_to_human' => false,
+                'reason' => 'provider_classification',
+            ]);
+
+        $decisionLogger = Mockery::mock(ChatbotAiDecisionLoggerService::class);
+        $decisionLogger
+            ->shouldReceive('logDecision')
+            ->once()
+            ->with(Mockery::on(function (array $payload): bool {
+                return ($payload['mode'] ?? null) === 'sandbox'
+                    && ($payload['tokens_used'] ?? null) === 77
+                    && ($payload['provider'] ?? null) === 'test-provider-runtime'
+                    && ($payload['model'] ?? null) === 'test-model-runtime';
+            }));
+
+        $service = $this->makeService(
+            chatbotAiIntentClassifier: $intentClassifier,
+            chatbotAiSuggestion: $chatbotAiSuggestion,
+            chatbotAiDecisionLogger: $decisionLogger,
+        );
+
+        [$reply] = $this->invokeAiAssistiveDecision(
+            $service,
+            legacyReply: 'Resposta legado',
+            company: $this->makeCompany(
+                shadowEnabled: false,
+                sandboxEnabled: true,
+                testNumbers: ['5511999991111']
+            ),
+            gateResult: ['allowed' => true],
+            normalizedFrom: '5511999991111'
+        );
+
+        $this->assertSame('Resposta assistida com token', $reply);
+    }
+
+    public function test_sandbox_log_keeps_tokens_used_null_when_provider_does_not_return_usage(): void
+    {
+        $chatbotAiSuggestion = Mockery::mock(ConversationAiSuggestionService::class);
+        $chatbotAiSuggestion->shouldNotReceive('generateSuggestion');
+
+        $intentClassifier = Mockery::mock(ChatbotAiIntentClassifier::class);
+        $intentClassifier
+            ->shouldReceive('classify')
+            ->once()
+            ->andReturn([
+                'intent' => 'duvida_geral',
+                'confidence' => 0.91,
+                'extracted_data' => [],
+                'suggested_reply' => null,
+                'should_transfer_to_human' => false,
+                'reason' => 'provider_classification',
+            ]);
+
+        $decisionLogger = Mockery::mock(ChatbotAiDecisionLoggerService::class);
+        $decisionLogger
+            ->shouldReceive('logDecision')
+            ->once()
+            ->with(Mockery::on(function (array $payload): bool {
+                return ($payload['mode'] ?? null) === 'shadow'
+                    && array_key_exists('tokens_used', $payload)
+                    && is_null($payload['tokens_used']);
+            }));
+
+        $service = $this->makeService(
+            chatbotAiIntentClassifier: $intentClassifier,
+            chatbotAiSuggestion: $chatbotAiSuggestion,
+            chatbotAiDecisionLogger: $decisionLogger,
+        );
+
+        [$reply] = $this->invokeAiAssistiveDecision(
+            $service,
+            legacyReply: 'Resposta legado',
+            company: $this->makeCompany(
+                shadowEnabled: true,
+                sandboxEnabled: false,
+                testNumbers: []
+            ),
+            gateResult: ['allowed' => true],
+            normalizedFrom: '5511999991111'
+        );
+
+        $this->assertNotSame('', trim($reply));
+    }
+
     public function test_logger_error_does_not_break_bot_flow(): void
     {
         $chatbotAiSuggestion = Mockery::mock(ConversationAiSuggestionService::class);
@@ -419,9 +684,16 @@ class InboundMessageServiceTest extends TestCase
         ChatbotAiIntentClassifier $chatbotAiIntentClassifier,
         ConversationAiSuggestionService $chatbotAiSuggestion,
         ChatbotAiDecisionLoggerService $chatbotAiDecisionLogger,
+        ?AiSafetyPipelineService $safetyPipeline = null,
     ): InboundMessageService {
         $productMetrics = $this->makeMock(ProductMetricsService::class);
         $productMetrics->shouldIgnoreMissing();
+        $safety = $safetyPipeline ?? $this->makeMock(AiSafetyPipelineService::class);
+        if ($safetyPipeline === null) {
+            $safety
+                ->shouldReceive('run')
+                ->andReturnUsing(static fn (string $input): AiSafetyResult => new AiSafetyResult(false, $input));
+        }
 
         return new InboundMessageService(
             $this->makeMock(BotReplyService::class),
@@ -438,7 +710,7 @@ class InboundMessageServiceTest extends TestCase
             $chatbotAiDecisionLogger,
             $chatbotAiSuggestion,
             $this->makeMock(AiMetricsService::class),
-            $this->makeMock(AiSafetyPipelineService::class),
+            $safety,
             $productMetrics,
         );
     }
