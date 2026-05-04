@@ -22,6 +22,8 @@ class CreateConversationRequest extends FormRequest
             'customer_name'  => ['nullable', 'string', 'max:160'],
             'send_template'  => ['sometimes', 'boolean'],
             'template_name'  => ['sometimes', 'string', 'max:100'],
+            'template_variables'   => ['sometimes', 'array', 'max:50'],
+            'template_variables.*' => ['nullable', 'string', 'max:1024'],
         ];
     }
 }

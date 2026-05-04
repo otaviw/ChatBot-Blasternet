@@ -7,6 +7,31 @@ const CATEGORY_LABEL = {
   AUTHENTICATION: 'Autenticacao',
 };
 
+const extractBodyVariables = (template) => {
+  const bodyComponents = Array.isArray(template?.components)
+    ? template.components.filter((component) => String(component?.type ?? '').toUpperCase() === 'BODY')
+    : [];
+
+  const variablesMap = new Map();
+  for (const component of bodyComponents) {
+    const text = String(component?.text ?? '');
+    const matches = text.matchAll(/\{\{\s*(\d+)\s*\}\}/g);
+    for (const match of matches) {
+      const parsed = Number.parseInt(match[1], 10);
+      if (Number.isInteger(parsed) && parsed > 0) {
+        if (!variablesMap.has(parsed)) {
+          const surrounding = text.slice(Math.max(0, match.index - 16), Math.min(text.length, (match.index ?? 0) + match[0].length + 16)).trim();
+          variablesMap.set(parsed, surrounding || `{{${parsed}}}`);
+        }
+      }
+    }
+  }
+
+  return [...variablesMap.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([index, hint]) => ({ index, hint }));
+};
+
 function TemplateCard({ template, selected, onSelect }) {
   return (
     <button
@@ -31,11 +56,13 @@ function TemplateCard({ template, selected, onSelect }) {
 
 function SendTemplateModal({ open, onClose, onConfirm, detail, busy, error, success }) {
   const [selectedTemplate, setSelectedTemplate] = useState('');
+  const [templateVariables, setTemplateVariables] = useState([]);
   const { templates, templatesLoading, templatesError, loadTemplates } = useWhatsAppTemplates();
 
   useEffect(() => {
     if (!open) return;
     setSelectedTemplate('');
+    setTemplateVariables([]);
     loadTemplates();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -53,12 +80,19 @@ function SendTemplateModal({ open, onClose, onConfirm, detail, busy, error, succ
 
   if (!open || !detail) return null;
 
+  const selectedTemplateData = templates.find((template) => template.name === selectedTemplate) ?? null;
+  const bodyVariables = extractBodyVariables(selectedTemplateData);
+  const allVariablesFilled = bodyVariables.every((_, index) => String(templateVariables[index] ?? '').trim() !== '');
+
   const contactLabel = detail.customer_name
     ? `${detail.customer_name} (${detail.customer_phone})`
     : detail.customer_phone;
 
   const handleConfirm = () => {
-    onConfirm(selectedTemplate || 'iniciar_conversa');
+    onConfirm(
+      selectedTemplate || 'iniciar_conversa',
+      bodyVariables.map((_, index) => String(templateVariables[index] ?? '').trim())
+    );
   };
 
   return (
@@ -116,8 +150,41 @@ function SendTemplateModal({ open, onClose, onConfirm, detail, busy, error, succ
                   key={`${template.name}-${template.language}`}
                   template={template}
                   selected={selectedTemplate === template.name}
-                  onSelect={setSelectedTemplate}
+                  onSelect={(templateName) => {
+                    setSelectedTemplate(templateName);
+                    const selected = templates.find((item) => item.name === templateName);
+                    const indexes = extractBodyVariables(selected);
+                    setTemplateVariables((previous) => indexes.map((_, index) => previous[index] ?? ''));
+                  }}
                 />
+              ))}
+            </div>
+          ) : null}
+
+          {!templatesLoading && selectedTemplate && bodyVariables.length > 0 ? (
+            <div className="mt-2 space-y-1.5">
+              <p className="text-xs text-[#525252]">
+                Este template exige {bodyVariables.length} variavel(is) de corpo.
+              </p>
+              {bodyVariables.map((variable, index) => (
+                <div key={`send-template-variable-${variable.index}`} className="space-y-1">
+                  <p className="text-[11px] text-[#6b7280]">
+                    Variavel {`{{${variable.index}}}`} • Contexto: {variable.hint}
+                  </p>
+                  <input
+                    type="text"
+                    value={templateVariables[index] ?? ''}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setTemplateVariables((previous) =>
+                        previous.map((item, currentIndex) => (currentIndex === index ? value : item))
+                      );
+                    }}
+                    placeholder={`Valor para {{${variable.index}}}`}
+                    disabled={busy}
+                    className="w-full app-input text-xs py-1.5"
+                  />
+                </div>
               ))}
             </div>
           ) : null}
@@ -138,7 +205,7 @@ function SendTemplateModal({ open, onClose, onConfirm, detail, busy, error, succ
           <button
             type="button"
             onClick={handleConfirm}
-            disabled={busy || !!success || (!selectedTemplate && templates.length > 0)}
+            disabled={busy || !!success || (!selectedTemplate && templates.length > 0) || (bodyVariables.length > 0 && !allVariablesFilled)}
             className="app-btn-primary text-xs py-1.5"
           >
             {busy ? 'Enviando...' : 'Enviar template'}

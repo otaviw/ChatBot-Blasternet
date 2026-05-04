@@ -47,6 +47,12 @@ class SendConversationTemplateAction
         $validated = $request->validated();
 
         $templateName = trim((string) ($validated['template_name'] ?? 'iniciar_conversa'));
+        $templateVariables = collect($validated['template_variables'] ?? [])
+            ->map(fn ($value) => trim((string) $value))
+            ->filter(fn ($value) => $value !== '')
+            ->values()
+            ->all();
+
         if ($templateName === '') {
             $templateName = 'iniciar_conversa';
         }
@@ -59,7 +65,8 @@ class SendConversationTemplateAction
         $sendResult   = $this->whatsAppSend->sendTemplateMessage(
             $conversation->company,
             $conversation->customer_phone,
-            $templateName
+            $templateName,
+            $templateVariables
         );
         $templateSent = (bool) ($sendResult['ok'] ?? false);
 

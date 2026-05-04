@@ -173,10 +173,17 @@ class ProcessCampaignJob implements ShouldQueue
 
     private function sendTemplate(Campaign $campaign, Contact $contact, WhatsAppSendService $whatsAppSend): array
     {
+        $templateVariables = collect(explode('|', (string) ($campaign->message ?? '')))
+            ->map(fn ($value) => trim((string) $value))
+            ->filter(fn ($value) => $value !== '')
+            ->values()
+            ->all();
+
         return $whatsAppSend->sendTemplateMessage(
             $campaign->company,
             $contact->phone,
-            (string) $campaign->template_id
+            (string) $campaign->template_id,
+            $templateVariables
         );
     }
 

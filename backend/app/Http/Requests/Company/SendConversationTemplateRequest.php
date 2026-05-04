@@ -19,6 +19,8 @@ class SendConversationTemplateRequest extends FormRequest
     {
         return [
             'template_name' => ['sometimes', 'string', 'max:100'],
+            'template_variables'   => ['sometimes', 'array', 'max:50'],
+            'template_variables.*' => ['nullable', 'string', 'max:1024'],
         ];
     }
 }

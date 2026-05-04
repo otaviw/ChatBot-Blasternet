@@ -262,7 +262,7 @@ export default function useCompanyInboxActions({
   }, [conversationSearch, messageComposer]);
 
   const createConversation = useCallback(
-    async ({ phone, name, sendTemplate, templateName }) => {
+    async ({ phone, name, sendTemplate, templateName, templateVariables = [] }) => {
       setNewConvBusy(true);
       setNewConvError('');
       try {
@@ -271,6 +271,7 @@ export default function useCompanyInboxActions({
           customer_name: name || null,
           send_template: sendTemplate,
           template_name: templateName || 'iniciar_conversa',
+          template_variables: templateVariables,
         });
 
         const conversation = response.data?.conversation;
@@ -290,7 +291,7 @@ export default function useCompanyInboxActions({
     [refreshConversations, upsertConversationInList]
   );
 
-  const sendTemplateToConversation = useCallback(async (templateName) => {
+  const sendTemplateToConversation = useCallback(async (templateName, templateVariables = []) => {
     if (!detail?.id) return;
 
     setSendTemplateBusy(true);
@@ -299,6 +300,7 @@ export default function useCompanyInboxActions({
     try {
       const response = await api.post(`/minha-conta/conversas/${detail.id}/enviar-template`, {
         template_name: templateName || 'iniciar_conversa',
+        template_variables: templateVariables,
       });
 
       const message = response.data?.message;
