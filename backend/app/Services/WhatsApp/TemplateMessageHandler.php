@@ -44,13 +44,12 @@ class TemplateMessageHandler
             return $this->successResult(null, ['simulated' => true]);
         }
 
-        $components = [];
-        if (! empty($variables)) {
-            $components[] = [
-                'type'       => 'body',
-                'parameters' => array_map(fn ($v) => ['type' => 'text', 'text' => (string) $v], $variables),
-            ];
-        }
+        $components = $this->buildTemplateComponents(
+            $company,
+            $templateName,
+            $languageCode,
+            $variables
+        );
 
         $url  = $this->messagesUrl($phoneNumberId);
         $body = [
@@ -92,6 +91,112 @@ class TemplateMessageHandler
         }
 
         return $this->successResult($graphMessageId, $responseJson);
+    }
+
+    /**
+     * @param string[] $variables
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildTemplateComponents(
+        ?Company $company,
+        string $templateName,
+        string $languageCode,
+        array $variables
+    ): array {
+        if (empty($variables)) {
+            return [];
+        }
+
+        $fetched = $this->fetchTemplates($company);
+        if (!($fetched['ok'] ?? false)) {
+            return [[
+                'type' => 'body',
+                'parameters' => array_map(
+                    fn ($value) => ['type' => 'text', 'text' => (string) $value],
+                    array_values($variables)
+                ),
+            ]];
+        }
+
+        $templates = is_array($fetched['templates'] ?? null) ? $fetched['templates'] : [];
+        $selected = collect($templates)->first(function ($template) use ($templateName, $languageCode) {
+            return (string) ($template['name'] ?? '') === $templateName
+                && (string) ($template['language'] ?? '') === $languageCode;
+        });
+
+        if (!$selected) {
+            $selected = collect($templates)->first(
+                fn ($template) => (string) ($template['name'] ?? '') === $templateName
+            );
+        }
+
+        $definitionComponents = is_array($selected['components'] ?? null) ? $selected['components'] : [];
+        if (empty($definitionComponents)) {
+            return [[
+                'type' => 'body',
+                'parameters' => array_map(
+                    fn ($value) => ['type' => 'text', 'text' => (string) $value],
+                    array_values($variables)
+                ),
+            ]];
+        }
+
+        $cursor = 0;
+        $components = [];
+        $values = array_values(array_map(static fn ($value) => (string) $value, $variables));
+
+        foreach ($definitionComponents as $component) {
+            $componentType = strtolower((string) ($component['type'] ?? ''));
+            $text = (string) ($component['text'] ?? '');
+            if ($text === '' || !in_array($componentType, ['header', 'body'], true)) {
+                continue;
+            }
+
+            preg_match_all('/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/', $text, $matches);
+            $tokens = array_values(array_unique($matches[1] ?? []));
+            if (empty($tokens)) {
+                continue;
+            }
+
+            $parameters = [];
+            foreach ($tokens as $token) {
+                if (!array_key_exists($cursor, $values)) {
+                    break;
+                }
+
+                $value = $values[$cursor];
+                $parameter = [
+                    'type' => 'text',
+                    'text' => $value,
+                ];
+
+                if (!ctype_digit((string) $token)) {
+                    $parameter['parameter_name'] = (string) $token;
+                }
+
+                $parameters[] = $parameter;
+                $cursor++;
+            }
+
+            if (!empty($parameters)) {
+                $components[] = [
+                    'type' => $componentType,
+                    'parameters' => $parameters,
+                ];
+            }
+        }
+
+        if (!empty($components)) {
+            return $components;
+        }
+
+        return [[
+            'type' => 'body',
+            'parameters' => array_map(
+                fn ($value) => ['type' => 'text', 'text' => (string) $value],
+                $values
+            ),
+        ]];
     }
 
     /**
