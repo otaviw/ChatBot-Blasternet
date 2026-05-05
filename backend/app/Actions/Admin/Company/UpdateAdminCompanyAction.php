@@ -11,6 +11,7 @@ use App\Models\Company;
 use App\Models\CompanyBotSetting;
 use App\Services\AuditLogService;
 use App\Services\Bot\AiSettingsPayloadBuilder;
+use App\Services\IxcCredentialsValidatorService;
 use App\Services\WhatsAppCredentialsValidatorService;
 
 class UpdateAdminCompanyAction
@@ -19,6 +20,7 @@ class UpdateAdminCompanyAction
         private readonly AuditLogService $auditLog,
         private readonly AiSettingsPayloadBuilder $aiSettingsPayloadBuilder,
         private readonly WhatsAppCredentialsValidatorService $credentialsValidator,
+        private readonly IxcCredentialsValidatorService $ixcCredentialsValidator,
     ) {}
 
     public function handle(UpdateCompanyRequest $request, Company $company): ActionResponse
@@ -33,6 +35,11 @@ class UpdateAdminCompanyAction
 
         $newPhoneId = $validated['meta_phone_number_id'] ?? null;
         $newToken   = array_key_exists('meta_access_token', $validated) ? ($validated['meta_access_token'] ?: null) : null;
+        $newIxcBaseUrl = array_key_exists('ixc_base_url', $validated) ? ($validated['ixc_base_url'] ?: null) : $company->ixc_base_url;
+        $newIxcToken = array_key_exists('ixc_api_token', $validated) ? ($validated['ixc_api_token'] ?: null) : $company->ixc_api_token;
+        $newIxcSelfSigned = (bool) ($validated['ixc_self_signed'] ?? $company->ixc_self_signed ?? config('ixc.allow_self_signed_default', false));
+        $newIxcTimeout = (int) ($validated['ixc_timeout_seconds'] ?? $company->ixc_timeout_seconds ?? config('ixc.default_timeout_seconds', 15));
+        $newIxcEnabled = (bool) ($validated['ixc_enabled'] ?? $company->ixc_enabled);
 
         $phoneChanged = $newPhoneId !== null && $newPhoneId !== '' && $newPhoneId !== (string) ($company->meta_phone_number_id ?? '');
         $tokenChanged = $newToken !== null && $newToken !== (string) ($company->meta_access_token ?? '');
@@ -49,12 +56,35 @@ class UpdateAdminCompanyAction
             }
         }
 
+        if ($newIxcEnabled) {
+            $ixcValidation = $this->ixcCredentialsValidator->validate(
+                (string) ($newIxcBaseUrl ?? ''),
+                (string) ($newIxcToken ?? ''),
+                $newIxcSelfSigned,
+                $newIxcTimeout,
+            );
+
+            if (! $ixcValidation['ok']) {
+                return ActionResponse::unprocessable('Credenciais da IXC invalidas: ' . $ixcValidation['error']);
+            }
+
+            $company->ixc_last_validated_at = now();
+            $company->ixc_last_validation_error = null;
+        }
+
         $company->name = $validated['name'];
         $company->meta_phone_number_id = $newPhoneId;
         $company->meta_waba_id = $validated['meta_waba_id'] ?? null;
         if ($newToken !== null) {
             $company->meta_access_token = $newToken;
         }
+        $company->ixc_base_url = $newIxcBaseUrl;
+        if (array_key_exists('ixc_api_token', $validated)) {
+            $company->ixc_api_token = $newIxcToken;
+        }
+        $company->ixc_self_signed = $newIxcSelfSigned;
+        $company->ixc_timeout_seconds = max(5, min(60, $newIxcTimeout));
+        $company->ixc_enabled = $newIxcEnabled;
         $company->save();
         $company->refresh();
 

@@ -72,6 +72,14 @@ function resolveErrorMessage(payload, status, originalError) {
     return readString(payload?.message) || 'Dados inválidos. Revise os campos e tente novamente.';
   }
 
+  if (status === 429) {
+    return readString(payload?.message) || 'Muitas requisicoes em pouco tempo. Aguarde alguns segundos e tente novamente.';
+  }
+
+  if (status === 502 || status === 503) {
+    return readString(payload?.message) || 'Servico temporariamente indisponivel. Tente novamente em instantes.';
+  }
+
   const payloadMessage = readString(payload?.message);
   if (payloadMessage) {
     return payloadMessage;
@@ -165,7 +173,6 @@ function normalizeApiError(error) {
   };
 }
 
-// Auth is session-based (HttpOnly cookie). No Bearer token injection needed.
 apiClient.interceptors.request.use((config) => {
   const headers = config.headers ?? {};
   if (!headers['X-Request-ID'] && !headers['x-request-id']) {
@@ -197,3 +204,4 @@ const remove = (url, config = {}) => apiClient.delete(url, config);
 
 export { get, post, put, patch, remove as delete };
 export default apiClient;
+

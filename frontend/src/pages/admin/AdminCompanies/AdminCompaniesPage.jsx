@@ -46,6 +46,11 @@ function AdminCompaniesPage() {
   const [newCompany, setNewCompany] = useState({
     name: '',
     meta_phone_number_id: '',
+    ixc_base_url: '',
+    ixc_api_token: '',
+    ixc_self_signed: false,
+    ixc_timeout_seconds: 15,
+    ixc_enabled: false,
     ai_enabled: false,
     ai_internal_chat_enabled: false,
   });
@@ -212,15 +217,27 @@ function AdminCompaniesPage() {
       const payload = {
         name: newCompany.name,
         meta_phone_number_id: newCompany.meta_phone_number_id || null,
+        ixc_base_url: newCompany.ixc_base_url || null,
+        ixc_self_signed: Boolean(newCompany.ixc_self_signed),
+        ixc_timeout_seconds: Math.max(5, Math.min(60, Number(newCompany.ixc_timeout_seconds || 15))),
+        ixc_enabled: Boolean(newCompany.ixc_enabled),
         ai_enabled: Boolean(newCompany.ai_enabled),
         ai_internal_chat_enabled: Boolean(newCompany.ai_internal_chat_enabled),
       };
+      if (String(newCompany.ixc_api_token ?? '').trim() !== '') {
+        payload.ixc_api_token = String(newCompany.ixc_api_token).trim();
+      }
       const response = await api.post('/admin/empresas', payload);
       const created = response.data?.company;
       setCreateSuccess(`Empresa criada: ${created?.name ?? payload.name}`);
       setNewCompany({
         name: '',
         meta_phone_number_id: '',
+        ixc_base_url: '',
+        ixc_api_token: '',
+        ixc_self_signed: false,
+        ixc_timeout_seconds: 15,
+        ixc_enabled: false,
         ai_enabled: false,
         ai_internal_chat_enabled: false,
       });

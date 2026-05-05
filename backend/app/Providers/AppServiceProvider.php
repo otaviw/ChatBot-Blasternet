@@ -75,9 +75,6 @@ class AppServiceProvider extends ServiceProvider
             (bool) config('app.debug', false)
         );
 
-        // Valida secrets críticos em contexto HTTP — falha rápida e explícita antes de
-        // qualquer request ser processado. Console/Artisan/tests ficam de fora porque
-        // migrations e workers podem rodar sem todas as variáveis de runtime.
         if (! $this->app->runningInConsole() && ! $this->app->environment('testing')) {
             $this->validateCriticalSecrets();
         }
@@ -100,10 +97,6 @@ class AppServiceProvider extends ServiceProvider
         SupportTicketMessage::observe(SupportTicketMessageObserver::class);
         User::observe(UserObserver::class);
 
-        // ---------------------------------------------------------------------------
-        // Auth — chave IP+email impede que um atacante trave várias contas pela
-        // mesma origem: cada conta tem seu próprio bucket de 5 tentativas/min.
-        // ---------------------------------------------------------------------------
         RateLimiter::for('login', function (Request $request) {
             $email = mb_strtolower(trim((string) $request->input('email', '')));
             $key   = 'login|' . $request->ip() . '|' . $email;
@@ -127,21 +120,11 @@ class AppServiceProvider extends ServiceProvider
                 ], 429));
         });
 
-        // ---------------------------------------------------------------------------
-        // Webhook inbound — a Meta envia bursts; 500/min por IP é suficientemente
-        // generoso para produção e ainda bloqueia flood não-Meta.
-        // ---------------------------------------------------------------------------
         RateLimiter::for('webhook-inbound', function (Request $request) {
             return Limit::perMinute((int) config('rate_limits.webhook_inbound', 500))
                 ->by('webhook|' . $request->ip());
         });
 
-        // ---------------------------------------------------------------------------
-        // API global — camada de fallback que cobre qualquer rota sem limiter próprio.
-        // Usuários autenticados têm bucket por user ID (justo entre usuários);
-        // guests têm bucket por IP (cobre webhook e rotas públicas).
-        // O valor é intencionalmente alto — os limiters específicos são mais restritivos.
-        // ---------------------------------------------------------------------------
         RateLimiter::for('api-global', function (Request $request) {
             $user = $request->user();
             $key  = $user
@@ -177,6 +160,22 @@ class AppServiceProvider extends ServiceProvider
                 ->by($this->limiterKey($request));
         });
 
+        RateLimiter::for('ixc-read', function (Request $request) {
+            return Limit::perMinute((int) config('rate_limits.ixc_read', 90))
+                ->by('ixc-read|' . $this->limiterKey($request))
+                ->response(fn () => response()->json([
+                    'message' => 'Muitas consultas IXC em pouco tempo. Aguarde alguns segundos e tente novamente.',
+                ], 429));
+        });
+
+        RateLimiter::for('ixc-write', function (Request $request) {
+            return Limit::perMinute((int) config('rate_limits.ixc_write', 30))
+                ->by('ixc-write|' . $this->limiterKey($request))
+                ->response(fn () => response()->json([
+                    'message' => 'Muitas acoes IXC em pouco tempo. Aguarde alguns segundos e tente novamente.',
+                ], 429));
+        });
+
         RateLimiter::for('conversation-search', function (Request $request) {
             $user = $request->user();
             $identity = $user ? (string) $user->id : $this->limiterKey($request);
@@ -202,10 +201,7 @@ class AppServiceProvider extends ServiceProvider
     private function limiterKey(Request $request): string
     {
         $user = $request->user();
-
-        // Usa o ID do usuário autenticado (dado do banco) para evitar que dados
-        // de sessão desatualizados — como role ou company_id stale — mantenham
-        // limites de um papel que o usuário não tem mais.
+        
         if ($user) {
             return "{$request->ip()}|user:{$user->id}";
         }
@@ -221,24 +217,9 @@ class AppServiceProvider extends ServiceProvider
         return "{$request->ip()}|{$userId}";
     }
 
-    // -------------------------------------------------------------------------
-    // Validação de secrets críticos
-    // -------------------------------------------------------------------------
 
-    /**
-     * Falha explicitamente se algum secret crítico estiver ausente ou for um
-     * placeholder de exemplo. Chamado apenas em contexto HTTP, antes do primeiro
-     * request ser processado.
-     *
-     * Por que aqui e não em um middleware?
-     * Middleware roda por request; um secret inválido indica misconfiguration
-     * que afeta TODAS as requests — melhor abortar o boot inteiro com mensagem clara.
-     */
     private function validateCriticalSecrets(): void
     {
-        // WhatsApp — obrigatório em produção. Em ambientes não-prod, o webhook
-        // já é bloqueado pelo middleware de assinatura quando o secret não existe,
-        // sem derrubar toda a aplicação local.
         if ($this->app->environment('production')) {
             $this->assertSecret(
                 (string) config('whatsapp.app_secret', ''),
@@ -247,14 +228,12 @@ class AppServiceProvider extends ServiceProvider
             );
         }
 
-        // Realtime JWT — obrigatório para emitir tokens de socket e join
         $this->assertSecret(
             (string) config('realtime.jwt.secret', ''),
             'REALTIME_JWT_SECRET',
             'Execute: php artisan app:generate-secrets --write'
         );
 
-        // Realtime internal key — obrigatório apenas quando fallback HTTP está ativo
         $internalEmitUrl = trim((string) config('realtime.fallback.internal_emit_url', ''));
         if ($internalEmitUrl !== '') {
             $this->assertSecret(
@@ -266,9 +245,6 @@ class AppServiceProvider extends ServiceProvider
         }
     }
 
-    /**
-     * Lança ConfigurationException se o valor estiver vazio ou for um placeholder.
-     */
     private function assertSecret(string $value, string $varName, string $hint): void
     {
         if ($value === '' || GenerateSecretsCommand::isPlaceholder($value)) {

@@ -21,6 +21,11 @@ function CompanyEditPage() {
     name: '',
     meta_phone_number_id: '',
     meta_waba_id: '',
+    ixc_base_url: '',
+    ixc_api_token: '',
+    ixc_self_signed: false,
+    ixc_timeout_seconds: 15,
+    ixc_enabled: false,
     ai_enabled: false,
     ai_internal_chat_enabled: false,
   });
@@ -56,6 +61,11 @@ function CompanyEditPage() {
           name: String(company.name ?? ''),
           meta_phone_number_id: String(company.meta_phone_number_id ?? ''),
           meta_waba_id: String(company.meta_waba_id ?? ''),
+          ixc_base_url: String(company.ixc_base_url ?? ''),
+          ixc_api_token: '',
+          ixc_self_signed: Boolean(company.ixc_self_signed),
+          ixc_timeout_seconds: Number(company.ixc_timeout_seconds ?? 15),
+          ixc_enabled: Boolean(company.ixc_enabled),
           ai_enabled: Boolean(company.bot_setting?.ai_enabled),
           ai_internal_chat_enabled: Boolean(company.bot_setting?.ai_internal_chat_enabled),
         });
@@ -92,9 +102,16 @@ function CompanyEditPage() {
         name: String(form.name ?? '').trim(),
         meta_phone_number_id: String(form.meta_phone_number_id ?? '').trim() || null,
         meta_waba_id: String(form.meta_waba_id ?? '').trim() || null,
+        ixc_base_url: String(form.ixc_base_url ?? '').trim() || null,
+        ixc_self_signed: Boolean(form.ixc_self_signed),
+        ixc_timeout_seconds: Math.max(5, Math.min(60, Number(form.ixc_timeout_seconds || 15))),
+        ixc_enabled: Boolean(form.ixc_enabled),
         ai_enabled: Boolean(form.ai_enabled),
         ai_internal_chat_enabled: Boolean(form.ai_internal_chat_enabled),
       };
+      if (String(form.ixc_api_token ?? '').trim() !== '') {
+        payload.ixc_api_token = String(form.ixc_api_token).trim();
+      }
 
       await api.put(`/admin/empresas/${id}`, payload);
       setSuccess('Empresa atualizada com sucesso.');
@@ -182,6 +199,57 @@ function CompanyEditPage() {
               onChange={(event) => setForm((prev) => ({ ...prev, meta_waba_id: event.target.value }))}
               className="app-input"
             />
+          </label>
+
+          <label className="block text-sm md:col-span-2">
+            URL base IXC
+            <input
+              type="url"
+              value={form.ixc_base_url}
+              onChange={(event) => setForm((prev) => ({ ...prev, ixc_base_url: event.target.value }))}
+              className="app-input"
+            />
+          </label>
+
+          <label className="block text-sm md:col-span-2">
+            Token IXC
+            <input
+              type="password"
+              value={form.ixc_api_token}
+              onChange={(event) => setForm((prev) => ({ ...prev, ixc_api_token: event.target.value }))}
+              className="app-input"
+              placeholder="Preencher apenas para atualizar"
+            />
+          </label>
+
+          <label className="block text-sm">
+            Timeout IXC (segundos)
+            <input
+              type="number"
+              min={5}
+              max={60}
+              value={form.ixc_timeout_seconds}
+              onChange={(event) => setForm((prev) => ({ ...prev, ixc_timeout_seconds: Number(event.target.value) }))}
+              className="app-input"
+            />
+          </label>
+
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={Boolean(form.ixc_self_signed)}
+              onChange={(event) => setForm((prev) => ({ ...prev, ixc_self_signed: event.target.checked }))}
+            />
+            Permitir certificado autoassinado (IXC)
+          </label>
+
+          <label className="flex items-center gap-2 text-sm md:col-span-2">
+            <input
+              type="checkbox"
+              checked={Boolean(form.ixc_enabled)}
+              onChange={(event) => setForm((prev) => ({ ...prev, ixc_enabled: event.target.checked }))}
+            />
+            Habilitar modulo IXC para esta empresa
           </label>
 
           <label className="flex items-center gap-2 text-sm md:col-span-2">

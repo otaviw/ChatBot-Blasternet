@@ -7,6 +7,7 @@ use App\Exceptions\ApiExceptionHandler;
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\EnsureCompanyUser;
 use App\Http\Middleware\EnsureSystemAdmin;
+use App\Http\Middleware\EnsureUserPermission;
 use App\Http\Middleware\RequestMetricsMiddleware;
 use App\Http\Middleware\RequestTrackingMiddleware;
 use App\Http\Middleware\SecurityHeadersMiddleware;
@@ -24,9 +25,6 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->append(RequestTrackingMiddleware::class);
         $middleware->append(SecurityHeadersMiddleware::class);
 
-        // throttle:api-global cobre qualquer rota em routes/api.php que não tenha
-        // um limiter próprio mais restritivo. Os limiters específicos (login, bot-write,
-        // inbox-read, etc.) continuam tendo prioridade por ter seus próprios buckets.
         $middleware->api(append: [
             'throttle:api-global',
             RequestMetricsMiddleware::class,
@@ -36,6 +34,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin'              => EnsureAdmin::class,
             'company.user'       => EnsureCompanyUser::class,
             'system.admin'       => EnsureSystemAdmin::class,
+            'permission'         => EnsureUserPermission::class,
             'webhook.signature'  => ValidateWhatsAppWebhookSignature::class,
             'critical.audit'     => LogCriticalAction::class,
         ]);
@@ -43,7 +42,5 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions): void {
         ApiExceptionHandler::configure($exceptions);
 
-        // Integração Sentry: reporta exceções 5xx e não-HTTP automaticamente.
-        // Só ativa quando SENTRY_LARAVEL_DSN estiver definido no .env.
         \Sentry\Laravel\Integration::handles($exceptions);
     })->create();

@@ -11,11 +11,13 @@ use App\Actions\Admin\Company\ShowAdminCompanyAction;
 use App\Actions\Admin\Company\StoreAdminCompanyAction;
 use App\Actions\Admin\Company\UpdateAdminCompanyAction;
 use App\Actions\Admin\Company\UpdateAdminCompanyBotSettingsAction;
+use App\Actions\Admin\Company\ValidateAdminCompanyIxcAction;
 use App\Actions\Admin\Company\ValidateAdminCompanyWhatsAppAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreCompanyRequest;
 use App\Http\Requests\Admin\UpdateCompanyBotSettingsRequest;
 use App\Http\Requests\Admin\UpdateCompanyRequest;
+use App\Http\Requests\Admin\ValidateCompanyIxcRequest;
 use App\Http\Requests\Admin\ValidateCompanyWhatsAppRequest;
 use App\Models\Company;
 use App\Services\Admin\CompanyMetricsService;
@@ -33,6 +35,7 @@ class CompanyController extends Controller
         private readonly UpdateAdminCompanyBotSettingsAction $updateCompanyBotSettingsAction,
         private readonly DestroyAdminCompanyAction $destroyCompanyAction,
         private readonly ValidateAdminCompanyWhatsAppAction $validateAdminCompanyWhatsAppAction,
+        private readonly ValidateAdminCompanyIxcAction $validateAdminCompanyIxcAction,
         private readonly CompanyOwnershipService $companyOwnership,
         private readonly CompanyMetricsService $companyMetrics,
     ) {}
@@ -134,5 +137,20 @@ class CompanyController extends Controller
             'authenticated' => true,
             'metrics' => $this->companyMetrics->build($company),
         ]);
+    }
+
+    public function validateIxc(ValidateCompanyIxcRequest $request, Company $company): JsonResponse
+    {
+        if ($request->user()?->isSystemAdmin()) {
+            return $this->errorResponse('Superadmin nao pode editar empresas diretamente.', 'forbidden', 403);
+        }
+
+        if ($denied = $this->denyIfNotOwned($request, $company)) {
+            return $denied;
+        }
+
+        $result = $this->validateAdminCompanyIxcAction->handle($request, $company);
+
+        return $result->toResponse();
     }
 }

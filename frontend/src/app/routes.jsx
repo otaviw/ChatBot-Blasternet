@@ -37,6 +37,9 @@ const AdminSupportTicketsPage = lazy(
 const AdminSimulatorPage = lazy(() => import('@/pages/admin/AdminSimulator/AdminSimulatorPage.jsx'));
 const AdminTicketIndex = lazy(() => import('@/pages/admin/AdminSupportTickets/AdminTicketIndex.jsx'));
 const CompanyBotPage = lazy(() => import('@/pages/company/CompanyBot/CompanyBotPage.jsx'));
+const CompanyMyCompanyPage = lazy(() => import('@/pages/company/CompanyMyCompany/CompanyMyCompanyPage.jsx'));
+const IxcClientsPage = lazy(() => import('@/pages/company/IxcClients/IxcClientsPage.jsx'));
+const IxcClientDetailPage = lazy(() => import('@/pages/company/IxcClientDetail/IxcClientDetailPage.jsx'));
 const CompanyInboxPage = lazy(() => import('@/pages/company/CompanyInbox/CompanyInboxPage.jsx'));
 const NotFoundPage = lazy(() => import('@/pages/NotFound/NotFoundPage.jsx'));
 const CompanyQuickRepliesPage = lazy(
@@ -189,6 +192,9 @@ function AppRoutes() {
         <Route path="/minha-conta/ia/configuracoes" element={<AiManagementRoute><AiSettingsPage /></AiManagementRoute>} />
         {/* Rotas operacionais de company sem PermissionRoute explicito: regra aplicada no backend e/ou pagina */}
         <Route path="/minha-conta/bot" element={<CompanyBotPage />} />
+        <Route path="/minha-conta/empresa" element={<PermissionRoute permission={PERM.IXC_INTEGRATION_MANAGE}><CompanyMyCompanyPage /></PermissionRoute>} />
+        <Route path="/minha-conta/ixc/clientes" element={<PermissionRoute permission={PERM.PAGE_IXC_CLIENTS}><IxcClientsPage /></PermissionRoute>} />
+        <Route path="/minha-conta/ixc/clientes/:clientId" element={<PermissionRoute permission={PERM.PAGE_IXC_CLIENTS}><IxcClientDetailPage /></PermissionRoute>} />
         <Route path="/minha-conta/base-conhecimento" element={<AiManagementRoute><CompanyKnowledgeBasePage /></AiManagementRoute>} />
         <Route path="/minha-conta/respostas-rapidas" element={<PermissionRoute permission={PERM.PAGE_QUICK_REPLIES}><CompanyQuickRepliesPage /></PermissionRoute>} />
         <Route path="/minha-conta/usuarios" element={<CompanyUsersPage />} />

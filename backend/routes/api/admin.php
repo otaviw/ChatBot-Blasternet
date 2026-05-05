@@ -24,6 +24,8 @@ Route::middleware(['web', 'auth', 'admin'])->group(function () {
             ->middleware(['throttle:bot-write', 'critical.audit:settings.ai_config_updated']);
         Route::post('/empresas/{company}/validar-whatsapp', [CompanyController::class, 'validateWhatsApp'])
             ->middleware('throttle:bot-write');
+        Route::post('/empresas/{company}/validar-ixc', [CompanyController::class, 'validateIxc'])
+            ->middleware('throttle:bot-write');
         Route::delete('/empresas/{company}', [CompanyController::class, 'destroy'])
             ->middleware('throttle:bot-write');
 

@@ -16,8 +16,11 @@ use App\Http\Controllers\Company\ConversationController as CompanyConversationCo
 use App\Http\Controllers\Company\ConversationTagController;
 use App\Http\Controllers\Company\ProductMetricsController;
 use App\Http\Controllers\Company\QuickReplyController;
+use App\Http\Controllers\Company\CompanyProfileController;
 use App\Http\Controllers\Company\UserController as CompanyUserController;
+use App\Http\Controllers\Company\IxcClientController;
 use Illuminate\Support\Facades\Route;
+use App\Support\UserPermissions;
 
 Route::middleware(['web', 'auth', 'company.user'])->group(function () {
     Route::post('/contacts/import', [ContactController::class, 'importCsv'])->middleware('throttle:bot-write');
@@ -27,6 +30,9 @@ Route::middleware(['web', 'auth', 'company.user'])->group(function () {
         Route::get('/bot', [BotController::class, 'index']);
         Route::put('/bot', [BotController::class, 'update'])->middleware(['throttle:bot-write', 'critical.audit:settings.ai_config_updated']);
         Route::post('/bot/validar-whatsapp', [BotController::class, 'validateWhatsApp'])->middleware('throttle:bot-write');
+        Route::get('/empresa', [CompanyProfileController::class, 'show'])->middleware(['throttle:inbox-read', 'permission:' . UserPermissions::IXC_INTEGRATION_MANAGE]);
+        Route::put('/empresa', [CompanyProfileController::class, 'update'])->middleware(['throttle:bot-write', 'critical.audit:settings.integrations_config_updated', 'permission:' . UserPermissions::IXC_INTEGRATION_MANAGE]);
+        Route::post('/empresa/validar-ixc', [CompanyProfileController::class, 'validateIxc'])->middleware(['throttle:bot-write', 'permission:' . UserPermissions::IXC_INTEGRATION_MANAGE]);
         Route::get('/uso', [BotController::class, 'usageSnapshot'])->middleware('throttle:inbox-read');
         Route::get('/produto/funil', [ProductMetricsController::class, 'funnel'])->middleware('throttle:inbox-read');
         Route::get('/templates', [CompanyConversationController::class, 'listTemplates'])
@@ -59,7 +65,6 @@ Route::middleware(['web', 'auth', 'company.user'])->group(function () {
             ->middleware('throttle:bot-write');
         Route::delete('/conversas/{conversationId}', [CompanyConversationController::class, 'destroy'])
             ->middleware('throttle:bot-write');
-        // Tags — CRUD e vínculo com conversas
         Route::get('/tags', [ConversationTagController::class, 'index'])
             ->middleware('throttle:inbox-read');
         Route::post('/tags', [ConversationTagController::class, 'store'])
@@ -92,7 +97,6 @@ Route::middleware(['web', 'auth', 'company.user'])->group(function () {
         Route::put('/users/{user}', [CompanyUserController::class, 'update'])->middleware(['throttle:bot-write', 'critical.audit:user.permissions_changed']);
         Route::delete('/users/{user}', [CompanyUserController::class, 'destroy'])->middleware(['throttle:bot-write', 'critical.audit:user.deleted']);
 
-        // Auditoria: listagem com escopo multi-tenant e paginação obrigatória.
         Route::get('/audit-logs', [AuditLogController::class, 'index'])->middleware('throttle:inbox-read');
         Route::get('/audit-logs/{auditLog}', [AuditLogController::class, 'show'])->middleware('throttle:inbox-read');
 
@@ -131,14 +135,12 @@ Route::middleware(['web', 'auth', 'company.user'])->group(function () {
         Route::delete('/agendamentos/{appointment}', [AppointmentController::class, 'deleteAppointment'])
             ->middleware('throttle:bot-write');
 
-        // Contatos
         Route::get('/contatos', [ContactController::class, 'index'])->middleware('throttle:inbox-read');
         Route::post('/contatos', [ContactController::class, 'store'])->middleware('throttle:bot-write');
         Route::post('/contatos/importar-csv', [ContactController::class, 'importCsv'])->middleware('throttle:bot-write');
         Route::patch('/contatos/{contactId}', [ContactController::class, 'update'])->middleware('throttle:bot-write');
         Route::delete('/contatos/{contactId}', [ContactController::class, 'destroy'])->middleware('throttle:bot-write');
 
-        // Campanhas
         Route::get('/campanhas', [CampaignController::class, 'index'])->middleware('throttle:inbox-read');
         Route::post('/campanhas', [CampaignController::class, 'store'])->middleware('throttle:bot-write');
         Route::post('/campanhas/validar-contatos', [CampaignController::class, 'validateContacts'])->middleware('throttle:inbox-read');
@@ -146,16 +148,29 @@ Route::middleware(['web', 'auth', 'company.user'])->group(function () {
         Route::post('/campanhas/{campaignId}/iniciar', [CampaignController::class, 'start'])->middleware('throttle:bot-write');
         Route::delete('/campanhas/{campaignId}', [CampaignController::class, 'destroy'])->middleware('throttle:bot-write');
 
-        // Feedback de sugestão de IA — acessível a todos os usuários da empresa
+        Route::prefix('ixc')->group(function () {
+            Route::get('/clientes', [IxcClientController::class, 'index'])
+                ->middleware(['throttle:ixc-read', 'permission:' . UserPermissions::PAGE_IXC_CLIENTS, 'permission:' . UserPermissions::IXC_CLIENTS_VIEW]);
+            Route::get('/clientes/{clientId}', [IxcClientController::class, 'show'])
+                ->middleware(['throttle:ixc-read', 'permission:' . UserPermissions::PAGE_IXC_CLIENTS, 'permission:' . UserPermissions::IXC_CLIENTS_VIEW]);
+            Route::get('/clientes/{clientId}/boletos', [IxcClientController::class, 'invoices'])
+                ->middleware(['throttle:ixc-read', 'permission:' . UserPermissions::PAGE_IXC_CLIENTS, 'permission:' . UserPermissions::IXC_INVOICES_VIEW]);
+            Route::get('/clientes/{clientId}/boletos/{invoiceId}', [IxcClientController::class, 'invoiceDetail'])
+                ->middleware(['throttle:ixc-read', 'permission:' . UserPermissions::PAGE_IXC_CLIENTS, 'permission:' . UserPermissions::IXC_INVOICES_VIEW]);
+            Route::post('/clientes/{clientId}/boletos/{invoiceId}/download', [IxcClientController::class, 'downloadInvoice'])
+                ->middleware(['throttle:ixc-write', 'permission:' . UserPermissions::PAGE_IXC_CLIENTS, 'permission:' . UserPermissions::IXC_INVOICES_DOWNLOAD]);
+            Route::post('/clientes/{clientId}/boletos/{invoiceId}/enviar-email', [IxcClientController::class, 'sendInvoiceEmail'])
+                ->middleware(['throttle:ixc-write', 'permission:' . UserPermissions::PAGE_IXC_CLIENTS, 'permission:' . UserPermissions::IXC_INVOICES_SEND_EMAIL]);
+            Route::post('/clientes/{clientId}/boletos/{invoiceId}/enviar-sms', [IxcClientController::class, 'sendInvoiceSms'])
+                ->middleware(['throttle:ixc-write', 'permission:' . UserPermissions::PAGE_IXC_CLIENTS, 'permission:' . UserPermissions::IXC_INVOICES_SEND_SMS]);
+        });
+
         Route::post('/ia/sugestoes/{suggestionId}/feedback', [AiSuggestionFeedbackController::class, 'store'])
             ->middleware('throttle:bot-write');
 
-        // Sandbox de IA — apenas admins da empresa (throttle 20/min)
         Route::post('/ia/sandbox', [AiSandboxController::class, 'test'])
             ->middleware('throttle:ai-sandbox');
 
-        // Rotas de IA para usuarios da empresa.
-        // As regras de acesso por papel/feature ficam nas Actions/Services.
         Route::post('/conversas/{conversationId}/ia/sugestao', [CompanyConversationController::class, 'suggestReply'])
                 ->middleware('throttle:bot-write');
         Route::get('/ia/conversas', [AiConversationController::class, 'index'])

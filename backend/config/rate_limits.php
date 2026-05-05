@@ -8,6 +8,8 @@ return [
     'bot_write' => (int) env('RATE_LIMIT_BOT_WRITE', 60),
     'simulation' => (int) env('RATE_LIMIT_SIMULATION', 30),
     'inbox_read' => (int) env('RATE_LIMIT_INBOX_READ', 180),
+    'ixc_read' => (int) env('RATE_LIMIT_IXC_READ', 90),
+    'ixc_write' => (int) env('RATE_LIMIT_IXC_WRITE', 30),
     'conversation_search' => (int) env('RATE_LIMIT_CONVERSATION_SEARCH', 30),
     'realtime_token' => (int) env('RATE_LIMIT_REALTIME_TOKEN', 30),
     'realtime_join' => (int) env('RATE_LIMIT_REALTIME_JOIN', 120),

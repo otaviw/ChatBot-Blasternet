@@ -9,7 +9,6 @@ use App\Support\Enums\UserRole;
 
 class UserPermissions
 {
-    // ── Pages ────────────────────────────────────────────────────────────────
     const PAGE_INBOX          = 'page_inbox';
     const PAGE_CONTACTS       = 'page_contacts';
     const PAGE_CAMPAIGNS      = 'page_campaigns';
@@ -19,8 +18,14 @@ class UserPermissions
     const PAGE_TAGS           = 'page_tags';
     const PAGE_AUDIT          = 'page_audit';
     const PAGE_SIMULATOR      = 'page_simulator';
+    const PAGE_IXC_CLIENTS    = 'page_ixc_clients';
+    const IXC_CLIENTS_VIEW    = 'ixc_clients_view';
+    const IXC_INVOICES_VIEW   = 'ixc_invoices_view';
+    const IXC_INVOICES_DOWNLOAD = 'ixc_invoices_download';
+    const IXC_INVOICES_SEND_EMAIL = 'ixc_invoices_send_email';
+    const IXC_INVOICES_SEND_SMS = 'ixc_invoices_send_sms';
+    const IXC_INTEGRATION_MANAGE = 'ixc_integration_manage';
 
-    // ── Actions ──────────────────────────────────────────────────────────────
     const ACTION_MANAGE_CONTACTS       = 'action_manage_contacts';
     const ACTION_SEND_CAMPAIGNS        = 'action_send_campaigns';
     const ACTION_MANAGE_QUICK_REPLIES  = 'action_manage_quick_replies';
@@ -42,6 +47,13 @@ class UserPermissions
         self::PAGE_TAGS,
         self::PAGE_AUDIT,
         self::PAGE_SIMULATOR,
+        self::PAGE_IXC_CLIENTS,
+        self::IXC_CLIENTS_VIEW,
+        self::IXC_INVOICES_VIEW,
+        self::IXC_INVOICES_DOWNLOAD,
+        self::IXC_INVOICES_SEND_EMAIL,
+        self::IXC_INVOICES_SEND_SMS,
+        self::IXC_INTEGRATION_MANAGE,
         self::ACTION_MANAGE_CONTACTS,
         self::ACTION_SEND_CAMPAIGNS,
         self::ACTION_MANAGE_QUICK_REPLIES,
@@ -55,7 +67,22 @@ class UserPermissions
      *
      * @var list<string>
      */
-    const AGENT_DEFAULTS = self::ALL;
+    const AGENT_DEFAULTS = [
+        self::PAGE_INBOX,
+        self::PAGE_CONTACTS,
+        self::PAGE_CAMPAIGNS,
+        self::PAGE_INTERNAL_CHAT,
+        self::PAGE_APPOINTMENTS,
+        self::PAGE_QUICK_REPLIES,
+        self::PAGE_TAGS,
+        self::PAGE_AUDIT,
+        self::PAGE_SIMULATOR,
+        self::ACTION_MANAGE_CONTACTS,
+        self::ACTION_SEND_CAMPAIGNS,
+        self::ACTION_MANAGE_QUICK_REPLIES,
+        self::ACTION_MANAGE_APPOINTMENTS,
+        self::ACTION_MANAGE_TAGS,
+    ];
 
     /**
      * Human-readable labels for each permission key.
@@ -74,6 +101,13 @@ class UserPermissions
             self::PAGE_TAGS          => 'Tags',
             self::PAGE_AUDIT         => 'Auditoria',
             self::PAGE_SIMULATOR     => 'Testar bot',
+            self::PAGE_IXC_CLIENTS   => 'Clientes IXC',
+            self::IXC_CLIENTS_VIEW => 'Ver clientes IXC',
+            self::IXC_INVOICES_VIEW => 'Ver boletos IXC',
+            self::IXC_INVOICES_DOWNLOAD => 'Baixar boletos IXC',
+            self::IXC_INVOICES_SEND_EMAIL => 'Enviar boleto por e-mail',
+            self::IXC_INVOICES_SEND_SMS => 'Enviar boleto por SMS',
+            self::IXC_INTEGRATION_MANAGE => 'Gerenciar integracao IXC',
 
             self::ACTION_MANAGE_CONTACTS      => 'Criar / editar / excluir contatos',
             self::ACTION_SEND_CAMPAIGNS       => 'Disparar campanhas',

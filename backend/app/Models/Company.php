@@ -22,21 +22,36 @@ class Company extends Model
         'meta_phone_number_id',
         'meta_waba_id',
         'meta_access_token',
+        'ixc_base_url',
+        'ixc_api_token',
+        'ixc_self_signed',
+        'ixc_timeout_seconds',
+        'ixc_enabled',
+        'ixc_last_validated_at',
+        'ixc_last_validation_error',
     ];
 
     protected $hidden = [
         'meta_access_token',
+        'ixc_api_token',
         'meta_phone_number_id_hash',
     ];
 
     protected $appends = [
         'has_meta_credentials',
+        'has_ixc_credentials',
+        'has_ixc_integration',
     ];
 
     protected $casts = [
         'meta_access_token' => 'encrypted',
         'meta_phone_number_id' => 'encrypted',
         'meta_waba_id' => 'encrypted',
+        'ixc_api_token' => 'encrypted',
+        'ixc_self_signed' => 'boolean',
+        'ixc_enabled' => 'boolean',
+        'ixc_timeout_seconds' => 'integer',
+        'ixc_last_validated_at' => 'datetime',
     ];
 
     protected static function booted(): void
@@ -80,6 +95,29 @@ class Company extends Model
     public function getHasMetaCredentialsAttribute(): bool
     {
         return $this->hasMetaCredentials();
+    }
+
+    public function hasIxcCredentials(): bool
+    {
+        $url = trim((string) ($this->ixc_base_url ?? ''));
+        $token = trim((string) ($this->ixc_api_token ?? ''));
+
+        return $url !== '' && $token !== '';
+    }
+
+    public function hasIxcIntegration(): bool
+    {
+        return (bool) $this->ixc_enabled && $this->hasIxcCredentials();
+    }
+
+    public function getHasIxcCredentialsAttribute(): bool
+    {
+        return $this->hasIxcCredentials();
+    }
+
+    public function getHasIxcIntegrationAttribute(): bool
+    {
+        return $this->hasIxcIntegration();
     }
 
     public function quickReplies(): HasMany

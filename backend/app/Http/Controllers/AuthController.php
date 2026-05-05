@@ -40,8 +40,6 @@ class AuthController extends Controller
         );
 
         if (! Auth::attempt($credentials, true)) {
-            // Determina a razão do falha apenas para log interno — jamais exposta ao cliente.
-            // A query extra só ocorre em falhas (caminho frio) e não afeta logins bem-sucedidos.
             $reason = User::where('email', $credentials['email'] ?? '')->exists()
                 ? 'invalid_password'
                 : 'unknown_user';
@@ -63,7 +61,6 @@ class AuthController extends Controller
         }
 
         if (! $user->is_active) {
-            // Invalida a sessão criada pelo Auth::attempt() para evitar token ativo residual.
             Auth::logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
@@ -213,6 +210,7 @@ class AuthController extends Controller
             'can_use_ai' => $canUseInternalAi,
             'can_access_internal_ai_chat' => $canUseInternalAi,
             'can_manage_ai' => $this->aiAccessService->canManageAi($user),
+            'has_ixc_integration' => (bool) ($user->company?->has_ixc_integration ?? false),
             'permissions' => $user->resolvedPermissions(),
         ];
     }

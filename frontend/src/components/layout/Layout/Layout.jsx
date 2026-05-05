@@ -75,8 +75,9 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
       userRole: userData?.role ?? null,
       userPerms: userData?.permissions ?? null,
       canManageUsers,
+      hasIxcIntegration: Boolean(userData?.has_ixc_integration),
     })
-  ), [canManageUsers, userData?.permissions, userData?.role]);
+  ), [canManageUsers, userData?.has_ixc_integration, userData?.permissions, userData?.role]);
 
   const isResellerAdmin = role === 'admin' && userData?.role === 'reseller_admin';
   const isSystemAdmin = role === 'admin' && userData?.role === 'system_admin';

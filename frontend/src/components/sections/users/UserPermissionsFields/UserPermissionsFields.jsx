@@ -1,16 +1,16 @@
 import './UserPermissionsFields.css';
-import { ALL_PERMISSIONS, PERMISSION_GROUPS } from '@/constants/permissions';
+import { AGENT_DEFAULT_PERMISSIONS, ALL_PERMISSIONS, PERMISSION_GROUPS } from '@/constants/permissions';
 
 /**
  * Permissions panel shown inside the user create/edit form.
  * Only rendered when the user being configured has the "agent" role.
  *
  * `permissions` is either:
- *   - null  → all defaults (everything checked)
+ *   - null  → defaults do agente
  *   - array → explicit list (only those keys checked)
  */
 function UserPermissionsFields({ permissions, onChange }) {
-  const effectivePermissions = permissions ?? ALL_PERMISSIONS;
+  const effectivePermissions = permissions ?? AGENT_DEFAULT_PERMISSIONS;
 
   function isChecked(key) {
     return effectivePermissions.includes(key);

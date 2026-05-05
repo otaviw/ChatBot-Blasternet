@@ -48,6 +48,11 @@ class StoreAdminCompanyAction
             'name'                 => $validated['name'],
             'meta_phone_number_id' => $validated['meta_phone_number_id'] ?? null,
             'meta_waba_id'         => $validated['meta_waba_id'] ?? null,
+            'ixc_base_url'         => $validated['ixc_base_url'] ?? null,
+            'ixc_api_token'        => $validated['ixc_api_token'] ?? null,
+            'ixc_self_signed'      => (bool) ($validated['ixc_self_signed'] ?? config('ixc.allow_self_signed_default', false)),
+            'ixc_timeout_seconds'  => (int) ($validated['ixc_timeout_seconds'] ?? config('ixc.default_timeout_seconds', 15)),
+            'ixc_enabled'          => (bool) ($validated['ixc_enabled'] ?? false),
             'reseller_id'          => $resellerId,
         ]);
 

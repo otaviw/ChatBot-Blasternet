@@ -9,6 +9,10 @@ function SettingsTab({
   testState,
   testResult,
   setTestState,
+  testIxcConnection,
+  ixcTestState,
+  ixcTestResult,
+  setIxcTestState,
   saveCompanyData,
   companySaveState,
   companySaveError,
@@ -93,6 +97,85 @@ function SettingsTab({
               className="app-input"
             />
           </label>
+
+          <label className="block text-sm md:col-span-2">
+            URL base IXC
+            <input
+              type="url"
+              value={companyForm.ixc_base_url}
+              onChange={(e) => {
+                setCompanyForm((p) => ({ ...p, ixc_base_url: e.target.value }));
+                setIxcTestState('idle');
+              }}
+              className="app-input"
+              placeholder="https://ip-ou-dominio/webservice/v1"
+            />
+          </label>
+
+          <label className="block text-sm md:col-span-2">
+            Token IXC
+            <input
+              type="password"
+              value={companyForm.ixc_api_token}
+              onChange={(e) => {
+                setCompanyForm((p) => ({ ...p, ixc_api_token: e.target.value }));
+                setIxcTestState('idle');
+              }}
+              className="app-input"
+              placeholder="Preencher apenas para atualizar"
+            />
+          </label>
+
+          <label className="block text-sm">
+            Timeout IXC (segundos)
+            <input
+              type="number"
+              min={5}
+              max={60}
+              value={companyForm.ixc_timeout_seconds}
+              onChange={(e) => setCompanyForm((p) => ({ ...p, ixc_timeout_seconds: Number(e.target.value) }))}
+              className="app-input"
+            />
+          </label>
+
+          <div className="block text-sm">
+            <label className="flex items-center gap-2 mt-7">
+              <input
+                type="checkbox"
+                checked={Boolean(companyForm.ixc_self_signed)}
+                onChange={(e) => setCompanyForm((p) => ({ ...p, ixc_self_signed: e.target.checked }))}
+              />
+              Permitir certificado autoassinado (IXC)
+            </label>
+          </div>
+
+          <label className="flex items-center gap-2 text-sm md:col-span-2">
+            <input
+              type="checkbox"
+              checked={Boolean(companyForm.ixc_enabled)}
+              onChange={(e) => setCompanyForm((p) => ({ ...p, ixc_enabled: e.target.checked }))}
+            />
+            Habilitar modulo IXC para esta empresa
+          </label>
+
+          <div className="md:col-span-2">
+            <div className="flex items-center gap-3 flex-wrap mt-1">
+              <button
+                type="button"
+                onClick={testIxcConnection}
+                disabled={ixcTestState === 'loading' || !companyForm.ixc_base_url}
+                className="app-btn-secondary text-xs"
+              >
+                {ixcTestState === 'loading' ? 'Testando IXC...' : 'Testar conexao IXC'}
+              </button>
+              {ixcTestState === 'ok' && (
+                <span className="text-xs text-emerald-700">Conexao IXC OK.</span>
+              )}
+              {ixcTestState === 'error' && (
+                <span className="text-xs text-red-600">Falha IXC: {ixcTestResult?.error || 'Credenciais invalidas.'}</span>
+              )}
+            </div>
+          </div>
 
           <label className="flex items-center gap-2 text-sm md:col-span-2">
             <input

@@ -29,6 +29,11 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
     name: '',
     meta_phone_number_id: '',
     meta_waba_id: '',
+    ixc_base_url: '',
+    ixc_api_token: '',
+    ixc_self_signed: false,
+    ixc_timeout_seconds: 15,
+    ixc_enabled: false,
     ai_enabled: false,
     ai_internal_chat_enabled: false,
   });
@@ -37,6 +42,8 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
   const [companySaveError, setCompanySaveError] = useState('');
   const [testState, setTestState] = useState('idle');
   const [testResult, setTestResult] = useState(null);
+  const [ixcTestState, setIxcTestState] = useState('idle');
+  const [ixcTestResult, setIxcTestResult] = useState(null);
 
   const reloadSettings = useCallback(async () => {
     const response = await api.get(`/admin/empresas/${companyId}`);
@@ -90,6 +97,11 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
       name: data.company.name ?? '',
       meta_phone_number_id: data.company.meta_phone_number_id ?? '',
       meta_waba_id: data.company.meta_waba_id ?? '',
+      ixc_base_url: data.company.ixc_base_url ?? '',
+      ixc_api_token: '',
+      ixc_self_signed: Boolean(data.company.ixc_self_signed),
+      ixc_timeout_seconds: Number(data.company.ixc_timeout_seconds ?? 15),
+      ixc_enabled: Boolean(data.company.ixc_enabled),
       ai_enabled: Boolean(data.company.bot_setting?.ai_enabled),
       ai_internal_chat_enabled: Boolean(data.company.bot_setting?.ai_internal_chat_enabled),
     });
@@ -120,9 +132,16 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
         name: companyForm.name,
         meta_phone_number_id: companyForm.meta_phone_number_id || null,
         meta_waba_id: companyForm.meta_waba_id || null,
+        ixc_base_url: companyForm.ixc_base_url || null,
+        ixc_self_signed: Boolean(companyForm.ixc_self_signed),
+        ixc_timeout_seconds: Math.max(5, Math.min(60, Number(companyForm.ixc_timeout_seconds || 15))),
+        ixc_enabled: Boolean(companyForm.ixc_enabled),
         ai_enabled: Boolean(companyForm.ai_enabled),
         ai_internal_chat_enabled: Boolean(companyForm.ai_internal_chat_enabled),
       };
+      if (String(companyForm.ixc_api_token ?? '').trim() !== '') {
+        payload.ixc_api_token = String(companyForm.ixc_api_token).trim();
+      }
       const response = await api.put(`/admin/empresas/${companyId}`, payload);
       const updatedCompany = response.data?.company;
       if (updatedCompany) {
@@ -134,6 +153,11 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
           name: updatedCompany.name ?? '',
           meta_phone_number_id: updatedCompany.meta_phone_number_id ?? '',
           meta_waba_id: updatedCompany.meta_waba_id ?? '',
+          ixc_base_url: updatedCompany.ixc_base_url ?? '',
+          ixc_api_token: '',
+          ixc_self_signed: Boolean(updatedCompany.ixc_self_signed),
+          ixc_timeout_seconds: Number(updatedCompany.ixc_timeout_seconds ?? 15),
+          ixc_enabled: Boolean(updatedCompany.ixc_enabled),
           ai_enabled: Boolean(updatedCompany.bot_setting?.ai_enabled ?? companyForm.ai_enabled),
           ai_internal_chat_enabled: Boolean(
             updatedCompany.bot_setting?.ai_internal_chat_enabled ?? companyForm.ai_internal_chat_enabled
@@ -145,6 +169,27 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
     } catch (err) {
       setCompanySaveState('error');
       setCompanySaveError(err.response?.data?.message || 'Falha ao salvar dados da empresa.');
+    }
+  };
+
+  const testIxcConnection = async () => {
+    setIxcTestState('loading');
+    setIxcTestResult(null);
+    try {
+      const payload = {
+        base_url: companyForm.ixc_base_url || undefined,
+        self_signed: Boolean(companyForm.ixc_self_signed),
+        timeout_seconds: Math.max(5, Math.min(60, Number(companyForm.ixc_timeout_seconds || 15))),
+      };
+      if (String(companyForm.ixc_api_token ?? '').trim() !== '') {
+        payload.api_token = String(companyForm.ixc_api_token).trim();
+      }
+      const response = await api.post(`/admin/empresas/${companyId}/validar-ixc`, payload);
+      setIxcTestState('ok');
+      setIxcTestResult(response.data);
+    } catch (err) {
+      setIxcTestState('error');
+      setIxcTestResult({ error: err.response?.data?.error || err.response?.data?.message || 'Erro ao testar IXC.' });
     }
   };
 
@@ -229,6 +274,10 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
           testState={testState}
           testResult={testResult}
           setTestState={setTestState}
+          testIxcConnection={testIxcConnection}
+          ixcTestState={ixcTestState}
+          ixcTestResult={ixcTestResult}
+          setIxcTestState={setIxcTestState}
           saveCompanyData={saveCompanyData}
           companySaveState={companySaveState}
           companySaveError={companySaveError}

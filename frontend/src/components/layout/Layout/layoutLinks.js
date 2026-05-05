@@ -94,7 +94,7 @@ export const POLICY_LINKS = [
   },
 ];
 
-export function buildCompanyMainLinks({ userRole, userPerms, canManageUsers }) {
+export function buildCompanyMainLinks({ userRole, userPerms, canManageUsers, hasIxcIntegration }) {
   const perm = (key) => hasPermission(userPerms, userRole, key);
   const links = [
     { href: '/dashboard', label: 'Início', icon: 'dashboard', ariaLabel: 'Ir para o painel inicial' },
@@ -183,6 +183,15 @@ export function buildCompanyMainLinks({ userRole, userPerms, canManageUsers }) {
     });
   }
 
+  if (perm(PERM.PAGE_IXC_CLIENTS) && hasIxcIntegration) {
+    links.push({
+      href: '/minha-conta/ixc/clientes',
+      label: 'Clientes IXC',
+      icon: 'contatos',
+      ariaLabel: 'Consultar clientes da integracao IXC',
+    });
+  }
+
   if (userRole === 'system_admin') {
     links.push(
       {
@@ -224,6 +233,15 @@ export function buildCompanyMainLinks({ userRole, userPerms, canManageUsers }) {
       label: 'Usuários',
       icon: 'usuarios',
       ariaLabel: 'Usuários da empresa',
+    });
+  }
+
+  if (userRole === 'company_admin') {
+    links.push({
+      href: '/minha-conta/empresa',
+      label: 'Minha empresa',
+      icon: 'empresas',
+      ariaLabel: 'Configurar dados da minha empresa e integracoes',
     });
   }
 
