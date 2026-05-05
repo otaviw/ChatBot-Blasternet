@@ -122,7 +122,7 @@ class ConversationAiSuggestionService
             'model' => $modelName,
             'temperature' => $temperature,
             'max_response_tokens' => $maxResponseTokens,
-            'request_timeout_ms' => (int) config('ai.request_timeout_ms', 30000),
+            'request_timeout_ms' => (int) config('ai.chatbot_request_timeout_ms', config('ai.request_timeout_ms', 30000)),
         ];
 
         $measured = $this->metricsService->measure(fn () => $provider->reply($contextMessages, $providerOptions));

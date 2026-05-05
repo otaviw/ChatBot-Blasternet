@@ -185,6 +185,20 @@ class ChatbotAiPolicyService
             }
 
             if (in_array($intent, ['suporte_tecnico', 'financeiro'], true)) {
+                if ($this->isSandboxMode($context)) {
+                    return $this->decision(
+                        self::ACTION_SUGGEST_REPLY,
+                        'specialized_intent_sandbox_assist',
+                        $intent,
+                        $confidence,
+                        $threshold,
+                        $attendantRequestCount,
+                        $handoffLimit,
+                        $shouldTransfer,
+                        $shouldTransfer ? $reason : null
+                    );
+                }
+
                 return $this->decision(
                     self::ACTION_EXTRACT_ONLY,
                     'specialized_intent_extract_only',
@@ -359,6 +373,14 @@ class ChatbotAiPolicyService
         return false;
     }
 
+    /**
+     * @param  array<string, mixed>  $context
+     */
+    private function isSandboxMode(array $context): bool
+    {
+        return mb_strtolower(trim((string) ($context['mode'] ?? ''))) === 'sandbox';
+    }
+
     private function incrementAttendantRequestCount(Conversation $conversation): int
     {
         $key = $this->attendantCounterKey($conversation);
@@ -404,4 +426,3 @@ class ChatbotAiPolicyService
         return "chatbot_ai:attendant_requests:conversation:{$conversationId}:{$flow}:{$step}";
     }
 }
-

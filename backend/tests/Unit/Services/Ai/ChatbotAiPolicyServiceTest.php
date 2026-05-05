@@ -123,6 +123,56 @@ class ChatbotAiPolicyServiceTest extends TestCase
         $this->assertSame('policy_exception', $decision['reason']);
     }
 
+    public function test_specialized_intent_in_sandbox_can_suggest_reply(): void
+    {
+        $service = new ChatbotAiPolicyService();
+
+        $decision = $service->decide(
+            $this->conversation(1006),
+            $this->settings(),
+            [
+                'intent' => 'financeiro',
+                'confidence' => 0.91,
+                'extracted_data' => [],
+                'suggested_reply' => null,
+                'should_transfer_to_human' => false,
+                'reason' => 'provider_classification',
+            ],
+            [
+                'mode' => 'sandbox',
+                'message_text' => 'duvida sobre pagamento',
+            ]
+        );
+
+        $this->assertSame(ChatbotAiPolicyService::ACTION_SUGGEST_REPLY, $decision['action']);
+        $this->assertSame('specialized_intent_sandbox_assist', $decision['reason']);
+    }
+
+    public function test_specialized_intent_outside_sandbox_keeps_extract_only(): void
+    {
+        $service = new ChatbotAiPolicyService();
+
+        $decision = $service->decide(
+            $this->conversation(1007),
+            $this->settings(),
+            [
+                'intent' => 'financeiro',
+                'confidence' => 0.91,
+                'extracted_data' => [],
+                'suggested_reply' => null,
+                'should_transfer_to_human' => false,
+                'reason' => 'provider_classification',
+            ],
+            [
+                'mode' => 'active',
+                'message_text' => 'duvida sobre pagamento',
+            ]
+        );
+
+        $this->assertSame(ChatbotAiPolicyService::ACTION_EXTRACT_ONLY, $decision['action']);
+        $this->assertSame('specialized_intent_extract_only', $decision['reason']);
+    }
+
     private function settings(
         bool $autoReplyEnabled = false,
         float $threshold = 0.75,
@@ -147,4 +197,3 @@ class ChatbotAiPolicyServiceTest extends TestCase
         return $conversation;
     }
 }
-

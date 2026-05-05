@@ -502,7 +502,7 @@ export default function NotificationsTray({ role, isLogged }) {
           {totalUnreadCount > 0 && (
             <span className="layout-header__badge">{totalUnreadCount > 99 ? '99+' : totalUnreadCount}</span>
           )}
-          <span className="layout-header__btn-label">Notificacoes</span>
+          <span className="layout-header__btn-label">Notificações</span>
         </button>
       </div>
 

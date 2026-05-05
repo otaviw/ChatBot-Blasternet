@@ -767,7 +767,10 @@ class InboundMessageService
                 $conversation,
                 $settings,
                 $classification,
-                ['message_text' => $safeMessageText]
+                [
+                    'message_text' => $safeMessageText,
+                    'mode' => $mode,
+                ]
             );
 
             $confidence = is_numeric($policyDecision['confidence'] ?? null)
@@ -787,13 +790,13 @@ class InboundMessageService
             if (
                 $mode === AiChatbotDecisionLog::MODE_SANDBOX
                 && $action === ChatbotAiPolicyService::ACTION_SUGGEST_REPLY
-                && ! $statefulHandled
             ) {
                 $suggestionPayload = $this->generateChatbotAiSuggestionPayload($company, $conversation);
                 $aiReply = isset($suggestionPayload['reply']) ? trim((string) $suggestionPayload['reply']) : null;
 
                 if ($aiReply !== null && $aiReply !== '') {
                     $finalReply = $aiReply;
+                    $finalReplyMessage = $this->applyAiReplyToStatefulMessage($finalReplyMessage, $aiReply);
                     $aiApplied = true;
                     $this->productMetrics->track(
                         ProductFunnels::CHATBOT,
@@ -927,6 +930,37 @@ class InboundMessageService
         }
 
         return false;
+    }
+
+    /**
+     * Mantem a estrutura do payload stateful (menus, botoes/listas) e troca
+     * apenas o texto de exibicao quando houver resposta assistida de IA.
+     *
+     * @param  array<string, mixed>|string|null  $replyMessage
+     * @return array<string, mixed>|string|null
+     */
+    private function applyAiReplyToStatefulMessage(array|string|null $replyMessage, string $aiReply): array|string|null
+    {
+        if (! is_array($replyMessage)) {
+            return $replyMessage;
+        }
+
+        $updated = $replyMessage;
+        $msgType = trim((string) ($updated['type'] ?? ''));
+
+        if ($msgType === 'interactive_buttons' || $msgType === 'interactive_list') {
+            $updated['body_text'] = $aiReply;
+
+            return $updated;
+        }
+
+        if ($msgType === 'text') {
+            $updated['text'] = $aiReply;
+
+            return $updated;
+        }
+
+        return $updated;
     }
 
     /**
