@@ -7,14 +7,14 @@ const CATEGORY_LABEL = {
   AUTHENTICATION: 'Autenticacao',
 };
 
-const extractBodyVariables = (template) => {
-  const bodyComponents = Array.isArray(template?.components)
-    ? template.components.filter((component) => String(component?.type ?? '').toUpperCase() === 'BODY')
-    : [];
+const templateKey = (template) => `${template?.name ?? ''}__${template?.language ?? ''}`;
 
+const extractBodyVariables = (template) => {
+  const components = Array.isArray(template?.components) ? template.components : [];
   const variablesMap = new Map();
-  for (const component of bodyComponents) {
-    const text = String(component?.text ?? '');
+  for (const component of components) {
+    const text = JSON.stringify(component ?? {});
+    if (!text) continue;
     const matches = text.matchAll(/\{\{\s*(\d+)\s*\}\}/g);
     for (const match of matches) {
       const parsed = Number.parseInt(match[1], 10);
@@ -36,7 +36,7 @@ function NewConversationModal({ open, onClose, onSubmit, busy, error }) {
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
   const [sendTemplate, setSendTemplate] = useState(true);
-  const [selectedTemplate, setSelectedTemplate] = useState('');
+  const [selectedTemplateKey, setSelectedTemplateKey] = useState('');
   const [templateVariables, setTemplateVariables] = useState([]);
   const phoneRef = useRef(null);
 
@@ -48,7 +48,7 @@ function NewConversationModal({ open, onClose, onSubmit, busy, error }) {
     setPhone('');
     setName('');
     setSendTemplate(true);
-    setSelectedTemplate('');
+    setSelectedTemplateKey('');
     setTemplateVariables([]);
     loadTemplates();
     setTimeout(() => phoneRef.current?.focus(), 50);
@@ -68,13 +68,13 @@ function NewConversationModal({ open, onClose, onSubmit, busy, error }) {
 
   if (!open) return null;
 
-  const selectedTemplateData = templates.find((template) => template.name === selectedTemplate) ?? null;
+  const selectedTemplateData = templates.find((template) => templateKey(template) === selectedTemplateKey) ?? null;
   const bodyVariables = extractBodyVariables(selectedTemplateData);
   const allVariablesFilled = bodyVariables.every((_, index) => String(templateVariables[index] ?? '').trim() !== '');
 
   const handleSubmit = (event) => {
     event.preventDefault();
-    const templateName = sendTemplate ? (selectedTemplate || 'iniciar_conversa') : null;
+    const templateName = sendTemplate ? (selectedTemplateData?.name || 'iniciar_conversa') : null;
     onSubmit({
       phone: phone.trim(),
       name: name.trim(),
@@ -85,7 +85,7 @@ function NewConversationModal({ open, onClose, onSubmit, busy, error }) {
   };
 
   const canSubmit = phone.trim()
-    && (!sendTemplate || selectedTemplate || templates.length === 0)
+    && (!sendTemplate || selectedTemplateData || templates.length === 0)
     && (!sendTemplate || bodyVariables.length === 0 || allVariablesFilled);
 
   return (
@@ -177,15 +177,16 @@ function NewConversationModal({ open, onClose, onSubmit, busy, error }) {
                 <div className="flex flex-col gap-1.5 max-h-44 overflow-y-auto pr-1">
                   {templates.map((template) => (
                     <button
-                      key={`${template.name}-${template.language}`}
+                      key={templateKey(template)}
                       type="button"
                       onClick={() => {
-                        setSelectedTemplate(template.name);
+                        const currentKey = templateKey(template);
+                        setSelectedTemplateKey(currentKey);
                         const indexes = extractBodyVariables(template);
                         setTemplateVariables((previous) => indexes.map((_, index) => previous[index] ?? ''));
                       }}
                       className={`w-full text-left px-3 py-2 rounded-lg border transition text-xs ${
-                        selectedTemplate === template.name
+                        selectedTemplateKey === templateKey(template)
                           ? 'border-blue-500 bg-blue-50'
                           : 'border-[#e5e5e5] hover:border-[#cbd5e1] hover:bg-[#f8fafc]'
                       }`}
@@ -202,7 +203,7 @@ function NewConversationModal({ open, onClose, onSubmit, busy, error }) {
                 </div>
               ) : null}
 
-              {!templatesLoading && selectedTemplate && bodyVariables.length > 0 ? (
+              {!templatesLoading && selectedTemplateData && bodyVariables.length > 0 ? (
                 <div className="mt-2 space-y-1.5">
                   <p className="text-xs text-[#525252]">
                     Este template exige {bodyVariables.length} variavel(is) de corpo.
