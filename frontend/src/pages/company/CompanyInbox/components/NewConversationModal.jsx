@@ -12,24 +12,37 @@ const templateKey = (template) => `${template?.name ?? ''}__${template?.language
 const extractBodyVariables = (template) => {
   const components = Array.isArray(template?.components) ? template.components : [];
   const variablesMap = new Map();
+  const exampleByToken = new Map();
+
   for (const component of components) {
-    const text = JSON.stringify(component ?? {});
-    if (!text) continue;
-    const matches = text.matchAll(/\{\{\s*(\d+)\s*\}\}/g);
-    for (const match of matches) {
-      const parsed = Number.parseInt(match[1], 10);
-      if (Number.isInteger(parsed) && parsed > 0) {
-        if (!variablesMap.has(parsed)) {
-          const surrounding = text.slice(Math.max(0, match.index - 16), Math.min(text.length, (match.index ?? 0) + match[0].length + 16)).trim();
-          variablesMap.set(parsed, surrounding || `{{${parsed}}}`);
+    const example = component?.example;
+    if (!example || typeof example !== 'object') continue;
+    for (const value of Object.values(example)) {
+      if (!Array.isArray(value)) continue;
+      for (const item of value) {
+        const token = String(item?.param_name ?? '').trim();
+        const sample = String(item?.example ?? '').trim();
+        if (token && sample && !exampleByToken.has(token)) {
+          exampleByToken.set(token, sample);
         }
       }
     }
   }
 
+  for (const component of components) {
+    const text = String(component?.text ?? JSON.stringify(component ?? {}));
+    if (!text) continue;
+    const matches = text.matchAll(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g);
+    for (const match of matches) {
+      const token = String(match[1] ?? '').trim();
+      if (!token || variablesMap.has(token)) continue;
+      const surrounding = text.slice(Math.max(0, match.index - 16), Math.min(text.length, (match.index ?? 0) + match[0].length + 16)).trim();
+      variablesMap.set(token, surrounding || `{{${token}}}`);
+    }
+  }
+
   return [...variablesMap.entries()]
-    .sort((a, b) => a[0] - b[0])
-    .map(([index, hint]) => ({ index, hint }));
+    .map(([token, hint]) => ({ token, hint, example: exampleByToken.get(token) ?? '' }));
 };
 
 function NewConversationModal({ open, onClose, onSubmit, busy, error }) {
@@ -206,12 +219,13 @@ function NewConversationModal({ open, onClose, onSubmit, busy, error }) {
               {!templatesLoading && selectedTemplateData && bodyVariables.length > 0 ? (
                 <div className="mt-2 space-y-1.5">
                   <p className="text-xs text-[#525252]">
-                    Este template exige {bodyVariables.length} variavel(is) de corpo.
+                    Este template exige {bodyVariables.length} variavel(is).
                   </p>
                   {bodyVariables.map((variable, index) => (
-                    <div key={`new-conversation-template-variable-${variable.index}`} className="space-y-1">
+                    <div key={`new-conversation-template-variable-${variable.token}`} className="space-y-1">
                       <p className="text-[11px] text-[#6b7280]">
-                        Variavel {`{{${variable.index}}}`} • Contexto: {variable.hint}
+                        Variavel {`{{${variable.token}}}`} • Contexto: {variable.hint}
+                        {variable.example ? ` • Exemplo: ${variable.example}` : ''}
                       </p>
                       <input
                         type="text"
@@ -222,7 +236,7 @@ function NewConversationModal({ open, onClose, onSubmit, busy, error }) {
                             previous.map((item, currentIndex) => (currentIndex === index ? value : item))
                           );
                         }}
-                        placeholder={`Valor para {{${variable.index}}}`}
+                        placeholder={`Valor para {{${variable.token}}}`}
                         disabled={busy}
                         className="w-full app-input text-xs py-1.5"
                       />
