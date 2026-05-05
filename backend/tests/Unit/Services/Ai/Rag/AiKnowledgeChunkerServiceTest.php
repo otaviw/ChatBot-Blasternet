@@ -50,7 +50,6 @@ class AiKnowledgeChunkerServiceTest extends TestCase
 
     public function test_long_content_splits_into_multiple_chunks(): void
     {
-        // 5 paragraphs × 120 chars = 600 chars total, chunk size 200
         $paragraph = str_repeat('word ', 24); // ~120 chars
         $content = implode("\n\n", array_fill(0, 5, trim($paragraph)));
 
@@ -76,7 +75,6 @@ class AiKnowledgeChunkerServiceTest extends TestCase
 
         $combined = implode(' ', $chunks);
         foreach ($sentences as $sentence) {
-            // Each sentence should appear in at least one chunk
             $found = false;
             foreach ($chunks as $chunk) {
                 if (str_contains($chunk, substr($sentence, 0, 15))) {
@@ -90,7 +88,6 @@ class AiKnowledgeChunkerServiceTest extends TestCase
 
     public function test_single_paragraph_longer_than_max_is_split_by_sentences(): void
     {
-        // One long paragraph with multiple sentences
         $content = 'First sentence of the paragraph. Second sentence here. Third sentence follows. Fourth and final sentence.';
         $chunks = $this->chunker->chunk($content, 60, 0);
 

@@ -3,9 +3,6 @@
 use App\Http\Middleware\RequestMetricsMiddleware;
 use Illuminate\Support\Facades\Route;
 
-// Healthcheck — sem autenticação, sem throttle, sem métricas.
-// Usado por load balancers, orquestradores (K8s/ECS) e pipelines de deploy.
-// Não consulta banco nem cache — resposta em memória pura.
 Route::get('/health', static function () {
     return response()->json([
         'ok'  => true,

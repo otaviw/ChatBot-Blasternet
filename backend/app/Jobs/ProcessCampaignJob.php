@@ -153,7 +153,6 @@ class ProcessCampaignJob implements ShouldQueue
                 $this->applyCountersAfterProcessedContact($counters, 'failed');
                 $this->publishCampaignUpdated($campaign, $realtimePublisher, $counters);
             } catch (Throwable) {
-                // Ignore secondary failure and continue processing next contacts.
             }
         }
     }

@@ -42,21 +42,17 @@ import './PageState.css';
  * @param {PageStateProps} props
  */
 function PageState({
-  // loading
   loading = false,
   loadingSlot = null,
-  // error
   error = null,
   errorMessage = '',
   onRetry = null,
-  // empty
   empty = false,
   emptyTitle = 'Nada por aqui ainda',
   emptySubtitle = '',
   emptyIcon = null,
   emptyActionLabel = '',
   onEmptyAction = null,
-  // misc
   className = '',
   children,
 }) {

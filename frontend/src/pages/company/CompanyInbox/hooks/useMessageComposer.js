@@ -249,7 +249,6 @@ export default function useMessageComposer({
     try {
       await api.post(`/minha-conta/ia/sugestoes/${suggestionId}/feedback`, { helpful });
     } catch (_err) {
-      // best-effort
     }
   }, [uiState.aiSuggestionId]);
 

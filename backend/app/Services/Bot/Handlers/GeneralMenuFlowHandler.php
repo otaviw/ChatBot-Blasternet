@@ -58,9 +58,6 @@ class GeneralMenuFlowHandler
         return $this->notHandled();
     }
 
-    // -------------------------------------------------------------------------
-    // Private step handlers
-    // -------------------------------------------------------------------------
 
     /**
      * @param  array<string, mixed>  $definition
@@ -245,9 +242,6 @@ class GeneralMenuFlowHandler
         return $this->handoffResult($company, $conversation, $replyText, $targetAreaName);
     }
 
-    // -------------------------------------------------------------------------
-    // Private helpers
-    // -------------------------------------------------------------------------
 
     /**
      * @param  array<string, mixed>  $step

@@ -19,9 +19,6 @@ use Illuminate\Support\Facades\Log;
  */
 class MetricsLogger
 {
-    // -------------------------------------------------------------------------
-    // HTTP — tempo de resposta + erros por endpoint
-    // -------------------------------------------------------------------------
 
     /**
      * Registra uma request HTTP concluída com duração e status.
@@ -48,9 +45,6 @@ class MetricsLogger
         Log::$level('http_request', $data);
     }
 
-    // -------------------------------------------------------------------------
-    // Mensagens — contagem por direção e tipo
-    // -------------------------------------------------------------------------
 
     /**
      * Registra a criação de uma mensagem (inbound ou outbound).

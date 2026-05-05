@@ -28,7 +28,6 @@ return new class extends Migration
             $table->unsignedInteger('response_time_ms')->nullable()->after('tokens_used');
             $table->string('error_type', 40)->nullable()->after('response_time_ms');
 
-            // Índices para consultas analíticas de métricas
             $table->index(['company_id', 'feature', 'created_at'], 'ai_usage_logs_company_feature_created');
             $table->index(['company_id', 'provider', 'created_at'], 'ai_usage_logs_company_provider_created');
             $table->index(['company_id', 'status', 'created_at'], 'ai_usage_logs_company_status_created');

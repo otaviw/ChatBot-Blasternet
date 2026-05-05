@@ -43,7 +43,6 @@ class BotController extends Controller
 
         $company = $this->resolveCompany($request, $user);
         if ($company instanceof JsonResponse) {
-            // Sem company selecionada: admin vê seletor, usuário comum vê erro
             if ($user->isSystemAdmin()) {
                 return response()->json([
                     'authenticated' => true,

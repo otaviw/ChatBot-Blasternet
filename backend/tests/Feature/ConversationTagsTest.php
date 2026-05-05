@@ -40,7 +40,6 @@ class ConversationTagsTest extends TestCase
         ]);
     }
 
-    // ─── Tag CRUD ────────────────────────────────────────────────────────────
 
     public function test_company_user_can_create_tag(): void
     {
@@ -134,7 +133,6 @@ class ConversationTagsTest extends TestCase
             ->assertNotFound();
     }
 
-    // ─── Attach / Detach ────────────────────────────────────────────────────
 
     public function test_company_user_can_attach_tag_to_conversation(): void
     {
@@ -153,7 +151,6 @@ class ConversationTagsTest extends TestCase
             'tag_id'          => $tag->id,
         ]);
 
-        // Response should include updated tags list
         $tags = $response->json('tags');
         $this->assertIsArray($tags);
         $tagIds = array_column($tags, 'id');
@@ -167,7 +164,6 @@ class ConversationTagsTest extends TestCase
         $conversation = $this->makeConversation($company);
         $conversation->tags()->attach($tag->id);
 
-        // Second attach should not duplicate and should succeed
         $this->actingAs($user)->postJson(
             "/api/minha-conta/conversas/{$conversation->id}/tags",
             ['tag_id' => $tag->id]
@@ -212,7 +208,6 @@ class ConversationTagsTest extends TestCase
         )->assertNotFound();
     }
 
-    // ─── Filter by tag_id ───────────────────────────────────────────────────
 
     public function test_conversations_can_be_filtered_by_tag_id(): void
     {

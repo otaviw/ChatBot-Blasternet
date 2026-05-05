@@ -142,8 +142,6 @@ class AiConversationContextBuilder
     private function buildKnowledgePrompt(int $companyId, ?string $query = null): string
     {
         $ragEnabled = (bool) config('ai.rag.enabled', false);
-        // When RAG is disabled preserve original static behaviour (top-5 by recency).
-        // When RAG is enabled use the configured top_k (default 3, fewer and more targeted).
         $topK = $ragEnabled ? (int) config('ai.rag.top_k', 3) : 5;
 
         $chunks = $this->retrieverService->retrieve($companyId, $query, $topK);

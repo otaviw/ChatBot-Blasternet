@@ -102,7 +102,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Sem rollback para schema legado.
     }
 
     private function resolveLegacyAssignment(

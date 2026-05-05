@@ -121,7 +121,6 @@ class InternalChatConversationCompatibilityTest extends TestCase
         $outsider = $this->createUser('compat-outsider-read@test.local', User::ROLE_AGENT, $companyB->id);
 
         $conversationId = $this->createConversation($sender, $recipient);
-        // outsider é de outra empresa: o scope oculta o recurso → 404 (mais seguro que 403)
         $response = $this->actingAs($outsider)->postJson("/api/chat/conversations/{$conversationId}/read");
 
         $response->assertNotFound();

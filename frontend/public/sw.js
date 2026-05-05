@@ -18,7 +18,6 @@ self.addEventListener('notificationclick', (event) => {
           }
           return;
         } catch {
-          // ignore and try next client
         }
       }
 

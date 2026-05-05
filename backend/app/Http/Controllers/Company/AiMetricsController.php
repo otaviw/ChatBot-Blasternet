@@ -47,24 +47,17 @@ class AiMetricsController extends Controller
             ], 403);
         }
 
-        // ── Resolução de empresa ───────────────────────────────────────────────
         $companies = $user->isSystemAdmin()
             ? Company::orderBy('name')->get(['id', 'name'])
             : null;
 
         [$companyId, $allCompanies] = $this->resolveCompanyScope($request, $user);
 
-        // ── Período ───────────────────────────────────────────────────────────
         [$dateFrom, $dateTo] = $this->resolveDateRange($request);
 
-        // ── Filtros opcionais ─────────────────────────────────────────────────
         $filterProvider = trim((string) $request->query('provider', ''));
         $filterFeature = trim((string) $request->query('feature', ''));
 
-        // ── Cache ─────────────────────────────────────────────────────────────
-        // Dados analíticos históricos toleram 5 min de defasagem. O ganho é alto:
-        // as queries abaixo fazem 6-7 round-trips com aggregations pesados e
-        // o PERCENTILE_CONT é especialmente caro em tabelas grandes.
         $cacheKey = CacheKeys::aiMetrics(
             companyScope: $allCompanies ? 'all' : (string) $companyId,
             dateFrom: $dateFrom->toDateString(),
@@ -78,7 +71,6 @@ class AiMetricsController extends Controller
             return response()->json($cached);
         }
 
-        // ── Query base ────────────────────────────────────────────────────────
         $base = AiUsageLog::query()
             ->whereBetween('created_at', [$dateFrom, $dateTo]);
 
@@ -94,7 +86,6 @@ class AiMetricsController extends Controller
             $base->where('feature', $filterFeature);
         }
 
-        // ── Sumário geral ─────────────────────────────────────────────────────
         $summaryRow = (clone $base)
             ->selectRaw(implode(', ', [
                 'COUNT(*) as total_requests',
@@ -114,10 +105,8 @@ class AiMetricsController extends Controller
         $totalTokens = (int) ($summaryRow->total_tokens ?? 0);
         $errorRatePct = $totalRequests > 0 ? round($errorCount / $totalRequests * 100, 2) : 0.0;
 
-        // P95 de latência — apenas PostgreSQL suporta percentile_cont
         $p95Ms = $this->computeP95(clone $base, $dateFrom, $dateTo);
 
-        // ── Breakdown por feature ─────────────────────────────────────────────
         $byFeature = (clone $base)
             ->selectRaw(implode(', ', [
                 'COALESCE(feature, type) as feature_name',
@@ -140,7 +129,6 @@ class AiMetricsController extends Controller
             ])
             ->values();
 
-        // ── Breakdown por provider ────────────────────────────────────────────
         $byProvider = (clone $base)
             ->whereNotNull('provider')
             ->selectRaw(implode(', ', [
@@ -164,7 +152,6 @@ class AiMetricsController extends Controller
             ])
             ->values();
 
-        // ── Distribuição de tipos de erro ─────────────────────────────────────
         $byErrorType = (clone $base)
             ->where('status', AiUsageLog::STATUS_ERROR)
             ->whereNotNull('error_type')
@@ -178,7 +165,6 @@ class AiMetricsController extends Controller
             ])
             ->values();
 
-        // ── Série temporal diária ─────────────────────────────────────────────
         $dailyRows = (clone $base)
             ->selectRaw(implode(', ', [
                 'DATE(created_at) as day',
@@ -210,7 +196,6 @@ class AiMetricsController extends Controller
             ];
         }
 
-        // ── Feedback de sugestões ─────────────────────────────────────────────
         $feedbackQuery = AiSuggestionFeedback::query()
             ->join('ai_usage_logs', 'ai_suggestion_feedback.suggestion_id', '=', 'ai_usage_logs.id')
             ->whereBetween('ai_suggestion_feedback.created_at', [$dateFrom, $dateTo]);
@@ -258,7 +243,6 @@ class AiMetricsController extends Controller
         return response()->json($payload);
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
 
     /**
      * @return array{0: int|null, 1: bool}
@@ -288,7 +272,6 @@ class AiMetricsController extends Controller
         $dateFrom = $from !== '' ? Carbon::parse($from)->startOfDay() : Carbon::now()->subDays(29)->startOfDay();
         $dateTo = $to !== '' ? Carbon::parse($to)->endOfDay() : Carbon::now()->endOfDay();
 
-        // Máximo 90 dias para evitar queries pesadas
         if ($dateFrom->diffInDays($dateTo) > 90) {
             $dateFrom = $dateTo->copy()->subDays(89)->startOfDay();
         }

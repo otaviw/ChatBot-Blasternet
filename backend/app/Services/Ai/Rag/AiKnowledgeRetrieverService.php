@@ -134,7 +134,6 @@ class AiKnowledgeRetrieverService
         $pickedEntryIndexes = [];
         $seenItemIds = [];
 
-        // First pass: best chunk per unique knowledge item
         foreach ($sorted as $i => $entry) {
             if (count($result) >= $topK) {
                 break;
@@ -148,7 +147,6 @@ class AiKnowledgeRetrieverService
             }
         }
 
-        // Second pass: fill remaining slots with any unchosen chunk
         if (count($result) < $topK) {
             foreach ($sorted as $i => $entry) {
                 if (count($result) >= $topK) {

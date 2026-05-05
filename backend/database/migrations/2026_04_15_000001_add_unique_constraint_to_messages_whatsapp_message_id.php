@@ -29,7 +29,6 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Aborta se ainda houver duplicatas — melhor falhar aqui do que silenciar o problema
         $duplicateCount = (int) DB::table('messages')
             ->select('whatsapp_message_id')
             ->whereNotNull('whatsapp_message_id')
@@ -46,10 +45,8 @@ return new class extends Migration
         }
 
         Schema::table('messages', function (Blueprint $table) {
-            // Remove o índice não-único criado na migration 2026_03_11
             $table->dropIndex('messages_whatsapp_message_id_index');
 
-            // Adiciona constraint UNIQUE (NULLs são permitidos)
             $table->unique('whatsapp_message_id', 'messages_whatsapp_message_id_unique');
         });
     }

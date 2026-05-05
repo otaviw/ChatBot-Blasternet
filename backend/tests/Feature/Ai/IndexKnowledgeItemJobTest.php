@@ -71,7 +71,6 @@ class IndexKnowledgeItemJobTest extends TestCase
             'is_active' => true,
         ]);
 
-        // Create pre-existing stale chunks
         AiKnowledgeChunk::create([
             'ai_knowledge_item_id' => $item->id,
             'company_id' => $item->company_id,
@@ -88,7 +87,6 @@ class IndexKnowledgeItemJobTest extends TestCase
         $job = new IndexKnowledgeItemJob((int) $item->id);
         $job->handle(new AiKnowledgeChunkerService(), $embedder);
 
-        // Old stale chunk should be gone, new chunk present
         $this->assertDatabaseMissing('ai_knowledge_chunks', ['embedding_model' => 'old-model']);
         $this->assertDatabaseHas('ai_knowledge_chunks', ['embedding_model' => 'test-embed-model']);
     }
@@ -100,7 +98,6 @@ class IndexKnowledgeItemJobTest extends TestCase
             'is_active' => false,
         ]);
 
-        // Pre-existing chunks from when it was active
         AiKnowledgeChunk::create([
             'ai_knowledge_item_id' => $item->id,
             'company_id' => $item->company_id,

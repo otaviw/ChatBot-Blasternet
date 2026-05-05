@@ -41,7 +41,6 @@ class AiSafetyPipelineService
         PromptInjectionStage $promptInjection,
         InputModerationStage $inputModeration,
     ) {
-        // Ordem deliberada: redact PII primeiro, depois checar conteúdo
         $this->stages = [$piiRedaction, $promptInjection, $inputModeration];
     }
 
@@ -60,12 +59,10 @@ class AiSafetyPipelineService
         foreach ($this->stages as $stage) {
             $stageResult = $stage->run($current);
 
-            // Acumula flags mesmo se não bloquear (ex.: PII detectado mas não bloqueado)
             foreach ($stageResult->flags as $flag) {
                 $allFlags[] = $flag;
             }
 
-            // O output sanitizado passa para a próxima etapa
             $current = $stageResult->output;
 
             if ($stageResult->blocked) {

@@ -37,7 +37,6 @@ class PiiRedactionStage implements AiSafetyStage
             'pattern' => '/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/u',
             'replacement' => '[EMAIL]',
         ],
-        // CNPJ antes de CPF para evitar match parcial (CNPJ tem mais dígitos)
         'cnpj' => [
             'pattern' => '/\b\d{2}\.?\d{3}\.?\d{3}\/?0{0,1}\d{3,4}[-]?\d{2}\b/',
             'replacement' => '[CNPJ]',
@@ -47,7 +46,6 @@ class PiiRedactionStage implements AiSafetyStage
             'replacement' => '[CPF]',
         ],
         'phone_br' => [
-            // Aceita: +55 11 9 1234-5678 | (11)91234-5678 | 11 91234-5678 | 9 1234-5678
             'pattern' => '/(?:\+55\s?)?(?:\(?\d{2}\)?\s?)?(?:9\s?)?\d{4}[\s\-]?\d{4}\b/',
             'replacement' => '[TELEFONE]',
         ],

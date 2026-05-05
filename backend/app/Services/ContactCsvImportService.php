@@ -41,14 +41,12 @@ class ContactCsvImportService
         $errors   = [];
         $row      = 0;
 
-        // Lê a primeira linha removendo BOM UTF-8 sem reescrever o arquivo
         $firstLine = fgets($handle);
         if ($firstLine === false) {
             return ['imported' => 0, 'skipped' => 0, 'errors' => ['Arquivo CSV vazio ou inválido.']];
         }
         $firstLine = ltrim($firstLine, "\xEF\xBB\xBF");
 
-        // Detecta delimitador contando ocorrências no header
         $delimiter = substr_count($firstLine, ',') >= substr_count($firstLine, ';') ? ',' : ';';
 
         $header = str_getcsv(trim($firstLine), $delimiter);
@@ -63,7 +61,6 @@ class ContactCsvImportService
             return ['imported' => 0, 'skipped' => 0, 'errors' => ['Coluna de telefone não encontrada. Use: telefone, phone, celular, whatsapp.']];
         }
 
-        // Pré-carrega phones existentes da empresa para checagem rápida em memória
         $existing = Contact::where('company_id', $companyId)
             ->pluck('phone')
             ->flip()
@@ -110,7 +107,6 @@ class ContactCsvImportService
                 'updated_at'  => now(),
             ];
 
-            // Marca como visto para evitar duplicatas dentro do próprio CSV
             $existing[$phone] = true;
 
             if (count($batch) >= 200) {

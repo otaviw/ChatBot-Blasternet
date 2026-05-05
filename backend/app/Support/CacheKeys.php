@@ -16,43 +16,21 @@ namespace App\Support;
  */
 class CacheKeys
 {
-    // -------------------------------------------------------------------------
-    // Counters de conversa por empresa
-    // TTL recomendado: 30 s  (veja CompanyConversationCountersService)
-    // Invalidação: feita pelos observers antes de publicar realtime; TTL curto
-    //              reduz custo no polling do frontend.
-    // -------------------------------------------------------------------------
     public static function conversationCounters(int $companyId): string
     {
         return "counters:company:{$companyId}";
     }
 
-    // -------------------------------------------------------------------------
-    // Tags da empresa (lista para filtros / dropdowns)
-    // TTL recomendado: 10 min  (veja ListCompanyConversationsAction, ConversationTagController)
-    // Invalidação: explícita em store / update / destroy de tags
-    // -------------------------------------------------------------------------
     public static function companyTags(int $companyId): string
     {
         return "tags:company:{$companyId}";
     }
 
-    // -------------------------------------------------------------------------
-    // Configurações de bot/IA por empresa (CompanyBotSetting)
-    // TTL recomendado: 5 min  (muda raramente, apenas quando admin edita)
-    // Invalidação: explícita em Admin/BotSettingsController e Company/BotSettingsController
-    // -------------------------------------------------------------------------
     public static function companyBotSettings(int $companyId): string
     {
         return "bot_settings:company:{$companyId}";
     }
 
-    // -------------------------------------------------------------------------
-    // Métricas de IA (analytics de AiMetricsController)
-    // TTL recomendado: 5 min  (dados históricos, stale aceitável)
-    // Invalidação: não é feita explicitamente — dados analíticos podem ser
-    //              levemente defasados sem impacto operacional.
-    // -------------------------------------------------------------------------
     public static function aiMetrics(
         string $companyScope,   // "all" | "42" (ID stringificado)
         string $dateFrom,       // "2026-03-01"

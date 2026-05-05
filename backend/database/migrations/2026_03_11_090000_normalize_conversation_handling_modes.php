@@ -14,6 +14,5 @@ return new class extends Migration
 
     public function down(): void
     {
-        // Irreversible normalization: legacy "manual" values are merged into "human".
     }
 };

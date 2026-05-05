@@ -87,7 +87,6 @@ class InternalAiChatService
             $normalizedContent
         );
 
-        // ── Pipeline de segurança ─────────────────────────────────────────────
         $safetyResult = $this->safetyPipeline->run($normalizedContent);
         if ($safetyResult->blocked) {
             $this->aiAuditService->logSafetyBlocked(
@@ -105,7 +104,6 @@ class InternalAiChatService
                 'ai' => ['Sua mensagem não pôde ser processada. Reformule e tente novamente.'],
             ]);
         }
-        // Usar entrada sanitizada (PII redactado) daqui em diante
         $normalizedContent = $safetyResult->sanitizedInput;
 
         $userMessage = AiMessage::query()->create([
@@ -140,7 +138,6 @@ class InternalAiChatService
         $responseTimeMs = $firstAttempt['response_time_ms'];
         $tokensUsed = $this->usageService->tokensFromProviderResult($providerResult);
 
-        // Registra métricas da primeira chamada ao provider
         $this->metricsService->updateFromProviderResult(
             $usageLog,
             $providerName,
@@ -210,7 +207,6 @@ class InternalAiChatService
 
             $responseTimeMs += (int) ($toolFlow['response_time_ms'] ?? 0);
 
-            // Atualiza métricas com o tempo cumulativo (incluindo chamadas de tool)
             $finalTokens = $this->usageService->tokensFromProviderResult($providerResult);
             $this->metricsService->updateFromProviderResult(
                 $usageLog,

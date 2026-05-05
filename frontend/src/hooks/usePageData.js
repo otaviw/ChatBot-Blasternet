@@ -7,8 +7,6 @@ function usePageData(url, initial = null) {
   const [error, setError] = useState(null);
   const [refreshToken, setRefreshToken] = useState(0);
 
-  // refetch() re-executa a busca sem mudar a URL.
-  // Exposto principalmente para o botão "Tentar novamente" do ErrorPanel.
   const refetch = useCallback(() => setRefreshToken((t) => t + 1), []);
 
   useEffect(() => {

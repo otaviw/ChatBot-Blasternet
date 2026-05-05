@@ -271,7 +271,6 @@ class OllamaAiProvider implements AiProvider, AiStreamingProvider
             }
         }
 
-        // Process any remaining buffer after stream ends
         $remaining = trim($buffer);
         if ($remaining !== '') {
             $data = json_decode($remaining, true);

@@ -225,7 +225,6 @@ class AppointmentAvailabilityService
 
         $staffIds = $staffProfiles->pluck('id')->all();
 
-        // 1 query — all working hours for all staff, all days of week
         $allWorkingHours = AppointmentWorkingHour::query()
             ->where('company_id', (int) $company->id)
             ->whereIn('staff_profile_id', $staffIds)
@@ -237,7 +236,6 @@ class AppointmentAvailabilityService
         $rangeStartUtc = $from->setTimezone('UTC');
         $rangeEndUtc = $to->setTimezone('UTC');
 
-        // 1 query — time-offs overlapping the range
         $timeOffs = AppointmentTimeOff::query()
             ->where('company_id', (int) $company->id)
             ->where(function ($q) use ($staffIds) {
@@ -253,7 +251,6 @@ class AppointmentAvailabilityService
                 'ends_ts' => CarbonImmutable::parse($tf->ends_at)->timestamp,
             ]);
 
-        // 1 query — blocking appointments overlapping the range
         $existingAppointments = Appointment::query()
             ->where('company_id', (int) $company->id)
             ->whereIn('staff_profile_id', $staffIds)
@@ -432,7 +429,6 @@ class AppointmentAvailabilityService
                         ];
                         $addedSlot = true;
                     } catch (ValidationException) {
-                        // Slot indisponivel pelas regras do motor de agenda.
                     }
 
                     if ($addedSlot) {

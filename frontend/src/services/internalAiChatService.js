@@ -333,7 +333,6 @@ export async function streamInternalAiConversationMessage({
     'X-Requested-With': 'XMLHttpRequest',
   };
 
-  // Include Laravel's CSRF token (stored in XSRF-TOKEN cookie by Sanctum)
   const xsrfToken = readXsrfToken();
   if (xsrfToken) {
     headers['X-XSRF-TOKEN'] = xsrfToken;
@@ -360,7 +359,6 @@ export async function streamInternalAiConversationMessage({
       const json = await response.json();
       if (json?.message) message = String(json.message);
     } catch {
-      // ignore parse errors
     }
     onError?.(message);
     return;
@@ -382,7 +380,6 @@ export async function streamInternalAiConversationMessage({
 
       buffer += decoder.decode(value, { stream: true });
 
-      // SSE events are separated by "\n\n"
       const parts = buffer.split('\n\n');
       buffer = parts.pop() ?? '';
 

@@ -30,9 +30,6 @@ class AiMetricsTest extends TestCase
         parent::setUp();
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Helpers
-    // ─────────────────────────────────────────────────────────────────────────
 
     private function makeAdminUser(): array
     {
@@ -74,9 +71,6 @@ class AiMetricsTest extends TestCase
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // 1. normalizeErrorType
-    // ─────────────────────────────────────────────────────────────────────────
 
     public function test_normalize_error_type_timeout(): void
     {
@@ -105,9 +99,6 @@ class AiMetricsTest extends TestCase
         $this->assertSame(AiUsageLog::ERROR_UNKNOWN, AiMetricsService::normalizeErrorType(''));
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // 2. AiMetricsService::record
-    // ─────────────────────────────────────────────────────────────────────────
 
     public function test_record_creates_log_with_all_metrics_fields(): void
     {
@@ -174,9 +165,6 @@ class AiMetricsTest extends TestCase
         $this->assertSame(AiUsageLog::TYPE_CHATBOT, $log->type);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // 3. AiMetricsService::updateFromProviderResult
-    // ─────────────────────────────────────────────────────────────────────────
 
     public function test_update_from_provider_result_ok(): void
     {
@@ -238,15 +226,11 @@ class AiMetricsTest extends TestCase
         $this->assertSame(AiUsageLog::ERROR_PROVIDER_UNAVAILABLE, $log->error_type);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // 4. Endpoint GET /api/minha-conta/ia/metricas
-    // ─────────────────────────────────────────────────────────────────────────
 
     public function test_metrics_endpoint_returns_correct_summary(): void
     {
         [$company, $user] = $this->makeAdminUser();
 
-        // 3 ok + 1 error
         $this->seedLogs($company->id, ['status' => AiUsageLog::STATUS_OK, 'response_time_ms' => 1000, 'tokens_used' => 200], 3);
         $this->seedLogs($company->id, [
             'status' => AiUsageLog::STATUS_ERROR,
@@ -343,14 +327,12 @@ class AiMetricsTest extends TestCase
     public function test_metrics_endpoint_requires_authentication(): void
     {
         $response = $this->getJson('/api/minha-conta/ia/metricas');
-        // Auth middleware retorna 401 para não-autenticado
         $response->assertStatus(401);
     }
 
     public function test_metrics_endpoint_requires_ai_enabled(): void
     {
         $company = Company::create(['name' => 'No AI Co']);
-        // ai_enabled = false (default)
         CompanyBotSetting::create(['company_id' => $company->id, 'ai_enabled' => false]);
         $user = User::create([
             'name' => 'NoAI User',
@@ -372,7 +354,6 @@ class AiMetricsTest extends TestCase
         $companyB = Company::create(['name' => 'Company B']);
         CompanyBotSetting::create(['company_id' => $companyB->id, 'ai_enabled' => true]);
 
-        // Logs de B não devem aparecer para A
         $this->seedLogs($companyA->id, ['provider' => 'ollama-a'], 2);
         $this->seedLogs($companyB->id, ['provider' => 'ollama-b'], 5);
 

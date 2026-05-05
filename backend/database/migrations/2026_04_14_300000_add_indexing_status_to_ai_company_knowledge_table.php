@@ -14,7 +14,6 @@ return new class extends Migration
             $table->timestamp('indexed_at')->nullable()->after('indexing_status');
         });
 
-        // Mark existing records as already indexed (they've been processed before this migration)
         DB::table('ai_company_knowledge')->update(['indexing_status' => 'indexed']);
     }
 

@@ -57,7 +57,6 @@ class UserController extends Controller
         try {
             $users->loadMissing('appointmentStaffProfile');
         } catch (\Throwable) {
-            // Tabela pode não existir ainda em produção
         }
 
         $companyName = $actor->isSystemAdmin()
@@ -214,7 +213,6 @@ class UserController extends Controller
         try {
             $user->load('appointmentStaffProfile');
         } catch (\Throwable) {
-            // Tabela pode não existir ainda em produção
         }
     }
 

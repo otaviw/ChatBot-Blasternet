@@ -234,7 +234,6 @@ trait BotHandlerHelpers
             ];
         }
 
-        // mode === 'list'
         $rows = [];
         foreach ($rawOptions as $optionDef) {
             if (! is_array($optionDef)) {

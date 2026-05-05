@@ -215,8 +215,6 @@ class CampaignController extends Controller
         DB::transaction(function () use ($campaign, $contactIds) {
             $now = now();
 
-            // insertOrIgnore respeita o unique (campaign_id, contact_id)
-            // — re-tentativas não duplicam registros já existentes
             foreach ($contactIds->chunk(500) as $chunk) {
                 CampaignContact::insertOrIgnore(
                     $chunk->map(fn ($contactId) => [

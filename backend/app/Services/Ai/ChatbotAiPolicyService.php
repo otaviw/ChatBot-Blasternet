@@ -395,7 +395,6 @@ class ChatbotAiPolicyService
 
                 return max(1, $next);
             } catch (Throwable) {
-                // fallback abaixo
             }
         }
 

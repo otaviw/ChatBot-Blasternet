@@ -45,7 +45,6 @@ async function getSwRegistration() {
       return existing;
     }
   } catch {
-    // ignore
   }
 
   try {
@@ -125,7 +124,6 @@ const browserNotificationService = {
         await registration.showNotification(title, options);
         return true;
       } catch {
-        // fallback below
       }
     }
 

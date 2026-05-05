@@ -12,7 +12,6 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            // Default com menor privilegio para evitar elevacao acidental.
             $table->string('role', 20)->default('agent')->after('password');
             $table->foreignId('company_id')->nullable()->after('role')->constrained()->nullOnDelete();
         });

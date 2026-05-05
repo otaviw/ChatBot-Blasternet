@@ -67,7 +67,6 @@ class SupportTicketController extends Controller
                     'size_bytes' => $stored['size_bytes'],
                 ]);
             } catch (\Throwable) {
-                // Ignora falha em uma imagem; ticket já foi criado.
             }
         }
 

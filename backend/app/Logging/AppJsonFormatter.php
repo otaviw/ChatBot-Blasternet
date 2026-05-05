@@ -31,8 +31,6 @@ class AppJsonFormatter extends JsonFormatter
 {
     public function __construct()
     {
-        // BATCH_MODE_NEWLINES: um objeto JSON por linha (NDJSON)
-        // appendNewline: já incluída pelo BATCH_MODE_NEWLINES
         parent::__construct(self::BATCH_MODE_NEWLINES, appendNewline: true);
     }
 

@@ -29,8 +29,6 @@ return [
     */
     'fallback_provider' => env('AI_FALLBACK_PROVIDER', 'null'),
 
-    // Fallback dedicado ao fluxo Ollama. Quando configurado, tem precedencia
-    // apenas para requisicoes cujo provider principal resolvido seja "ollama".
     'ollama_fallback_provider' => env('AI_OLLAMA_FALLBACK_PROVIDER', 'anthropic'),
 
     'model' => env('AI_MODEL', 'test-model'),
@@ -45,12 +43,8 @@ return [
 
     'request_timeout_ms' => (int) env('AI_REQUEST_TIMEOUT_MS', 30000),
 
-    // Timeout especifico para chatbot (inbound/simulador), evitando estourar
-    // max_execution_time da request HTTP quando o provider local estiver lento.
     'chatbot_request_timeout_ms' => (int) env('AI_CHATBOT_REQUEST_TIMEOUT_MS', 12000),
 
-    // Feature flag global para liberar IA no chatbot de atendimento.
-    // Default seguro: desligado.
     'chatbot_feature_enabled' => (bool) env('AI_CHATBOT_FEATURE_ENABLED', false),
 
     'circuit_breaker' => [

@@ -38,7 +38,6 @@ class ShowConversationAction
 
         $messagesPerPage = (int) $request->query('messages_per_page', 0);
         if ($messagesPerPage <= 0) {
-            // Backward compatibility with legacy clients that still send messages_limit.
             $messagesPerPage = (int) $request->query('messages_limit', 120);
         }
         $messagesPerPage = min(max($messagesPerPage, 1), 300);

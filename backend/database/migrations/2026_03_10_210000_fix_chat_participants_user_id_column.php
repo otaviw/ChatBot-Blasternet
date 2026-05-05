@@ -72,6 +72,5 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Compatibility migration: no destructive rollback.
     }
 };

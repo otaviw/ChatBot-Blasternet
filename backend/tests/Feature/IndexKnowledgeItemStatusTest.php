@@ -30,14 +30,12 @@ class IndexKnowledgeItemStatusTest extends TestCase
         ], $attrs));
     }
 
-    // ── Observer sets status to pending ──────────────────────────────────────
 
     public function test_observer_sets_indexing_status_to_pending_on_save(): void
     {
         $company = Company::create(['name' => 'Observer Co']);
         CompanyBotSetting::create(['company_id' => $company->id]);
 
-        // Bypass observer to create the item without triggering it
         $item = AiCompanyKnowledge::withoutEvents(function () use ($company) {
             return AiCompanyKnowledge::create([
                 'company_id'      => $company->id,
@@ -48,7 +46,6 @@ class IndexKnowledgeItemStatusTest extends TestCase
             ]);
         });
 
-        // Now trigger a normal update which will fire the observer
         $item->update(['title' => 'Pending Test Updated']);
 
         $this->assertDatabaseHas('ai_company_knowledge', [
@@ -57,18 +54,15 @@ class IndexKnowledgeItemStatusTest extends TestCase
         ]);
     }
 
-    // ── Job marks indexed on success ─────────────────────────────────────────
 
     public function test_job_marks_item_as_indexed_after_successful_run(): void
     {
         $item = $this->makeItem();
 
-        // Stub embedding service to return a fake vector
         $embedder = Mockery::mock(AiEmbeddingService::class);
         $embedder->allows('embed')->andReturn([0.1, 0.2, 0.3]);
         $this->app->instance(AiEmbeddingService::class, $embedder);
 
-        // Set embedding model so the job doesn't no-op
         config(['ai.rag.embedding_model' => 'test-model']);
 
         $job = new IndexKnowledgeItemJob((int) $item->id);
@@ -81,7 +75,6 @@ class IndexKnowledgeItemStatusTest extends TestCase
         $this->assertNotNull($item->fresh()->indexed_at);
     }
 
-    // ── Job skips embedding when no model configured ──────────────────────────
 
     public function test_job_no_ops_and_does_not_change_status_when_no_embedding_model(): void
     {
@@ -96,14 +89,12 @@ class IndexKnowledgeItemStatusTest extends TestCase
         $job = new IndexKnowledgeItemJob((int) $item->id);
         $job->handle(app(AiKnowledgeChunkerService::class), $embedder);
 
-        // Status should remain as it was (job is a no-op)
         $this->assertDatabaseHas('ai_company_knowledge', [
             'id'              => $item->id,
             'indexing_status' => 'pending',
         ]);
     }
 
-    // ── Job marks indexed (empty) when item is inactive ───────────────────────
 
     public function test_job_marks_indexed_when_item_is_inactive(): void
     {
@@ -124,7 +115,6 @@ class IndexKnowledgeItemStatusTest extends TestCase
         ]);
     }
 
-    // ── Job marks failed on exhausted retries ────────────────────────────────
 
     public function test_job_failed_marks_item_as_failed(): void
     {
@@ -139,7 +129,6 @@ class IndexKnowledgeItemStatusTest extends TestCase
         ]);
     }
 
-    // ── Job handles deleted item gracefully ──────────────────────────────────
 
     public function test_job_handles_deleted_item_without_error(): void
     {
@@ -153,13 +142,11 @@ class IndexKnowledgeItemStatusTest extends TestCase
         config(['ai.rag.embedding_model' => 'test-model']);
 
         $job = new IndexKnowledgeItemJob($itemId);
-        // Should not throw
         $job->handle(app(AiKnowledgeChunkerService::class), $embedder);
 
         $this->assertDatabaseMissing('ai_company_knowledge', ['id' => $itemId]);
     }
 
-    // ── Chunks are created correctly ─────────────────────────────────────────
 
     public function test_job_creates_chunks_for_active_item(): void
     {
@@ -186,13 +173,11 @@ class IndexKnowledgeItemStatusTest extends TestCase
         $this->assertTrue($chunks->every(fn ($c) => $c->embedding_model === 'test-model'));
     }
 
-    // ── Re-run deletes old chunks before recreating ───────────────────────────
 
     public function test_job_replaces_existing_chunks_on_rerun(): void
     {
         $item = $this->makeItem();
 
-        // Pre-existing stale chunk
         AiKnowledgeChunk::create([
             'ai_knowledge_item_id' => $item->id,
             'company_id'           => $item->company_id,
@@ -212,7 +197,6 @@ class IndexKnowledgeItemStatusTest extends TestCase
         $job = new IndexKnowledgeItemJob((int) $item->id);
         $job->handle(app(AiKnowledgeChunkerService::class), $embedder);
 
-        // Old stale chunk with 'old' title should be gone
         $this->assertDatabaseMissing('ai_knowledge_chunks', [
             'ai_knowledge_item_id' => $item->id,
             'title'                => 'old',

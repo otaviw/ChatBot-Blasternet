@@ -37,7 +37,6 @@ function AiSettingsPage() {
 
   const resolvedCompanyId = isAdmin ? selectedCompanyId : '';
 
-  // Sandbox state
   const [sandboxMessage, setSandboxMessage] = useState('');
   const [sandboxIncludeRag, setSandboxIncludeRag] = useState(false);
   const [sandboxBusy, setSandboxBusy] = useState(false);

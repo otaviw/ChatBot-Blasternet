@@ -21,9 +21,6 @@ use App\Support\ConversationHandlingMode;
 use App\Support\ConversationStatus;
 use App\Support\MessageDeliveryStatus;
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 function makeAgent(Company $company): User
 {
@@ -71,9 +68,6 @@ function makeOpenConversation(Company $company, string $phone = '5511999990000')
     ]);
 }
 
-// ---------------------------------------------------------------------------
-// GET /api/minha-conta/conversas — listar conversas
-// ---------------------------------------------------------------------------
 
 describe('GET /minha-conta/conversas', function () {
     it('retorna 401 para requisição não autenticada (middleware auth)', function () {
@@ -112,7 +106,6 @@ describe('GET /minha-conta/conversas', function () {
             ->getJson('/api/minha-conta/conversas');
 
         $response->assertOk();
-        // A listagem não deve conter a conversa da Empresa B
         $ids = collect($response->json('conversations') ?? $response->json('data') ?? [])
             ->pluck('company_id')
             ->unique();
@@ -123,9 +116,6 @@ describe('GET /minha-conta/conversas', function () {
     });
 });
 
-// ---------------------------------------------------------------------------
-// GET /api/minha-conta/conversas/{id} — detalhe de conversa
-// ---------------------------------------------------------------------------
 
 describe('GET /minha-conta/conversas/{id}', function () {
     it('retorna 401 para requisição não autenticada (middleware auth)', function () {
@@ -153,7 +143,6 @@ describe('GET /minha-conta/conversas/{id}', function () {
     });
 
     it('retorna os dados da conversa para company_admin da mesma empresa', function () {
-        // company_admin não tem filtro de visibilidade por área/atribuição
         $company = Company::create(['name' => 'Empresa Show']);
         $admin   = makeCompanyAdmin($company);
         $conv    = makeOpenConversation($company, '5531900000001');
@@ -166,9 +155,6 @@ describe('GET /minha-conta/conversas/{id}', function () {
     });
 });
 
-// ---------------------------------------------------------------------------
-// POST /api/minha-conta/conversas/{id}/assumir — assume conversa
-// ---------------------------------------------------------------------------
 
 describe('POST /minha-conta/conversas/{id}/assumir', function () {
     it('retorna 401 para requisição não autenticada (middleware auth)', function () {
@@ -201,9 +187,6 @@ describe('POST /minha-conta/conversas/{id}/assumir', function () {
     });
 });
 
-// ---------------------------------------------------------------------------
-// POST /api/minha-conta/conversas/{id}/soltar — solta conversa de volta ao bot
-// ---------------------------------------------------------------------------
 
 describe('POST /minha-conta/conversas/{id}/soltar', function () {
     it('retorna 401 para requisição não autenticada (middleware auth)', function () {
@@ -246,9 +229,6 @@ describe('POST /minha-conta/conversas/{id}/soltar', function () {
     });
 });
 
-// ---------------------------------------------------------------------------
-// POST /api/minha-conta/conversas/{id}/encerrar — encerra conversa
-// ---------------------------------------------------------------------------
 
 describe('POST /minha-conta/conversas/{id}/encerrar', function () {
     it('retorna 401 para requisição não autenticada (middleware auth)', function () {
@@ -292,9 +272,6 @@ describe('POST /minha-conta/conversas/{id}/encerrar', function () {
     });
 });
 
-// ---------------------------------------------------------------------------
-// DELETE /api/minha-conta/conversas/{id} — excluir conversa
-// ---------------------------------------------------------------------------
 
 describe('DELETE /minha-conta/conversas/{id}', function () {
     it('retorna 401 para requisição não autenticada (middleware auth)', function () {
@@ -319,9 +296,6 @@ describe('DELETE /minha-conta/conversas/{id}', function () {
     });
 });
 
-// ---------------------------------------------------------------------------
-// PUT /api/minha-conta/conversas/{id}/tags â€” atualiza tags
-// ---------------------------------------------------------------------------
 
 describe('PUT /minha-conta/conversas/{id}/tags', function () {
     it('retorna 401 para requisição não autenticada (middleware auth)', function () {
@@ -399,9 +373,6 @@ describe('PUT /minha-conta/conversas/{id}/tags', function () {
     });
 });
 
-// ---------------------------------------------------------------------------
-// PUT /api/minha-conta/conversas/{id}/contato — atualiza nome do contato
-// ---------------------------------------------------------------------------
 
 describe('PUT /minha-conta/conversas/{id}/contato', function () {
     it('retorna 401 para requisição não autenticada (middleware auth)', function () {
@@ -466,9 +437,6 @@ describe('PUT /minha-conta/conversas/{id}/contato', function () {
     });
 });
 
-// ---------------------------------------------------------------------------
-// POST /api/minha-conta/conversas/{id}/responder-manual — resposta manual
-// ---------------------------------------------------------------------------
 
 describe('POST /minha-conta/conversas/{id}/responder-manual', function () {
     it('retorna 401 para requisição não autenticada (middleware auth)', function () {

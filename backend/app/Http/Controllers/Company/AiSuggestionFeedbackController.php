@@ -19,7 +19,6 @@ class AiSuggestionFeedbackController extends Controller
 
         $validated = $request->validated();
 
-        // Verify the suggestion log belongs to the user's company
         $log = AiUsageLog::query()
             ->where('company_id', (int) $user->company_id)
             ->where('id', $suggestionId)

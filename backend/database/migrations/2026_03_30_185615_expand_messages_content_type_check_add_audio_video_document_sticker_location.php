@@ -7,7 +7,6 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // SQLite não suporta ADD/DROP CONSTRAINT — aplicar apenas no PostgreSQL/MySQL
         if (DB::connection()->getDriverName() !== 'pgsql') {
             return;
         }

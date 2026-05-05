@@ -71,7 +71,6 @@ class PasswordResetController extends Controller
             ], 429);
         }
 
-        // Generic message for invalid token and invalid user to avoid account enumeration.
         return response()->json([
             'message' => 'Link inválido ou expirado. Solicite um novo.',
         ], 422);

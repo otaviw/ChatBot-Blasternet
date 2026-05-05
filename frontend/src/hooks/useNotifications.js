@@ -451,8 +451,6 @@ export default function useNotifications(options = {}) {
       return undefined;
     }
 
-    // Intervalo único: garante conexão e atualiza notificações no mesmo ciclo,
-    // eliminando o timer extra de 25 s que existia separado.
     const intervalId = setInterval(() => {
       void realtimeClient.ensureConnected().catch(() => {});
       void refresh({ silent: true });

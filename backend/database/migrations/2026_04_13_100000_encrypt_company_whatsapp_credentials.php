@@ -4,9 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 
-// Re-salva meta_access_token e meta_waba_id usando Crypt::encrypt() (formato do cast
-// 'encrypted' do Laravel), substituindo o formato antigo de Crypt::encryptString().
-// meta_phone_number_id não é criptografado pois é usado em WHERE e UNIQUE constraints.
 return new class extends Migration
 {
     public function up(): void
@@ -36,8 +33,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        // Sem rollback destrutivo: descriptografar de volta para plain text
-        // removeria a proteção. Execute um novo deploy se necessário.
     }
 
     /**
@@ -48,19 +43,16 @@ return new class extends Migration
      */
     private function decryptLegacy(string $value): ?string
     {
-        // Tenta Crypt::decrypt() (formato do cast 'encrypted', serialize=false)
         try {
             return (string) Crypt::decrypt($value, false);
         } catch (\Throwable) {
         }
 
-        // Tenta Crypt::decryptString() (formato do accessor antigo)
         try {
             return Crypt::decryptString($value);
         } catch (\Throwable) {
         }
 
-        // Plain text legado (nunca foi criptografado)
         return $value;
     }
 };

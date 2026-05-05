@@ -10,7 +10,6 @@ return new class extends Migration
     {
         Schema::create('ai_suggestion_feedback', function (Blueprint $table) {
             $table->id();
-            // References ai_usage_logs.id — no FK constraint (logs may be pruned)
             $table->unsignedBigInteger('suggestion_id');
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->boolean('helpful');

@@ -324,12 +324,10 @@ class StatefulBotMenuFlowTest extends TestCase
         $start->assertOk();
         $this->assertStringContainsString('4 - Marcar agendamento', (string) $start->json('reply'));
 
-        // Com apenas 1 atendente, pula seleção de atendente e vai direto para o dia
         $toDays = $this->simulateInbound($user, $company, '551187654321', '4');
         $toDays->assertOk();
         $this->assertStringContainsString('Qual dia você prefere', (string) $toDays->json('reply'));
 
-        // 2026-05-18 é uma segunda-feira; o atendente trabalha segunda (day_of_week=1)
         $toSlots = $this->simulateInbound($user, $company, '551187654321', 'segunda');
         $toSlots->assertOk();
         $this->assertStringContainsString('Horários de', (string) $toSlots->json('reply'));

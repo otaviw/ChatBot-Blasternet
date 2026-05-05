@@ -70,11 +70,6 @@ class InboundMessageService
             throw new InvalidArgumentException('Phone e texto sao obrigatórios para processar mensagem.');
         }
 
-        // Deduplicação — camada 2 (service):
-        // Segunda linha de defesa contra wamids já processados. Posicionada antes do
-        // bootstrap para não alterar estado (last_user_message_at, etc.) em mensagens
-        // repetidas. O job já faz o check da camada 1, mas dois jobs concorrentes podem
-        // passar pela camada 1 ao mesmo tempo antes de qualquer um persistir a mensagem.
         $wamid = $this->extractWhatsAppMessageId($inMeta);
         if ($early = $this->abortIfDuplicate($wamid, $company, $normalizedFrom, 'texto')) {
             return $early;
@@ -96,9 +91,6 @@ class InboundMessageService
             'meta' => $inMeta,
         ]);
 
-        // Race condition Layer 3: dois jobs passaram pela Layer 2 ao mesmo tempo.
-        // A unique constraint garantiu que só uma mensagem foi criada; o segundo job
-        // recebeu a já existente. Retorna cedo para não enviar resposta duplicada.
         if (! $inMessage->wasRecentlyCreated) {
             Log::info('InboundMessageService: race condition resolvida no handleIncomingText — resposta do bot suprimida.', [
                 'wamid'      => $wamid,
@@ -154,7 +146,6 @@ class InboundMessageService
             $reply = $this->botReply->buildReply($company, $normalizedText, $isFirstInboundMessage);
         }
 
-        // Tenta substituir resposta clássica por resposta gerada via IA, quando habilitado
         $gateResult = null;
         if ($company !== null) {
             $gateResult = $this->chatbotAiGuard->gateResult($company, $conversation, [
@@ -314,10 +305,6 @@ class InboundMessageService
             throw new InvalidArgumentException('Phone e mediaId sao obrigatórios para processar imagem.');
         }
 
-        // Deduplicação — camada 2 (service):
-        // Verificação crítica aqui porque o download de mídia da Meta API é uma
-        // chamada HTTP externa cara. Sem este check, um reenvio duplicado baixaria
-        // a mesma mídia desnecessariamente antes de tentar criar a mensagem.
         if ($early = $this->abortIfDuplicate(
             $this->extractWhatsAppMessageId($inMeta),
             $company,
@@ -403,7 +390,6 @@ class InboundMessageService
             throw new InvalidArgumentException('Phone é obrigatório para processar localização.');
         }
 
-        // Deduplicação — camada 2 (service)
         if ($early = $this->abortIfDuplicate($this->extractWhatsAppMessageId($inMeta), $company, $normalizedFrom, 'localização')) {
             return $early;
         }
@@ -623,8 +609,6 @@ class InboundMessageService
 
             return ChatbotAiSuggestionResultNormalizer::toReplyText($result);
         } catch (Throwable $exception) {
-            // A métrica de erro já foi registrada dentro de generateSuggestion.
-            // Aqui apenas garantimos o fallback silencioso para o bot clássico.
             Log::warning('chatbot.ai_reply_fallback', [
                 'conversation_id' => (int) $conversation->id,
                 'company_id' => (int) $company->id,

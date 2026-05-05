@@ -124,8 +124,6 @@ class MessageMediaStorageService
             return $value;
         }
 
-        // Strip codec/parameter suffix apenas para resolução de extensão.
-        // Ex: "audio/ogg; codecs=opus" → "audio/ogg"
         if (str_contains($value, ';')) {
             $value = trim(explode(';', $value)[0]);
         }
@@ -141,25 +139,21 @@ class MessageMediaStorageService
         }
 
         return match ($mimeType) {
-            // Imagens
             'image/jpeg'    => 'jpg',
             'image/png'     => 'png',
             'image/webp'    => 'webp',
             'image/gif'     => 'gif',
-            // Áudio
             'audio/ogg'     => 'ogg',
             'audio/mpeg'    => 'mp3',
             'audio/mp4'     => 'm4a',
             'audio/aac'     => 'aac',
             'audio/wav'     => 'wav',
             'audio/webm'    => 'weba',
-            // Vídeo
             'video/mp4'     => 'mp4',
             'video/mpeg'    => 'mpeg',
             'video/webm'    => 'webm',
             'video/3gpp'    => '3gp',
             'video/quicktime' => 'mov',
-            // Documentos
             'application/pdf' => 'pdf',
             'application/msword' => 'doc',
             'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',

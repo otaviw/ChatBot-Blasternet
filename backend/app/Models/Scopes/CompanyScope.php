@@ -23,7 +23,6 @@ class CompanyScope implements Scope
             return;
         }
 
-        // Falha fechado: sem company_id → retorna zero resultados em vez de expor tudo
         $builder->where($model->getTable() . '.company_id', (int) $user->company_id ?: 0);
     }
 }

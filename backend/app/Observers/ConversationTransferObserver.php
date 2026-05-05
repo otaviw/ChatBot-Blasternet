@@ -65,8 +65,6 @@ class ConversationTransferObserver implements ShouldHandleEventsAfterCommit
                 'updated_at',
             ]);
 
-        // 1 query simples no lugar de 4 subqueries aninhadas.
-        // O índice (conversation_id, id) garante busca O(log n).
         if ($conversation) {
             $lastMsg = Message::query()
                 ->where('conversation_id', $transfer->conversation_id)

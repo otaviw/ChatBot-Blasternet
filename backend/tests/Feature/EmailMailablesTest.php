@@ -31,9 +31,6 @@ use App\Support\AppointmentStatus;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 
-// ---------------------------------------------------------------------------
-// WelcomeUserMail
-// ---------------------------------------------------------------------------
 
 describe('WelcomeUserMail', function () {
     it('é enfileirado quando novo usuário ativo é criado pelo admin', function () {
@@ -112,9 +109,6 @@ describe('WelcomeUserMail', function () {
     });
 });
 
-// ---------------------------------------------------------------------------
-// AppointmentConfirmedMail
-// ---------------------------------------------------------------------------
 
 describe('AppointmentConfirmedMail', function () {
     it('renderiza o template com dados do agendamento', function () {
@@ -146,9 +140,6 @@ describe('AppointmentConfirmedMail', function () {
     });
 });
 
-// ---------------------------------------------------------------------------
-// SendAppointmentConfirmedMailJob
-// ---------------------------------------------------------------------------
 
 describe('SendAppointmentConfirmedMailJob', function () {
     it('envia e-mail quando agendamento tem e-mail e status CONFIRMED', function () {
@@ -253,9 +244,6 @@ describe('SendAppointmentConfirmedMailJob', function () {
     });
 });
 
-// ---------------------------------------------------------------------------
-// SendAppointmentReminderJob
-// ---------------------------------------------------------------------------
 
 describe('SendAppointmentReminderJob', function () {
     it('envia lembrete para agendamentos confirmados nas próximas 24h', function () {
@@ -362,9 +350,6 @@ describe('SendAppointmentReminderJob', function () {
     });
 });
 
-// ---------------------------------------------------------------------------
-// AlertUnattendedConversationsJob
-// ---------------------------------------------------------------------------
 
 describe('AlertUnattendedConversationsJob', function () {
     it('envia alerta quando há conversas abertas sem resposta além do limite', function () {
@@ -425,7 +410,6 @@ describe('AlertUnattendedConversationsJob', function () {
             'is_active' => true,
         ]);
 
-        // Business replied after customer
         Conversation::create([
             'company_id' => $company->id,
             'customer_phone' => '5511999999992',

@@ -57,9 +57,6 @@ class ShowCompanyConversationAction
             }])
             ->orderBy('id', 'asc');
 
-        // Pagina primeiro para obter o total via paginator (evita COUNT separado).
-        // Se não foi solicitada uma página específica, usamos 1 como inicial e depois
-        // re-paginamos para a última página — paginate() já faz COUNT internamente.
         $initialPage = $messagesPageParam !== null && $messagesPageParam !== ''
             ? max(1, (int) $messagesPageParam)
             : 1;

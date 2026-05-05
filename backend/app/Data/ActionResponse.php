@@ -19,9 +19,6 @@ final readonly class ActionResponse
         public array $body,
     ) {}
 
-    // -------------------------------------------------------------------------
-    // Named constructors
-    // -------------------------------------------------------------------------
 
     /** @param array<string, mixed> $body */
     public static function ok(array $body = []): self
@@ -71,9 +68,6 @@ final readonly class ActionResponse
         return new self(429, array_merge(['message' => $message], $extra));
     }
 
-    // -------------------------------------------------------------------------
-    // Output
-    // -------------------------------------------------------------------------
 
     public function toResponse(): JsonResponse
     {

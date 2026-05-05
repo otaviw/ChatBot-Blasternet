@@ -63,8 +63,6 @@ class ConversationAiSuggestionService
         );
         $baseSystemPrompt = trim((string) ($promptResolution['content'] ?? ''));
 
-        // Extract last user message BEFORE building context so we can use it
-        // as the RAG query to retrieve the most relevant knowledge chunks.
         $rawHistory = $this->fetchRawHistory($conversation, $historyLimit);
         $lastUserText = $this->extractLastUserTextFromHistory($rawHistory);
 
@@ -79,8 +77,6 @@ class ConversationAiSuggestionService
         if ($lastUserText !== null && $lastUserText !== '') {
             $safetyResult = $this->safetyPipeline->run($lastUserText);
             if ($safetyResult->blocked) {
-                // conversation_id = null porque AiAuditLog.conversation_id referencia ai_conversations
-                // o ID da conversa regular fica em metadata
                 $this->aiAuditService->logSafetyBlocked(
                     companyId: (int) $conversation->company_id,
                     userId: null,
@@ -96,7 +92,6 @@ class ConversationAiSuggestionService
                 $this->metricsService->record(
                     companyId: (int) $conversation->company_id,
                     userId: null,
-                    // ai_usage_logs.conversation_id references ai_conversations, not inbox conversations.
                     conversationId: null,
                     provider: $providerName,
                     model: $modelName,
@@ -111,7 +106,6 @@ class ConversationAiSuggestionService
                 ]);
             }
         }
-        // Redacta PII dos turnos de usuário antes de enviar ao provider
         $contextMessages = $this->safetyPipeline->redactContextMessages($contextMessages);
         $usedRag = $ragChunks !== [];
 
@@ -139,11 +133,9 @@ class ConversationAiSuggestionService
         $providerResult = is_array($measured['result']) ? $measured['result'] : ['ok' => false, 'error' => 'invalid_result'];
         $tokensUsed = $this->extractTokensUsed($providerResult);
 
-        // Registra métricas da chamada
         $this->metricsService->record(
             companyId: (int) $conversation->company_id,
             userId: null,
-            // ai_usage_logs.conversation_id references ai_conversations, not inbox conversations.
             conversationId: null,
             provider: $providerName,
             model: $modelName,
@@ -297,11 +289,9 @@ class ConversationAiSuggestionService
         }
 
         if ($bestScore === 0.0) {
-            // RAG used via static fallback (no similarity score)
             return 0.65;
         }
 
-        // Map cosine similarity [0.3, 1.0] to [0.80, 0.97]
         return round(min(0.97, max(0.80, 0.80 + ($bestScore - 0.3) * (0.17 / 0.7))), 2);
     }
 
@@ -316,7 +306,6 @@ class ConversationAiSuggestionService
         $this->metricsService->record(
             companyId: (int) $conversation->company_id,
             userId: null,
-            // ai_usage_logs.conversation_id references ai_conversations, not inbox conversations.
             conversationId: null,
             provider: $providerName,
             model: $modelName,

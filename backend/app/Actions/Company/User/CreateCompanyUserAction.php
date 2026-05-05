@@ -185,7 +185,6 @@ class CreateCompanyUserAction
 
             $profile->save();
         } catch (\Throwable) {
-            // Tabela pode não existir ainda em produção
         }
     }
 }

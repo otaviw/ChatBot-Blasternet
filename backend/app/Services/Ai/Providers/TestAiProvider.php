@@ -55,7 +55,6 @@ class TestAiProvider implements AiProvider, AiStreamingProvider
             return $result;
         }
 
-        // Fake streaming: emit word by word to simulate token-by-token output
         $words = explode(' ', $result['text']);
         foreach ($words as $index => $word) {
             $chunk = $index === 0 ? $word : ' '.$word;

@@ -150,9 +150,6 @@ class CompanyUsageLimitsService
         ];
     }
 
-    // -------------------------------------------------------------------------
-    // Internals
-    // -------------------------------------------------------------------------
 
     private function maybeResetCounters(CompanyBotSetting $settings): void
     {
@@ -168,7 +165,6 @@ class CompanyUsageLimitsService
         $settings->template_messages_used     = 0;
         $settings->usage_reset_month          = $month;
         $settings->usage_reset_year           = $year;
-        // save() is called by the caller (inside the transaction for consume, or standalone for snapshot)
         $settings->save();
     }
 

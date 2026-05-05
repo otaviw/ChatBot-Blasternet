@@ -21,9 +21,6 @@ final readonly class UsageLimitResult
         public ?string $errorMessage,
     ) {}
 
-    // -------------------------------------------------------------------------
-    // Named constructors
-    // -------------------------------------------------------------------------
 
     public static function allowed(int $count, ?int $limit, bool $warning, ?string $warningMessage): self
     {
@@ -61,9 +58,6 @@ final readonly class UsageLimitResult
         );
     }
 
-    // -------------------------------------------------------------------------
-    // Helpers for response building
-    // -------------------------------------------------------------------------
 
     /**
      * Gera um ActionResponse 429 padronizado para limite atingido.

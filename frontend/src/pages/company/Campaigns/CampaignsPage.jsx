@@ -1,4 +1,4 @@
-ï»¿import './CampaignsPage.css';
+import './CampaignsPage.css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import CampaignForm from '@/components/sections/campaigns/CampaignForm/CampaignForm.jsx';
 import Layout from '@/components/layout/Layout/Layout.jsx';
@@ -148,7 +148,7 @@ function CampaignsPage() {
 
     const { data: response, error: loadError } = await runCampaignsRequest(
       () => api.get('/minha-conta/campanhas'),
-      { mapError: (err) => err?.response?.data?.message ?? 'NÃ£o foi possÃ­vel carregar campanhas.' }
+      { mapError: (err) => err?.response?.data?.message ?? 'Não foi possível carregar campanhas.' }
     );
 
     if (loadError || !response) {
@@ -245,7 +245,7 @@ function CampaignsPage() {
       })
       .catch((err) => {
         setContacts([]);
-        setContactsError(err?.response?.data?.message ?? 'NÃ£o foi possÃ­vel carregar contatos.');
+        setContactsError(err?.response?.data?.message ?? 'Não foi possível carregar contatos.');
       })
       .finally(() => {
         setContactsLoading(false);
@@ -273,9 +273,9 @@ function CampaignsPage() {
       const skipped = Number(response?.data?.skipped ?? 0);
       const refreshedContacts = await fetchAllCompanyContacts();
       setContacts(refreshedContacts);
-      showSuccess(`ImportaÃ§Ã£o concluÃ­da: ${imported} importados, ${skipped} ignorados.`);
+      showSuccess(`Importação concluída: ${imported} importados, ${skipped} ignorados.`);
     } catch (err) {
-      const message = err?.response?.data?.message ?? 'NÃ£o foi possÃ­vel importar CSV de contatos.';
+      const message = err?.response?.data?.message ?? 'Não foi possível importar CSV de contatos.';
       setContactsImportError(message);
       showError(message);
     } finally {
@@ -325,7 +325,7 @@ function CampaignsPage() {
         err?.response?.data?.errors?.name?.[0] ??
         err?.response?.data?.errors?.type?.[0] ??
         err?.response?.data?.message ??
-        'NÃ£o foi possÃ­vel criar campanha.';
+        'Não foi possível criar campanha.';
       setModalError(message);
     } finally {
       setCreateBusy(false);
@@ -344,7 +344,7 @@ function CampaignsPage() {
       await loadCampaigns({ silent: true });
       showSuccess('Envio da campanha iniciado.');
     } catch (err) {
-      showError(err?.response?.data?.message ?? 'NÃ£o foi possÃ­vel iniciar o envio.');
+      showError(err?.response?.data?.message ?? 'Não foi possível iniciar o envio.');
     } finally {
       setStartingId(null);
     }
@@ -369,7 +369,7 @@ function CampaignsPage() {
         <section className="campaigns-page">
           <h1 className="app-page-title">Campanhas</h1>
           <div className="app-panel">
-            <ErrorMessage message="NÃ£o foi possÃ­vel carregar a pÃ¡gina." />
+            <ErrorMessage message="Não foi possível carregar a página." />
           </div>
         </section>
       </Layout>
@@ -419,7 +419,7 @@ function CampaignsPage() {
                     <th>Enviados</th>
                     <th>Falhas</th>
                     <th>Ignorados</th>
-                    <th>AÃ§Ãµes</th>
+                    <th>Ações</th>
                   </tr>
                 </thead>
                 <tbody>

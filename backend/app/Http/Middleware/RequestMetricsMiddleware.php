@@ -63,17 +63,14 @@ class RequestMetricsMiddleware
      */
     private static function normalizePath(string $path): string
     {
-        // Remove prefixo 'api/' para log mais limpo
         $path = preg_replace('#^api/#', '/', $path) ?? $path;
 
-        // UUID v4
         $path = preg_replace(
             '#/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}#i',
             '/{id}',
             $path
         ) ?? $path;
 
-        // Inteiros puros
         $path = preg_replace('#/\d+#', '/{id}', $path) ?? $path;
 
         return '/' . ltrim($path, '/');

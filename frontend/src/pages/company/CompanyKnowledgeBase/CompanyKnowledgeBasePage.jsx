@@ -186,8 +186,6 @@ function CompanyKnowledgeBasePage() {
 
   const layoutRole = isAdmin ? 'admin' : 'company';
 
-  // Slot de loading customizado: imita o layout real da página (header + linhas)
-  // para evitar o salto de layout quando o conteúdo carrega.
   const knowledgeLoadingSlot = (
     <div className="space-y-3">
       <LoadingSkeleton className="h-6 w-56" />

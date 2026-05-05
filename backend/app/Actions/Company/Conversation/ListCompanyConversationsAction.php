@@ -43,7 +43,6 @@ class ListCompanyConversationsAction
         $page = max(1, (int) $request->query('page', 1));
         $perPage = min(50, max(5, (int) $request->query('per_page', 15)));
 
-        // Filtros adicionais
         $filterStatus = trim((string) $request->query('status', ''));
         $filterArea = trim((string) $request->query('area', ''));
         $filterAttendantId = (int) $request->query('attendant_id', 0);
@@ -89,9 +88,6 @@ class ListCompanyConversationsAction
                 'tags' => fn ($q) => $q->select('tags.id', 'tags.name', 'tags.color')->orderBy('tags.name'),
             ])
             ->withCount('messages')
-            // PostgreSQL não permite usar alias de SELECT dentro de expressão no ORDER BY
-            // (ex.: COALESCE(last_message_at, ...)). Ordenamos em duas etapas para manter
-            // o mesmo resultado: conversas com última mensagem primeiro, depois sem mensagem.
             ->orderByRaw('last_message_at DESC NULLS LAST')
             ->orderByDesc('conversations.created_at')
             ->orderByDesc('conversations.id');
@@ -110,8 +106,6 @@ class ListCompanyConversationsAction
         }
 
         if ($filterArea !== '') {
-            // Comparação direta usa o índice UNIQUE(company_id, name).
-            // utf8mb4_unicode_ci é case-insensitive por padrão — LOWER() era desnecessário e impedia o índice.
             $query->whereHas('currentArea', function ($q) use ($filterArea) {
                 $q->where('areas.name', $filterArea);
             });
@@ -146,9 +140,6 @@ class ListCompanyConversationsAction
             ->toArray()
         );
 
-        // Tags mudam raramente (admin cria/edita/exclui). Cache de 10 min evita a
-        // query repetida em cada carregamento do inbox. Invalidado explicitamente em
-        // ConversationTagController::store/update/destroy.
         $companyTags = Cache::remember(
             CacheKeys::companyTags($companyId),
             now()->addMinutes(10),

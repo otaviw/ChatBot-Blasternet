@@ -17,9 +17,6 @@ use App\Models\User;
 use App\Services\WhatsAppCredentialsValidatorService;
 use Illuminate\Support\Facades\Http;
 
-// ---------------------------------------------------------------------------
-// WhatsAppCredentialsValidatorService — testes unitários com mock HTTP
-// ---------------------------------------------------------------------------
 
 describe('WhatsAppCredentialsValidatorService', function () {
     beforeEach(function () {
@@ -120,9 +117,6 @@ describe('WhatsAppCredentialsValidatorService', function () {
     });
 });
 
-// ---------------------------------------------------------------------------
-// POST /minha-conta/bot/validar-whatsapp — endpoint da empresa
-// ---------------------------------------------------------------------------
 
 describe('POST /minha-conta/bot/validar-whatsapp', function () {
     beforeEach(function () {
@@ -221,9 +215,6 @@ describe('POST /minha-conta/bot/validar-whatsapp', function () {
     });
 });
 
-// ---------------------------------------------------------------------------
-// PUT /minha-conta/bot — valida credenciais ao salvar quando mudaram
-// ---------------------------------------------------------------------------
 
 describe('PUT /minha-conta/bot — validação de credenciais ao salvar', function () {
     beforeEach(function () {

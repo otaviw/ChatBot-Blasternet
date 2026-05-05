@@ -12,7 +12,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class AiUsageLog extends Model
 {
     use BelongsToCompany;
-    // ── Tipos legados (campo `type`) ──────────────────────────────────────────
     public const TYPE_INTERNAL_CHAT = 'internal_chat';
     public const TYPE_CHATBOT = 'chatbot';
 
@@ -21,7 +20,6 @@ class AiUsageLog extends Model
         self::TYPE_CHATBOT,
     ];
 
-    // ── Features (campo `feature`) ────────────────────────────────────────────
     public const FEATURE_INTERNAL_CHAT = 'internal_chat';
     public const FEATURE_CONVERSATION_SUGGESTION = 'conversation_suggestion';
     public const FEATURE_CHATBOT = 'chatbot';
@@ -32,11 +30,9 @@ class AiUsageLog extends Model
         self::FEATURE_CHATBOT,
     ];
 
-    // ── Status ────────────────────────────────────────────────────────────────
     public const STATUS_OK = 'ok';
     public const STATUS_ERROR = 'error';
 
-    // ── Tipos de erro normalizados ────────────────────────────────────────────
     public const ERROR_TIMEOUT = 'timeout';
     public const ERROR_PROVIDER_UNAVAILABLE = 'provider_unavailable';
     public const ERROR_VALIDATION = 'validation';

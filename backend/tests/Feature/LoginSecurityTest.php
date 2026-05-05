@@ -20,9 +20,6 @@ class LoginSecurityTest extends TestCase
 {
     use RefreshDatabase;
 
-    // -------------------------------------------------------------------------
-    // Helpers
-    // -------------------------------------------------------------------------
 
     private function makeCompany(string $name = 'Empresa Teste'): Company
     {
@@ -51,9 +48,6 @@ class LoginSecurityTest extends TestCase
         $response->assertJsonPath('code', 401);
     }
 
-    // -------------------------------------------------------------------------
-    // Caso 1 — Email inexistente
-    // -------------------------------------------------------------------------
 
     public function test_unknown_email_returns_401_with_generic_message(): void
     {
@@ -77,9 +71,6 @@ class LoginSecurityTest extends TestCase
         $response->assertJsonMissing(['inactive']);
     }
 
-    // -------------------------------------------------------------------------
-    // Caso 2 — Senha errada (usuário ativo existe)
-    // -------------------------------------------------------------------------
 
     public function test_wrong_password_returns_401_with_generic_message(): void
     {
@@ -126,9 +117,6 @@ class LoginSecurityTest extends TestCase
         );
     }
 
-    // -------------------------------------------------------------------------
-    // Caso 3 — Usuário inativo (credenciais corretas)
-    // -------------------------------------------------------------------------
 
     public function test_inactive_user_with_correct_password_returns_401_not_403(): void
     {
@@ -176,21 +164,16 @@ class LoginSecurityTest extends TestCase
         $this->assertSame($inactiveResponse->json('error'), $wrongPwResponse->json('error'));
     }
 
-    // -------------------------------------------------------------------------
-    // Caso 3b — Sessão/token inativo deve ser invalidado
-    // -------------------------------------------------------------------------
 
     public function test_inactive_user_session_is_invalidated_after_attempt(): void
     {
         $this->makeUser(['is_active' => false]);
 
-        // Tenta autenticar com credenciais corretas de usuário inativo
         $this->postJson('/api/login', [
             'email'    => 'usuario@test.local',
             'password' => 'senha-correta-123',
         ]);
 
-        // Garante que nenhuma sessão ativa ficou residual
         $this->assertGuest();
     }
 
@@ -203,14 +186,10 @@ class LoginSecurityTest extends TestCase
             'password' => 'senha-correta-123',
         ]);
 
-        // /api/me requer auth — deve retornar 401 pois sessão foi invalidada
         $meResponse = $this->getJson('/api/me');
         $meResponse->assertStatus(401);
     }
 
-    // -------------------------------------------------------------------------
-    // Log interno diferenciado (garante rastreabilidade sem expor ao cliente)
-    // -------------------------------------------------------------------------
 
     public function test_unknown_user_is_logged_with_correct_reason(): void
     {
@@ -265,9 +244,6 @@ class LoginSecurityTest extends TestCase
             ));
     }
 
-    // -------------------------------------------------------------------------
-    // Regressão — login bem-sucedido continua funcionando
-    // -------------------------------------------------------------------------
 
     public function test_active_user_with_correct_credentials_still_logs_in(): void
     {

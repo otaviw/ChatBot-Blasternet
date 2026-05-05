@@ -64,7 +64,6 @@ class GenerateSecretsCommand extends Command
         return self::SUCCESS;
     }
 
-    // -------------------------------------------------------------------------
 
     /** @return array<string, string> */
     private function buildSecrets(): array
@@ -131,7 +130,6 @@ class GenerateSecretsCommand extends Command
             if (preg_match($pattern, $content)) {
                 $content = preg_replace($pattern, "{$key}={$newValue}", $content);
             } else {
-                // Variável não existe no arquivo — adiciona ao final
                 $content = rtrim($content) . "\n{$key}={$newValue}\n";
             }
 

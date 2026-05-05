@@ -286,7 +286,6 @@ function validateAction(action, stepLabel) {
   const kind = rawKind === 'handoff' || rawKind === 'appointments_start' || rawKind === 'appointments_cancel' ? rawKind : 'go_to';
 
   if (kind === 'appointments_start' || kind === 'appointments_cancel') {
-    // Não requer campos extras
     return errors;
   }
 

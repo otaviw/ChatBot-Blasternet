@@ -284,7 +284,6 @@ export default function useInternalAiChatPage({ enabled, companyId = null }) {
       return;
     }
 
-    // Cancel any previous in-flight stream
     streamAbortControllerRef.current?.abort();
     const abortController = new AbortController();
     streamAbortControllerRef.current = abortController;
@@ -391,7 +390,6 @@ export default function useInternalAiChatPage({ enabled, companyId = null }) {
     wasChatNearBottomRef.current = remaining <= 72;
   }, []);
 
-  // Abort any in-flight stream when the hook unmounts
   useEffect(() => {
     return () => {
       streamAbortControllerRef.current?.abort();

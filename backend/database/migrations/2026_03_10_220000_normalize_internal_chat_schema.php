@@ -25,7 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Migration de compatibilidade: sem rollback destrutivo.
     }
 
     private function normalizeChatConversationsTable(): void

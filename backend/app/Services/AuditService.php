@@ -47,7 +47,6 @@ class AuditService
             $normalizedEntityType = trim($entityType);
             $companyId = self::resolveCompanyId($request, $user);
 
-            // Campos essenciais: action, entity_type e company_id.
             if ($normalizedAction === '' || $normalizedEntityType === '' || $companyId === null) {
                 return;
             }
@@ -93,7 +92,6 @@ class AuditService
 
     private static function resolveCompanyId(?Request $request, mixed $user): ?int
     {
-        // Multi-tenant: usuário de empresa sempre grava no próprio tenant.
         if (is_numeric($user?->company_id ?? null) && (int) $user->company_id > 0) {
             return (int) $user->company_id;
         }

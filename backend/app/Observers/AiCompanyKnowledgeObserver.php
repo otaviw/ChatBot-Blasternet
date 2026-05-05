@@ -23,7 +23,6 @@ class AiCompanyKnowledgeObserver
      */
     public function saved(AiCompanyKnowledge $item): void
     {
-        // Mark pending via raw query to avoid re-triggering this observer
         DB::table('ai_company_knowledge')
             ->where('id', (int) $item->id)
             ->update([

@@ -19,7 +19,6 @@ export function LoadingSkeletonLines({
     <div className={['space-y-2', className].filter(Boolean).join(' ')} aria-hidden="true">
       {Array.from({ length: safeLines }).map((_, index) => (
         <LoadingSkeleton
-          // Keep the last line slightly shorter to feel more natural.
           key={`line-${index}`}
           className={`${lineClassName} ${index === safeLines - 1 ? 'w-3/4' : ''}`.trim()}
         />

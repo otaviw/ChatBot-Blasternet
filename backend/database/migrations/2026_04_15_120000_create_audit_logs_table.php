@@ -34,7 +34,6 @@ return new class extends Migration
             return;
         }
 
-        // Compatibilidade com ambientes que já tinham audit_logs no schema legado.
         Schema::table('audit_logs', function (Blueprint $table) {
             if (! Schema::hasColumn('audit_logs', 'user_id')) {
                 $table->foreignId('user_id')->nullable()->after('id')->constrained()->nullOnDelete();
@@ -62,7 +61,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Não derrubar a tabela inteira porque ela pode ser legada.
         if (! Schema::hasTable('audit_logs')) {
             return;
         }

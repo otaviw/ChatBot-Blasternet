@@ -122,7 +122,6 @@ class AiMetricsService
      */
     public static function normalizeErrorType(mixed $error, ?Throwable $exception = null): string
     {
-        // Detectar timeout via exceção
         if ($exception !== null) {
             $exClass = get_class($exception);
             $exMsg = mb_strtolower($exception->getMessage());

@@ -23,23 +23,18 @@ trait SanitizesInput
             return '';
         }
 
-        // Remove tags com conteúdo: script, style, iframe, object, embed, form
         $value = (string) preg_replace(
             '/<(script|style|iframe|object|embed|form|svg)[^>]*>.*?<\/\1>/is',
             '',
             $value
         );
 
-        // Remove atributos de evento inline: onclick=, onerror=, onload= etc.
         $value = (string) preg_replace('/\s+on\w+\s*=\s*(["\'])[^"\']*\1/i', '', $value);
 
-        // Remove javascript: e vbscript: em qualquer atributo
         $value = (string) preg_replace('/\b(javascript|vbscript)\s*:/i', '', $value);
 
-        // Strip todas as tags HTML restantes
         $value = strip_tags($value);
 
-        // Decodifica entidades HTML e strip de novo para pegar &lt;script&gt; etc.
         $value = html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $value = strip_tags($value);
 
@@ -61,7 +56,6 @@ trait SanitizesInput
     {
         $clean = $this->stripTags($value);
 
-        // Colapsa múltiplos espaços/tabs/newlines em espaço único
         return trim((string) preg_replace('/\s+/', ' ', $clean));
     }
 

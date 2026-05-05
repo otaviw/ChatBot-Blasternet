@@ -23,15 +23,11 @@ class BotSettingsAiFieldsTest extends TestCase
         parent::setUp();
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Helpers
-    // ─────────────────────────────────────────────────────────────────────────
 
     private function makeCompanyUser(string $suffix = 'a'): array
     {
         $company = Company::create(['name' => "Empresa AI {$suffix}"]);
 
-        // ai_enabled=true é necessário para canManageAi() retornar true para company_admin
         CompanyBotSetting::create([
             'company_id' => $company->id,
             'ai_enabled' => true,
@@ -71,9 +67,6 @@ class BotSettingsAiFieldsTest extends TestCase
         ], $overrides);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Testes
-    // ─────────────────────────────────────────────────────────────────────────
 
     public function test_ai_fields_are_persisted_when_sent(): void
     {
@@ -176,7 +169,6 @@ class BotSettingsAiFieldsTest extends TestCase
     {
         [$company, $user] = $this->makeCompanyUser('get');
 
-        // makeCompanyUser já cria settings com ai_enabled=true; apenas atualizamos
         CompanyBotSetting::where('company_id', $company->id)->update([
             'ai_chatbot_mode' => 'always',
             'ai_system_prompt' => 'Prompt salvo',
@@ -198,20 +190,17 @@ class BotSettingsAiFieldsTest extends TestCase
     {
         [$company, $user] = $this->makeCompanyUser('preserve');
 
-        // makeCompanyUser já cria settings com ai_enabled=true; apenas atualizamos
         CompanyBotSetting::where('company_id', $company->id)->update([
             'ai_chatbot_mode' => 'always',
             'ai_system_prompt' => 'Prompt original',
         ]);
 
-        // Envia payload legado sem nenhum campo de IA
         $response = $this->actingAs($user)->putJson('/api/minha-conta/bot', $this->basePayload([
             'welcome_message' => 'Mensagem nova',
         ]));
 
         $response->assertOk();
 
-        // Campos de IA devem estar preservados
         $this->assertDatabaseHas('company_bot_settings', [
             'company_id' => $company->id,
             'welcome_message' => 'Mensagem nova',

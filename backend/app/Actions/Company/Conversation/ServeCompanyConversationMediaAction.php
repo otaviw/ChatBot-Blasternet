@@ -43,7 +43,6 @@ class ServeCompanyConversationMediaAction
         if ($message->media_mime_type) {
             $mime = (string) $message->media_mime_type;
 
-            // OGG sem codec declarado: browsers rejeitam sem "codecs=opus"
             if ($mime === 'audio/ogg' && $message->content_type === 'audio') {
                 $mime = 'audio/ogg; codecs=opus';
             }

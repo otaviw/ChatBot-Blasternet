@@ -98,7 +98,6 @@ class InternalAiChatStreamService
             $normalizedContent
         );
 
-        // ── Safety pipeline ───────────────────────────────────────────────────
         $safetyResult = $this->safetyPipeline->run($normalizedContent);
         if ($safetyResult->blocked) {
             $this->aiAuditService->logSafetyBlocked(
@@ -118,7 +117,6 @@ class InternalAiChatStreamService
         }
         $normalizedContent = $safetyResult->sanitizedInput;
 
-        // ── Persist user message ──────────────────────────────────────────────
         $userMessage = AiMessage::query()->create([
             'ai_conversation_id' => (int) $targetConversation->id,
             'user_id' => (int) $user->id,
@@ -130,7 +128,6 @@ class InternalAiChatStreamService
         ]);
         $this->touchLastMessageAt($targetConversation, $userMessage);
 
-        // ── Build context (no tool list in streaming mode) ────────────────────
         $contextMessages = $this->contextBuilder->build(
             $targetConversation,
             $systemPrompt,
@@ -149,7 +146,6 @@ class InternalAiChatStreamService
             'request_timeout_ms' => (int) config('ai.request_timeout_ms', 30000),
         ];
 
-        // ── Stream or fallback to non-streaming ───────────────────────────────
         $provider = $this->providerResolver->resolve($providerName);
         $startedAt = microtime(true);
 
@@ -173,7 +169,6 @@ class InternalAiChatStreamService
                 ]);
             }
         } else {
-            // Non-streaming fallback: call reply() and emit full text as single delta
             try {
                 $providerResult = $provider->reply($contextMessages, $providerOptions);
                 if ((bool) ($providerResult['ok'] ?? false) && is_string($providerResult['text'])) {
@@ -196,7 +191,6 @@ class InternalAiChatStreamService
 
         $responseTimeMs = (int) round((microtime(true) - $startedAt) * 1000);
 
-        // ── Handle provider error ─────────────────────────────────────────────
         if (! (bool) ($providerResult['ok'] ?? false)) {
             $this->updateMetricsOnError($usageLog, $providerName, $modelName, $providerResult, $responseTimeMs);
             $this->aiAuditService->logMessageSent(
@@ -229,7 +223,6 @@ class InternalAiChatStreamService
             ]);
         }
 
-        // ── Update metrics ────────────────────────────────────────────────────
         $tokensUsed = $this->usageService->tokensFromProviderResult($providerResult);
         $this->usageService->updateTokensUsed($usageLog, $providerResult);
         $this->metricsService->updateFromProviderResult(
@@ -242,7 +235,6 @@ class InternalAiChatStreamService
             $tokensUsed
         );
 
-        // ── Persist assistant message ─────────────────────────────────────────
         $assistantMessage = AiMessage::query()->create([
             'ai_conversation_id' => (int) $targetConversation->id,
             'user_id' => null,
@@ -256,7 +248,6 @@ class InternalAiChatStreamService
         ]);
         $this->touchLastMessageAt($targetConversation, $assistantMessage);
 
-        // ── Usage + audit ─────────────────────────────────────────────────────
         $this->usageService->logUsage(
             (int) $targetConversation->company_id,
             (int) $user->id,

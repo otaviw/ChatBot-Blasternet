@@ -23,8 +23,6 @@ return new class extends Migration
                  USING ai_temperature::double precision'
             );
         }
-        // SQLite e MySQL/MariaDB: já tratam a coluna como float nativamente;
-        // nenhuma alteração estrutural necessária nesses drivers.
     }
 
     public function down(): void

@@ -68,8 +68,6 @@ class FailoverAiProvider implements AiProvider, AiStreamingProvider
             return $this->withProviderMeta($primaryResult, $this->primaryProviderName);
         }
 
-        // Se o provider principal ja enviou chunks, nao tentamos fallback para
-        // evitar resposta duplicada/inconsistente no cliente.
         if ($emittedChunks > 0) {
             return $this->withProviderMeta($primaryResult, $this->primaryProviderName);
         }

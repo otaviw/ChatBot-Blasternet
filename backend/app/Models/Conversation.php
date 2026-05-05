@@ -155,9 +155,6 @@ class Conversation extends Model
 
         $tagIds = collect($tagNames)
             ->map(function (string $name): int {
-                // createOrFirst faz INSERT primeiro e, se receber duplicate key (23xxx),
-                // busca o registro existente — ao contrário de firstOrCreate (SELECT→INSERT)
-                // que tem race condition quando dois requests criam a mesma tag em paralelo.
                 $tag = Tag::createOrFirst(
                     [
                         'company_id' => (int) $this->company_id,

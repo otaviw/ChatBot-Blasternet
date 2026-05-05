@@ -28,9 +28,6 @@ class ConversationTagController extends Controller
         private readonly RealtimePublisher $realtime
     ) {}
 
-    // -------------------------------------------------------------------------
-    // Tag CRUD
-    // -------------------------------------------------------------------------
 
     /** GET /minha-conta/tags */
     public function index(Request $request): JsonResponse
@@ -142,9 +139,6 @@ class ConversationTagController extends Controller
         return response()->noContent();
     }
 
-    // -------------------------------------------------------------------------
-    // Attach / Detach tags to a conversation
-    // -------------------------------------------------------------------------
 
     /** POST /minha-conta/conversas/{conversationId}/tags */
     public function attach(AttachConversationTagRequest $request, int $conversationId): JsonResponse
@@ -216,9 +210,6 @@ class ConversationTagController extends Controller
         return response()->json(['ok' => true, 'tags' => $tags]);
     }
 
-    // -------------------------------------------------------------------------
-    // Helpers
-    // -------------------------------------------------------------------------
 
     /** @return array<int, array{id:int,name:string,color:string}> */
     private function loadConversationTags(Conversation $conversation): array

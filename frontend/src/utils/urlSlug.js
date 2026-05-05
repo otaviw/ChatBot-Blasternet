@@ -11,10 +11,8 @@ export const RESERVED_SLUGS = new Set([
   'companies',
 ]);
 
-// Mantido para compatibilidade interna
 const RESERVED_ROUTES = RESERVED_SLUGS;
 
-// Formato válido: apenas letras minúsculas, números e hífens, mínimo 1 caractere
 export const SLUG_REGEX = /^[a-z0-9-]+$/;
 
 /**
@@ -49,7 +47,6 @@ function readPathname(url) {
     return '';
   }
 
-  // Accept both full URL and path-only inputs.
   if (input.startsWith('/')) {
     return input;
   }

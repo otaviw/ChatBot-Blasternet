@@ -68,7 +68,6 @@ export default function useBotSettingsEditor({
           applySettings(latestSettings);
         }
       } catch {
-        // Keep current settings when background sync fails.
       }
     });
 

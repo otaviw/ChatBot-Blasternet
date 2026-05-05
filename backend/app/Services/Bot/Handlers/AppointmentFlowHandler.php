@@ -137,9 +137,6 @@ class AppointmentFlowHandler
         return $this->cancellationHandler->handleCancellation($company, $conversation, $step, $normalizedText);
     }
 
-    // -------------------------------------------------------------------------
-    // Step handlers (private)
-    // -------------------------------------------------------------------------
 
     /**
      * @param  array<string, mixed>  $context
@@ -672,9 +669,6 @@ class AppointmentFlowHandler
         );
     }
 
-    // -------------------------------------------------------------------------
-    // Reply builders (private)
-    // -------------------------------------------------------------------------
 
     /**
      * @param  array<string, mixed>  $context
@@ -781,9 +775,6 @@ class AppointmentFlowHandler
         );
     }
 
-    // -------------------------------------------------------------------------
-    // Data helpers (private)
-    // -------------------------------------------------------------------------
 
     /**
      * @param  array<string, mixed>  $context

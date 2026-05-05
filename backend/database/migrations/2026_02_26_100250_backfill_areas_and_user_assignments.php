@@ -24,7 +24,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Sem rollback automatico de dados de relacionamento.
     }
 
     private function syncAreasFromCompanySettings(): void

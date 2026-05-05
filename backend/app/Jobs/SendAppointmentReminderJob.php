@@ -19,9 +19,6 @@ class SendAppointmentReminderJob implements ShouldQueue
 {
     use Queueable, SerializesModels;
 
-    // 3 tentativas: o job é seguro para retry porque cada agendamento é marcado
-    // individualmente com reminder_sent_at antes de seguir para o próximo.
-    // Um retry recomeça do primeiro agendamento sem reminder_sent_at — sem duplicatas.
     public int $tries = 3;
 
     public int $timeout = 120;
@@ -48,7 +45,6 @@ class SendAppointmentReminderJob implements ShouldQueue
         $now = Carbon::now();
         $windowEnd = $now->copy()->addHours(24);
 
-        // Find confirmed appointments with email, not yet reminded, starting within the next 24h
         Appointment::query()
             ->with(['company.botSetting', 'service', 'staffProfile.user'])
             ->whereNotNull('customer_email')

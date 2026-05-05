@@ -19,9 +19,6 @@ use App\Models\MessageReaction;
 use App\Support\MessageDeliveryStatus;
 use Illuminate\Support\Facades\Http;
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 function makeWebhookPayload(string $phoneNumberId, array $messages = [], array $statuses = [], array $contacts = []): array
 {
@@ -53,9 +50,6 @@ function makeCompany(string $phoneNumberId = '111000111000111'): Company
     ]);
 }
 
-// ---------------------------------------------------------------------------
-// GET /api/webhooks/whatsapp  — verificação do webhook pelo Meta
-// ---------------------------------------------------------------------------
 
 describe('Webhook verify (GET)', function () {
     it('retorna o challenge quando mode=subscribe e token correto', function () {
@@ -97,9 +91,6 @@ describe('Webhook verify (GET)', function () {
     });
 });
 
-// ---------------------------------------------------------------------------
-// POST /api/webhooks/whatsapp  — validação de assinatura
-// ---------------------------------------------------------------------------
 
 describe('Webhook handle (POST) — validação de assinatura', function () {
     beforeEach(function () {
@@ -160,9 +151,6 @@ describe('Webhook handle (POST) — validação de assinatura', function () {
     });
 });
 
-// ---------------------------------------------------------------------------
-// POST /api/webhooks/whatsapp  — object inválido
-// ---------------------------------------------------------------------------
 
 describe('Webhook handle (POST) — object inválido', function () {
     beforeEach(function () {
@@ -517,9 +505,6 @@ describe('Webhook handle (POST) — reações', function () {
     });
 });
 
-// ---------------------------------------------------------------------------
-// POST /api/webhooks/whatsapp  — deduplicação por wamid
-// ---------------------------------------------------------------------------
 
 describe('Webhook handle (POST) — deduplicação por wamid', function () {
     beforeEach(function () {

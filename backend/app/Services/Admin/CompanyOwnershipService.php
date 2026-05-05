@@ -35,8 +35,6 @@ class CompanyOwnershipService
             return false;
         }
 
-        // System admin nao acessa empresa sem reseller vinculado.
-        // Empresas orfas sao consideradas invalidas e nao devem ser editadas por nenhum perfil.
         if ($user->isSystemAdmin() && ! $company->reseller_id) {
             return false;
         }

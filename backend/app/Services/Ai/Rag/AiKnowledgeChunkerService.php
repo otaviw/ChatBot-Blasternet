@@ -55,19 +55,16 @@ class AiKnowledgeChunkerService
                 continue;
             }
 
-            // Part fits with current → merge
             $separator = $current !== '' ? "\n\n" : '';
             if (mb_strlen($current.$separator.$part) <= $maxSize) {
                 $current .= $separator.$part;
                 continue;
             }
 
-            // Flush current chunk
             if ($current !== '') {
                 $chunks[] = $current;
             }
 
-            // Part alone is too large — subdivide (only up to depth 2 to avoid infinite recursion)
             if (mb_strlen($part) > $maxSize && $depth < 2) {
                 $subParts = $this->subdivide($part, $depth);
                 $subChunks = $this->aggregateIntoChunks($subParts, $maxSize, $overlap, $depth + 1);
@@ -76,7 +73,6 @@ class AiKnowledgeChunkerService
                 }
                 $current = '';
             } else {
-                // Start new chunk, carrying overlap from flushed chunk
                 $current = $this->applyOverlap($chunks, $overlap).$part;
             }
         }
@@ -97,14 +93,12 @@ class AiKnowledgeChunkerService
     private function subdivide(string $text, int $depth): array
     {
         if ($depth === 0) {
-            // Try sentence boundaries: . ! ? : followed by whitespace
             $parts = preg_split('/(?<=[.!?:])\s+/', $text, -1, PREG_SPLIT_NO_EMPTY);
             if (is_array($parts) && count($parts) > 1) {
                 return array_values(array_filter(array_map('trim', $parts)));
             }
         }
 
-        // Hard split by word boundaries to avoid cutting mid-word
         return $this->hardSplitByWords($text, 400);
     }
 
@@ -157,7 +151,6 @@ class AiKnowledgeChunkerService
             return $last.' ';
         }
 
-        // Take last $overlap chars and trim to nearest word boundary
         $tail = mb_substr($last, $len - $overlap);
         $firstSpace = strpos($tail, ' ');
 

@@ -5,7 +5,6 @@ import './styles/globals.css';
 import App from './app/App';
 import { initSentry } from './lib/sentry';
 
-// Inicializa Sentry antes de qualquer render — captura erros de bootstrap
 initSentry();
 
 if ('serviceWorker' in navigator) {

@@ -49,6 +49,5 @@ return new class extends Migration
 
     public function down(): void
     {
-        // Not reversible — data was already in json column
     }
 };

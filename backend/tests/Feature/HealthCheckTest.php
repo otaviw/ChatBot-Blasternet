@@ -46,7 +46,6 @@ class HealthCheckTest extends TestCase
 
     public function test_health_endpoint_requires_no_authentication(): void
     {
-        // Chamada sem qualquer cookie de sessão ou token — deve retornar 200
         $response = $this->getJson('/api/health');
 
         $response->assertOk();

@@ -33,7 +33,6 @@ class ValidateWhatsAppWebhookSignature
             'path'       => $request->path(),
         ];
 
-        // Configuração ausente é um erro nosso, não do cliente
         $secret = (string) config('whatsapp.app_secret', '');
         if ($secret === '') {
             Log::error('Webhook WhatsApp bloqueado: WHATSAPP_APP_SECRET não configurado.', $context);
@@ -53,7 +52,6 @@ class ValidateWhatsAppWebhookSignature
             return response('', 403);
         }
 
-        // Header vem como "sha256=<hex>" — extrai só o hash
         $provided = $header;
         if (str_contains($header, '=')) {
             [, $provided] = explode('=', $header, 2);
@@ -63,7 +61,6 @@ class ValidateWhatsAppWebhookSignature
         $rawBody = (string) $request->getContent();
         $expected = hash_hmac('sha256', $rawBody, $secret);
 
-        // Comprimento diferente => hash de algoritmo diferente ou truncado
         if (strlen($provided) !== strlen($expected)) {
             Log::warning('Webhook WhatsApp rejeitado: tamanho de assinatura inválido.', array_merge($context, [
                 'provided_length' => strlen($provided),
@@ -74,10 +71,8 @@ class ValidateWhatsAppWebhookSignature
             return response('', 403);
         }
 
-        // hash_equals é timing-safe — evita timing attacks
         if (! hash_equals($expected, $provided)) {
             Log::warning('Webhook WhatsApp rejeitado: assinatura invalida.', array_merge($context, [
-                // Expõe só os primeiros 8 chars para facilitar debug sem vazar o hash completo
                 'provided_hint' => substr($provided, 0, 8) . '...',
             ]));
 

@@ -28,7 +28,6 @@ class CompanyConversationCountersService
     /** @return array<string, mixed> */
     public function buildFreshForCompany(int $companyId): array
     {
-        // Always rebuild after mutations to avoid stale counters on rapid events.
         $this->forgetForCompany($companyId);
 
         return $this->buildForCompany($companyId);

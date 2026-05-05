@@ -52,7 +52,6 @@ class AddRequestContext implements ProcessorInterface
                 }
             }
         } catch (\Throwable) {
-            // fallback abaixo
         }
 
         return (string) Str::uuid();

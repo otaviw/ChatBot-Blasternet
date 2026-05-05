@@ -140,7 +140,6 @@ export default function CompanyTagsPage() {
             return;
           }
         } catch {
-          // ignore refresh failure and show validation error below
         }
       }
 
@@ -205,7 +204,6 @@ export default function CompanyTagsPage() {
             return;
           }
         } catch {
-          // ignore refresh failure and show validation error below
         }
       }
 
@@ -244,7 +242,6 @@ export default function CompanyTagsPage() {
         try {
           await syncTags();
         } catch {
-          // ignore if refresh fails
         }
       }
     } finally {

@@ -21,9 +21,6 @@ class AlertUnattendedConversationsJob implements ShouldQueue
 {
     use Queueable, SerializesModels;
 
-    // tries=1: intencional — este job envia e-mails sem marcador de idempotência
-    // por empresa/admin. Retry enviaria o mesmo alerta duplicado no mesmo ciclo.
-    // Falhas são capturadas em failed() e devem ser investigadas via failed_jobs.
     public int $tries = 1;
 
     public int $timeout = 120;
@@ -35,7 +32,6 @@ class AlertUnattendedConversationsJob implements ShouldQueue
 
     public function handle(): void
     {
-        // Process each company that has unattended_alert_hours configured
         Company::query()
             ->whereHas('botSetting', function ($q) {
                 $q->whereNotNull('unattended_alert_hours')->where('unattended_alert_hours', '>', 0);
@@ -57,8 +53,6 @@ class AlertUnattendedConversationsJob implements ShouldQueue
 
         $threshold = Carbon::now()->subHours($alertHours);
 
-        // Open conversations where customer last messaged more than N hours ago
-        // and business hasn't replied since (or hasn't replied at all)
         $unattended = Conversation::query()
             ->where('company_id', $company->id)
             ->where('status', ConversationStatus::OPEN->value)
@@ -74,7 +68,6 @@ class AlertUnattendedConversationsJob implements ShouldQueue
             return;
         }
 
-        // Send alert to all active company admins
         $admins = User::query()
             ->where('company_id', $company->id)
             ->where('role', User::ROLE_COMPANY_ADMIN)

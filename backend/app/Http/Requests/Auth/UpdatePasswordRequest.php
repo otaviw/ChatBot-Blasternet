@@ -14,7 +14,6 @@ class UpdatePasswordRequest extends FormRequest
         return true;
     }
 
-    // Passwords are not sanitized to avoid breaking valid special characters.
     public function rules(): array
     {
         return [

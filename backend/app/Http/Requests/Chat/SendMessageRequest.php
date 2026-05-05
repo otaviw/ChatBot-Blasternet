@@ -40,7 +40,6 @@ class SendMessageRequest extends FormRequest
     public function rules(): array
     {
         return [
-            // Texto OU arquivo é obrigatório
             'content' => ['nullable', 'string', 'max:20000', 'required_without:file'],
             'type'    => ['nullable', 'string', 'in:text,image,file'],
             'file'    => [

@@ -75,8 +75,6 @@ class AiProviderResolver
         $provider = $this->makeProvider($providerClass, $resolvedProviderName);
         $fallbackProviderName = $this->fallbackProviderNameFor($resolvedProviderName);
 
-        // Fallback automatico em runtime e aplicado apenas quando o fallback
-        // configurado e diferente de "null" para preservar comportamento legado.
         if (
             $fallbackProviderName !== ''
             && $fallbackProviderName !== self::FALLBACK_PROVIDER

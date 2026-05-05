@@ -15,16 +15,12 @@ return new class extends Migration
                 ->constrained('ai_company_knowledge')
                 ->cascadeOnDelete();
 
-            // Denormalized for query performance — avoids JOIN on every retrieval
             $table->unsignedBigInteger('company_id');
             $table->string('title', 190);
 
             $table->text('chunk_content');
             $table->unsignedSmallInteger('chunk_index')->default(0);
 
-            // Embedding stored as a JSON float array.
-            // pgvector can be added as a future optimization without schema changes:
-            // just add a generated/virtual vector column or migrate this column.
             $table->longText('embedding')->nullable();
             $table->string('embedding_model', 120)->nullable();
 

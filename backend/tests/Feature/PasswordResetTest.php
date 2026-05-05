@@ -17,9 +17,6 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
 use App\Mail\ResetPasswordMail;
 
-// ---------------------------------------------------------------------------
-// POST /api/forgot-password
-// ---------------------------------------------------------------------------
 
 describe('POST /forgot-password — sem enumeração de usuários', function () {
     it('retorna 200 e mesma mensagem quando e-mail está cadastrado', function () {
@@ -127,9 +124,6 @@ describe('POST /forgot-password — sem enumeração de usuários', function () 
     });
 });
 
-// ---------------------------------------------------------------------------
-// POST /api/reset-password
-// ---------------------------------------------------------------------------
 
 describe('POST /reset-password — sem enumeração de usuários', function () {
     it('retorna 200 quando token e e-mail são válidos e senha é redefinida', function () {

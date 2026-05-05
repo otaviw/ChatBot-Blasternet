@@ -8,7 +8,6 @@ import useAuth from '@/hooks/useAuth';
 import useLogout from '@/hooks/useLogout';
 import useAdminCompanySelector from '@/hooks/useAdminCompanySelector';
 
-// ── Constantes ────────────────────────────────────────────────────────────────
 
 const PERIOD_OPTIONS = [
   { value: 7, label: 'Últimos 7 dias' },
@@ -28,7 +27,6 @@ const ERROR_LABELS = {
   unknown: 'Desconhecido',
 };
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function formatMs(ms) {
   if (ms == null) return '—';
@@ -51,7 +49,6 @@ function todayDateString() {
   return new Date().toISOString().slice(0, 10);
 }
 
-// ── Sub-componentes ───────────────────────────────────────────────────────────
 
 function SummaryCard({ title, value, sub }) {
   return (
@@ -123,7 +120,6 @@ function ErrorBadge({ pct }) {
   return <span className={`font-medium ${color}`}>{n.toFixed(2)}%</span>;
 }
 
-// ── Abas ──────────────────────────────────────────────────────────────────────
 
 function TabBar({ active, onChange }) {
   const tabs = [
@@ -151,7 +147,6 @@ function TabBar({ active, onChange }) {
   );
 }
 
-// ── Aba de Uso (conteúdo existente) ───────────────────────────────────────────
 
 function TabUso({ data, showCompanyColumn }) {
   const dailyData = Array.isArray(data?.daily_messages) ? data.daily_messages : [];
@@ -207,7 +202,6 @@ function TabUso({ data, showCompanyColumn }) {
   );
 }
 
-// ── Aba de Métricas Técnicas ──────────────────────────────────────────────────
 
 function TabMetricas({ data }) {
   const summary = data?.summary ?? {};
@@ -305,7 +299,6 @@ function TabMetricas({ data }) {
   );
 }
 
-// ── Página principal ──────────────────────────────────────────────────────────
 
 function CompanyAiAnalyticsPage() {
   const [activeTab, setActiveTab] = useState('uso');

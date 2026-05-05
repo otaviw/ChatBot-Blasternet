@@ -85,13 +85,6 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
                 continue;
             }
 
-            // Deduplicação — camada 1 (job):
-            // Verifica o wamid antes de qualquer chamada de serviço ou escrita no banco.
-            // Cobre dois cenários:
-            //   a) Reenvio da Meta: mesmo evento entregue em HTTP requests distintos
-            //   b) Retry do job: falha após a mensagem já ter sido persistida
-            // A checagem é feita antes do bootstrapConversation e do download de mídia
-            // para evitar trabalho desnecessário.
             if ($messageType !== 'reaction' && $messageId !== '') {
                 if (Message::where('whatsapp_message_id', $messageId)->exists()) {
                     Log::info('Webhook: mensagem duplicada ignorada no job.', [
@@ -196,9 +189,6 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
                     $contactName
                 );
 
-                // Atualiza content_type e texto de exibição da mensagem gravada,
-                // pois handleIncomingText usa button_id como texto de roteamento
-                // mas o registro no banco deve refletir o que o usuário viu/clicou.
                 $inMessage = $result['in_message'] ?? null;
                 if ($inMessage instanceof Message) {
                     $inMessage->content_type = 'interactive_reply';

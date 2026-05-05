@@ -36,7 +36,6 @@ class SimulatedMessageController extends Controller
             'from' => ['required', 'string', 'max:40'],
             'text' => ['nullable', 'string', 'max:2000'],
             'image' => ['nullable', 'image', 'max:' . config('whatsapp.media_max_size_kb', 5120)],
-            // Compatibilidade com payload legado.
             'file' => ['nullable', 'image', 'max:' . config('whatsapp.media_max_size_kb', 5120)],
             'contact_name' => ['nullable', 'string', 'max:160'],
             'send_outbound' => ['sometimes', 'boolean'],

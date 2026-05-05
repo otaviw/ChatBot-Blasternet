@@ -72,13 +72,11 @@ class AiSandboxController extends Controller
             ]
         );
 
-        // Build system prompt
         $systemParts = array_filter([
             trim((string) ($promptResolution['content'] ?? '')),
             trim((string) ($settings->ai_system_prompt ?? '')),
         ]);
 
-        // Retrieve RAG chunks if requested
         $ragChunks = [];
         if ($includeRag && $companyId > 0) {
             $topK      = (int) config('ai.rag.top_k', 3);

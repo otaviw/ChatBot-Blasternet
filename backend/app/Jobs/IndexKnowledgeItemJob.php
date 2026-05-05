@@ -48,24 +48,18 @@ class IndexKnowledgeItemJob implements ShouldQueue
     {
         $embeddingModel = trim((string) config('ai.rag.embedding_model', ''));
         if ($embeddingModel === '') {
-            // RAG not configured — nothing to index
             return;
         }
 
-        // Load fresh from DB (model may have changed since dispatch)
         $item = AiCompanyKnowledge::find($this->knowledgeItemId);
 
-        // Delete old chunks regardless — handles deactivation and deletion
         AiKnowledgeChunk::where('ai_knowledge_item_id', $this->knowledgeItemId)->delete();
 
         if ($item === null) {
-            // Item was hard-deleted; cascade would have handled chunks, but
-            // we handle it here as a safety net for soft-delete scenarios.
             return;
         }
 
         if (! (bool) $item->is_active) {
-            // Item deactivated — chunks removed above, nothing to re-index
             DB::table('ai_company_knowledge')
                 ->where('id', (int) $item->id)
                 ->update(['indexing_status' => AiCompanyKnowledge::INDEXING_INDEXED, 'indexed_at' => now()]);
@@ -102,7 +96,6 @@ class IndexKnowledgeItemJob implements ShouldQueue
             ]);
         }
 
-        // Mark item as indexed
         DB::table('ai_company_knowledge')
             ->where('id', (int) $item->id)
             ->update([

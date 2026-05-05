@@ -75,8 +75,6 @@ describe('RealtimeStore', () => {
     it('não despacha evento não suportado', () => {
       const store = makeStore();
       const handler = vi.fn();
-      // Não é possível registrar handler para evento inválido,
-      // mas podemos verificar que o dispatch também o ignora.
       store.dispatchRawEvent('evento.inventado', validEnvelope({ conversation_id: 1 }));
       expect(handler).not.toHaveBeenCalled();
     });
@@ -86,7 +84,6 @@ describe('RealtimeStore', () => {
       const handler = vi.fn();
       store.on(REALTIME_EVENTS.CONVERSATION_TAGS_UPDATED, handler);
 
-      // tags está faltando — validação deve rejeitar
       store.dispatchRawEvent(
         REALTIME_EVENTS.CONVERSATION_TAGS_UPDATED,
         validEnvelope({ conversation_id: 1 })
@@ -152,7 +149,6 @@ describe('RealtimeStore', () => {
       const handler = vi.fn();
       store.on(REALTIME_EVENTS.BOT_UPDATED, handler);
 
-      // envelope sem payload — eventos sem validador específico passam
       store.dispatchRawEvent(REALTIME_EVENTS.BOT_UPDATED, {});
 
       expect(handler).toHaveBeenCalledOnce();

@@ -63,7 +63,6 @@ class DeleteMessageAction
                     try {
                         Storage::disk('public')->delete($paths);
                     } catch (\Throwable) {
-                        // Falha na limpeza fisica nao deve impedir apagamento logico.
                     }
                 }
 

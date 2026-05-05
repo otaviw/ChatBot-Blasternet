@@ -578,7 +578,6 @@ class InternalChatApiTest extends TestCase
         ]);
         $conversationId = (int) $created->json('conversation.id');
 
-        // outsider é de outra empresa: o scope oculta o recurso → 404 (mais seguro que 403)
         $outsiderShow = $this->actingAs($outsider)->getJson("/api/chat/conversations/{$conversationId}");
         $outsiderShow->assertNotFound();
 

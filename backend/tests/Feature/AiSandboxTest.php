@@ -39,7 +39,6 @@ class AiSandboxTest extends TestCase
         parent::setUp();
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
 
     private function makeAdmin(array $botAttrs = []): array
     {
@@ -101,7 +100,6 @@ class AiSandboxTest extends TestCase
         ];
     }
 
-    // ── Access control ────────────────────────────────────────────────────────
 
     public function test_agent_is_forbidden(): void
     {
@@ -124,7 +122,6 @@ class AiSandboxTest extends TestCase
         $response->assertStatus(403);
     }
 
-    // ── Successful response ───────────────────────────────────────────────────
 
     public function test_admin_receives_ai_response(): void
     {
@@ -140,7 +137,6 @@ class AiSandboxTest extends TestCase
             ->assertJsonPath('response', 'Olá, posso ajudar!');
     }
 
-    // ── Validation ────────────────────────────────────────────────────────────
 
     public function test_missing_message_returns_validation_error(): void
     {
@@ -168,7 +164,6 @@ class AiSandboxTest extends TestCase
             ->assertJsonValidationErrors(['message']);
     }
 
-    // ── RAG integration ───────────────────────────────────────────────────────
 
     public function test_without_rag_confidence_is_0_5(): void
     {
@@ -191,7 +186,6 @@ class AiSandboxTest extends TestCase
         [, $user] = $this->makeAdmin();
         $this->stubProvider($this->okProviderResult());
 
-        // Stub the retriever to return fake chunks
         $retriever = Mockery::mock(AiKnowledgeRetrieverService::class);
         $retriever->allows('retrieve')->andReturn([
             ['title' => 'Prazo de entrega', 'content' => 'O prazo é de 5 dias úteis.', 'score' => 0.85],
@@ -217,7 +211,6 @@ class AiSandboxTest extends TestCase
         [, $user] = $this->makeAdmin();
         $this->stubProvider($this->okProviderResult());
 
-        // Retriever returns empty — RAG enabled but nothing retrieved
         $retriever = Mockery::mock(AiKnowledgeRetrieverService::class);
         $retriever->allows('retrieve')->andReturn([]);
         $this->app->instance(AiKnowledgeRetrieverService::class, $retriever);
@@ -254,7 +247,6 @@ class AiSandboxTest extends TestCase
         $this->assertEquals(0.97, $response->json('confidence_score'));
     }
 
-    // ── Provider failure ──────────────────────────────────────────────────────
 
     public function test_provider_failure_returns_422(): void
     {
@@ -281,7 +273,6 @@ class AiSandboxTest extends TestCase
         $response->assertStatus(422);
     }
 
-    // ── Tokens and metadata ───────────────────────────────────────────────────
 
     public function test_tokens_used_is_included_when_provider_returns_it(): void
     {

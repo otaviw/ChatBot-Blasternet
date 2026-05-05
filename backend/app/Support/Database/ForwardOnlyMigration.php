@@ -37,7 +37,6 @@ abstract class ForwardOnlyMigration extends Migration
      */
     protected function forwardOnlyDown(): void
     {
-        // No-op intencional.
     }
 
     protected function hasIndex(string $tableName, string $indexName): bool
