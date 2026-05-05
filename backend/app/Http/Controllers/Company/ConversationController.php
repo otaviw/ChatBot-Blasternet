@@ -31,6 +31,7 @@ use App\Http\Requests\Company\UpdateConversationTagsRequest;
 use App\Models\Conversation;
 use App\Services\AuditLogService;
 use App\Services\Company\CompanyConversationCountersService;
+use App\Services\WhatsApp\WhatsAppSendService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -43,6 +44,7 @@ class ConversationController extends Controller
         private readonly ManualReplyAction $manualReplyAction,
         private readonly CreateCompanyConversationAction $createConversationAction,
         private readonly SendConversationTemplateAction $sendTemplateAction,
+        private readonly WhatsAppSendService $whatsAppSend,
     ) {}
 
     public function index(Request $request, ListCompanyConversationsAction $action): JsonResponse
