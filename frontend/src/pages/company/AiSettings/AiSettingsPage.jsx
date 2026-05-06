@@ -12,6 +12,8 @@ import {
 } from '@/components/ui/FormControls/FormControls.jsx';
 import Notice from '@/components/ui/Notice/Notice.jsx';
 import PageHeader from '@/components/ui/PageHeader/PageHeader.jsx';
+import ErrorMessage from '@/components/ui/ErrorMessage/ErrorMessage.jsx';
+import EmptyState from '@/components/ui/EmptyState/EmptyState.jsx';
 import usePageData from '@/hooks/usePageData';
 import useAuth from '@/hooks/useAuth';
 import useLogout from '@/hooks/useLogout';
@@ -98,7 +100,7 @@ function AiSettingsPage() {
   if (meError || !data?.authenticated) {
     return (
       <Layout role={layoutRole} companyName={companyName} onLogout={logout}>
-        <p className="text-sm text-red-600">Não foi possível carregar as configurações de IA.</p>
+        <ErrorMessage message="Não foi possível carregar as configurações de IA." />
       </Layout>
     );
   }
@@ -106,7 +108,7 @@ function AiSettingsPage() {
   if (!canManageUsers) {
     return (
       <Layout role={layoutRole} companyName={companyName} onLogout={logout}>
-        <p className="text-sm text-[#64748b]">Acesso restrito ao administrador da empresa.</p>
+        <p className="text-sm text-[var(--ui-text-muted)]">Acesso restrito ao administrador da empresa.</p>
       </Layout>
     );
   }
@@ -122,7 +124,7 @@ function AiSettingsPage() {
   if (error) {
     return (
       <Layout role={layoutRole} companyName={companyName} onLogout={logout}>
-        <p className="text-sm text-red-600">{error}</p>
+        <ErrorMessage message={error} />
       </Layout>
     );
   }
@@ -136,7 +138,8 @@ function AiSettingsPage() {
           <select
             value={selectedCompanyId}
             onChange={(e) => setSelectedCompanyId(e.target.value)}
-            className="rounded-lg border border-[#d4d4d4] bg-white px-3 py-2 text-sm text-[#1f2937] outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
+            aria-label="Selecionar empresa para configurar IA"
+            className="rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface)] px-3 py-2 text-sm text-[var(--ui-text)] outline-none focus:border-[var(--ui-accent)] focus:ring-2 focus:ring-[var(--ui-ring)]"
           >
             {selectorCompanies.map((c) => (
               <option key={c.id} value={String(c.id)}>{c.name}</option>
@@ -147,7 +150,7 @@ function AiSettingsPage() {
 
       <form onSubmit={handleSave} className="space-y-4">
         <Card>
-          <h2 className="text-base font-semibold text-[#0f172a] mb-3">Ativação</h2>
+          <h2 className="text-base font-semibold text-[var(--ui-text)] mb-3">Ativação</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <CheckboxField
               checked={Boolean(settings.ai_enabled)}
@@ -165,7 +168,7 @@ function AiSettingsPage() {
         </Card>
 
         <Card>
-          <h2 className="text-base font-semibold text-[#0f172a] mb-3">Comportamento da IA</h2>
+          <h2 className="text-base font-semibold text-[var(--ui-text)] mb-3">Comportamento da IA</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <Field label="Persona (papel da IA)">
               <TextInput
@@ -218,14 +221,14 @@ function AiSettingsPage() {
               onChange={(event) => updateField('ai_system_prompt', event.target.value)}
               placeholder={`Você é um assistente da empresa. Responda sempre em português, de forma educada e objetiva. Não forneça informações que não sejam sobre os nossos produtos ou serviços.`}
             />
-            <p className={`text-xs mt-1 text-right ${(settings.ai_system_prompt ?? '').length > SYSTEM_PROMPT_MAX * 0.9 ? 'text-amber-600' : 'text-[#a3a3a3]'}`}>
+            <p className={`text-xs mt-1 text-right ${(settings.ai_system_prompt ?? '').length > SYSTEM_PROMPT_MAX * 0.9 ? 'text-amber-600' : 'text-[var(--ui-text-subtle)]'}`}>
               {(settings.ai_system_prompt ?? '').length}/{SYSTEM_PROMPT_MAX}
             </p>
           </Field>
         </Card>
 
         <Card>
-          <h2 className="text-base font-semibold text-[#0f172a] mb-3">Uso e limites</h2>
+          <h2 className="text-base font-semibold text-[var(--ui-text)] mb-3">Uso e limites</h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <CheckboxField
@@ -256,15 +259,18 @@ function AiSettingsPage() {
         </Card>
 
         <Card>
-          <h2 className="text-base font-semibold text-[#0f172a] mb-3">Permissões dos utilizadores</h2>
+          <h2 className="text-base font-semibold text-[var(--ui-text)] mb-3">Permissões dos utilizadores</h2>
 
           {!usersRows.length ? (
-            <p className="text-sm text-[#64748b]">Nenhum utilizador encontrado.</p>
+            <EmptyState
+              title="Nenhum utilizador encontrado"
+              subtitle="Assim que houver utilizadores vinculados à empresa, as permissões de IA aparecerão aqui."
+            />
           ) : (
             <div className="overflow-x-auto app-responsive-table-wrap">
               <table className="min-w-full text-sm app-responsive-table">
                 <thead>
-                  <tr className="border-b border-[#e5e7eb] text-left text-[#64748b]">
+                  <tr className="border-b border-[var(--ui-border)] text-left text-[var(--ui-text-muted)]">
                     <th className="py-2 pr-3 font-medium">Nome</th>
                     <th className="py-2 pr-3 font-medium">E-mail</th>
                     <th className="py-2 pr-3 font-medium">Pode usar IA</th>
@@ -277,21 +283,22 @@ function AiSettingsPage() {
                     const checked = isAgent ? Boolean(user.can_use_ai) : true;
 
                     return (
-                      <tr key={user.id} className="border-b border-[#f1f5f9]">
-                        <td data-label="Nome" className="py-2 pr-3 text-[#0f172a]">{user.name || '-'}</td>
-                        <td data-label="E-mail" className="py-2 pr-3 text-[#475569]">{user.email || '-'}</td>
+                      <tr key={user.id} className="border-b border-[var(--ui-border)]">
+                        <td data-label="Nome" className="py-2 pr-3 text-[var(--ui-text)]">{user.name || '-'}</td>
+                        <td data-label="E-mail" className="py-2 pr-3 text-[var(--ui-text-muted)] break-all">{user.email || '-'}</td>
                         <td data-label="Pode usar IA" className="py-2 pr-3">
-                          <label className="inline-flex items-center gap-2 text-[#1f2937]">
+                          <label className="inline-flex flex-wrap items-center gap-2 text-[var(--ui-text)]">
                             <input
                               type="checkbox"
-                              className="h-4 w-4 rounded border-[#d4d4d4] text-[#2563eb] focus:ring-[#2563eb]/20"
+                              className="h-4 w-4 rounded border-[var(--ui-border)] text-[var(--ui-accent)] focus:ring-[var(--ui-ring)]"
                               checked={checked}
+                              aria-label={`Permissão de IA para ${user.name || user.email || 'utilizador'}`}
                               disabled={isBusy || !isAgent}
                               onChange={(event) =>
                                 void toggleUserPermission(user.id, event.target.checked)
                               }
                             />
-                            <span className="text-xs text-[#64748b]">
+                            <span className="text-xs text-[var(--ui-text-muted)] break-words">
                               {isBusy ? 'Salvando...' : isAgent ? 'Ativo' : 'Sempre ativo para administradores'}
                             </span>
                           </label>
@@ -309,13 +316,14 @@ function AiSettingsPage() {
           <Button type="submit" variant="primary" disabled={!canSave}>
             {saving ? 'Salvando...' : 'Salvar alterações'}
           </Button>
+          {saving ? <span className="text-xs text-[var(--ui-text-muted)]" role="status" aria-live="polite">Salvando configurações...</span> : null}
         </div>
       </form>
 
       {/* Sandbox de Teste */}
       <Card className="mt-4">
-        <h2 className="text-base font-semibold text-[#0f172a] mb-1">Testar IA</h2>
-        <p className="text-sm text-[#64748b] mb-4">
+        <h2 className="text-base font-semibold text-[var(--ui-text)] mb-1">Testar IA</h2>
+        <p className="text-sm text-[var(--ui-text-muted)] mb-4">
           Envie uma mensagem de teste para verificar como a IA está configurada para sua empresa.
         </p>
 
@@ -330,12 +338,12 @@ function AiSettingsPage() {
             />
           </Field>
 
-          <label className="inline-flex items-center gap-2 text-sm text-[#1f2937] cursor-pointer select-none">
+          <label className="inline-flex items-center gap-2 text-sm text-[var(--ui-text)] cursor-pointer select-none">
             <input
               type="checkbox"
               checked={sandboxIncludeRag}
               onChange={(event) => setSandboxIncludeRag(event.target.checked)}
-              className="h-4 w-4 rounded border-[#d4d4d4] text-[#2563eb] focus:ring-[#2563eb]/20"
+              className="h-4 w-4 rounded border-[var(--ui-border)] text-[var(--ui-accent)] focus:ring-[var(--ui-ring)]"
             />
             Usar base de conhecimento
           </label>
@@ -350,28 +358,27 @@ function AiSettingsPage() {
           </Button>
         </div>
 
-        {sandboxError && (
-          <p className="mt-3 text-sm text-red-600">{sandboxError}</p>
-        )}
+        {sandboxError && <ErrorMessage className="mt-3" message={sandboxError} />}
+        {sandboxBusy ? <p className="mt-3 text-xs text-[var(--ui-text-muted)]" role="status" aria-live="polite">Processando teste da IA...</p> : null}
 
         {sandboxResult && (
-          <div className="mt-4 space-y-3 border-t border-[#f0f0f0] pt-4">
+          <div className="mt-4 space-y-3 border-t border-[var(--ui-border)] pt-4">
             <div>
-              <p className="text-xs font-semibold uppercase text-[#a3a3a3] mb-1">Resposta da IA</p>
-              <p className="text-sm text-[#1f2937] whitespace-pre-wrap bg-[#f8fafc] rounded-lg p-3 border border-[#e2e8f0]">
+              <p className="text-xs font-semibold uppercase text-[var(--ui-text-subtle)] mb-1">Resposta da IA</p>
+              <p className="text-sm text-[var(--ui-text)] whitespace-pre-wrap bg-[var(--ui-surface-elevated)] rounded-lg p-3 border border-[var(--ui-border)]">
                 {sandboxResult.response}
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-3 text-xs text-[#475569]">
-              <span>
+            <div className="flex flex-wrap gap-3 text-xs text-[var(--ui-text-muted)]">
+              <span className="break-words">
                 <strong>Provider:</strong> {sandboxResult.provider ?? '-'}
               </span>
-              <span>
+              <span className="break-all">
                 <strong>Modelo:</strong> {sandboxResult.model ?? '-'}
               </span>
               {sandboxResult.tokens_used != null && (
-                <span>
+                <span className="break-words">
                   <strong>Tokens:</strong> {sandboxResult.tokens_used}
                 </span>
               )}
@@ -393,16 +400,16 @@ function AiSettingsPage() {
 
             {Array.isArray(sandboxResult.rag_chunks_used) && sandboxResult.rag_chunks_used.length > 0 && (
               <div>
-                <p className="text-xs font-semibold uppercase text-[#a3a3a3] mb-1.5">
+                <p className="text-xs font-semibold uppercase text-[var(--ui-text-subtle)] mb-1.5">
                   Chunks da base de conhecimento usados ({sandboxResult.rag_chunks_used.length})
                 </p>
                 <div className="space-y-2">
                   {sandboxResult.rag_chunks_used.map((chunk, i) => (
-                    <div key={i} className="bg-[#f8fafc] rounded-lg p-2.5 border border-[#e2e8f0] text-xs">
-                      <p className="font-medium text-[#1f2937] mb-0.5">{chunk.title || 'Sem título'}</p>
-                      <p className="text-[#475569] line-clamp-3">{chunk.content}</p>
+                    <div key={i} className="bg-[var(--ui-surface-elevated)] rounded-lg p-2.5 border border-[var(--ui-border)] text-xs">
+                      <p className="font-medium text-[var(--ui-text)] mb-0.5 break-words">{chunk.title || 'Sem título'}</p>
+                      <p className="text-[var(--ui-text-muted)] line-clamp-3 break-words">{chunk.content}</p>
                       {chunk.score != null && (
-                        <p className="text-[#a3a3a3] mt-1">Similaridade: {(chunk.score * 100).toFixed(1)}%</p>
+                        <p className="text-[var(--ui-text-subtle)] mt-1">Similaridade: {(chunk.score * 100).toFixed(1)}%</p>
                       )}
                     </div>
                   ))}

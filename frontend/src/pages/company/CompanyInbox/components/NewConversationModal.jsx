@@ -116,7 +116,7 @@ function NewConversationModal({ open, onClose, onSubmit, busy, error }) {
           <button
             type="button"
             onClick={onClose}
-            className="text-[#525252] hover:text-[#171717]"
+            className="text-[var(--ui-text-muted)] hover:text-[var(--ui-text)]"
             aria-label="Fechar modal de nova conversa"
           >
             x
@@ -125,7 +125,7 @@ function NewConversationModal({ open, onClose, onSubmit, busy, error }) {
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <div>
-            <label className="block text-xs text-[#525252] mb-1">
+            <label className="block text-xs text-[var(--ui-text-muted)] mb-1">
               Telefone <span className="text-red-600">*</span>
             </label>
             <input
@@ -138,13 +138,13 @@ function NewConversationModal({ open, onClose, onSubmit, busy, error }) {
               disabled={busy}
               className="w-full app-input text-xs py-1.5"
             />
-            <p className="text-[10px] text-[#a3a3a3] mt-0.5">
+            <p className="text-[10px] text-[var(--ui-text-subtle)] mt-0.5">
               Com codigo do pais e DDD, sem espacos ou tracos.
             </p>
           </div>
 
           <div>
-            <label className="block text-xs text-[#525252] mb-1">Nome (opcional)</label>
+            <label className="block text-xs text-[var(--ui-text-muted)] mb-1">Nome (opcional)</label>
             <input
               type="text"
               value={name}
@@ -163,25 +163,25 @@ function NewConversationModal({ open, onClose, onSubmit, busy, error }) {
               disabled={busy}
               className="rounded"
             />
-            <span className="text-xs text-[#374151]">Enviar template ao criar</span>
+            <span className="text-xs text-[var(--ui-text-muted)]">Enviar template ao criar</span>
           </label>
 
           {sendTemplate ? (
             <div>
-              <p className="text-xs font-medium text-[#374151] mb-1.5">Selecione o template:</p>
+              <p className="text-xs font-medium text-[var(--ui-text-muted)] mb-1.5">Selecione o template:</p>
 
               {templatesLoading ? (
-                <p className="text-xs text-[#737373] py-1">Carregando templates da Meta...</p>
+                <p className="text-xs text-[var(--ui-text-muted)] py-1">Carregando templates da Meta...</p>
               ) : null}
 
               {!templatesLoading && templatesError ? (
-                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+                <p className="text-xs text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded px-2 py-1.5">
                   {templatesError}
                 </p>
               ) : null}
 
               {!templatesLoading && !templatesError && templates.length === 0 ? (
-                <p className="text-xs text-[#737373]">
+                <p className="text-xs text-[var(--ui-text-muted)]">
                   Nenhum template aprovado encontrado. Sera usado <strong>iniciar_conversa</strong>.
                 </p>
               ) : null}
@@ -200,13 +200,13 @@ function NewConversationModal({ open, onClose, onSubmit, busy, error }) {
                       }}
                       className={`w-full text-left px-3 py-2 rounded-lg border transition text-xs ${
                         selectedTemplateKey === templateKey(template)
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-[#e5e5e5] hover:border-[#cbd5e1] hover:bg-[#f8fafc]'
+                          ? 'border-[var(--ui-accent)] bg-[var(--ui-accent-muted)] dark:bg-[color-mix(in_srgb,var(--ui-accent)_22%,var(--ui-surface))]'
+                          : 'border-[var(--ui-border)] hover:border-[var(--ui-border-strong)] hover:bg-[var(--ui-surface-elevated)] dark:hover:bg-[color-mix(in_srgb,var(--ui-surface-elevated)_80%,black)]'
                       }`}
                       aria-label={`Selecionar template ${template.name}`}
                     >
-                      <div className="font-medium text-[#0f172a]">{template.name}</div>
-                      <div className="text-[#737373] mt-0.5">
+                      <div className="font-medium text-[var(--ui-text)]">{template.name}</div>
+                      <div className="text-[var(--ui-text-muted)] mt-0.5">
                         {CATEGORY_LABEL[template.category] ?? template.category}
                         {' · '}
                         {template.language}
@@ -218,12 +218,12 @@ function NewConversationModal({ open, onClose, onSubmit, busy, error }) {
 
               {!templatesLoading && selectedTemplateData && bodyVariables.length > 0 ? (
                 <div className="mt-2 space-y-1.5">
-                  <p className="text-xs text-[#525252]">
+                  <p className="text-xs text-[var(--ui-text-muted)]">
                     Este template exige {bodyVariables.length} variavel(is).
                   </p>
                   {bodyVariables.map((variable, index) => (
                     <div key={`new-conversation-template-variable-${variable.token}`} className="space-y-1">
-                      <p className="text-[11px] text-[#6b7280]">
+                      <p className="text-[11px] text-[var(--ui-text-subtle)]">
                         Variavel {`{{${variable.token}}}`} • Contexto: {variable.hint}
                         {variable.example ? ` • Exemplo: ${variable.example}` : ''}
                       </p>

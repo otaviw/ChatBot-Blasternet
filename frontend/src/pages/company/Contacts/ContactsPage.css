@@ -60,7 +60,7 @@
 .contacts-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 42rem;
+  min-width: 36rem;
 }
 
 .contacts-table th,

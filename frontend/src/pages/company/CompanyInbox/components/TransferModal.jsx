@@ -22,7 +22,7 @@ function TransferModal({
       <div className="inbox-tags-modal w-full" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-semibold">Transferir conversa</h3>
-          <button type="button" onClick={onClose} className="text-[#525252] hover:text-[#171717]" aria-label="Fechar">
+          <button type="button" onClick={onClose} className="text-[var(--ui-text-muted)] hover:text-[var(--ui-text)]" aria-label="Fechar">
             ✕
           </button>
         </div>
@@ -75,14 +75,14 @@ function TransferModal({
         {transferError ? <p className="text-xs text-red-600 mt-1.5">{transferError}</p> : null}
 
         {(detail.transfer_history ?? []).length > 0 && (
-          <div className="mt-3 pt-2 border-t border-[#e5e5e5]">
-            <p className="text-[11px] text-[#737373] mb-1">Histórico</p>
+          <div className="mt-3 pt-2 border-t border-[var(--ui-border)]">
+            <p className="text-[11px] text-[var(--ui-text-muted)] mb-1">Histórico</p>
             <ul className="space-y-0.5 text-[11px] max-h-24 overflow-y-auto">
               {detail.transfer_history.map((item) => {
                 const fromLabel = item.from_user?.name || item.from_area || '—';
                 const toLabel = item.to_user?.name || item.to_area || '—';
                 return (
-                  <li key={item.id} className="text-[#525252]">
+                  <li key={item.id} className="text-[var(--ui-text-muted)]">
                     {fromLabel} → {toLabel}
                   </li>
                 );

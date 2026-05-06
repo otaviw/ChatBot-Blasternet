@@ -42,3 +42,4 @@ function ErrorMessage({ message, detail = '', onRetry = null, retryLabel = 'Tent
 }
 
 export default ErrorMessage;
+

@@ -52,13 +52,13 @@ function TemplateCard({ template, selected, onSelect }) {
       onClick={() => onSelect(template.name)}
       className={`w-full text-left px-3 py-2 rounded-lg border transition text-xs ${
         selected
-          ? 'border-blue-500 bg-blue-50'
-          : 'border-[#e5e5e5] hover:border-[#cbd5e1] hover:bg-[#f8fafc]'
+          ? 'border-[var(--ui-accent)] bg-[var(--ui-accent-muted)] dark:bg-[color-mix(in_srgb,var(--ui-accent)_22%,var(--ui-surface))]'
+          : 'border-[var(--ui-border)] hover:border-[var(--ui-border-strong)] hover:bg-[var(--ui-surface-elevated)] dark:hover:bg-[color-mix(in_srgb,var(--ui-surface-elevated)_80%,black)]'
       }`}
       aria-label={`Selecionar template ${template.name}`}
     >
-      <div className="font-medium text-[#0f172a]">{template.name}</div>
-      <div className="text-[#737373] mt-0.5">
+      <div className="font-medium text-[var(--ui-text)]">{template.name}</div>
+      <div className="text-[var(--ui-text-muted)] mt-0.5">
         {CATEGORY_LABEL[template.category] ?? template.category}
         {' · '}
         {template.language}
@@ -123,37 +123,37 @@ function SendTemplateModal({ open, onClose, onConfirm, detail, busy, error, succ
           <button
             type="button"
             onClick={onClose}
-            className="text-[#525252] hover:text-[#171717]"
+            className="text-[var(--ui-text-muted)] hover:text-[var(--ui-text)]"
             aria-label="Fechar modal de envio de template"
           >
             x
           </button>
         </div>
 
-        <p className="text-xs text-[#374151] mb-0.5">Para:</p>
-        <p className="text-xs font-medium text-[#0f172a] mb-3">{contactLabel}</p>
+        <p className="text-xs text-[var(--ui-text-muted)] mb-0.5">Para:</p>
+        <p className="text-xs font-medium text-[var(--ui-text)] mb-3">{contactLabel}</p>
 
         {detail.status === 'closed' ? (
-          <p className="text-xs text-[#737373] mb-3 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+          <p className="text-xs text-amber-800 dark:text-amber-200 mb-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded px-2 py-1.5">
             A conversa esta encerrada e sera reaberta apos o envio.
           </p>
         ) : null}
 
         <div className="mb-3">
-          <p className="text-xs font-medium text-[#374151] mb-1.5">Selecione o template:</p>
+          <p className="text-xs font-medium text-[var(--ui-text-muted)] mb-1.5">Selecione o template:</p>
 
           {templatesLoading ? (
-            <p className="text-xs text-[#737373] py-2">Carregando templates da Meta...</p>
+            <p className="text-xs text-[var(--ui-text-muted)] py-2">Carregando templates da Meta...</p>
           ) : null}
 
           {!templatesLoading && templatesError ? (
-            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+            <p className="text-xs text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded px-2 py-1.5">
               {templatesError}
             </p>
           ) : null}
 
           {!templatesLoading && !templatesError && templates.length === 0 ? (
-            <p className="text-xs text-[#737373]">Nenhum template aprovado encontrado.</p>
+            <p className="text-xs text-[var(--ui-text-muted)]">Nenhum template aprovado encontrado.</p>
           ) : null}
 
       {!templatesLoading && templates.length > 0 ? (
@@ -177,12 +177,12 @@ function SendTemplateModal({ open, onClose, onConfirm, detail, busy, error, succ
 
           {!templatesLoading && selectedTemplateData && bodyVariables.length > 0 ? (
             <div className="mt-2 space-y-1.5">
-              <p className="text-xs text-[#525252]">
+              <p className="text-xs text-[var(--ui-text-muted)]">
                 Este template exige {bodyVariables.length} variavel(is).
               </p>
               {bodyVariables.map((variable, index) => (
                 <div key={`send-template-variable-${variable.token}`} className="space-y-1">
-                  <p className="text-[11px] text-[#6b7280]">
+                  <p className="text-[11px] text-[var(--ui-text-subtle)]">
                     Variavel {`{{${variable.token}}}`} • Contexto: {variable.hint}
                     {variable.example ? ` • Exemplo: ${variable.example}` : ''}
                   </p>

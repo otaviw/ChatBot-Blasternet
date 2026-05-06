@@ -42,7 +42,7 @@ function TagsModal({
           <button
             type="button"
             onClick={onClose}
-            className="text-[#525252] hover:text-[#171717] text-lg leading-none"
+            className="text-[var(--ui-text-muted)] hover:text-[var(--ui-text)] text-lg leading-none"
             aria-label="Fechar modal de tags"
           >
             ×
@@ -51,15 +51,15 @@ function TagsModal({
 
         {/* Tags já vinculadas */}
         <div className="mb-3">
-          <p className="text-[10px] uppercase font-semibold text-[#a3a3a3] mb-1.5">Vinculadas</p>
+          <p className="text-[10px] uppercase font-semibold text-[var(--ui-text-subtle)] mb-1.5">Vinculadas</p>
           {(detail.tags ?? []).length === 0 ? (
-            <p className="text-xs text-[#737373]">Nenhuma tag nesta conversa.</p>
+            <p className="text-xs text-[var(--ui-text-muted)]">Nenhuma tag nesta conversa.</p>
           ) : (
             <div className="flex flex-wrap gap-1.5">
               {(detail.tags ?? []).map((tag) => (
                 <span
                   key={tag.id}
-                  className="inline-flex items-center gap-0.5 px-2.5 py-0.5 rounded-full text-xs font-medium text-white"
+                  className="inline-flex items-center gap-0.5 px-2.5 py-0.5 rounded-full text-xs font-medium text-white ring-1 ring-black/10 dark:ring-white/25"
                   style={{ backgroundColor: tag.color }}
                 >
                   {tag.name}
@@ -80,8 +80,8 @@ function TagsModal({
         {/* Tags disponíveis para vincular */}
         {companyTags.length > 0 && (
           <>
-            <div className="border-t border-[#f0f0f0] my-3" />
-            <p className="text-[10px] uppercase font-semibold text-[#a3a3a3] mb-1.5">Adicionar</p>
+            <div className="border-t border-[var(--ui-border)] my-3" />
+            <p className="text-[10px] uppercase font-semibold text-[var(--ui-text-subtle)] mb-1.5">Adicionar</p>
             <div className="flex flex-wrap gap-1.5">
               {companyTags
                 .filter((t) => !attachedIds.has(t.id))
@@ -90,23 +90,23 @@ function TagsModal({
                     key={tag.id}
                     type="button"
                     onClick={() => onAttachTag(tag.id)}
-                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white opacity-70 hover:opacity-100 transition"
+                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white opacity-70 hover:opacity-100 transition ring-1 ring-black/10 dark:ring-white/25"
                     style={{ backgroundColor: tag.color }}
                   >
                     + {tag.name}
                   </button>
                 ))}
               {companyTags.filter((t) => !attachedIds.has(t.id)).length === 0 && (
-                <p className="text-xs text-[#737373]">Todas as tags já estão vinculadas.</p>
+                <p className="text-xs text-[var(--ui-text-muted)]">Todas as tags já estão vinculadas.</p>
               )}
             </div>
           </>
         )}
 
         {companyTags.length === 0 && (
-          <p className="text-xs text-[#737373] mt-2">
+          <p className="text-xs text-[var(--ui-text-muted)] mt-2">
             Crie tags em{' '}
-            <Link to="/minha-conta/tags" className="text-[#2563eb] underline">
+            <Link to="/minha-conta/tags" className="text-[var(--ui-accent)] underline hover:text-[var(--ui-accent-hover)]">
               Configurações → Tags
             </Link>
             .

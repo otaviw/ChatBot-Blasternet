@@ -1,6 +1,9 @@
 import BotConfigStep from '@/components/company/BotConfigStep/BotConfigStep.jsx';
 import StatefulMenuFlowEditor from '@/components/sections/StatefulMenuFlowEditor/StatefulMenuFlowEditor.jsx';
 import { DAY_KEYS, DAY_LABELS } from '@/constants/botSettings';
+import Notice from '@/components/ui/Notice/Notice.jsx';
+import EmptyState from '@/components/ui/EmptyState/EmptyState.jsx';
+import ErrorMessage from '@/components/ui/ErrorMessage/ErrorMessage.jsx';
 
 function SettingsTab({
   companyForm,
@@ -77,13 +80,13 @@ function SettingsTab({
                 {testState === 'loading' ? 'Testando...' : 'Testar conexão'}
               </button>
               {testState === 'ok' && testResult?.display_phone_number && (
-                <span className="text-xs text-emerald-700">
+                <span className="text-xs text-emerald-700 break-words" role="status" aria-live="polite">
                   Conexao OK - {testResult.display_phone_number}
                   {testResult.verified_name ? ` (${testResult.verified_name})` : ''}
                 </span>
               )}
               {testState === 'error' && (
-                <span className="text-xs text-red-600">Falha: {testResult?.error || 'Credenciais invalidas.'}</span>
+                <span className="text-xs text-red-600 break-words" role="alert">Falha: {testResult?.error || 'Credenciais invalidas.'}</span>
               )}
             </div>
           </div>
@@ -169,10 +172,10 @@ function SettingsTab({
                 {ixcTestState === 'loading' ? 'Testando IXC...' : 'Testar conexao IXC'}
               </button>
               {ixcTestState === 'ok' && (
-                <span className="text-xs text-emerald-700">Conexao IXC OK.</span>
+                <span className="text-xs text-emerald-700" role="status" aria-live="polite">Conexao IXC OK.</span>
               )}
               {ixcTestState === 'error' && (
-                <span className="text-xs text-red-600">Falha IXC: {ixcTestResult?.error || 'Credenciais invalidas.'}</span>
+                <span className="text-xs text-red-600 break-words" role="alert">Falha IXC: {ixcTestResult?.error || 'Credenciais invalidas.'}</span>
               )}
             </div>
           </div>
@@ -207,24 +210,27 @@ function SettingsTab({
             </button>
           </div>
         </form>
-        {companySaveState === 'saved' && <p className="text-sm text-green-700 mt-2">Dados salvos.</p>}
-        {companySaveState === 'error' && <p className="text-sm text-red-600 mt-2">{companySaveError}</p>}
+        {companySaveState === 'saved' && <Notice tone="success" className="mt-2" role="status" aria-live="polite">Dados salvos.</Notice>}
+        {companySaveState === 'error' && <ErrorMessage className="mt-2" message={companySaveError} />}
       </section>
 
       <section className="mb-8">
-        <h2 className="text-sm font-medium text-[#737373] mb-2">Regras do bot</h2>
+        <h2 className="text-sm font-medium text-[var(--ui-text-muted)] mb-2">Regras do bot</h2>
         {!setting ? (
-          <p className="text-sm text-[#737373]">Empresa ainda usando configuracao padrao.</p>
+          <EmptyState
+            title="Configuração padrão ativa"
+            subtitle="A empresa ainda usa a configuração padrão do bot."
+          />
         ) : (
-          <ul className="text-sm space-y-1">
-            <li>Mensagem de boas-vindas: {setting.welcome_message || '-'}</li>
-            <li>Mensagem quando nao entende (fallback): {setting.fallback_message || '-'}</li>
-            <li>Mensagem fora de horario: {setting.out_of_hours_message || '-'}</li>
+          <ul className="text-sm space-y-1 break-words">
+            <li>Mensagem de boas-vindas: <span className="break-words">{setting.welcome_message || '-'}</span></li>
+            <li>Mensagem quando nao entende (fallback): <span className="break-words">{setting.fallback_message || '-'}</span></li>
+            <li>Mensagem fora de horario: <span className="break-words">{setting.out_of_hours_message || '-'}</span></li>
             <li>
-              Respostas por palavra-chave: {Array.isArray(setting.keyword_replies) ? setting.keyword_replies.length : 0}
+              Respostas por palavra-chave: <span className="break-words">{Array.isArray(setting.keyword_replies) ? setting.keyword_replies.length : 0}</span>
             </li>
             <li>
-              Areas de atendimento: {Array.isArray(setting.service_areas) ? setting.service_areas.join(', ') || '-' : '-'}
+              Areas de atendimento: <span className="break-words">{Array.isArray(setting.service_areas) ? setting.service_areas.join(', ') || '-' : '-'}</span>
             </li>
             <li>Menu com fluxo personalizado: {setting.stateful_menu_flow ? 'Sim' : 'Nao (usa padrao automatico)'}</li>
           </ul>
@@ -232,8 +238,8 @@ function SettingsTab({
       </section>
 
       <section className="mb-8">
-        <h2 className="text-sm font-medium text-[#737373] mb-1">Editar configuracoes (admin)</h2>
-        <p className="text-sm text-[#737373] mb-4 max-w-3xl">
+        <h2 className="text-sm font-medium text-[var(--ui-text-muted)] mb-1">Editar configuracoes (admin)</h2>
+        <p className="text-sm text-[var(--ui-text-muted)] mb-4 max-w-3xl">
           Mesma ordem recomendada que no painel da empresa: contexto e areas, expediente, mensagens, menu e
           palavras-chave.
         </p>
@@ -260,7 +266,7 @@ function SettingsTab({
             ]}
           >
             <div className="bot-config-grid-2">
-              <label className="bot-config-field">
+              <div className="bot-config-field">
                 <span className="bot-config-label">Bot ativo</span>
                 <label className="flex items-center gap-2">
                   <input
@@ -270,8 +276,8 @@ function SettingsTab({
                   />
                   <span className="text-sm">Ativar respostas automaticas</span>
                 </label>
-              </label>
-              <label className="bot-config-field">
+              </div>
+              <div className="bot-config-field">
                 <span className="bot-config-label">IA assistiva no bot</span>
                 <label className="flex items-center gap-2">
                   <input
@@ -281,10 +287,10 @@ function SettingsTab({
                   />
                   <span className="text-sm">Permitir IA sugerir e melhorar respostas do bot</span>
                 </label>
-                <p className="text-xs text-[#706f6c] mt-1">
+                <p className="text-xs text-[var(--ui-text-muted)] mt-1">
                   Essa opção só funciona quando a empresa estiver autorizada pela revenda e com feature global liberada.
                 </p>
-              </label>
+              </div>
               <label className="bot-config-field">
                 <span className="bot-config-label">Fuso horario</span>
                 <input
@@ -314,11 +320,14 @@ function SettingsTab({
               </button>
             </div>
             {!settings.service_areas?.length && (
-              <p className="text-sm text-[#737373]">Nenhuma area cadastrada.</p>
+              <EmptyState
+                title="Nenhuma área cadastrada"
+                subtitle="Adicione áreas para organizar atendimento e transferências."
+              />
             )}
             <div className="bot-config-list">
               {(settings.service_areas ?? []).map((area, index) => (
-                <div key={index} className="flex gap-2">
+                <div key={index} className="flex flex-col sm:flex-row gap-2">
                   <input
                     type="text"
                     value={area}
@@ -326,7 +335,7 @@ function SettingsTab({
                     placeholder="Ex.: Suporte"
                     className="app-input"
                   />
-                  <button type="button" onClick={() => removeServiceArea(index)} className="app-btn-danger">
+                  <button type="button" onClick={() => removeServiceArea(index)} className="app-btn-danger w-full sm:w-auto">
                     Remover
                   </button>
                 </div>
@@ -349,7 +358,7 @@ function SettingsTab({
                 return (
                   <div
                     key={day}
-                    className="grid grid-cols-1 md:grid-cols-4 gap-3 items-center border border-[#efefec] rounded p-3"
+                    className="grid grid-cols-1 md:grid-cols-4 gap-3 items-center border border-[var(--ui-border)] rounded p-3"
                   >
                     <label className="flex items-center gap-2 text-sm">
                       <input
@@ -459,7 +468,7 @@ function SettingsTab({
               </div>
             </div>
 
-            <div className="mt-4 rounded-lg border border-[#e3e3e0] bg-[#fafafa] p-4">
+            <div className="mt-4 rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface-elevated)] p-4">
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
@@ -477,7 +486,7 @@ function SettingsTab({
                 Usar menu padrao automatico (sem edicao manual)
               </label>
 
-              <p className="mt-2 text-xs text-[#706f6c]">
+              <p className="mt-2 text-xs text-[var(--ui-text-muted)]">
                 Desmarque para montar um fluxo personalizado com blocos, opções, perguntas abertas e transferencias.
               </p>
             </div>
@@ -492,7 +501,7 @@ function SettingsTab({
               </div>
             )}
 
-            {menuFlowError && <p className="mt-3 text-sm text-red-600">{menuFlowError}</p>}
+            {menuFlowError && <p className="mt-3 text-sm text-red-600" role="alert">{menuFlowError}</p>}
           </BotConfigStep>
 
           <BotConfigStep
@@ -511,14 +520,17 @@ function SettingsTab({
             </div>
 
             {!settings.keyword_replies.length && (
-              <p className="text-sm text-[#737373]">Nenhuma regra cadastrada.</p>
+              <EmptyState
+                title="Nenhuma regra cadastrada"
+                subtitle="Adicione regras para respostas rápidas por palavra-chave."
+              />
             )}
 
             <div className="space-y-3">
               {settings.keyword_replies.map((item, index) => (
                 <div
                   key={index}
-                  className="grid grid-cols-1 md:grid-cols-5 gap-3 border border-[#efefec] rounded p-3"
+                  className="grid grid-cols-1 md:grid-cols-5 gap-3 border border-[var(--ui-border)] rounded p-3"
                 >
                   <label className="text-sm md:col-span-1">
                     Palavra-chave
@@ -559,8 +571,8 @@ function SettingsTab({
               {saveState === 'saving' ? 'Salvando...' : 'Salvar configuracoes (admin)'}
             </button>
 
-            {saveState === 'saved' && <p className="text-sm text-green-700">Configuracoes salvas com sucesso.</p>}
-            {saveState === 'error' && <p className="text-sm text-red-600">{saveError}</p>}
+            {saveState === 'saved' && <Notice tone="success" role="status" aria-live="polite">Configurações salvas com sucesso.</Notice>}
+            {saveState === 'error' && <ErrorMessage message={saveError} />}
           </div>
         </form>
       </section>

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import Layout from '@/components/layout/Layout/Layout.jsx';
 import PageLoading from '@/components/ui/PageLoading/PageLoading.jsx';
+import ErrorMessage from '@/components/ui/ErrorMessage/ErrorMessage.jsx';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
 import useBotSettingsEditor from '@/hooks/useBotSettingsEditor';
@@ -203,8 +204,8 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
 
   if (error || !data?.authenticated || !data.company) {
     return (
-      <Layout>
-        <p className="text-sm text-red-600 dark:text-red-400">Não foi possível carregar a empresa.</p>
+      <Layout role="admin" onLogout={logout}>
+        <ErrorMessage message="Não foi possível carregar a empresa." />
       </Layout>
     );
   }
@@ -216,7 +217,7 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
     <Layout role="admin" onLogout={logout}>
       <a
         href="/admin/empresas"
-        className="inline-flex items-center gap-2 text-sm text-[#525252] hover:text-[#171717] mb-6 transition-colors"
+        className="inline-flex items-center gap-2 text-sm text-[var(--ui-text-muted)] hover:text-[var(--ui-text)] mb-6 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ui-ring)] rounded"
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M19 12H5M12 19l-7-7 7-7" />
@@ -225,12 +226,12 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
       </a>
 
       <div className="mb-8">
-        <h1 className="app-page-title">{company.name}</h1>
+        <h1 className="app-page-title break-words">{company.name}</h1>
         <p className="app-page-subtitle">Informacoes e uso da empresa</p>
       </div>
 
-      <nav className="mb-6 border-b border-[#ececec]" aria-label="Abas da empresa">
-        <div className="flex gap-2 overflow-x-auto pb-2">
+      <nav className="mb-6 border-b border-[var(--ui-border)]" aria-label="Abas da empresa">
+        <div className="flex gap-2 overflow-x-auto pb-2" role="tablist" aria-label="Navegação de abas da empresa">
           {ADMIN_COMPANY_TABS.map((tab) => {
             const isActive = activeTab === tab.key;
             return (
@@ -238,8 +239,12 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
                 key={tab.key}
                 type="button"
                 onClick={() => setActiveTab(tab.key)}
-                className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                  isActive ? 'bg-[#171717] text-white' : 'bg-[#f5f5f5] text-[#525252] hover:bg-[#ebebeb]'
+                role="tab"
+                aria-selected={isActive}
+                aria-controls={`admin-company-tabpanel-${tab.key}`}
+                id={`admin-company-tab-${tab.key}`}
+                className={`rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ui-ring)] ${
+                  isActive ? 'bg-[var(--ui-text)] text-[var(--ui-surface)]' : 'bg-[var(--ui-surface-elevated)] text-[var(--ui-text-muted)] hover:bg-[var(--ui-border)]'
                 }`}
               >
                 {tab.label}
@@ -250,59 +255,65 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
       </nav>
 
       {activeTab === 'general' && (
-        <GeneralTab
-          company={company}
-          setting={setting}
-          metricsLoading={metricsLoading}
-          metricsData={metricsData}
-        />
+        <div role="tabpanel" id="admin-company-tabpanel-general" aria-labelledby="admin-company-tab-general">
+          <GeneralTab
+            company={company}
+            setting={setting}
+            metricsLoading={metricsLoading}
+            metricsData={metricsData}
+          />
+        </div>
       )}
 
       {activeTab === 'users' && (
-        <UsersTab
-          company={company}
-          metricsLoading={metricsLoading}
-          metricsData={metricsData}
-        />
+        <div role="tabpanel" id="admin-company-tabpanel-users" aria-labelledby="admin-company-tab-users">
+          <UsersTab
+            company={company}
+            metricsLoading={metricsLoading}
+            metricsData={metricsData}
+          />
+        </div>
       )}
 
       {activeTab === 'settings' && (
-        <SettingsTab
-          companyForm={companyForm}
-          setCompanyForm={setCompanyForm}
-          testConnection={testConnection}
-          testState={testState}
-          testResult={testResult}
-          setTestState={setTestState}
-          testIxcConnection={testIxcConnection}
-          ixcTestState={ixcTestState}
-          ixcTestResult={ixcTestResult}
-          setIxcTestState={setIxcTestState}
-          saveCompanyData={saveCompanyData}
-          companySaveState={companySaveState}
-          companySaveError={companySaveError}
-          setting={setting}
-          settings={settings}
-          saveSettings={saveSettings}
-          saveState={saveState}
-          saveError={saveError}
-          useDefaultStatefulMenu={useDefaultStatefulMenu}
-          statefulMenuEditor={statefulMenuEditor}
-          menuFlowError={menuFlowError}
-          setUseDefaultStatefulMenu={setUseDefaultStatefulMenu}
-          setStatefulMenuEditor={setStatefulMenuEditor}
-          setMenuFlowError={setMenuFlowError}
-          updateMessageField={updateMessageField}
-          updateDay={updateDay}
-          updateKeyword={updateKeyword}
-          addKeywordReply={addKeywordReply}
-          removeKeywordReply={removeKeywordReply}
-          updateServiceArea={updateServiceArea}
-          addServiceArea={addServiceArea}
-          removeServiceArea={removeServiceArea}
-          loadSuggestedMenuTemplate={loadSuggestedMenuTemplate}
-          enableCustomMenuBuilder={enableCustomMenuBuilder}
-        />
+        <div role="tabpanel" id="admin-company-tabpanel-settings" aria-labelledby="admin-company-tab-settings">
+          <SettingsTab
+            companyForm={companyForm}
+            setCompanyForm={setCompanyForm}
+            testConnection={testConnection}
+            testState={testState}
+            testResult={testResult}
+            setTestState={setTestState}
+            testIxcConnection={testIxcConnection}
+            ixcTestState={ixcTestState}
+            ixcTestResult={ixcTestResult}
+            setIxcTestState={setIxcTestState}
+            saveCompanyData={saveCompanyData}
+            companySaveState={companySaveState}
+            companySaveError={companySaveError}
+            setting={setting}
+            settings={settings}
+            saveSettings={saveSettings}
+            saveState={saveState}
+            saveError={saveError}
+            useDefaultStatefulMenu={useDefaultStatefulMenu}
+            statefulMenuEditor={statefulMenuEditor}
+            menuFlowError={menuFlowError}
+            setUseDefaultStatefulMenu={setUseDefaultStatefulMenu}
+            setStatefulMenuEditor={setStatefulMenuEditor}
+            setMenuFlowError={setMenuFlowError}
+            updateMessageField={updateMessageField}
+            updateDay={updateDay}
+            updateKeyword={updateKeyword}
+            addKeywordReply={addKeywordReply}
+            removeKeywordReply={removeKeywordReply}
+            updateServiceArea={updateServiceArea}
+            addServiceArea={addServiceArea}
+            removeServiceArea={removeServiceArea}
+            loadSuggestedMenuTemplate={loadSuggestedMenuTemplate}
+            enableCustomMenuBuilder={enableCustomMenuBuilder}
+          />
+        </div>
       )}
     </Layout>
   );
