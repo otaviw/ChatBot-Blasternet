@@ -88,7 +88,7 @@ class IxcApiService
                         break;
                     }
 
-                    $this->registerSuccess($company, $resource, $normalizedMethod, $started, $params);
+                    $this->registerSuccess($company, $resource, $normalizedMethod, $started, $params, $json);
                     Cache::forget($this->breakerFailuresKey((int) $company->id, $resource, $normalizedMethod));
                     Cache::forget($breakerState);
                     return $json;
@@ -199,19 +199,75 @@ class IxcApiService
             $payload['records'] ?? null,
             $payload['rows'] ?? null,
             $payload['items'] ?? null,
+            $payload['data'] ?? null,
+            $payload['dados'] ?? null,
+            $payload['response']['registros'] ?? null,
+            $payload['response']['items'] ?? null,
+            $payload['result']['registros'] ?? null,
+            $payload['result']['items'] ?? null,
         ];
 
         foreach ($candidates as $candidate) {
-            if (is_array($candidate)) {
-                return array_values(array_filter($candidate, 'is_array'));
+            $rows = $this->candidateToRows($candidate);
+            if ($rows !== null) {
+                return $rows;
             }
         }
 
-        if (array_is_list($payload)) {
-            return array_values(array_filter($payload, 'is_array'));
+        $fallbackRows = $this->candidateToRows($payload);
+        if ($fallbackRows !== null) {
+            return $fallbackRows;
         }
 
         return [];
+    }
+
+    /**
+     * @param  mixed  $candidate
+     * @return array<int, array<string,mixed>>|null
+     */
+    private function candidateToRows(mixed $candidate): ?array
+    {
+        if (is_string($candidate)) {
+            $trimmed = trim($candidate);
+            if ($trimmed === '') {
+                return [];
+            }
+            if (str_starts_with($trimmed, '{') || str_starts_with($trimmed, '[')) {
+                $decoded = json_decode($trimmed, true);
+                if (is_array($decoded)) {
+                    $candidate = $decoded;
+                } else {
+                    return null;
+                }
+            } else {
+                return null;
+            }
+        }
+
+        if (! is_array($candidate)) {
+            return null;
+        }
+
+        foreach (['registros', 'records', 'rows', 'items', 'data', 'dados'] as $key) {
+            if (array_key_exists($key, $candidate)) {
+                return $this->candidateToRows($candidate[$key]);
+            }
+        }
+
+        if (array_is_list($candidate)) {
+            return array_values(array_filter($candidate, 'is_array'));
+        }
+
+        $rows = [];
+        foreach ($candidate as $value) {
+            if (! is_array($value)) {
+                return null;
+            }
+            $rows[] = $value;
+        }
+
+        return $rows;
     }
 
     /**
@@ -271,7 +327,7 @@ class IxcApiService
     /**
      * @param  array<string, mixed>  $params
      */
-    private function registerSuccess(Company $company, string $resource, string $method, float $started, array $params): void
+    private function registerSuccess(Company $company, string $resource, string $method, float $started, array $params, ?array $payload = null): void
     {
         Log::info('ixc.request.ok', [
             'company_id' => (int) $company->id,
@@ -279,6 +335,7 @@ class IxcApiService
             'method' => $method,
             'duration_ms' => (int) round((microtime(true) - $started) * 1000),
             'params' => $this->sanitizeParamsForLogs($params),
+            'payload_summary' => $payload !== null ? $this->summarizePayloadForLogs($payload) : null,
         ]);
     }
 
@@ -321,5 +378,39 @@ class IxcApiService
             $sanitized[$key] = is_scalar($value) ? $value : '[complex]';
         }
         return $sanitized;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function summarizePayloadForLogs(array $payload): array
+    {
+        $summary = [
+            'keys' => array_slice(array_keys($payload), 0, 12),
+        ];
+
+        $registros = $payload['registros'] ?? $payload['items'] ?? $payload['rows'] ?? $payload['records'] ?? null;
+        $summary['registros_type'] = gettype($registros);
+        if (is_array($registros)) {
+            $summary['registros_count'] = count($registros);
+        } elseif (is_string($registros)) {
+            $trimmed = trim($registros);
+            if (str_starts_with($trimmed, '[') || str_starts_with($trimmed, '{')) {
+                $decoded = json_decode($trimmed, true);
+                $summary['registros_json_decode_ok'] = is_array($decoded);
+                $summary['registros_decoded_count'] = is_array($decoded) ? count($decoded) : 0;
+            }
+        }
+
+        foreach (['total', 'total_records', 'totalRecords', 'recordsTotal'] as $totalKey) {
+            if (array_key_exists($totalKey, $payload)) {
+                $summary['total_key'] = $totalKey;
+                $summary['total_value'] = $payload[$totalKey];
+                break;
+            }
+        }
+
+        return $summary;
     }
 }
