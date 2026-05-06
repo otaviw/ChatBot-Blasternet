@@ -34,19 +34,8 @@ class IxcClientController extends Controller
         $page = max(1, (int) $request->integer('page', 1));
         $perPage = min(200, max(10, (int) $request->integer('per_page', 30)));
 
-        $params = [
-            'qtype' => 'cliente.nome',
-            'query' => $query !== '' ? $query : '0',
-            'oper' => $query !== '' ? 'like' : '>=',
-            'page' => $page,
-            'rp' => $perPage,
-            'sortname' => 'cliente.nome',
-            'sortorder' => 'asc',
-        ];
-
         try {
-            $payload = $this->ixcApi->request($company, 'cliente', $params);
-            $list = $this->ixcApi->normalizeList($payload, $page, $perPage);
+            $list = $this->searchClients($company, $query, $page, $perPage);
         } catch (RuntimeException $exception) {
             return response()->json([
                 'ok' => false,
@@ -67,6 +56,125 @@ class IxcClientController extends Controller
                 'q' => $query,
             ],
         ]);
+    }
+
+    /**
+     * @return array{items: array<int, array<string,mixed>>, total: int, page: int, per_page: int}
+     */
+    private function searchClients(Company $company, string $query, int $page, int $perPage): array
+    {
+        $baseParams = [
+            'page' => $page,
+            'rp' => $perPage,
+            'sortorder' => 'asc',
+        ];
+
+        // Consulta padrao da lista: por ID numerico (mais compativel entre bases IXC).
+        if ($query === '') {
+            $payload = $this->ixcApi->request($company, 'cliente', array_merge($baseParams, [
+                'qtype' => 'cliente.id',
+                'query' => '0',
+                'oper' => '>=',
+                'sortname' => 'cliente.id',
+            ]));
+
+            return $this->ixcApi->normalizeList($payload, $page, $perPage);
+        }
+
+        $queryDigits = preg_replace('/\D+/', '', $query) ?? '';
+        $nameLike = '%' . $query . '%';
+        $digitLike = $queryDigits !== '' ? '%' . $queryDigits . '%' : '';
+
+        $attempts = [
+            [
+                'qtype' => 'cliente.razao',
+                'query' => $nameLike,
+                'oper' => 'like',
+                'sortname' => 'cliente.razao',
+            ],
+            [
+                'qtype' => 'cliente.nome',
+                'query' => $nameLike,
+                'oper' => 'like',
+                'sortname' => 'cliente.nome',
+            ],
+            [
+                'qtype' => 'cliente.fantasia',
+                'query' => $nameLike,
+                'oper' => 'like',
+                'sortname' => 'cliente.fantasia',
+            ],
+            [
+                'qtype' => 'cliente.cnpj_cpf',
+                'query' => $queryDigits !== '' ? $queryDigits : $query,
+                'oper' => '=',
+                'sortname' => 'cliente.id',
+                'only_when_digits' => true,
+            ],
+            [
+                'qtype' => 'cliente.cnpj_cpf',
+                'query' => $digitLike,
+                'oper' => 'like',
+                'sortname' => 'cliente.id',
+                'only_when_digits' => true,
+            ],
+            [
+                'qtype' => 'cliente.telefone_celular',
+                'query' => $digitLike,
+                'oper' => 'like',
+                'sortname' => 'cliente.id',
+                'only_when_digits' => true,
+            ],
+            [
+                'qtype' => 'cliente.id',
+                'query' => ctype_digit($query) ? $query : '-1',
+                'oper' => '=',
+                'sortname' => 'cliente.id',
+                'only_when_numeric_query' => true,
+            ],
+        ];
+
+        $lastList = [
+            'items' => [],
+            'total' => 0,
+            'page' => $page,
+            'per_page' => $perPage,
+        ];
+        $lastError = null;
+
+        foreach ($attempts as $attempt) {
+            if (($attempt['only_when_digits'] ?? false) && $queryDigits === '') {
+                continue;
+            }
+            if (($attempt['only_when_numeric_query'] ?? false) && ! ctype_digit($query)) {
+                continue;
+            }
+
+            $params = array_merge($baseParams, [
+                'qtype' => (string) $attempt['qtype'],
+                'query' => (string) $attempt['query'],
+                'oper' => (string) $attempt['oper'],
+                'sortname' => (string) $attempt['sortname'],
+            ]);
+
+            try {
+                $payload = $this->ixcApi->request($company, 'cliente', $params);
+                $list = $this->ixcApi->normalizeList($payload, $page, $perPage);
+                $lastList = $list;
+                if (($list['total'] ?? 0) > 0 || count($list['items'] ?? []) > 0) {
+                    return $list;
+                }
+            } catch (RuntimeException $exception) {
+                $lastError = $exception;
+                continue;
+            }
+        }
+
+        if ($lastError instanceof RuntimeException && count($lastList['items']) === 0) {
+            throw $lastError;
+        }
+
+        return $lastList;
     }
 
     public function show(Request $request, string $clientId): JsonResponse

@@ -19,6 +19,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
 class AiConversationController extends Controller
@@ -113,7 +114,7 @@ class AiConversationController extends Controller
         int $conversationId,
         InternalAiChatStreamService $streamService,
         InternalAiConversationService $conversationService
-    ): JsonResponse|Response {
+    ): JsonResponse|Response|StreamedResponse {
         $user = $this->resolveAuthenticatedUser($request);
         if (! $user) {
             return $this->unauthenticatedResponse();
@@ -140,41 +141,39 @@ class AiConversationController extends Controller
                         content: $content,
                         conversation: $conversation,
                         onChunk: static function (string $chunk) use ($controller): void {
-                            echo 'data: '.json_encode(
+                            echo 'data: ' . json_encode(
                                 ['type' => 'delta', 'content' => $chunk],
                                 JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
-                            )."\n\n";
+                            ) . "\n\n";
                             $controller->flushSseOutput();
                         },
                         companyId: $companyId
                     );
 
-                    echo 'data: '.json_encode([
+                    echo 'data: ' . json_encode([
                         'type' => 'done',
                         'user_message' => $conversationService->serializeMessage($result['user_message']),
                         'assistant_message' => $conversationService->serializeMessage($result['assistant_message']),
                         'conversation' => $conversationService->serializeConversationSummary($result['conversation']),
                         'provider' => $result['provider'],
                         'model' => $result['model'],
-                    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)."\n\n";
+                    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n\n";
                     $controller->flushSseOutput();
-
                 } catch (ValidationException $exception) {
                     $errors = $exception->errors();
                     $message = collect($errors)->flatten()->first()
                         ?? 'Não foi possível processar a mensagem.';
 
-                    echo 'data: '.json_encode(
+                    echo 'data: ' . json_encode(
                         ['type' => 'error', 'message' => $message],
                         JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
-                    )."\n\n";
+                    ) . "\n\n";
                     $controller->flushSseOutput();
-
                 } catch (Throwable) {
-                    echo 'data: '.json_encode(
+                    echo 'data: ' . json_encode(
                         ['type' => 'error', 'message' => 'Erro inesperado ao processar a mensagem.'],
                         JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
-                    )."\n\n";
+                    ) . "\n\n";
                     $controller->flushSseOutput();
                 }
             },
@@ -213,5 +212,4 @@ class AiConversationController extends Controller
 
         return $user instanceof User && (bool) $user->is_active ? $user : null;
     }
-
 }
