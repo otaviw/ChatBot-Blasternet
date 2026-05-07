@@ -105,6 +105,30 @@ class IxcClientController extends Controller
                     'oper' => 'like',
                     'sortname' => 'cliente.razao',
                 ],
+                [
+                    'qtype' => 'id',
+                    'query' => '0',
+                    'oper' => '>=',
+                    'sortname' => 'id',
+                ],
+                [
+                    'qtype' => 'id',
+                    'query' => '0',
+                    'oper' => '!=',
+                    'sortname' => 'id',
+                ],
+                [
+                    'qtype' => 'nome',
+                    'query' => '%',
+                    'oper' => 'like',
+                    'sortname' => 'nome',
+                ],
+                [
+                    'qtype' => 'razao',
+                    'query' => '%',
+                    'oper' => 'like',
+                    'sortname' => 'razao',
+                ],
             ]
             : [
                 [
@@ -151,6 +175,52 @@ class IxcClientController extends Controller
                     'query' => ctype_digit($query) ? $query : '-1',
                     'oper' => '=',
                     'sortname' => 'cliente.id',
+                    'only_when_numeric_query' => true,
+                ],
+                [
+                    'qtype' => 'razao',
+                    'query' => $nameLike,
+                    'oper' => 'like',
+                    'sortname' => 'razao',
+                ],
+                [
+                    'qtype' => 'nome',
+                    'query' => $nameLike,
+                    'oper' => 'like',
+                    'sortname' => 'nome',
+                ],
+                [
+                    'qtype' => 'fantasia',
+                    'query' => $nameLike,
+                    'oper' => 'like',
+                    'sortname' => 'fantasia',
+                ],
+                [
+                    'qtype' => 'cnpj_cpf',
+                    'query' => $queryDigits !== '' ? $queryDigits : $query,
+                    'oper' => '=',
+                    'sortname' => 'id',
+                    'only_when_digits' => true,
+                ],
+                [
+                    'qtype' => 'cnpj_cpf',
+                    'query' => $digitLike,
+                    'oper' => 'like',
+                    'sortname' => 'id',
+                    'only_when_digits' => true,
+                ],
+                [
+                    'qtype' => 'telefone_celular',
+                    'query' => $digitLike,
+                    'oper' => 'like',
+                    'sortname' => 'id',
+                    'only_when_digits' => true,
+                ],
+                [
+                    'qtype' => 'id',
+                    'query' => ctype_digit($query) ? $query : '-1',
+                    'oper' => '=',
+                    'sortname' => 'id',
                     'only_when_numeric_query' => true,
                 ],
             ];
