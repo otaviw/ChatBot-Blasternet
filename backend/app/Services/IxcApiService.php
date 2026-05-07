@@ -7,6 +7,8 @@ namespace App\Services;
 use App\Models\Company;
 use App\Support\IxcUrlGuard;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -65,7 +67,7 @@ class IxcApiService
 
                             $response = match ($normalizedMethod) {
                                 'post' => $client->post($url, $params),
-                                default => $client->get($url, $params),
+                                default => $this->sendGetWithBody($client, $url, $params),
                             };
                         } catch (ConnectionException) {
                             $lastException = new RuntimeException('Falha de conexão com a API IXC.');
@@ -196,8 +198,11 @@ class IxcApiService
                 ->withHeaders([
                     'ixcsoft' => $token,
                     'Authorization' => 'Basic ' . base64_encode($token),
+                    'Accept' => 'application/json',
                 ])
-                ->get($baseUrl . '/' . ltrim($resource, '/'), $params);
+                ->send('GET', $baseUrl . '/' . ltrim($resource, '/'), [
+                    'json' => $params,
+                ]);
         } catch (ConnectionException) {
             $this->registerFailure($company, $resource, $normalizedMethod, 'Falha de conexão com a API IXC.', $params, $started);
             if ($this->shouldTripBreakerForError('Falha de conexão com a API IXC.')) {
@@ -219,6 +224,17 @@ class IxcApiService
                 $this->tripBreakerIfNeeded((int) $company->id, $resource, $normalizedMethod, $breakerState);
             }
             throw new RuntimeException($message);
+        }
+
+        $contentType = strtolower((string) $response->header('Content-Type', ''));
+        $rawBody = (string) $response->body();
+        if (str_contains($contentType, 'json') || str_starts_with(trim($rawBody), '{')) {
+            $decoded = json_decode($rawBody, true);
+            if (is_array($decoded) && $this->isProviderErrorPayload($decoded)) {
+                $providerMessage = $this->extractProviderErrorMessage($decoded);
+                $this->registerFailure($company, $resource, $normalizedMethod, $providerMessage, $params, $started);
+                throw new RuntimeException($providerMessage);
+            }
         }
 
         $this->registerSuccess($company, $resource, $normalizedMethod, $started, $params);
@@ -598,6 +614,18 @@ class IxcApiService
 
         $resourceNormalized = strtolower(trim($resource));
         return in_array($resourceNormalized, ['cliente', 'fn_areceber'], true);
+    }
+
+    /**
+     * @param  array<string, mixed>  $params
+     */
+    private function sendGetWithBody(PendingRequest $client, string $url, array $params): Response
+    {
+        return $client
+            ->withHeaders(['Accept' => 'application/json'])
+            ->send('GET', $url, [
+                'json' => $params,
+            ]);
     }
 
     /**
