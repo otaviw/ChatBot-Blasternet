@@ -71,8 +71,8 @@ class IxcClientController extends Controller
         ];
         $attemptResults = [];
         $queryDigits = preg_replace('/\D+/', '', $query) ?? '';
-        $nameLike = '%' . $query . '%';
-        $digitLike = $queryDigits !== '' ? '%' . $queryDigits . '%' : '';
+        $nameContains = $query;
+        $digitContains = $queryDigits;
         $attempts = $query === ''
             ? [
                 [
@@ -95,14 +95,14 @@ class IxcClientController extends Controller
                 ],
                 [
                     'qtype' => 'cliente.nome',
-                    'query' => '%',
-                    'oper' => 'like',
+                    'query' => '',
+                    'oper' => 'L',
                     'sortname' => 'cliente.nome',
                 ],
                 [
                     'qtype' => 'cliente.razao',
-                    'query' => '%',
-                    'oper' => 'like',
+                    'query' => '',
+                    'oper' => 'L',
                     'sortname' => 'cliente.razao',
                 ],
                 [
@@ -119,34 +119,34 @@ class IxcClientController extends Controller
                 ],
                 [
                     'qtype' => 'nome',
-                    'query' => '%',
-                    'oper' => 'like',
+                    'query' => '',
+                    'oper' => 'L',
                     'sortname' => 'nome',
                 ],
                 [
                     'qtype' => 'razao',
-                    'query' => '%',
-                    'oper' => 'like',
+                    'query' => '',
+                    'oper' => 'L',
                     'sortname' => 'razao',
                 ],
             ]
             : [
                 [
                     'qtype' => 'cliente.razao',
-                    'query' => $nameLike,
-                    'oper' => 'like',
+                    'query' => $nameContains,
+                    'oper' => 'L',
                     'sortname' => 'cliente.razao',
                 ],
                 [
                     'qtype' => 'cliente.nome',
-                    'query' => $nameLike,
-                    'oper' => 'like',
+                    'query' => $nameContains,
+                    'oper' => 'L',
                     'sortname' => 'cliente.nome',
                 ],
                 [
                     'qtype' => 'cliente.fantasia',
-                    'query' => $nameLike,
-                    'oper' => 'like',
+                    'query' => $nameContains,
+                    'oper' => 'L',
                     'sortname' => 'cliente.fantasia',
                 ],
                 [
@@ -158,15 +158,15 @@ class IxcClientController extends Controller
                 ],
                 [
                     'qtype' => 'cliente.cnpj_cpf',
-                    'query' => $digitLike,
-                    'oper' => 'like',
+                    'query' => $digitContains,
+                    'oper' => 'L',
                     'sortname' => 'cliente.id',
                     'only_when_digits' => true,
                 ],
                 [
                     'qtype' => 'cliente.telefone_celular',
-                    'query' => $digitLike,
-                    'oper' => 'like',
+                    'query' => $digitContains,
+                    'oper' => 'L',
                     'sortname' => 'cliente.id',
                     'only_when_digits' => true,
                 ],
@@ -179,20 +179,20 @@ class IxcClientController extends Controller
                 ],
                 [
                     'qtype' => 'razao',
-                    'query' => $nameLike,
-                    'oper' => 'like',
+                    'query' => $nameContains,
+                    'oper' => 'L',
                     'sortname' => 'razao',
                 ],
                 [
                     'qtype' => 'nome',
-                    'query' => $nameLike,
-                    'oper' => 'like',
+                    'query' => $nameContains,
+                    'oper' => 'L',
                     'sortname' => 'nome',
                 ],
                 [
                     'qtype' => 'fantasia',
-                    'query' => $nameLike,
-                    'oper' => 'like',
+                    'query' => $nameContains,
+                    'oper' => 'L',
                     'sortname' => 'fantasia',
                 ],
                 [
@@ -204,15 +204,15 @@ class IxcClientController extends Controller
                 ],
                 [
                     'qtype' => 'cnpj_cpf',
-                    'query' => $digitLike,
-                    'oper' => 'like',
+                    'query' => $digitContains,
+                    'oper' => 'L',
                     'sortname' => 'id',
                     'only_when_digits' => true,
                 ],
                 [
                     'qtype' => 'telefone_celular',
-                    'query' => $digitLike,
-                    'oper' => 'like',
+                    'query' => $digitContains,
+                    'oper' => 'L',
                     'sortname' => 'id',
                     'only_when_digits' => true,
                 ],
