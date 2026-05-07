@@ -218,6 +218,30 @@ class IxcApiServiceHardeningTest extends TestCase
         $this->assertSame('token-listar-provider-error', (string) ($recorded[1][0]->header('ixcsoft')[0] ?? ''));
     }
 
+    public function test_provider_functional_errors_do_not_open_circuit_breaker(): void
+    {
+        Cache::flush();
+        $company = $this->makeCompany('token-no-breaker-functional-error');
+
+        Http::fake([
+            '*' => Http::response([
+                'type' => 'error',
+                'message' => 'Recurso cliente nao esta disponivel!',
+            ], 200),
+        ]);
+
+        $service = app(IxcApiService::class);
+        for ($i = 0; $i < 6; $i++) {
+            try {
+                $service->request($company, 'fn_areceber', ['qtype' => 'fn_areceber.id', 'query' => '1', 'oper' => '=']);
+            } catch (RuntimeException $exception) {
+                $this->assertStringContainsString('Recurso cliente nao esta disponivel', $exception->getMessage());
+            }
+        }
+
+        $this->assertTrue(true);
+    }
+
     private function makeCompany(string $token): Company
     {
         return Company::create([

@@ -149,7 +149,9 @@ class IxcApiService
 
             $failureException = $lastException ?? new RuntimeException('Erro desconhecido na consulta IXC.');
             $this->registerFailure($company, $resource, $normalizedMethod, $failureException->getMessage(), $params, $started);
-            $this->tripBreakerIfNeeded((int) $company->id, $resource, $normalizedMethod, $breakerState);
+            if ($this->shouldTripBreakerForError($failureException->getMessage())) {
+                $this->tripBreakerIfNeeded((int) $company->id, $resource, $normalizedMethod, $breakerState);
+            }
             throw $failureException;
         };
 
@@ -196,18 +198,24 @@ class IxcApiService
                 ->get($baseUrl . '/' . ltrim($resource, '/'), $params);
         } catch (ConnectionException) {
             $this->registerFailure($company, $resource, $normalizedMethod, 'Falha de conexao com a API IXC.', $params, $started);
-            $this->tripBreakerIfNeeded((int) $company->id, $resource, $normalizedMethod, $breakerState);
+            if ($this->shouldTripBreakerForError('Falha de conexao com a API IXC.')) {
+                $this->tripBreakerIfNeeded((int) $company->id, $resource, $normalizedMethod, $breakerState);
+            }
             throw new RuntimeException('Falha de conexao com a API IXC.');
         } catch (\Throwable) {
             $this->registerFailure($company, $resource, $normalizedMethod, 'Erro inesperado ao consultar a API IXC.', $params, $started);
-            $this->tripBreakerIfNeeded((int) $company->id, $resource, $normalizedMethod, $breakerState);
+            if ($this->shouldTripBreakerForError('Erro inesperado ao consultar a API IXC.')) {
+                $this->tripBreakerIfNeeded((int) $company->id, $resource, $normalizedMethod, $breakerState);
+            }
             throw new RuntimeException('Erro inesperado ao consultar a API IXC.');
         }
 
         if (! $response->successful()) {
             $message = "IXC respondeu com HTTP {$response->status()}.";
             $this->registerFailure($company, $resource, $normalizedMethod, $message, $params, $started);
-            $this->tripBreakerIfNeeded((int) $company->id, $resource, $normalizedMethod, $breakerState);
+            if ($this->shouldTripBreakerForError($message)) {
+                $this->tripBreakerIfNeeded((int) $company->id, $resource, $normalizedMethod, $breakerState);
+            }
             throw new RuntimeException($message);
         }
 
@@ -618,6 +626,28 @@ class IxcApiService
         }
 
         return mb_substr($trimmed, 0, 3) . '***' . mb_substr($trimmed, -2);
+    }
+
+    private function shouldTripBreakerForError(string $message): bool
+    {
+        $normalized = mb_strtolower(trim($message));
+        if ($normalized === '') {
+            return true;
+        }
+
+        if (str_contains($normalized, 'falha de conexao')) {
+            return true;
+        }
+        if (str_contains($normalized, 'erro inesperado')) {
+            return true;
+        }
+
+        if (preg_match('/http\s+(\d{3})/i', $message, $matches) === 1) {
+            $status = (int) ($matches[1] ?? 0);
+            return $status >= 500;
+        }
+
+        return false;
     }
 
     /**
