@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Company;
 use App\Models\User;
+use App\Support\UserPermissions;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -91,6 +92,64 @@ class IxcHardeningTest extends TestCase
                 ->whereType('message', 'string')
                 ->where('message', fn ($message) => is_string($message) && str_contains(mb_strtolower($message), 'indispon'))
                 ->etc());
+    }
+
+    public function test_ixc_invoices_requires_invoices_view_permission(): void
+    {
+        $company = $this->makeIxcCompany();
+        $agent = $this->makeAgent($company->id, permissions: [
+            UserPermissions::PAGE_IXC_CLIENTS,
+        ]);
+
+        $this->actingAs($agent)
+            ->getJson('/api/minha-conta/ixc/clientes/10/boletos')
+            ->assertStatus(403);
+    }
+
+    public function test_ixc_invoice_download_requires_download_permission(): void
+    {
+        $company = $this->makeIxcCompany();
+        $agent = $this->makeAgent($company->id, permissions: [
+            UserPermissions::PAGE_IXC_CLIENTS,
+            UserPermissions::IXC_INVOICES_VIEW,
+        ]);
+
+        $this->actingAs($agent)
+            ->postJson('/api/minha-conta/ixc/clientes/10/boletos/20/download')
+            ->assertStatus(403);
+    }
+
+    public function test_ixc_invoice_send_email_requires_send_email_permission(): void
+    {
+        $company = $this->makeIxcCompany();
+        $agent = $this->makeAgent($company->id, permissions: [
+            UserPermissions::PAGE_IXC_CLIENTS,
+            UserPermissions::IXC_INVOICES_VIEW,
+            UserPermissions::IXC_INVOICES_DOWNLOAD,
+        ]);
+
+        $this->actingAs($agent)
+            ->postJson('/api/minha-conta/ixc/clientes/10/boletos/20/enviar-email', [
+                'email' => 'cliente@example.com',
+            ])
+            ->assertStatus(403);
+    }
+
+    public function test_ixc_invoice_send_sms_requires_send_sms_permission(): void
+    {
+        $company = $this->makeIxcCompany();
+        $agent = $this->makeAgent($company->id, permissions: [
+            UserPermissions::PAGE_IXC_CLIENTS,
+            UserPermissions::IXC_INVOICES_VIEW,
+            UserPermissions::IXC_INVOICES_DOWNLOAD,
+            UserPermissions::IXC_INVOICES_SEND_EMAIL,
+        ]);
+
+        $this->actingAs($agent)
+            ->postJson('/api/minha-conta/ixc/clientes/10/boletos/20/enviar-sms', [
+                'phone' => '11999999999',
+            ])
+            ->assertStatus(403);
     }
 
     private function makeIxcCompany(): Company

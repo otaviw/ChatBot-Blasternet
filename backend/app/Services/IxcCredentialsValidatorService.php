@@ -30,7 +30,7 @@ class IxcCredentialsValidatorService
         if (! IxcUrlGuard::isSafeBaseUrl($normalizedBaseUrl, (bool) config('ixc.allow_private_hosts', false))) {
             return [
                 'ok' => false,
-                'error' => 'URL da IXC inválida ou não permitida.',
+                'error' => 'URL da IXC invalida ou nao permitida.',
                 'details' => null,
             ];
         }
@@ -59,13 +59,13 @@ class IxcCredentialsValidatorService
         } catch (ConnectionException) {
             return [
                 'ok' => false,
-                'error' => 'Não foi possível conectar ao servidor IXC.',
+                'error' => 'Nao foi possivel conectar ao servidor IXC.',
                 'details' => null,
             ];
         } catch (\Throwable) {
             return [
                 'ok' => false,
-                'error' => 'Erro inesperado ao validar a integração IXC.',
+                'error' => 'Erro inesperado ao validar a integracao IXC.',
                 'details' => null,
             ];
         }
@@ -73,7 +73,7 @@ class IxcCredentialsValidatorService
         if ($response->status() === 401 || $response->status() === 403) {
             return [
                 'ok' => false,
-                'error' => 'Token IXC inválido ou sem permissão.',
+                'error' => 'Token IXC invalido ou sem permissao.',
                 'details' => ['status' => $response->status()],
             ];
         }
