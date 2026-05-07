@@ -36,10 +36,11 @@ function IxcClientDetailPage() {
   const [invoiceActionBusyId, setInvoiceActionBusyId] = useState(null);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [detailBusy, setDetailBusy] = useState(false);
-  const [actionMessage, setActionMessage] = useState('');
+  const [actionFeedback, setActionFeedback] = useState({ type: '', message: '' });
   const [sendModal, setSendModal] = useState({ type: '', invoice: null });
   const [sendTarget, setSendTarget] = useState('');
   const [sendBusy, setSendBusy] = useState(false);
+  const [sendModalMessage, setSendModalMessage] = useState({ type: '', message: '' });
 
   const canPrev = useMemo(() => page > 1 && !loadingInvoices, [page, loadingInvoices]);
   const canNext = useMemo(() => Boolean(invoicePagination?.has_next) && !loadingInvoices, [invoicePagination?.has_next, loadingInvoices]);
@@ -99,6 +100,28 @@ function IxcClientDetailPage() {
     };
   }, [canViewInvoices, clientId, dateFrom, dateTo, page, status]);
 
+  async function readBlobErrorMessage(blobData) {
+    if (!(blobData instanceof Blob)) {
+      return '';
+    }
+
+    const type = String(blobData.type ?? '').toLowerCase();
+    if (!(type.includes('json') || type.includes('text'))) {
+      return '';
+    }
+
+    try {
+      const text = await blobData.text();
+      if (!text) {
+        return '';
+      }
+      const parsed = JSON.parse(text);
+      return String(parsed?.message || parsed?.error || '').trim();
+    } catch {
+      return '';
+    }
+  }
+
   return (
     <Layout role="company" onLogout={logout}>
       <button type="button" className="app-btn-secondary mb-4" onClick={() => navigate('/minha-conta/ixc/clientes')}>
@@ -109,7 +132,11 @@ function IxcClientDetailPage() {
       <p className="app-page-subtitle mb-4">Detalhes do cliente e boletos (somente leitura na M3).</p>
 
       {error ? <p className="text-sm text-red-600 mb-3">{error}</p> : null}
-      {actionMessage ? <p className="text-sm text-[#525252] mb-3">{actionMessage}</p> : null}
+      {actionFeedback.message ? (
+        <p className={`text-sm mb-3 ${actionFeedback.type === 'error' ? 'text-red-600' : 'text-emerald-700'}`}>
+          {actionFeedback.message}
+        </p>
+      ) : null}
 
       <section className="app-panel mb-6">
         {loadingClient ? (
@@ -186,12 +213,15 @@ function IxcClientDetailPage() {
                               disabled={detailBusy}
                               onClick={async () => {
                                 setDetailBusy(true);
-                                setActionMessage('');
+                                setActionFeedback({ type: '', message: '' });
                                 try {
                                   const detail = await getIxcInvoiceDetail(clientId, invoice.id);
-                                  setSelectedInvoice(detail?.item ?? null);
+                                  if (!detail?.item) {
+                                    throw new Error('Nao foi possivel consultar os detalhes do boleto na IXC.');
+                                  }
+                                  setSelectedInvoice(detail.item);
                                 } catch (err) {
-                                  setActionMessage(err?.message || 'Falha ao consultar boleto.');
+                                  setActionFeedback({ type: 'error', message: err?.message || 'Falha ao consultar boleto.' });
                                 } finally {
                                   setDetailBusy(false);
                                 }
@@ -205,7 +235,7 @@ function IxcClientDetailPage() {
                               disabled={!canDownloadInvoices || invoiceActionBusyId === invoice.id}
                               onClick={async () => {
                                 setInvoiceActionBusyId(invoice.id);
-                                setActionMessage('');
+                                setActionFeedback({ type: '', message: '' });
                                 try {
                                   const response = await downloadIxcInvoice(clientId, invoice.id);
                                   const blob = response?.data;
@@ -216,6 +246,10 @@ function IxcClientDetailPage() {
                                   const filename = match?.[1] || `boleto_${invoice.id}_${fallbackDate}.pdf`;
 
                                   const downloadBlob = blob instanceof Blob ? blob : new Blob([blob], { type: contentType });
+                                  const errorMessage = await readBlobErrorMessage(downloadBlob);
+                                  if (errorMessage) {
+                                    throw new Error(errorMessage);
+                                  }
                                   const url = URL.createObjectURL(downloadBlob);
                                   const anchor = document.createElement('a');
                                   anchor.href = url;
@@ -224,9 +258,9 @@ function IxcClientDetailPage() {
                                   anchor.click();
                                   anchor.remove();
                                   URL.revokeObjectURL(url);
-                                  setActionMessage(`Boleto ${invoice.id} baixado com sucesso.`);
+                                  setActionFeedback({ type: 'success', message: `Boleto ${invoice.id} baixado com sucesso.` });
                                 } catch (err) {
-                                  setActionMessage(err?.message || 'Falha ao baixar boleto.');
+                                  setActionFeedback({ type: 'error', message: err?.message || 'Falha ao baixar boleto.' });
                                 } finally {
                                   setInvoiceActionBusyId(null);
                                 }
@@ -241,6 +275,7 @@ function IxcClientDetailPage() {
                               onClick={() => {
                                 setSendModal({ type: 'email', invoice });
                                 setSendTarget(String(client?.email ?? '').trim());
+                                setSendModalMessage({ type: '', message: '' });
                               }}
                             >
                               Enviar e-mail
@@ -252,6 +287,7 @@ function IxcClientDetailPage() {
                               onClick={() => {
                                 setSendModal({ type: 'sms', invoice });
                                 setSendTarget(String(client?.telefone_celular ?? '').trim());
+                                setSendModalMessage({ type: '', message: '' });
                               }}
                             >
                               Enviar SMS
@@ -281,21 +317,26 @@ function IxcClientDetailPage() {
       </section>
 
       {selectedInvoice ? (
-        <section className="app-panel mt-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-medium">Detalhe do boleto #{selectedInvoice.id}</h2>
-            <button type="button" className="app-btn-secondary" onClick={() => setSelectedInvoice(null)}>
-              Fechar
-            </button>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-            <p><strong>Status:</strong> {selectedInvoice.status || '-'}</p>
-            <p><strong>Valor:</strong> {selectedInvoice.valor || '-'}</p>
-            <p><strong>Vencimento:</strong> {selectedInvoice.data_vencimento || '-'}</p>
-            <p><strong>Documento:</strong> {selectedInvoice.documento || '-'}</p>
-            <p className="md:col-span-2"><strong>Linha digitável:</strong> {selectedInvoice.linha_digitavel || '-'}</p>
-          </div>
-        </section>
+        <div
+          className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+          onClick={() => setSelectedInvoice(null)}
+        >
+          <section className="app-panel w-full max-w-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-medium">Detalhe do boleto #{selectedInvoice.id}</h2>
+              <button type="button" className="app-btn-secondary" onClick={() => setSelectedInvoice(null)}>
+                Fechar
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+              <p><strong>Status:</strong> {selectedInvoice.status || '-'}</p>
+              <p><strong>Valor:</strong> {selectedInvoice.valor || '-'}</p>
+              <p><strong>Vencimento:</strong> {selectedInvoice.data_vencimento || '-'}</p>
+              <p><strong>Documento:</strong> {selectedInvoice.documento || '-'}</p>
+              <p className="md:col-span-2"><strong>Linha digitável:</strong> {selectedInvoice.linha_digitavel || '-'}</p>
+            </div>
+          </section>
+        </div>
       ) : null}
 
       {sendModal?.invoice ? (
@@ -311,6 +352,7 @@ function IxcClientDetailPage() {
                 if (sendBusy) return;
                 setSendModal({ type: '', invoice: null });
                 setSendTarget('');
+                setSendModalMessage({ type: '', message: '' });
               }}
             >
               Fechar
@@ -328,25 +370,38 @@ function IxcClientDetailPage() {
             />
           </label>
 
+          {sendModalMessage.message ? (
+            <p className={`text-sm mb-3 ${sendModalMessage.type === 'error' ? 'text-red-600' : 'text-emerald-700'}`}>
+              {sendModalMessage.message}
+            </p>
+          ) : null}
+
           <button
             type="button"
             className="app-btn-primary"
             disabled={sendBusy || String(sendTarget ?? '').trim() === ''}
             onClick={async () => {
               setSendBusy(true);
-              setActionMessage('');
+              setActionFeedback({ type: '', message: '' });
+              setSendModalMessage({ type: '', message: '' });
               try {
                 if (sendModal.type === 'email') {
                   const response = await sendIxcInvoiceEmail(clientId, sendModal.invoice.id, String(sendTarget).trim());
-                  setActionMessage(response?.message || 'Boleto enviado por e-mail com sucesso.');
+                  const message = response?.message || 'Boleto enviado por e-mail com sucesso.';
+                  setActionFeedback({ type: 'success', message });
+                  setSendModalMessage({ type: 'success', message });
                 } else {
                   const response = await sendIxcInvoiceSms(clientId, sendModal.invoice.id, String(sendTarget).trim());
-                  setActionMessage(response?.message || 'Boleto enviado por SMS com sucesso.');
+                  const message = response?.message || 'Boleto enviado por SMS com sucesso.';
+                  setActionFeedback({ type: 'success', message });
+                  setSendModalMessage({ type: 'success', message });
                 }
                 setSendModal({ type: '', invoice: null });
                 setSendTarget('');
               } catch (err) {
-                setActionMessage(err?.message || 'Falha ao enviar boleto.');
+                const message = err?.message || 'Falha ao enviar boleto.';
+                setActionFeedback({ type: 'error', message });
+                setSendModalMessage({ type: 'error', message });
               } finally {
                 setSendBusy(false);
               }

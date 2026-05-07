@@ -579,11 +579,12 @@ class IxcClientController extends Controller
             return response()->json(['ok' => false, 'message' => 'Boleto não encontrado.'], 404);
         }
 
-        $binaryPayload = $this->resolveInvoiceBinary($company, $invoice, $clientId, $invoiceId);
-        if (! is_array($binaryPayload) || ($binaryPayload['binary'] ?? '') === '') {
+        try {
+            $binaryPayload = $this->resolveInvoiceBinary($company, $invoice, $clientId, $invoiceId);
+        } catch (RuntimeException $exception) {
             return response()->json([
                 'ok' => false,
-                'message' => 'Não foi possível obter o arquivo do boleto na IXC.',
+                'message' => $exception->getMessage(),
             ], 422);
         }
 
@@ -781,15 +782,96 @@ class IxcClientController extends Controller
 
     /**
      * @param  array<string, mixed>  $invoice
-     * @return array{binary:string, content_type:string}|null
+     * @return array{binary:string, content_type:string}
      */
-    private function resolveInvoiceBinary(Company $company, array $invoice, string $clientId, string $invoiceId): ?array
+    private function resolveInvoiceBinary(Company $company, array $invoice, string $clientId, string $invoiceId): array
     {
+        $lastError = null;
         $baseHost = strtolower((string) (parse_url((string) ($company->ixc_base_url ?? ''), PHP_URL_HOST) ?? ''));
         $allowPrivateHosts = (bool) config('ixc.allow_private_hosts', false);
+
+        $fromInvoice = $this->extractBinaryFromPayload($company, $invoice, $baseHost, $allowPrivateHosts);
+        if ($fromInvoice !== null) {
+            return $fromInvoice;
+        }
+
+        try {
+            $jsonAttempt = $this->ixcApi->request($company, 'get_boleto', [
+                'id' => $invoiceId,
+                'id_cliente' => $clientId,
+            ]);
+
+            $fromJson = $this->extractBinaryFromPayload($company, $jsonAttempt, $baseHost, $allowPrivateHosts);
+            if ($fromJson !== null) {
+                return $fromJson;
+            }
+
+            $providerMessage = $this->extractProviderMessageFromPayload($jsonAttempt);
+            if ($providerMessage !== null) {
+                $lastError = $providerMessage;
+            }
+        } catch (RuntimeException $exception) {
+            $lastError = $exception->getMessage();
+        }
+
+        try {
+            $binaryAttempt = $this->ixcApi->requestBinary($company, 'get_boleto', [
+                'id' => $invoiceId,
+                'id_cliente' => $clientId,
+            ]);
+            $body = (string) ($binaryAttempt['body'] ?? '');
+            if ($body !== '') {
+                $contentType = strtolower((string) ($binaryAttempt['content_type'] ?? ''));
+                if (str_contains($contentType, 'json') || str_starts_with(trim($body), '{')) {
+                    $decoded = json_decode($body, true);
+                    if (is_array($decoded)) {
+                        $fromJson = $this->extractBinaryFromPayload($company, $decoded, $baseHost, $allowPrivateHosts);
+                        if ($fromJson !== null) {
+                            return $fromJson;
+                        }
+                        $providerMessage = $this->extractProviderMessageFromPayload($decoded);
+                        if ($providerMessage !== null) {
+                            $lastError = $providerMessage;
+                        }
+                    }
+                }
+
+                return [
+                    'binary' => $body,
+                    'content_type' => (string) ($binaryAttempt['content_type'] ?? 'application/pdf'),
+                ];
+            }
+        } catch (RuntimeException $exception) {
+            $lastError = $exception->getMessage();
+        }
+
+        throw new RuntimeException($lastError ?: 'Não foi possível obter o arquivo do boleto na IXC.');
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array{binary:string, content_type:string}|null
+     */
+    private function extractBinaryFromPayload(Company $company, array $payload, string $baseHost, bool $allowPrivateHosts): ?array
+    {
+        $base64Keys = ['pdf_base64', 'arquivo_base64', 'boleto_base64', 'pdf'];
+        foreach ($base64Keys as $key) {
+            $value = trim((string) ($payload[$key] ?? ''));
+            if ($value === '') {
+                continue;
+            }
+            $decoded = base64_decode($value, true);
+            if ($decoded !== false && $decoded !== '') {
+                return [
+                    'binary' => $decoded,
+                    'content_type' => 'application/pdf',
+                ];
+            }
+        }
+
         $urlKeys = ['url', 'link', 'link_boleto', 'boleto_link', 'pdf_url', 'arquivo_url'];
         foreach ($urlKeys as $key) {
-            $value = trim((string) ($invoice[$key] ?? ''));
+            $value = trim((string) ($payload[$key] ?? ''));
             if ($value === '' || ! IxcUrlGuard::isSafeInvoiceUrl($value, $baseHost, $allowPrivateHosts)) {
                 continue;
             }
@@ -810,34 +892,25 @@ class IxcClientController extends Controller
             }
         }
 
-        $base64Keys = ['pdf_base64', 'arquivo_base64', 'boleto_base64', 'pdf'];
-        foreach ($base64Keys as $key) {
-            $value = trim((string) ($invoice[$key] ?? ''));
-            if ($value === '') {
-                continue;
-            }
-            $decoded = base64_decode($value, true);
-            if ($decoded !== false && $decoded !== '') {
-                return [
-                    'binary' => $decoded,
-                    'content_type' => 'application/pdf',
-                ];
-            }
-        }
+        return null;
+    }
 
-        try {
-            $binaryAttempt = $this->ixcApi->requestBinary($company, 'get_boleto', [
-                'id' => $invoiceId,
-                'id_cliente' => $clientId,
-            ]);
-            if ($binaryAttempt['body'] !== '') {
-                return [
-                    'binary' => (string) $binaryAttempt['body'],
-                    'content_type' => (string) ($binaryAttempt['content_type'] ?? 'application/pdf'),
-                ];
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function extractProviderMessageFromPayload(array $payload): ?string
+    {
+        $candidates = [
+            $payload['message'] ?? null,
+            $payload['mensagem'] ?? null,
+            $payload['error'] ?? null,
+        ];
+
+        foreach ($candidates as $candidate) {
+            $message = trim((string) $candidate);
+            if ($message !== '') {
+                return $message;
             }
-        } catch (RuntimeException) {
-            return null;
         }
 
         return null;
