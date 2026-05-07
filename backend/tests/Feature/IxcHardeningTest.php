@@ -71,6 +71,28 @@ class IxcHardeningTest extends TestCase
         $this->actingAs($admin)->getJson('/api/minha-conta/ixc/clientes')->assertStatus(429);
     }
 
+    public function test_ixc_clients_returns_422_with_clear_message_when_resource_is_unavailable(): void
+    {
+        $company = $this->makeIxcCompany();
+        $admin = $this->makeCompanyAdmin($company->id);
+
+        Http::fake([
+            '*' => Http::response([
+                'type' => 'error',
+                'message' => 'Recurso cliente nao esta disponivel!',
+            ], 200),
+        ]);
+
+        $response = $this->actingAs($admin)->getJson('/api/minha-conta/ixc/clientes');
+
+        $response->assertStatus(422)
+            ->assertJsonPath('ok', false)
+            ->assertJson(fn ($json) => $json
+                ->whereType('message', 'string')
+                ->where('message', fn ($message) => is_string($message) && str_contains(mb_strtolower($message), 'indispon'))
+                ->etc());
+    }
+
     private function makeIxcCompany(): Company
     {
         return Company::create([

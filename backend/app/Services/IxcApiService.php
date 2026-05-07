@@ -26,7 +26,7 @@ class IxcApiService
     public function request(Company $company, string $resource, array $params, string $method = 'get'): array
     {
         if (! $company->hasIxcIntegration()) {
-            throw new RuntimeException('Integracao IXC nao esta habilitada para esta empresa.');
+            throw new RuntimeException('Integração IXC não está habilitada para esta empresa.');
         }
 
         $baseUrl = rtrim((string) ($company->ixc_base_url ?? ''), '/');
@@ -35,7 +35,7 @@ class IxcApiService
             throw new RuntimeException('Credenciais IXC incompletas para esta empresa.');
         }
         if (! IxcUrlGuard::isSafeBaseUrl($baseUrl, (bool) config('ixc.allow_private_hosts', false))) {
-            throw new RuntimeException('URL base da IXC invalida ou nao permitida.');
+            throw new RuntimeException('URL base da IXC inválida ou não permitida.');
         }
 
         $normalizedMethod = strtolower(trim($method));
@@ -43,7 +43,7 @@ class IxcApiService
         $cacheKey = $this->buildCacheKey((int) $company->id, $resource, $params, $normalizedMethod);
         $breakerState = $this->breakerStateKey((int) $company->id, $resource, $normalizedMethod);
         if (Cache::get($breakerState) === 'open') {
-            throw new RuntimeException('Integracao IXC temporariamente indisponivel para esta empresa. Tente novamente em instantes.');
+            throw new RuntimeException('Integração IXC temporariamente indisponível para esta empresa. Tente novamente em instantes.');
         }
 
         $executor = function () use ($baseUrl, $token, $resource, $params, $company, $normalizedMethod, $breakerState): array {
@@ -67,7 +67,7 @@ class IxcApiService
                                 default => $client->get($url, $params),
                             };
                         } catch (ConnectionException) {
-                            $lastException = new RuntimeException('Falha de conexao com a API IXC.');
+                            $lastException = new RuntimeException('Falha de conexão com a API IXC.');
                             $this->logDebugAttempt($company, $resource, $url, $normalizedMethod, $params, $headers, $mode, null, null, null, false, false, $lastException->getMessage());
                             continue;
                         } catch (\Throwable) {
@@ -88,7 +88,7 @@ class IxcApiService
 
                         $json = $response->json();
                         if (! is_array($json)) {
-                            $lastException = new RuntimeException('Resposta invalida da API IXC.');
+                            $lastException = new RuntimeException('Resposta inválida da API IXC.');
                             $this->logDebugAttempt($company, $resource, $url, $normalizedMethod, $params, $headers, $mode, $response->status(), (string) $response->body(), null, false, false, $lastException->getMessage());
                             break 2;
                         }
@@ -169,7 +169,7 @@ class IxcApiService
     public function requestBinary(Company $company, string $resource, array $params = []): array
     {
         if (! $company->hasIxcIntegration()) {
-            throw new RuntimeException('Integracao IXC nao esta habilitada para esta empresa.');
+            throw new RuntimeException('Integração IXC não está habilitada para esta empresa.');
         }
 
         $baseUrl = rtrim((string) ($company->ixc_base_url ?? ''), '/');
@@ -178,13 +178,13 @@ class IxcApiService
             throw new RuntimeException('Credenciais IXC incompletas para esta empresa.');
         }
         if (! IxcUrlGuard::isSafeBaseUrl($baseUrl, (bool) config('ixc.allow_private_hosts', false))) {
-            throw new RuntimeException('URL base da IXC invalida ou nao permitida.');
+            throw new RuntimeException('URL base da IXC inválida ou não permitida.');
         }
 
         $normalizedMethod = 'get';
         $breakerState = $this->breakerStateKey((int) $company->id, $resource, $normalizedMethod);
         if (Cache::get($breakerState) === 'open') {
-            throw new RuntimeException('Integracao IXC temporariamente indisponivel para esta empresa. Tente novamente em instantes.');
+            throw new RuntimeException('Integração IXC temporariamente indisponível para esta empresa. Tente novamente em instantes.');
         }
         $started = microtime(true);
 
@@ -197,11 +197,11 @@ class IxcApiService
                 ])
                 ->get($baseUrl . '/' . ltrim($resource, '/'), $params);
         } catch (ConnectionException) {
-            $this->registerFailure($company, $resource, $normalizedMethod, 'Falha de conexao com a API IXC.', $params, $started);
-            if ($this->shouldTripBreakerForError('Falha de conexao com a API IXC.')) {
+            $this->registerFailure($company, $resource, $normalizedMethod, 'Falha de conexão com a API IXC.', $params, $started);
+            if ($this->shouldTripBreakerForError('Falha de conexão com a API IXC.')) {
                 $this->tripBreakerIfNeeded((int) $company->id, $resource, $normalizedMethod, $breakerState);
             }
-            throw new RuntimeException('Falha de conexao com a API IXC.');
+            throw new RuntimeException('Falha de conexão com a API IXC.');
         } catch (\Throwable) {
             $this->registerFailure($company, $resource, $normalizedMethod, 'Erro inesperado ao consultar a API IXC.', $params, $started);
             if ($this->shouldTripBreakerForError('Erro inesperado ao consultar a API IXC.')) {
@@ -635,7 +635,7 @@ class IxcApiService
             return true;
         }
 
-        if (str_contains($normalized, 'falha de conexao')) {
+        if (str_contains($normalized, 'falha de conexão') || str_contains($normalized, 'falha de conexao')) {
             return true;
         }
         if (str_contains($normalized, 'erro inesperado')) {
@@ -673,6 +673,6 @@ class IxcApiService
             return $message;
         }
 
-        return 'API IXC retornou erro de recurso/operacao.';
+        return 'API IXC retornou erro de recurso/operação.';
     }
 }

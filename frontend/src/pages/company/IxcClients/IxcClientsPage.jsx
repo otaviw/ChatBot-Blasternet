@@ -53,7 +53,7 @@ function IxcClientsPage() {
   return (
     <Layout role="company" onLogout={logout}>
       <h1 className="app-page-title">Clientes IXC</h1>
-      <p className="app-page-subtitle mb-4">Consulta de clientes vinculados a integracao IXC da empresa.</p>
+      <p className="app-page-subtitle mb-4">Consulta de clientes vinculados à integração IXC da empresa.</p>
       <section className="app-panel">
         <div className="flex flex-wrap gap-2 mb-4">
           <input
@@ -71,7 +71,7 @@ function IxcClientsPage() {
         {error ? <p className="text-sm text-red-600 mb-3">{error}</p> : null}
         {loading ? <p className="text-sm text-[#525252]">Carregando clientes...</p> : null}
 
-        {!loading && items.length === 0 ? (
+        {!loading && !error && items.length === 0 ? (
           <p className="text-sm text-[#525252]">Nenhum cliente encontrado para os filtros atuais.</p>
         ) : null}
 
@@ -81,7 +81,7 @@ function IxcClientsPage() {
               <thead>
                 <tr className="text-left border-b border-[#e5e5e5]">
                   <th className="py-2 pr-2">ID</th>
-                  <th className="py-2 pr-2">Razao</th>
+                  <th className="py-2 pr-2">Razão</th>
                   <th className="py-2 pr-2">Fantasia</th>
                   <th className="py-2 pr-2">Documento</th>
                   <th className="py-2 pr-2">Contato</th>
@@ -111,14 +111,14 @@ function IxcClientsPage() {
             Anterior
           </button>
           <button type="button" className="app-btn-secondary" disabled={!canNext} onClick={() => setPage((prev) => prev + 1)}>
-            Proxima
+            Próxima
           </button>
           <span className="text-xs text-[#737373]">
-            Pagina {pagination?.page || page} - total {pagination?.total ?? 0}
+            Página {pagination?.page || page} - total {pagination?.total ?? 0}
           </span>
         </div>
 
-        {!canViewInvoices ? <p className="text-xs text-[#737373] mt-3">Seu usuario nao possui permissao para visualizar boletos.</p> : null}
+        {!canViewInvoices ? <p className="text-xs text-[#737373] mt-3">Seu usuário não possui permissão para visualizar boletos.</p> : null}
       </section>
     </Layout>
   );

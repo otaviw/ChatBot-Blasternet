@@ -49,7 +49,7 @@ class IxcApiServiceHardeningTest extends TestCase
         }
 
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Integracao IXC temporariamente indisponivel');
+        $this->expectExceptionMessage('Integração IXC temporariamente indisponível');
 
         $service->request($company, 'cliente', ['qtype' => 'cliente.id', 'query' => '1', 'oper' => '=']);
     }

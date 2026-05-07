@@ -115,10 +115,10 @@ function IxcClientDetailPage() {
         {loadingClient ? (
           <p className="text-sm text-[#525252]">Carregando dados do cliente...</p>
         ) : !client ? (
-          <p className="text-sm text-[#525252]">Cliente nao encontrado.</p>
+          <p className="text-sm text-[#525252]">Cliente não encontrado.</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-            <p><strong>Razao:</strong> {client.razao || '-'}</p>
+            <p><strong>Razão:</strong> {client.razao || '-'}</p>
             <p><strong>Fantasia:</strong> {client.fantasia || '-'}</p>
             <p><strong>Documento:</strong> {client.cpf_cnpj || '-'}</p>
             <p><strong>E-mail:</strong> {client.email || '-'}</p>
@@ -131,7 +131,7 @@ function IxcClientDetailPage() {
       <section className="app-panel">
         <h2 className="font-medium mb-3">Boletos</h2>
         {!canViewInvoices ? (
-          <p className="text-sm text-[#525252]">Seu usuario nao possui permissao para visualizar boletos.</p>
+          <p className="text-sm text-[#525252]">Seu usuário não possui permissão para visualizar boletos.</p>
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-4">
@@ -149,7 +149,7 @@ function IxcClientDetailPage() {
                 <input type="date" value={dateFrom} onChange={(event) => { setPage(1); setDateFrom(event.target.value); }} className="app-input" />
               </label>
               <label className="text-sm">
-                Vencimento ate
+                Vencimento até
                 <input type="date" value={dateTo} onChange={(event) => { setPage(1); setDateTo(event.target.value); }} className="app-input" />
               </label>
             </div>
@@ -167,7 +167,7 @@ function IxcClientDetailPage() {
                       <th className="py-2 pr-2">Vencimento</th>
                       <th className="py-2 pr-2">Valor</th>
                       <th className="py-2 pr-2">Documento</th>
-                      <th className="py-2 pr-2">Acoes</th>
+                      <th className="py-2 pr-2">Ações</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -270,10 +270,10 @@ function IxcClientDetailPage() {
                 Anterior
               </button>
               <button type="button" className="app-btn-secondary" disabled={!canNext} onClick={() => setPage((prev) => prev + 1)}>
-                Proxima
+                Próxima
               </button>
               <span className="text-xs text-[#737373]">
-                Pagina {invoicePagination?.page || page} - total {invoicePagination?.total ?? 0}
+                Página {invoicePagination?.page || page} - total {invoicePagination?.total ?? 0}
               </span>
             </div>
           </>
@@ -293,7 +293,7 @@ function IxcClientDetailPage() {
             <p><strong>Valor:</strong> {selectedInvoice.valor || '-'}</p>
             <p><strong>Vencimento:</strong> {selectedInvoice.data_vencimento || '-'}</p>
             <p><strong>Documento:</strong> {selectedInvoice.documento || '-'}</p>
-            <p className="md:col-span-2"><strong>Linha digitavel:</strong> {selectedInvoice.linha_digitavel || '-'}</p>
+            <p className="md:col-span-2"><strong>Linha digitável:</strong> {selectedInvoice.linha_digitavel || '-'}</p>
           </div>
         </section>
       ) : null}

@@ -29,7 +29,7 @@ class CompanyProfileController extends Controller
 
         $company = Company::find((int) $user->company_id);
         if (! $company) {
-            return $this->errorResponse('Empresa nao encontrada.', 'not_found', 404);
+            return $this->errorResponse('Empresa não encontrada.', 'not_found', 404);
         }
 
         return response()->json([
@@ -47,7 +47,7 @@ class CompanyProfileController extends Controller
 
         $company = Company::find((int) $user->company_id);
         if (! $company) {
-            return $this->errorResponse('Empresa nao encontrada.', 'not_found', 404);
+            return $this->errorResponse('Empresa não encontrada.', 'not_found', 404);
         }
 
         $validated = $request->validated();
@@ -63,7 +63,7 @@ class CompanyProfileController extends Controller
             $validation = $this->ixcValidator->validate($baseUrl, $apiToken, $selfSigned, $timeout);
             if (! $validation['ok']) {
                 return response()->json([
-                    'message' => 'Credenciais da IXC invalidas: ' . ($validation['error'] ?? 'Erro desconhecido.'),
+                    'message' => 'Credenciais da IXC inválidas: ' . ($validation['error'] ?? 'Erro desconhecido.'),
                     'details' => $validation['details'] ?? null,
                 ], 422);
             }
@@ -108,7 +108,7 @@ class CompanyProfileController extends Controller
 
         $company = Company::find((int) $user->company_id);
         if (! $company) {
-            return $this->errorResponse('Empresa nao encontrada.', 'not_found', 404);
+            return $this->errorResponse('Empresa não encontrada.', 'not_found', 404);
         }
 
         $baseUrl = trim((string) ($request->input('base_url') ?? $company->ixc_base_url ?? ''));

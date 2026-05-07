@@ -274,8 +274,8 @@ class IxcClientController extends Controller
                         return $fallback;
                     }
                     throw new RuntimeException(
-                        'Recurso "cliente" indisponivel na IXC para este token. '
-                        . 'Se o ambiente nao expor listagem geral, use recursos especificos (CPF/telefone/fibra).'
+                        'Recurso "cliente" indisponível na IXC para este token. '
+                        . 'Se o ambiente não expor listagem geral, use recursos específicos (CPF/telefone/fibra).'
                     );
                 }
                 continue;
@@ -461,7 +461,7 @@ class IxcClientController extends Controller
         if (! is_array($client)) {
             return response()->json([
                 'ok' => false,
-                'message' => 'Cliente nao encontrado na IXC.',
+                'message' => 'Cliente não encontrado na IXC.',
             ], 404);
         }
 
@@ -548,7 +548,7 @@ class IxcClientController extends Controller
 
         $invoice = $this->loadInvoiceRow($company, $clientId, $invoiceId);
         if (! is_array($invoice)) {
-            return response()->json(['ok' => false, 'message' => 'Boleto nao encontrado.'], 404);
+            return response()->json(['ok' => false, 'message' => 'Boleto não encontrado.'], 404);
         }
 
         $this->auditLog->record(
@@ -576,14 +576,14 @@ class IxcClientController extends Controller
 
         $invoice = $this->loadInvoiceRow($company, $clientId, $invoiceId);
         if (! is_array($invoice)) {
-            return response()->json(['ok' => false, 'message' => 'Boleto nao encontrado.'], 404);
+            return response()->json(['ok' => false, 'message' => 'Boleto não encontrado.'], 404);
         }
 
         $binaryPayload = $this->resolveInvoiceBinary($company, $invoice, $clientId, $invoiceId);
         if (! is_array($binaryPayload) || ($binaryPayload['binary'] ?? '') === '') {
             return response()->json([
                 'ok' => false,
-                'message' => 'Nao foi possivel obter o arquivo do boleto na IXC.',
+                'message' => 'Não foi possível obter o arquivo do boleto na IXC.',
             ], 422);
         }
 
@@ -621,7 +621,7 @@ class IxcClientController extends Controller
 
         $invoice = $this->loadInvoiceRow($company, $clientId, $invoiceId);
         if (! is_array($invoice)) {
-            return response()->json(['ok' => false, 'message' => 'Boleto nao encontrado.'], 404);
+            return response()->json(['ok' => false, 'message' => 'Boleto não encontrado.'], 404);
         }
 
         try {
@@ -664,7 +664,7 @@ class IxcClientController extends Controller
 
         $invoice = $this->loadInvoiceRow($company, $clientId, $invoiceId);
         if (! is_array($invoice)) {
-            return response()->json(['ok' => false, 'message' => 'Boleto nao encontrado.'], 404);
+            return response()->json(['ok' => false, 'message' => 'Boleto não encontrado.'], 404);
         }
 
         try {
@@ -699,12 +699,12 @@ class IxcClientController extends Controller
         $user = $request->user();
         $companyId = (int) ($user?->company_id ?? 0);
         if ($companyId <= 0) {
-            return response()->json(['ok' => false, 'message' => 'Empresa nao encontrada.'], 404);
+            return response()->json(['ok' => false, 'message' => 'Empresa não encontrada.'], 404);
         }
 
         $company = Company::find($companyId);
         if (! $company) {
-            return response()->json(['ok' => false, 'message' => 'Empresa nao encontrada.'], 404);
+            return response()->json(['ok' => false, 'message' => 'Empresa não encontrada.'], 404);
         }
 
         return $company;
@@ -889,7 +889,7 @@ class IxcClientController extends Controller
             $lastError = $providerStatus['error'] ?? 'Falha no provedor IXC.';
         }
 
-        throw new RuntimeException($lastError ?: 'Nao foi possivel enviar boleto pela IXC.');
+        throw new RuntimeException($lastError ?: 'Não foi possível enviar boleto pela IXC.');
     }
 
     /**
