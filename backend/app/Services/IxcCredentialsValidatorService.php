@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Support\IxcUrlGuard;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
 class IxcCredentialsValidatorService
@@ -45,32 +46,63 @@ class IxcCredentialsValidatorService
             'sortorder' => 'desc',
         ];
 
-        try {
-            $response = Http::timeout($timeout)
-                ->acceptJson()
-                ->withOptions([
-                    'verify' => ! $selfSigned,
-                ])
-                ->withHeaders([
-                    'ixcsoft' => $normalizedToken,
-                    'Authorization' => 'Basic ' . base64_encode($normalizedToken),
-                ])
-                ->get($url, $params);
-        } catch (ConnectionException) {
+        $lastExceptionMessage = null;
+        $response = null;
+        $modes = ['listar', 'token'];
+        foreach ($modes as $mode) {
+            try {
+                $response = Http::timeout($timeout)
+                    ->acceptJson()
+                    ->withOptions([
+                        'verify' => ! $selfSigned,
+                    ])
+                    ->withHeaders([
+                        'ixcsoft' => $mode === 'listar' ? 'listar' : $normalizedToken,
+                        'Authorization' => 'Basic ' . base64_encode($normalizedToken),
+                    ])
+                    ->send('GET', $url, [
+                        'json' => $params,
+                    ]);
+            } catch (ConnectionException) {
+                $lastExceptionMessage = 'Nao foi possivel conectar ao servidor IXC.';
+                continue;
+            } catch (\Throwable) {
+                $lastExceptionMessage = 'Erro inesperado ao validar a integracao IXC.';
+                continue;
+            }
+
+            if (! $response->successful()) {
+                if ($response->status() === 401 || $response->status() === 403) {
+                    continue;
+                }
+
+                return [
+                    'ok' => false,
+                    'error' => "Servidor IXC respondeu com HTTP {$response->status()}.",
+                    'details' => ['status' => $response->status(), 'mode' => $mode],
+                ];
+            }
+
+            if ($this->isProviderError($response)) {
+                $payload = $response->json();
+                $error = trim((string) (($payload['message'] ?? $payload['mensagem'] ?? $payload['error'] ?? '')));
+                if ($error !== '') {
+                    return [
+                        'ok' => false,
+                        'error' => $error,
+                        'details' => ['status' => $response->status(), 'mode' => $mode],
+                    ];
+                }
+            }
+
             return [
-                'ok' => false,
-                'error' => 'Nao foi possivel conectar ao servidor IXC.',
-                'details' => null,
-            ];
-        } catch (\Throwable) {
-            return [
-                'ok' => false,
-                'error' => 'Erro inesperado ao validar a integracao IXC.',
-                'details' => null,
+                'ok' => true,
+                'error' => null,
+                'details' => ['status' => $response->status(), 'mode' => $mode],
             ];
         }
 
-        if ($response->status() === 401 || $response->status() === 403) {
+        if ($response instanceof Response && ($response->status() === 401 || $response->status() === 403)) {
             return [
                 'ok' => false,
                 'error' => 'Token IXC invalido ou sem permissao.',
@@ -78,18 +110,33 @@ class IxcCredentialsValidatorService
             ];
         }
 
-        if (! $response->successful()) {
+        if ($lastExceptionMessage !== null) {
             return [
                 'ok' => false,
-                'error' => "Servidor IXC respondeu com HTTP {$response->status()}.",
-                'details' => ['status' => $response->status()],
+                'error' => $lastExceptionMessage,
+                'details' => null,
             ];
         }
 
         return [
-            'ok' => true,
-            'error' => null,
-            'details' => ['status' => $response->status()],
+            'ok' => false,
+            'error' => 'Falha ao validar credenciais IXC.',
+            'details' => null,
         ];
+    }
+
+    private function isProviderError(Response $response): bool
+    {
+        $payload = $response->json();
+        if (! is_array($payload)) {
+            return false;
+        }
+
+        $type = strtolower(trim((string) ($payload['type'] ?? '')));
+        if ($type === 'error') {
+            return true;
+        }
+
+        return array_key_exists('error', $payload) && ! empty($payload['error']);
     }
 }
