@@ -43,6 +43,7 @@ class IxcApiService
         $cacheKey = $this->buildCacheKey((int) $company->id, $resource, $params, $normalizedMethod);
         $breakerState = $this->breakerStateKey((int) $company->id, $resource, $normalizedMethod);
         if (Cache::get($breakerState) === 'open') {
+            $this->registerBreakerOpen($company, $resource, $normalizedMethod);
             throw new RuntimeException('Integração IXC temporariamente indisponível para esta empresa. Tente novamente em instantes.');
         }
 
@@ -184,6 +185,7 @@ class IxcApiService
         $normalizedMethod = 'get';
         $breakerState = $this->breakerStateKey((int) $company->id, $resource, $normalizedMethod);
         if (Cache::get($breakerState) === 'open') {
+            $this->registerBreakerOpen($company, $resource, $normalizedMethod);
             throw new RuntimeException('Integração IXC temporariamente indisponível para esta empresa. Tente novamente em instantes.');
         }
         $started = microtime(true);
@@ -380,6 +382,19 @@ class IxcApiService
 
         if ($count >= self::BREAKER_THRESHOLD) {
             Cache::put($breakerStateKey, 'open', now()->addSeconds(self::BREAKER_OPEN_SECONDS));
+            Log::warning('ixc.breaker.opened', [
+                'company_id' => $companyId,
+                'resource' => $resource,
+                'method' => $method,
+                'failure_count' => $count,
+                'open_seconds' => self::BREAKER_OPEN_SECONDS,
+            ]);
+            $this->logOperationalMetric('breaker_open_total', [
+                'company_id' => $companyId,
+                'resource' => $resource,
+                'method' => $method,
+                'value' => 1,
+            ]);
         }
     }
 
@@ -396,14 +411,23 @@ class IxcApiService
         array $context = []
     ): void
     {
+        $durationMs = (int) round((microtime(true) - $started) * 1000);
+
         Log::info('ixc.request.ok', [
             'company_id' => (int) $company->id,
             'resource' => $resource,
             'method' => $method,
-            'duration_ms' => (int) round((microtime(true) - $started) * 1000),
+            'duration_ms' => $durationMs,
             'params' => $this->sanitizeParamsForLogs($params),
             'payload_summary' => $payload !== null ? $this->summarizePayloadForLogs($payload) : null,
             'context' => $context,
+        ]);
+        $this->logOperationalMetric('request_latency_ms', [
+            'company_id' => (int) $company->id,
+            'resource' => $resource,
+            'method' => $method,
+            'status' => 'ok',
+            'value' => $durationMs,
         ]);
     }
 
@@ -412,14 +436,86 @@ class IxcApiService
      */
     private function registerFailure(Company $company, string $resource, string $method, string $error, array $params, float $started): void
     {
+        $durationMs = (int) round((microtime(true) - $started) * 1000);
+        $status = $this->extractHttpStatusFromMessage($error);
+        $errorType = $this->classifyErrorType($error, $status);
+
         Log::warning('ixc.request.fail', [
             'company_id' => (int) $company->id,
             'resource' => $resource,
             'method' => $method,
-            'duration_ms' => (int) round((microtime(true) - $started) * 1000),
+            'duration_ms' => $durationMs,
             'error' => $error,
+            'error_type' => $errorType,
+            'http_status' => $status,
             'params' => $this->sanitizeParamsForLogs($params),
         ]);
+        $this->logOperationalMetric('request_error_total', [
+            'company_id' => (int) $company->id,
+            'resource' => $resource,
+            'method' => $method,
+            'value' => 1,
+            'error_type' => $errorType,
+            'http_status' => $status,
+            'duration_ms' => $durationMs,
+        ]);
+    }
+
+    private function registerBreakerOpen(Company $company, string $resource, string $method): void
+    {
+        Log::warning('ixc.breaker.blocked_request', [
+            'company_id' => (int) $company->id,
+            'resource' => $resource,
+            'method' => $method,
+        ]);
+        $this->logOperationalMetric('breaker_blocked_total', [
+            'company_id' => (int) $company->id,
+            'resource' => $resource,
+            'method' => $method,
+            'value' => 1,
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     */
+    private function logOperationalMetric(string $metric, array $context): void
+    {
+        Log::info('ixc.metric', array_merge(['metric' => $metric], $context));
+    }
+
+    private function extractHttpStatusFromMessage(string $error): ?int
+    {
+        if (preg_match('/http\\s+(\\d{3})/i', $error, $matches) !== 1) {
+            return null;
+        }
+
+        $status = (int) ($matches[1] ?? 0);
+        return $status > 0 ? $status : null;
+    }
+
+    private function classifyErrorType(string $error, ?int $status): string
+    {
+        $normalized = mb_strtolower(trim($error));
+        if (str_contains($normalized, 'falha de conex')) {
+            return 'connection';
+        }
+        if (str_contains($normalized, 'erro inesperado')) {
+            return 'unexpected';
+        }
+        if (str_contains($normalized, 'resposta inv')) {
+            return 'invalid_response';
+        }
+        if ($status !== null) {
+            if ($status >= 500) {
+                return 'http_5xx';
+            }
+            if ($status >= 400) {
+                return 'http_4xx';
+            }
+        }
+
+        return 'unknown';
     }
 
     /**
@@ -676,3 +772,5 @@ class IxcApiService
         return 'API IXC retornou erro de recurso/operação.';
     }
 }
+
+

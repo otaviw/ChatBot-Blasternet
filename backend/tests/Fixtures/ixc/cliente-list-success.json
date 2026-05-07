@@ -1,0 +1,14 @@
+{
+  "registros": [
+    {
+      "id": 1,
+      "razao": "Cliente Teste",
+      "fantasia": "Cliente",
+      "cnpj_cpf": "12345678901",
+      "telefone_celular": "11999999999",
+      "email": "cliente@example.com",
+      "ativo": "S"
+    }
+  ],
+  "total": 1
+}

@@ -1,0 +1,14 @@
+{
+  "registros": [
+    {
+      "id": 200,
+      "id_cliente": 1,
+      "status": "A",
+      "valor": "199.90",
+      "data_vencimento": "2026-05-30",
+      "linha_digitavel": "23791.11111 22222.333333 44444.555555 6 77770000019990",
+      "documento": "BOL-200"
+    }
+  ],
+  "total": 1
+}
