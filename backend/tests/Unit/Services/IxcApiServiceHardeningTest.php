@@ -7,6 +7,7 @@ use App\Services\IxcApiService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -85,5 +86,101 @@ class IxcApiServiceHardeningTest extends TestCase
         $result = $service->request($company, 'cliente', ['qtype' => 'cliente.id', 'query' => '10', 'oper' => '=']);
         $this->assertIsArray($result);
         $this->assertSame(1, (int) ($result['total'] ?? 0));
+    }
+
+    public function test_list_mode_tries_listar_and_falls_back_to_token_when_empty(): void
+    {
+        Cache::flush();
+        $company = $this->makeCompany('token-listar-fallback');
+
+        Http::fakeSequence()
+            ->push(['registros' => [], 'total' => 0], 200)
+            ->push(['registros' => [['id' => 55]], 'total' => 1], 200);
+
+        $service = app(IxcApiService::class);
+        $result = $service->request($company, 'cliente', ['qtype' => 'cliente.id', 'query' => '0', 'oper' => '>=']);
+
+        $this->assertSame(1, (int) ($result['total'] ?? 0));
+
+        $recorded = Http::recorded();
+        $this->assertCount(2, $recorded);
+        $this->assertSame('listar', (string) ($recorded[0][0]->header('ixcsoft')[0] ?? ''));
+        $this->assertSame('token-listar-fallback', (string) ($recorded[1][0]->header('ixcsoft')[0] ?? ''));
+        $this->assertSame('Basic ' . base64_encode('token-listar-fallback'), (string) ($recorded[0][0]->header('Authorization')[0] ?? ''));
+    }
+
+    public function test_list_mode_does_not_fallback_when_first_response_has_records(): void
+    {
+        Cache::flush();
+        $company = $this->makeCompany('token-listar-first-ok');
+
+        Http::fake([
+            '*' => Http::response(['registros' => [['id' => 77]], 'total' => 1], 200),
+        ]);
+
+        $service = app(IxcApiService::class);
+        $result = $service->request($company, 'cliente', ['qtype' => 'cliente.id', 'query' => '0', 'oper' => '>=']);
+
+        $this->assertSame(1, (int) ($result['total'] ?? 0));
+        Http::assertSentCount(1);
+        Http::assertSent(fn ($request) => (string) ($request->header('ixcsoft')[0] ?? '') === 'listar');
+    }
+
+    public function test_non_list_post_keeps_token_header_mode(): void
+    {
+        Cache::flush();
+        $company = $this->makeCompany('token-write-mode');
+
+        Http::fake([
+            '*' => Http::response(['ok' => true], 200),
+        ]);
+
+        $service = app(IxcApiService::class);
+        $result = $service->request($company, 'fn_areceber', ['id' => 1], 'post');
+
+        $this->assertTrue((bool) ($result['ok'] ?? false));
+        Http::assertSentCount(1);
+        Http::assertSent(fn ($request) => (string) ($request->header('ixcsoft')[0] ?? '') === 'token-write-mode');
+    }
+
+    public function test_debug_logs_mask_sensitive_headers(): void
+    {
+        Cache::flush();
+        config(['ixc.debug_log' => true]);
+        Log::spy();
+
+        $company = $this->makeCompany('token-debug-sensitive');
+        Http::fake([
+            '*' => Http::response(['ok' => true], 200),
+        ]);
+
+        $service = app(IxcApiService::class);
+        $service->request($company, 'fn_areceber', ['id' => 1], 'post');
+
+        Log::shouldHaveReceived('debug')->withArgs(function (string $message, array $context): bool {
+            if ($message !== 'ixc.request.debug') {
+                return false;
+            }
+
+            $serialized = json_encode($context);
+            if (! is_string($serialized)) {
+                return false;
+            }
+
+            return ($context['headers']['Authorization'] ?? null) === 'Basic ***'
+                && ! str_contains($serialized, 'token-debug-sensitive');
+        })->atLeast()->once();
+    }
+
+    private function makeCompany(string $token): Company
+    {
+        return Company::create([
+            'name' => 'Empresa IXC Teste',
+            'ixc_base_url' => 'https://ixc.local/webservice/v1',
+            'ixc_api_token' => $token,
+            'ixc_self_signed' => true,
+            'ixc_timeout_seconds' => 5,
+            'ixc_enabled' => true,
+        ]);
     }
 }

@@ -17,6 +17,7 @@ class IxcApiService
     private const BREAKER_THRESHOLD = 5;
     private const BREAKER_WINDOW_SECONDS = 120;
     private const BREAKER_OPEN_SECONDS = 90;
+    private const DEBUG_BODY_TRUNCATE = 4000;
 
     /**
      * @param  array<string, mixed>  $params
@@ -46,52 +47,72 @@ class IxcApiService
         }
 
         $executor = function () use ($baseUrl, $token, $resource, $params, $company, $normalizedMethod, $breakerState): array {
-            $attempts = $normalizedMethod === 'get' ? 2 : 1;
+            $attemptsPerMode = $normalizedMethod === 'get' ? 2 : 1;
             $lastException = null;
             $started = microtime(true);
+            $url = $baseUrl . '/' . ltrim($resource, '/');
+            $requestModes = $this->resolveRequestModes($resource, $normalizedMethod);
             try {
-                for ($i = 0; $i < $attempts; $i++) {
-                    try {
-                        $client = Http::timeout(max(5, min(60, (int) ($company->ixc_timeout_seconds ?? 15))))
-                            ->acceptJson()
-                            ->withOptions(['verify' => ! (bool) $company->ixc_self_signed])
-                            ->withHeaders([
-                                'ixcsoft' => $token,
-                                'Authorization' => 'Basic ' . base64_encode($token),
-                            ]);
-                        $url = $baseUrl . '/' . ltrim($resource, '/');
+                foreach ($requestModes as $modeIndex => $mode) {
+                    for ($i = 0; $i < $attemptsPerMode; $i++) {
+                        $headers = $this->buildRequestHeaders($token, $mode);
+                        try {
+                            $client = Http::timeout(max(5, min(60, (int) ($company->ixc_timeout_seconds ?? 15))))
+                                ->acceptJson()
+                                ->withOptions(['verify' => ! (bool) $company->ixc_self_signed])
+                                ->withHeaders($headers);
 
-                        $response = match ($normalizedMethod) {
-                            'post' => $client->post($url, $params),
-                            default => $client->get($url, $params),
-                        };
-                    } catch (ConnectionException) {
-                        $lastException = new RuntimeException('Falha de conexao com a API IXC.');
-                        continue;
-                    } catch (\Throwable) {
-                        $lastException = new RuntimeException('Erro inesperado ao consultar a API IXC.');
-                        continue;
-                    }
-
-                    if (! $response->successful()) {
-                        $status = $response->status();
-                        $lastException = new RuntimeException("IXC respondeu com HTTP {$status}.");
-                        if ($status >= 500 && $i + 1 < $attempts) {
+                            $response = match ($normalizedMethod) {
+                                'post' => $client->post($url, $params),
+                                default => $client->get($url, $params),
+                            };
+                        } catch (ConnectionException) {
+                            $lastException = new RuntimeException('Falha de conexao com a API IXC.');
+                            $this->logDebugAttempt($company, $resource, $url, $normalizedMethod, $params, $headers, $mode, null, null, null, false, false, $lastException->getMessage());
+                            continue;
+                        } catch (\Throwable) {
+                            $lastException = new RuntimeException('Erro inesperado ao consultar a API IXC.');
+                            $this->logDebugAttempt($company, $resource, $url, $normalizedMethod, $params, $headers, $mode, null, null, null, false, false, $lastException->getMessage());
                             continue;
                         }
-                        break;
-                    }
 
-                    $json = $response->json();
-                    if (! is_array($json)) {
-                        $lastException = new RuntimeException('Resposta invalida da API IXC.');
-                        break;
-                    }
+                        if (! $response->successful()) {
+                            $status = $response->status();
+                            $lastException = new RuntimeException("IXC respondeu com HTTP {$status}.");
+                            $this->logDebugAttempt($company, $resource, $url, $normalizedMethod, $params, $headers, $mode, $status, (string) $response->body(), null, false, false, $lastException->getMessage());
+                            if ($status >= 500 && $i + 1 < $attemptsPerMode) {
+                                continue;
+                            }
+                            break 2;
+                        }
 
-                    $this->registerSuccess($company, $resource, $normalizedMethod, $started, $params, $json);
-                    Cache::forget($this->breakerFailuresKey((int) $company->id, $resource, $normalizedMethod));
-                    Cache::forget($breakerState);
-                    return $json;
+                        $json = $response->json();
+                        if (! is_array($json)) {
+                            $lastException = new RuntimeException('Resposta invalida da API IXC.');
+                            $this->logDebugAttempt($company, $resource, $url, $normalizedMethod, $params, $headers, $mode, $response->status(), (string) $response->body(), null, false, false, $lastException->getMessage());
+                            break 2;
+                        }
+
+                        $listSummary = $this->summarizeListExtraction($json);
+                        $shouldFallback = $this->shouldFallbackToTokenMode($requestModes, $modeIndex, $mode, $listSummary);
+                        $this->logDebugAttempt($company, $resource, $url, $normalizedMethod, $params, $headers, $mode, $response->status(), (string) $response->body(), $json, $shouldFallback, $shouldFallback, null, $listSummary['items_count'], $listSummary['total']);
+                        if ($shouldFallback) {
+                            continue 2;
+                        }
+
+                        $this->registerSuccess(
+                            $company,
+                            $resource,
+                            $normalizedMethod,
+                            $started,
+                            $params,
+                            $json,
+                            ['ixcsoft_mode' => $mode, 'fallback_used' => $modeIndex > 0]
+                        );
+                        Cache::forget($this->breakerFailuresKey((int) $company->id, $resource, $normalizedMethod));
+                        Cache::forget($breakerState);
+                        return $json;
+                    }
                 }
             } finally {
             }
@@ -327,7 +348,15 @@ class IxcApiService
     /**
      * @param  array<string, mixed>  $params
      */
-    private function registerSuccess(Company $company, string $resource, string $method, float $started, array $params, ?array $payload = null): void
+    private function registerSuccess(
+        Company $company,
+        string $resource,
+        string $method,
+        float $started,
+        array $params,
+        ?array $payload = null,
+        array $context = []
+    ): void
     {
         Log::info('ixc.request.ok', [
             'company_id' => (int) $company->id,
@@ -336,6 +365,7 @@ class IxcApiService
             'duration_ms' => (int) round((microtime(true) - $started) * 1000),
             'params' => $this->sanitizeParamsForLogs($params),
             'payload_summary' => $payload !== null ? $this->summarizePayloadForLogs($payload) : null,
+            'context' => $context,
         ]);
     }
 
@@ -412,5 +442,151 @@ class IxcApiService
         }
 
         return $summary;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function resolveRequestModes(string $resource, string $normalizedMethod): array
+    {
+        if (! $this->shouldUseListMode($resource, $normalizedMethod)) {
+            return ['token'];
+        }
+
+        return ['listar', 'token'];
+    }
+
+    private function shouldUseListMode(string $resource, string $normalizedMethod): bool
+    {
+        if ($normalizedMethod !== 'get') {
+            return false;
+        }
+
+        $resourceNormalized = strtolower(trim($resource));
+        return in_array($resourceNormalized, ['cliente', 'fn_areceber'], true);
+    }
+
+    /**
+     * @return array{ixcsoft:string,Authorization:string}
+     */
+    private function buildRequestHeaders(string $token, string $mode): array
+    {
+        return [
+            'ixcsoft' => $mode === 'listar' ? 'listar' : $token,
+            'Authorization' => 'Basic ' . base64_encode($token),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array{items_count:int,total:int}
+     */
+    private function summarizeListExtraction(array $payload): array
+    {
+        $list = $this->normalizeList($payload, 1, 1);
+        return [
+            'items_count' => count($list['items']),
+            'total' => (int) ($list['total'] ?? 0),
+        ];
+    }
+
+    /**
+     * @param  array<int, string>  $requestModes
+     * @param  array{items_count:int,total:int}  $listSummary
+     */
+    private function shouldFallbackToTokenMode(array $requestModes, int $modeIndex, string $mode, array $listSummary): bool
+    {
+        if ($mode !== 'listar') {
+            return false;
+        }
+
+        if (! in_array('token', $requestModes, true)) {
+            return false;
+        }
+
+        if ($modeIndex >= array_search('token', $requestModes, true)) {
+            return false;
+        }
+
+        return $listSummary['items_count'] === 0 && $listSummary['total'] <= 0;
+    }
+
+    /**
+     * @param  array<string, mixed>  $params
+     * @param  array{ixcsoft:string,Authorization:string}  $headers
+     * @param  array<string, mixed>|null  $json
+     */
+    private function logDebugAttempt(
+        Company $company,
+        string $resource,
+        string $url,
+        string $method,
+        array $params,
+        array $headers,
+        string $mode,
+        ?int $status,
+        ?string $rawBody,
+        ?array $json,
+        bool $fallbackTriggered,
+        bool $fallbackEligible,
+        ?string $error,
+        ?int $itemsCount = null,
+        ?int $total = null,
+    ): void {
+        if (! (bool) config('ixc.debug_log', false)) {
+            return;
+        }
+
+        $rawBodyText = trim((string) ($rawBody ?? ''));
+        if (mb_strlen($rawBodyText) > self::DEBUG_BODY_TRUNCATE) {
+            $rawBodyText = mb_substr($rawBodyText, 0, self::DEBUG_BODY_TRUNCATE) . '... [truncated]';
+        }
+
+        Log::debug('ixc.request.debug', [
+            'company_id' => (int) $company->id,
+            'resource' => $resource,
+            'url' => $url,
+            'method' => $method,
+            'status' => $status,
+            'ixcsoft_mode' => $mode,
+            'fallback_eligible' => $fallbackEligible,
+            'fallback_triggered' => $fallbackTriggered,
+            'items_extracted' => $itemsCount,
+            'total_extracted' => $total,
+            'params' => $this->sanitizeParamsForLogs($params),
+            'headers' => $this->sanitizeHeadersForLogs($headers),
+            'raw_body' => $rawBodyText,
+            'json_summary' => $json !== null ? $this->summarizePayloadForLogs($json) : null,
+            'error' => $error,
+        ]);
+    }
+
+    /**
+     * @param  array{ixcsoft:string,Authorization:string}  $headers
+     * @return array<string, string>
+     */
+    private function sanitizeHeadersForLogs(array $headers): array
+    {
+        $ixcsoft = (string) ($headers['ixcsoft'] ?? '');
+        $authorization = (string) ($headers['Authorization'] ?? '');
+
+        return [
+            'ixcsoft' => $ixcsoft === 'listar' ? 'listar' : $this->maskSecret($ixcsoft),
+            'Authorization' => $authorization === '' ? '' : 'Basic ***',
+        ];
+    }
+
+    private function maskSecret(string $value): string
+    {
+        $trimmed = trim($value);
+        if ($trimmed === '') {
+            return '';
+        }
+
+        if (mb_strlen($trimmed) <= 6) {
+            return '***';
+        }
+
+        return mb_substr($trimmed, 0, 3) . '***' . mb_substr($trimmed, -2);
     }
 }
