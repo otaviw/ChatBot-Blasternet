@@ -172,6 +172,52 @@ class IxcApiServiceHardeningTest extends TestCase
         })->atLeast()->once();
     }
 
+    public function test_provider_type_error_throws_runtime_exception_on_token_mode(): void
+    {
+        Cache::flush();
+        $company = $this->makeCompany('token-provider-error');
+
+        Http::fake([
+            '*' => Http::response([
+                'type' => 'error',
+                'message' => 'Recurso cliente nao esta disponivel!',
+            ], 200),
+        ]);
+
+        $service = app(IxcApiService::class);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Recurso cliente nao esta disponivel!');
+        $service->request($company, 'fn_areceber', ['qtype' => 'fn_areceber.id', 'query' => '1', 'oper' => '=']);
+    }
+
+    public function test_provider_type_error_in_listar_mode_can_fallback_and_succeed_with_token_mode(): void
+    {
+        Cache::flush();
+        $company = $this->makeCompany('token-listar-provider-error');
+
+        Http::fakeSequence()
+            ->push([
+                'type' => 'error',
+                'message' => 'Recurso cliente nao esta disponivel para modo listar',
+            ], 200)
+            ->push([
+                'registros' => [
+                    ['id' => 91, 'razao' => 'Cliente Fallback'],
+                ],
+                'total' => 1,
+            ], 200);
+
+        $service = app(IxcApiService::class);
+        $result = $service->request($company, 'cliente', ['qtype' => 'cliente.id', 'query' => '0', 'oper' => '>=']);
+
+        $this->assertSame(1, (int) ($result['total'] ?? 0));
+        $recorded = Http::recorded();
+        $this->assertCount(2, $recorded);
+        $this->assertSame('listar', (string) ($recorded[0][0]->header('ixcsoft')[0] ?? ''));
+        $this->assertSame('token-listar-provider-error', (string) ($recorded[1][0]->header('ixcsoft')[0] ?? ''));
+    }
+
     private function makeCompany(string $token): Company
     {
         return Company::create([

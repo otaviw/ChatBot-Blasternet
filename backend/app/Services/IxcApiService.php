@@ -93,6 +93,36 @@ class IxcApiService
                             break 2;
                         }
 
+                        if ($this->isProviderErrorPayload($json)) {
+                            $providerError = $this->extractProviderErrorMessage($json);
+                            $shouldTryTokenFallback = $mode === 'listar'
+                                && in_array('token', $requestModes, true)
+                                && $modeIndex < (int) array_search('token', $requestModes, true);
+
+                            $this->logDebugAttempt(
+                                $company,
+                                $resource,
+                                $url,
+                                $normalizedMethod,
+                                $params,
+                                $headers,
+                                $mode,
+                                $response->status(),
+                                (string) $response->body(),
+                                $json,
+                                $shouldTryTokenFallback,
+                                $shouldTryTokenFallback,
+                                $providerError
+                            );
+
+                            if ($shouldTryTokenFallback) {
+                                continue 2;
+                            }
+
+                            $lastException = new RuntimeException($providerError);
+                            break 2;
+                        }
+
                         $listSummary = $this->summarizeListExtraction($json);
                         $shouldFallback = $this->shouldFallbackToTokenMode($requestModes, $modeIndex, $mode, $listSummary);
                         $this->logDebugAttempt($company, $resource, $url, $normalizedMethod, $params, $headers, $mode, $response->status(), (string) $response->body(), $json, $shouldFallback, $shouldFallback, null, $listSummary['items_count'], $listSummary['total']);
@@ -588,5 +618,31 @@ class IxcApiService
         }
 
         return mb_substr($trimmed, 0, 3) . '***' . mb_substr($trimmed, -2);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function isProviderErrorPayload(array $payload): bool
+    {
+        $type = strtolower(trim((string) ($payload['type'] ?? '')));
+        if ($type === 'error') {
+            return true;
+        }
+
+        return array_key_exists('error', $payload) && ! empty($payload['error']);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function extractProviderErrorMessage(array $payload): string
+    {
+        $message = trim((string) ($payload['message'] ?? $payload['mensagem'] ?? $payload['error'] ?? ''));
+        if ($message !== '') {
+            return $message;
+        }
+
+        return 'API IXC retornou erro de recurso/operacao.';
     }
 }

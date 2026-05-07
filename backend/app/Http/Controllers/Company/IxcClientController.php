@@ -268,6 +268,16 @@ class IxcClientController extends Controller
                     'oper' => (string) $params['oper'],
                     'error' => $exception->getMessage(),
                 ];
+                if ($this->isUnavailableClientResourceError($exception->getMessage())) {
+                    $fallback = $this->searchClientsWithAlternativeResources($company, $query, $page, $perPage);
+                    if ($fallback !== null) {
+                        return $fallback;
+                    }
+                    throw new RuntimeException(
+                        'Recurso "cliente" indisponivel na IXC para este token. '
+                        . 'Se o ambiente nao expor listagem geral, use recursos especificos (CPF/telefone/fibra).'
+                    );
+                }
                 continue;
             }
         }
@@ -283,6 +293,141 @@ class IxcClientController extends Controller
         }
 
         return $lastList;
+    }
+
+    private function isUnavailableClientResourceError(string $message): bool
+    {
+        $normalized = mb_strtolower(trim($message));
+        if ($normalized === '') {
+            return false;
+        }
+
+        return str_contains($normalized, 'recurso')
+            && str_contains($normalized, 'cliente')
+            && (
+                str_contains($normalized, 'nao esta disponivel')
+                || str_contains($normalized, 'não está disponível')
+            );
+    }
+
+    /**
+     * @return array{items: array<int, array<string,mixed>>, total: int, page: int, per_page: int}|null
+     */
+    private function searchClientsWithAlternativeResources(Company $company, string $query, int $page, int $perPage): ?array
+    {
+        $queryDigits = preg_replace('/\D+/', '', $query) ?? '';
+        $resources = $this->resolveAlternativeClientResources();
+        if ($resources === []) {
+            return null;
+        }
+
+        $baseListParams = [
+            'page' => $page,
+            'rp' => $perPage,
+            'sortorder' => 'asc',
+        ];
+        $attempts = [];
+        foreach ($resources as $resource) {
+            $resourceNormalized = strtolower(trim($resource));
+            if ($resourceNormalized === '') {
+                continue;
+            }
+
+            if ($resourceNormalized === 'listar_clientes_por_cpf') {
+                if ($queryDigits === '') {
+                    continue;
+                }
+                $attempts[] = ['resource' => $resourceNormalized, 'params' => ['cpf' => $queryDigits]];
+                $attempts[] = ['resource' => $resourceNormalized, 'params' => ['cpf_cnpj' => $queryDigits]];
+                $attempts[] = ['resource' => $resourceNormalized, 'params' => ['cnpj_cpf' => $queryDigits]];
+                $attempts[] = ['resource' => $resourceNormalized, 'params' => array_merge($baseListParams, [
+                    'qtype' => 'cliente.cnpj_cpf',
+                    'query' => $queryDigits,
+                    'oper' => '=',
+                    'sortname' => 'cliente.id',
+                ])];
+                continue;
+            }
+
+            if ($resourceNormalized === 'listar_clientes_por_telefone') {
+                if ($queryDigits === '') {
+                    continue;
+                }
+                $attempts[] = ['resource' => $resourceNormalized, 'params' => ['telefone' => $queryDigits]];
+                $attempts[] = ['resource' => $resourceNormalized, 'params' => ['phone' => $queryDigits]];
+                $attempts[] = ['resource' => $resourceNormalized, 'params' => array_merge($baseListParams, [
+                    'qtype' => 'cliente.telefone_celular',
+                    'query' => '%' . $queryDigits . '%',
+                    'oper' => 'like',
+                    'sortname' => 'cliente.id',
+                ])];
+                continue;
+            }
+
+            if ($resourceNormalized === 'listar_clientes_fibra') {
+                $params = $baseListParams;
+                if ($query !== '') {
+                    $params = array_merge($params, [
+                        'qtype' => 'cliente.razao',
+                        'query' => '%' . $query . '%',
+                        'oper' => 'like',
+                        'sortname' => 'cliente.razao',
+                    ]);
+                }
+                $attempts[] = ['resource' => $resourceNormalized, 'params' => $params];
+                continue;
+            }
+
+            $attempts[] = ['resource' => $resourceNormalized, 'params' => $baseListParams];
+        }
+
+        foreach ($attempts as $attempt) {
+            try {
+                $payload = $this->ixcApi->request($company, (string) $attempt['resource'], (array) $attempt['params']);
+                $list = $this->ixcApi->normalizeList($payload, $page, $perPage);
+            } catch (RuntimeException) {
+                continue;
+            }
+
+            if (($list['total'] ?? 0) > 0 || count($list['items'] ?? []) > 0) {
+                Log::info('ixc.client.search.alt_resource.hit', [
+                    'company_id' => (int) $company->id,
+                    'resource' => (string) $attempt['resource'],
+                    'query' => $query === '' ? '[empty]' : $query,
+                ]);
+                return $list;
+            }
+        }
+
+        Log::info('ixc.client.search.alt_resource.empty', [
+            'company_id' => (int) $company->id,
+            'query' => $query === '' ? '[empty]' : $query,
+            'resources' => array_values($resources),
+        ]);
+
+        return null;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function resolveAlternativeClientResources(): array
+    {
+        $configured = config('ixc.client_alternative_resources', []);
+        if (! is_array($configured)) {
+            return [];
+        }
+
+        $resources = [];
+        foreach ($configured as $resource) {
+            $normalized = strtolower(trim((string) $resource));
+            if ($normalized === '') {
+                continue;
+            }
+            $resources[] = $normalized;
+        }
+
+        return array_values(array_unique($resources));
     }
 
     public function show(Request $request, string $clientId): JsonResponse
