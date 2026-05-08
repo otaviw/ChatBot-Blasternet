@@ -5,6 +5,7 @@ import { PERM } from '@/constants/permissions';
 import { useEffect, useMemo, useState } from 'react';
 import { listIxcClients } from '@/services/ixcService';
 import { useNavigate } from 'react-router-dom';
+import ErrorMessage from '@/components/ui/ErrorMessage/ErrorMessage.jsx';
 
 function IxcClientsPage() {
   const { logout } = useLogout();
@@ -13,6 +14,7 @@ function IxcClientsPage() {
   const canViewInvoices = can(PERM.IXC_INVOICES_VIEW);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [queryInput, setQueryInput] = useState('');
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
   const [items, setItems] = useState([]);
@@ -20,6 +22,15 @@ function IxcClientsPage() {
 
   const canPrev = useMemo(() => page > 1 && !loading, [page, loading]);
   const canNext = useMemo(() => Boolean(pagination?.has_next) && !loading, [pagination?.has_next, loading]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setPage(1);
+      setQuery(queryInput);
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [queryInput]);
 
   useEffect(() => {
     let canceled = false;
@@ -58,17 +69,14 @@ function IxcClientsPage() {
         <div className="flex flex-wrap gap-2 mb-4">
           <input
             type="text"
-            value={query}
-            onChange={(event) => {
-              setPage(1);
-              setQuery(event.target.value);
-            }}
+            value={queryInput}
+            onChange={(event) => setQueryInput(event.target.value)}
             className="app-input max-w-md"
             placeholder="Buscar por nome, fantasia ou documento"
           />
         </div>
 
-        {error ? <p className="text-sm text-red-600 mb-3">{error}</p> : null}
+        {error ? <ErrorMessage className="mb-3" message={error} /> : null}
         {loading ? <p className="text-sm text-[#525252]">Carregando clientes...</p> : null}
 
         {!loading && !error && items.length === 0 ? (

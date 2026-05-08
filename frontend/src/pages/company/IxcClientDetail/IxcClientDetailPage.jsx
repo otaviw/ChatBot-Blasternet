@@ -12,6 +12,7 @@ import {
   sendIxcInvoiceEmail,
   sendIxcInvoiceSms,
 } from '@/services/ixcService';
+import ErrorMessage from '@/components/ui/ErrorMessage/ErrorMessage.jsx';
 
 function IxcClientDetailPage() {
   const { clientId = '' } = useParams();
@@ -131,7 +132,7 @@ function IxcClientDetailPage() {
       <h1 className="app-page-title">Cliente IXC #{clientId}</h1>
       <p className="app-page-subtitle mb-4">Detalhes do cliente e boletos (somente leitura na M3).</p>
 
-      {error ? <p className="text-sm text-red-600 mb-3">{error}</p> : null}
+      {error ? <ErrorMessage className="mb-3" message={error} /> : null}
       {actionFeedback.message ? (
         <p className={`text-sm mb-3 ${actionFeedback.type === 'error' ? 'text-red-600' : 'text-emerald-700'}`}>
           {actionFeedback.message}

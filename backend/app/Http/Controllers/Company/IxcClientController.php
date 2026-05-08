@@ -40,7 +40,10 @@ class IxcClientController extends Controller
         } catch (RuntimeException $exception) {
             return response()->json([
                 'ok' => false,
-                'message' => $exception->getMessage(),
+                'message' => $this->friendlyIxcErrorMessage(
+                    $exception->getMessage(),
+                    'Nao foi possivel consultar clientes na IXC agora.'
+                ),
             ], 422);
         }
 
@@ -58,172 +61,19 @@ class IxcClientController extends Controller
             ],
         ]);
     }
-
     /**
      * @return array{items: array<int, array<string,mixed>>, total: int, page: int, per_page: int}
      */
     private function searchClients(Company $company, string $query, int $page, int $perPage): array
     {
+        $query = trim($query);
         $baseParams = [
             'page' => $page,
             'rp' => $perPage,
             'sortorder' => 'asc',
         ];
         $attemptResults = [];
-        $queryDigits = preg_replace('/\D+/', '', $query) ?? '';
-        $nameContains = $query;
-        $digitContains = $queryDigits;
-        $attempts = $query === ''
-            ? [
-                [
-                    'qtype' => 'cliente.id',
-                    'query' => '0',
-                    'oper' => '>=',
-                    'sortname' => 'cliente.id',
-                ],
-                [
-                    'qtype' => 'cliente.id',
-                    'query' => '0',
-                    'oper' => '>',
-                    'sortname' => 'cliente.id',
-                ],
-                [
-                    'qtype' => 'cliente.id',
-                    'query' => '0',
-                    'oper' => '!=',
-                    'sortname' => 'cliente.id',
-                ],
-                [
-                    'qtype' => 'cliente.nome',
-                    'query' => '',
-                    'oper' => 'L',
-                    'sortname' => 'cliente.nome',
-                ],
-                [
-                    'qtype' => 'cliente.razao',
-                    'query' => '',
-                    'oper' => 'L',
-                    'sortname' => 'cliente.razao',
-                ],
-                [
-                    'qtype' => 'id',
-                    'query' => '0',
-                    'oper' => '>=',
-                    'sortname' => 'id',
-                ],
-                [
-                    'qtype' => 'id',
-                    'query' => '0',
-                    'oper' => '!=',
-                    'sortname' => 'id',
-                ],
-                [
-                    'qtype' => 'nome',
-                    'query' => '',
-                    'oper' => 'L',
-                    'sortname' => 'nome',
-                ],
-                [
-                    'qtype' => 'razao',
-                    'query' => '',
-                    'oper' => 'L',
-                    'sortname' => 'razao',
-                ],
-            ]
-            : [
-                [
-                    'qtype' => 'cliente.razao',
-                    'query' => $nameContains,
-                    'oper' => 'L',
-                    'sortname' => 'cliente.razao',
-                ],
-                [
-                    'qtype' => 'cliente.nome',
-                    'query' => $nameContains,
-                    'oper' => 'L',
-                    'sortname' => 'cliente.nome',
-                ],
-                [
-                    'qtype' => 'cliente.fantasia',
-                    'query' => $nameContains,
-                    'oper' => 'L',
-                    'sortname' => 'cliente.fantasia',
-                ],
-                [
-                    'qtype' => 'cliente.cnpj_cpf',
-                    'query' => $queryDigits !== '' ? $queryDigits : $query,
-                    'oper' => '=',
-                    'sortname' => 'cliente.id',
-                    'only_when_digits' => true,
-                ],
-                [
-                    'qtype' => 'cliente.cnpj_cpf',
-                    'query' => $digitContains,
-                    'oper' => 'L',
-                    'sortname' => 'cliente.id',
-                    'only_when_digits' => true,
-                ],
-                [
-                    'qtype' => 'cliente.telefone_celular',
-                    'query' => $digitContains,
-                    'oper' => 'L',
-                    'sortname' => 'cliente.id',
-                    'only_when_digits' => true,
-                ],
-                [
-                    'qtype' => 'cliente.id',
-                    'query' => ctype_digit($query) ? $query : '-1',
-                    'oper' => '=',
-                    'sortname' => 'cliente.id',
-                    'only_when_numeric_query' => true,
-                ],
-                [
-                    'qtype' => 'razao',
-                    'query' => $nameContains,
-                    'oper' => 'L',
-                    'sortname' => 'razao',
-                ],
-                [
-                    'qtype' => 'nome',
-                    'query' => $nameContains,
-                    'oper' => 'L',
-                    'sortname' => 'nome',
-                ],
-                [
-                    'qtype' => 'fantasia',
-                    'query' => $nameContains,
-                    'oper' => 'L',
-                    'sortname' => 'fantasia',
-                ],
-                [
-                    'qtype' => 'cnpj_cpf',
-                    'query' => $queryDigits !== '' ? $queryDigits : $query,
-                    'oper' => '=',
-                    'sortname' => 'id',
-                    'only_when_digits' => true,
-                ],
-                [
-                    'qtype' => 'cnpj_cpf',
-                    'query' => $digitContains,
-                    'oper' => 'L',
-                    'sortname' => 'id',
-                    'only_when_digits' => true,
-                ],
-                [
-                    'qtype' => 'telefone_celular',
-                    'query' => $digitContains,
-                    'oper' => 'L',
-                    'sortname' => 'id',
-                    'only_when_digits' => true,
-                ],
-                [
-                    'qtype' => 'id',
-                    'query' => ctype_digit($query) ? $query : '-1',
-                    'oper' => '=',
-                    'sortname' => 'id',
-                    'only_when_numeric_query' => true,
-                ],
-            ];
+        $attempts = $this->buildClientSearchAttempts($query);
 
         $lastList = [
             'items' => [],
@@ -232,15 +82,9 @@ class IxcClientController extends Controller
             'per_page' => $perPage,
         ];
         $lastError = null;
+        $hadSuccessfulAttempt = false;
 
         foreach ($attempts as $attempt) {
-            if (($attempt['only_when_digits'] ?? false) && $queryDigits === '') {
-                continue;
-            }
-            if (($attempt['only_when_numeric_query'] ?? false) && ! ctype_digit($query)) {
-                continue;
-            }
-
             $params = array_merge($baseParams, [
                 'qtype' => (string) $attempt['qtype'],
                 'query' => (string) $attempt['query'],
@@ -251,6 +95,7 @@ class IxcClientController extends Controller
             try {
                 $payload = $this->ixcApi->request($company, 'cliente', $params);
                 $list = $this->ixcApi->normalizeList($payload, $page, $perPage);
+                $hadSuccessfulAttempt = true;
                 $lastList = $list;
                 $attemptResults[] = [
                     'qtype' => (string) $params['qtype'],
@@ -258,6 +103,7 @@ class IxcClientController extends Controller
                     'item_count' => count($list['items'] ?? []),
                     'total' => (int) ($list['total'] ?? 0),
                 ];
+
                 if (($list['total'] ?? 0) > 0 || count($list['items'] ?? []) > 0) {
                     return $list;
                 }
@@ -268,16 +114,18 @@ class IxcClientController extends Controller
                     'oper' => (string) $params['oper'],
                     'error' => $exception->getMessage(),
                 ];
+
                 if ($this->isUnavailableClientResourceError($exception->getMessage())) {
                     $fallback = $this->searchClientsWithAlternativeResources($company, $query, $page, $perPage);
                     if ($fallback !== null) {
                         return $fallback;
                     }
+
                     throw new RuntimeException(
-                        'Recurso "cliente" indisponível na IXC para este token. '
-                        . 'Se o ambiente não expor listagem geral, use recursos específicos (CPF/telefone/fibra).'
+                        'A listagem de clientes nao esta disponivel na IXC para este usuario/token.'
                     );
                 }
+
                 continue;
             }
         }
@@ -288,11 +136,87 @@ class IxcClientController extends Controller
             'attempts' => $attemptResults,
         ]);
 
+        if ($hadSuccessfulAttempt) {
+            return $lastList;
+        }
+
         if ($lastError instanceof RuntimeException && count($lastList['items']) === 0) {
-            throw $lastError;
+            throw new RuntimeException(
+                $this->friendlyIxcErrorMessage(
+                    $lastError->getMessage(),
+                    'Nao foi possivel consultar clientes na IXC agora.'
+                )
+            );
         }
 
         return $lastList;
+    }
+
+    /**
+     * @return array<int, array{qtype:string,query:string,oper:string,sortname:string}>
+     */
+    private function buildClientSearchAttempts(string $query): array
+    {
+        $query = trim($query);
+        $queryDigits = preg_replace('/\D+/', '', $query) ?? '';
+        $isDocumentQuery = $this->isCompleteCpfOrCnpj($queryDigits);
+        $attempts = [];
+
+        $push = static function (string $qtype, string $value, string $oper, string $sortname) use (&$attempts): void {
+            $attempts[] = [
+                'qtype' => $qtype,
+                'query' => $value,
+                'oper' => $oper,
+                'sortname' => $sortname,
+            ];
+        };
+
+        if ($query === '') {
+            $push('cliente.id', '0', '>=', 'cliente.id');
+            $push('id', '0', '>=', 'id');
+        } else {
+            if (ctype_digit($query)) {
+                $push('cliente.id', $query, '=', 'cliente.id');
+                $push('id', $query, '=', 'id');
+            }
+
+            if ($queryDigits !== '') {
+                foreach ($this->buildDocumentVariants($query, $queryDigits) as $variant) {
+                    $push('cliente.cnpj_cpf', $variant, '=', 'cliente.id');
+                    $push('cnpj_cpf', $variant, '=', 'id');
+                }
+
+                if (! $isDocumentQuery && strlen($queryDigits) >= 4) {
+                    $push('cliente.cnpj_cpf', $queryDigits, 'L', 'cliente.id');
+                    $push('cnpj_cpf', $queryDigits, 'L', 'id');
+                }
+
+                $push('cliente.telefone_celular', $queryDigits, 'L', 'cliente.id');
+                $push('telefone_celular', $queryDigits, 'L', 'id');
+            }
+
+            if (! $isDocumentQuery) {
+                $push('cliente.razao', $query, 'L', 'cliente.razao');
+                $push('cliente.nome', $query, 'L', 'cliente.nome');
+                $push('cliente.fantasia', $query, 'L', 'cliente.fantasia');
+                $push('razao', $query, 'L', 'razao');
+                $push('nome', $query, 'L', 'nome');
+                $push('fantasia', $query, 'L', 'fantasia');
+            }
+        }
+
+        $unique = [];
+        foreach ($attempts as $attempt) {
+            $key = mb_strtolower(implode('|', [
+                (string) $attempt['qtype'],
+                (string) $attempt['oper'],
+                (string) $attempt['query'],
+                (string) $attempt['sortname'],
+            ]));
+            $unique[$key] = $attempt;
+        }
+
+        return array_values($unique);
     }
 
     private function isUnavailableClientResourceError(string $message): bool
@@ -306,16 +230,17 @@ class IxcClientController extends Controller
             && str_contains($normalized, 'cliente')
             && (
                 str_contains($normalized, 'nao esta disponivel')
-                || str_contains($normalized, 'não está disponível')
+                || str_contains($normalized, 'nÃ£o estÃ¡ disponÃ­vel')
             );
     }
-
     /**
      * @return array{items: array<int, array<string,mixed>>, total: int, page: int, per_page: int}|null
      */
     private function searchClientsWithAlternativeResources(Company $company, string $query, int $page, int $perPage): ?array
     {
+        $query = trim($query);
         $queryDigits = preg_replace('/\D+/', '', $query) ?? '';
+        $documentVariants = $this->buildDocumentVariants($query, $queryDigits);
         $resources = $this->resolveAlternativeClientResources();
         if ($resources === []) {
             return null;
@@ -327,6 +252,7 @@ class IxcClientController extends Controller
             'sortorder' => 'asc',
         ];
         $attempts = [];
+
         foreach ($resources as $resource) {
             $resourceNormalized = strtolower(trim($resource));
             if ($resourceNormalized === '') {
@@ -337,15 +263,19 @@ class IxcClientController extends Controller
                 if ($queryDigits === '') {
                     continue;
                 }
-                $attempts[] = ['resource' => $resourceNormalized, 'params' => ['cpf' => $queryDigits]];
-                $attempts[] = ['resource' => $resourceNormalized, 'params' => ['cpf_cnpj' => $queryDigits]];
-                $attempts[] = ['resource' => $resourceNormalized, 'params' => ['cnpj_cpf' => $queryDigits]];
-                $attempts[] = ['resource' => $resourceNormalized, 'params' => array_merge($baseListParams, [
-                    'qtype' => 'cliente.cnpj_cpf',
-                    'query' => $queryDigits,
-                    'oper' => '=',
-                    'sortname' => 'cliente.id',
-                ])];
+
+                foreach ($documentVariants as $variant) {
+                    $attempts[] = ['resource' => $resourceNormalized, 'params' => ['cpf' => $variant]];
+                    $attempts[] = ['resource' => $resourceNormalized, 'params' => ['cpf_cnpj' => $variant]];
+                    $attempts[] = ['resource' => $resourceNormalized, 'params' => ['cnpj_cpf' => $variant]];
+                    $attempts[] = ['resource' => $resourceNormalized, 'params' => array_merge($baseListParams, [
+                        'qtype' => 'cliente.cnpj_cpf',
+                        'query' => $variant,
+                        'oper' => '=',
+                        'sortname' => 'cliente.id',
+                    ])];
+                }
+
                 continue;
             }
 
@@ -353,14 +283,16 @@ class IxcClientController extends Controller
                 if ($queryDigits === '') {
                     continue;
                 }
+
                 $attempts[] = ['resource' => $resourceNormalized, 'params' => ['telefone' => $queryDigits]];
                 $attempts[] = ['resource' => $resourceNormalized, 'params' => ['phone' => $queryDigits]];
                 $attempts[] = ['resource' => $resourceNormalized, 'params' => array_merge($baseListParams, [
                     'qtype' => 'cliente.telefone_celular',
-                    'query' => '%' . $queryDigits . '%',
-                    'oper' => 'like',
+                    'query' => $queryDigits,
+                    'oper' => 'L',
                     'sortname' => 'cliente.id',
                 ])];
+
                 continue;
             }
 
@@ -369,8 +301,8 @@ class IxcClientController extends Controller
                 if ($query !== '') {
                     $params = array_merge($params, [
                         'qtype' => 'cliente.razao',
-                        'query' => '%' . $query . '%',
-                        'oper' => 'like',
+                        'query' => $query,
+                        'oper' => 'L',
                         'sortname' => 'cliente.razao',
                     ]);
                 }
@@ -430,6 +362,83 @@ class IxcClientController extends Controller
         return array_values(array_unique($resources));
     }
 
+    /**
+     * @return array<int, string>
+     */
+    private function buildDocumentVariants(string $rawQuery, string $queryDigits): array
+    {
+        $variants = [];
+
+        $push = static function (string $value) use (&$variants): void {
+            $trimmed = trim($value);
+            if ($trimmed !== '') {
+                $variants[] = $trimmed;
+            }
+        };
+
+        $push($rawQuery);
+        $push($queryDigits);
+
+        if ($this->isCompleteCpfOrCnpj($queryDigits)) {
+            $push($this->formatCpfOrCnpj($queryDigits));
+        }
+
+        $unique = [];
+        foreach ($variants as $variant) {
+            $unique[mb_strtolower($variant)] = $variant;
+        }
+
+        return array_values($unique);
+    }
+
+    private function isCompleteCpfOrCnpj(string $queryDigits): bool
+    {
+        return in_array(strlen($queryDigits), [11, 14], true);
+    }
+
+    private function formatCpfOrCnpj(string $queryDigits): string
+    {
+        if (strlen($queryDigits) === 11) {
+            return preg_replace('/(\d{3})(\d{3})(\d{3})(\d{2})/', '$1.$2.$3-$4', $queryDigits) ?: $queryDigits;
+        }
+
+        if (strlen($queryDigits) === 14) {
+            return preg_replace('/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/', '$1.$2.$3/$4-$5', $queryDigits) ?: $queryDigits;
+        }
+
+        return $queryDigits;
+    }
+
+    private function friendlyIxcErrorMessage(string $message, string $fallback = 'Nao foi possivel concluir a consulta na IXC.'): string
+    {
+        $normalized = mb_strtolower(trim($message));
+        if ($normalized === '') {
+            return $fallback;
+        }
+
+        if (preg_match('/http\\s*404/i', $normalized) === 1) {
+            return 'Nao foi possivel localizar o recurso de clientes na IXC com este usuario/token.';
+        }
+
+        if (str_contains($normalized, 'falha de conex')) {
+            return 'Nao foi possivel conectar na IXC no momento. Tente novamente em instantes.';
+        }
+
+        if (str_contains($normalized, 'resposta invalida')) {
+            return 'A IXC retornou uma resposta inesperada para a consulta de clientes.';
+        }
+
+        if (str_contains($normalized, 'temporariamente indispon')) {
+            return 'A integracao IXC esta temporariamente indisponivel para esta empresa.';
+        }
+
+        if ($this->isUnavailableClientResourceError($message)) {
+            return 'A listagem de clientes nao esta habilitada no IXC para este usuario/token.';
+        }
+
+        return $message;
+    }
+
     public function show(Request $request, string $clientId): JsonResponse
     {
         $company = $this->resolveCompany($request);
@@ -453,7 +462,10 @@ class IxcClientController extends Controller
         } catch (RuntimeException $exception) {
             return response()->json([
                 'ok' => false,
-                'message' => $exception->getMessage(),
+                'message' => $this->friendlyIxcErrorMessage(
+                    $exception->getMessage(),
+                    'Nao foi possivel consultar o cliente na IXC agora.'
+                ),
             ], 422);
         }
 
@@ -461,7 +473,7 @@ class IxcClientController extends Controller
         if (! is_array($client)) {
             return response()->json([
                 'ok' => false,
-                'message' => 'Cliente não encontrado na IXC.',
+                'message' => 'Cliente nÃ£o encontrado na IXC.',
             ], 404);
         }
 
@@ -517,7 +529,10 @@ class IxcClientController extends Controller
         } catch (RuntimeException $exception) {
             return response()->json([
                 'ok' => false,
-                'message' => $exception->getMessage(),
+                'message' => $this->friendlyIxcErrorMessage(
+                    $exception->getMessage(),
+                    'Nao foi possivel consultar boletos na IXC agora.'
+                ),
             ], 422);
         }
 
@@ -548,7 +563,7 @@ class IxcClientController extends Controller
 
         $invoice = $this->loadInvoiceRow($company, $clientId, $invoiceId);
         if (! is_array($invoice)) {
-            return response()->json(['ok' => false, 'message' => 'Boleto não encontrado.'], 404);
+            return response()->json(['ok' => false, 'message' => 'Boleto nÃ£o encontrado.'], 404);
         }
 
         $this->auditLog->record(
@@ -576,7 +591,7 @@ class IxcClientController extends Controller
 
         $invoice = $this->loadInvoiceRow($company, $clientId, $invoiceId);
         if (! is_array($invoice)) {
-            return response()->json(['ok' => false, 'message' => 'Boleto não encontrado.'], 404);
+            return response()->json(['ok' => false, 'message' => 'Boleto nÃ£o encontrado.'], 404);
         }
 
         try {
@@ -584,7 +599,10 @@ class IxcClientController extends Controller
         } catch (RuntimeException $exception) {
             return response()->json([
                 'ok' => false,
-                'message' => $exception->getMessage(),
+                'message' => $this->friendlyIxcErrorMessage(
+                    $exception->getMessage(),
+                    'Nao foi possivel obter o arquivo do boleto na IXC.'
+                ),
             ], 422);
         }
 
@@ -622,7 +640,7 @@ class IxcClientController extends Controller
 
         $invoice = $this->loadInvoiceRow($company, $clientId, $invoiceId);
         if (! is_array($invoice)) {
-            return response()->json(['ok' => false, 'message' => 'Boleto não encontrado.'], 404);
+            return response()->json(['ok' => false, 'message' => 'Boleto nÃ£o encontrado.'], 404);
         }
 
         try {
@@ -630,7 +648,13 @@ class IxcClientController extends Controller
                 'email' => (string) $validated['email'],
             ]);
         } catch (RuntimeException $exception) {
-            return response()->json(['ok' => false, 'message' => $exception->getMessage()], 422);
+            return response()->json([
+                'ok' => false,
+                'message' => $this->friendlyIxcErrorMessage(
+                    $exception->getMessage(),
+                    'Nao foi possivel enviar o boleto por e-mail na IXC.'
+                ),
+            ], 422);
         }
 
         $this->auditLog->record(
@@ -665,7 +689,7 @@ class IxcClientController extends Controller
 
         $invoice = $this->loadInvoiceRow($company, $clientId, $invoiceId);
         if (! is_array($invoice)) {
-            return response()->json(['ok' => false, 'message' => 'Boleto não encontrado.'], 404);
+            return response()->json(['ok' => false, 'message' => 'Boleto nÃ£o encontrado.'], 404);
         }
 
         try {
@@ -673,7 +697,13 @@ class IxcClientController extends Controller
                 'phone' => (string) $validated['phone'],
             ]);
         } catch (RuntimeException $exception) {
-            return response()->json(['ok' => false, 'message' => $exception->getMessage()], 422);
+            return response()->json([
+                'ok' => false,
+                'message' => $this->friendlyIxcErrorMessage(
+                    $exception->getMessage(),
+                    'Nao foi possivel enviar o boleto por SMS na IXC.'
+                ),
+            ], 422);
         }
 
         $this->auditLog->record(
@@ -700,12 +730,12 @@ class IxcClientController extends Controller
         $user = $request->user();
         $companyId = (int) ($user?->company_id ?? 0);
         if ($companyId <= 0) {
-            return response()->json(['ok' => false, 'message' => 'Empresa não encontrada.'], 404);
+            return response()->json(['ok' => false, 'message' => 'Empresa nÃ£o encontrada.'], 404);
         }
 
         $company = Company::find($companyId);
         if (! $company) {
-            return response()->json(['ok' => false, 'message' => 'Empresa não encontrada.'], 404);
+            return response()->json(['ok' => false, 'message' => 'Empresa nÃ£o encontrada.'], 404);
         }
 
         return $company;
@@ -845,7 +875,7 @@ class IxcClientController extends Controller
             $lastError = $exception->getMessage();
         }
 
-        throw new RuntimeException($lastError ?: 'Não foi possível obter o arquivo do boleto na IXC.');
+        throw new RuntimeException($lastError ?: 'NÃ£o foi possÃ­vel obter o arquivo do boleto na IXC.');
     }
 
     /**
@@ -962,7 +992,7 @@ class IxcClientController extends Controller
             $lastError = $providerStatus['error'] ?? 'Falha no provedor IXC.';
         }
 
-        throw new RuntimeException($lastError ?: 'Não foi possível enviar boleto pela IXC.');
+        throw new RuntimeException($lastError ?: 'NÃ£o foi possÃ­vel enviar boleto pela IXC.');
     }
 
     /**
@@ -1015,3 +1045,5 @@ class IxcClientController extends Controller
         return '***' . $suffix;
     }
 }
+
+

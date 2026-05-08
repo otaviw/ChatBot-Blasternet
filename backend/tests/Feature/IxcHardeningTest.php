@@ -90,7 +90,85 @@ class IxcHardeningTest extends TestCase
             ->assertJsonPath('ok', false)
             ->assertJson(fn ($json) => $json
                 ->whereType('message', 'string')
-                ->where('message', fn ($message) => is_string($message) && str_contains(mb_strtolower($message), 'indispon'))
+                ->where('message', fn ($message) => is_string($message)
+                    && (str_contains(mb_strtolower($message), 'disponivel')
+                        || str_contains(mb_strtolower($message), 'listagem')))
+                ->etc());
+    }
+
+    public function test_ixc_clients_search_by_cnpj_can_match_masked_document(): void
+    {
+        $company = $this->makeIxcCompany();
+        $admin = $this->makeCompanyAdmin($company->id);
+
+        Http::fake(function (\Illuminate\Http\Client\Request $request) {
+            $payload = json_decode((string) $request->body(), true);
+            $query = (string) ($payload['query'] ?? '');
+            if ($query === '87.277.018/0001-13') {
+                return Http::response([
+                    'registros' => [
+                        ['id' => 859, 'razao' => 'GADOL ASSESSORIA DE COBRANCAS LTDA', 'cnpj_cpf' => '87.277.018/0001-13'],
+                    ],
+                    'total' => 1,
+                ], 200);
+            }
+
+            return Http::response([
+                'registros' => [],
+                'total' => 0,
+            ], 200);
+        });
+
+        $response = $this->actingAs($admin)->getJson('/api/minha-conta/ixc/clientes?q=87277018000113');
+
+        $response->assertOk()
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('items.0.id', 859);
+    }
+
+    public function test_ixc_clients_search_keeps_200_when_only_some_attempts_fail(): void
+    {
+        $company = $this->makeIxcCompany();
+        $admin = $this->makeCompanyAdmin($company->id);
+
+        Http::fake(function (\Illuminate\Http\Client\Request $request) {
+            $payload = json_decode((string) $request->body(), true);
+            $qtype = (string) ($payload['qtype'] ?? '');
+
+            if ($qtype === 'cliente.razao') {
+                return Http::response(['error' => 'not found'], 404);
+            }
+
+            return Http::response([
+                'registros' => [],
+                'total' => 0,
+            ], 200);
+        });
+
+        $response = $this->actingAs($admin)->getJson('/api/minha-conta/ixc/clientes?q=cliente');
+
+        $response->assertOk()
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('items', []);
+    }
+
+    public function test_ixc_clients_search_friendly_message_hides_raw_http_404(): void
+    {
+        $company = $this->makeIxcCompany();
+        $admin = $this->makeCompanyAdmin($company->id);
+
+        Http::fake([
+            '*' => Http::response(['error' => 'not found'], 404),
+        ]);
+
+        $response = $this->actingAs($admin)->getJson('/api/minha-conta/ixc/clientes?q=87277018000113');
+
+        $response->assertStatus(422)
+            ->assertJsonPath('ok', false)
+            ->assertJson(fn ($json) => $json
+                ->where('message', fn ($message) => is_string($message)
+                    && ! str_contains($message, 'HTTP 404')
+                    && str_contains(mb_strtolower($message), 'recurso'))
                 ->etc());
     }
 
