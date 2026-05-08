@@ -20,7 +20,8 @@ function toActionEditor(action) {
     rawKind === 'handoff' ||
     rawKind === 'appointments_start' ||
     rawKind === 'appointments_cancel' ||
-    rawKind === 'ixc_invoices_start'
+    rawKind === 'ixc_invoices_start' ||
+    rawKind === 'ixc_fiscal_notes_start'
       ? rawKind
       : 'go_to';
 
@@ -193,7 +194,8 @@ function fromActionEditor(action) {
     rawKind === 'handoff' ||
     rawKind === 'appointments_start' ||
     rawKind === 'appointments_cancel' ||
-    rawKind === 'ixc_invoices_start'
+    rawKind === 'ixc_invoices_start' ||
+    rawKind === 'ixc_fiscal_notes_start'
       ? rawKind
       : 'go_to';
   const payload = { kind };
@@ -203,7 +205,7 @@ function fromActionEditor(action) {
     payload.reply_text = reply;
   }
 
-  if (kind === 'handoff' || kind === 'appointments_start' || kind === 'ixc_invoices_start') {
+  if (kind === 'handoff' || kind === 'appointments_start' || kind === 'ixc_invoices_start' || kind === 'ixc_fiscal_notes_start') {
     payload.target_area_name = String(action?.target_area_name ?? '').trim();
   } else if (kind !== 'appointments_cancel') {
     payload.flow = String(action?.flow ?? '').trim();
@@ -299,11 +301,12 @@ function validateAction(action, stepLabel) {
     rawKind === 'handoff' ||
     rawKind === 'appointments_start' ||
     rawKind === 'appointments_cancel' ||
-    rawKind === 'ixc_invoices_start'
+    rawKind === 'ixc_invoices_start' ||
+    rawKind === 'ixc_fiscal_notes_start'
       ? rawKind
       : 'go_to';
 
-  if (kind === 'appointments_start' || kind === 'appointments_cancel' || kind === 'ixc_invoices_start') {
+  if (kind === 'appointments_start' || kind === 'appointments_cancel' || kind === 'ixc_invoices_start' || kind === 'ixc_fiscal_notes_start') {
     return errors;
   }
 

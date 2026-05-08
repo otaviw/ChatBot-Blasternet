@@ -31,6 +31,10 @@ function getActionSummary(action, stepOptions = []) {
     return 'Iniciar fluxo de boleto IXC';
   }
 
+  if (action.kind === 'ixc_fiscal_notes_start') {
+    return 'Iniciar fluxo de nota fiscal IXC';
+  }
+
   if (action.kind === 'handoff') {
     return `Transferir para: ${action.target_area_name || 'area nao definida'}`;
   }
@@ -103,6 +107,15 @@ function ActionEditor({
       return;
     }
 
+    if (value === 'ixc_fiscal_notes_start') {
+      onChange({
+        ...safeAction,
+        kind: 'ixc_fiscal_notes_start',
+        target_area_name: safeAction.target_area_name || 'Atendimento',
+      });
+      return;
+    }
+
     onChange({
       ...safeAction,
       kind: 'go_to',
@@ -144,6 +157,7 @@ function ActionEditor({
             <option value="appointments_start">Iniciar agendamento automatico</option>
             <option value="appointments_cancel">Cancelar agendamento</option>
             <option value="ixc_invoices_start">Iniciar fluxo de boleto IXC</option>
+            <option value="ixc_fiscal_notes_start">Iniciar fluxo de nota fiscal IXC</option>
           </select>
         </label>
 
@@ -193,6 +207,27 @@ function ActionEditor({
           </p>
           <label className="stateful-field">
             <span className="stateful-field-label">Área de fallback (em caso de falha/tentativas inválidas)</span>
+            <select
+              value={safeAction.target_area_name || 'Atendimento'}
+              onChange={(e) => onChange({ ...safeAction, target_area_name: e.target.value })}
+              className="stateful-input"
+            >
+              <option value="Atendimento">Atendimento (padrao)</option>
+              {(serviceAreas ?? []).map((area) => (
+                <option key={String(area)} value={String(area)}>
+                  {String(area)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      ) : safeAction.kind === 'ixc_fiscal_notes_start' ? (
+        <div className="space-y-3">
+          <p className="stateful-editor-card-subtitle">
+            O cliente serÃ¡ encaminhado para o fluxo automÃ¡tico de notas fiscais IXC (pedindo CPF/CNPJ e enviando a nota escolhida).
+          </p>
+          <label className="stateful-field">
+            <span className="stateful-field-label">Ãrea de fallback (em caso de falha/tentativas invÃ¡lidas)</span>
             <select
               value={safeAction.target_area_name || 'Atendimento'}
               onChange={(e) => onChange({ ...safeAction, target_area_name: e.target.value })}
