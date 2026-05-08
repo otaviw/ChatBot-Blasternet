@@ -16,6 +16,7 @@ class GeneralMenuFlowHandler
     public function __construct(
         private BotFlowRegistry $registry,
         private AppointmentFlowHandler $appointmentHandler,
+        private IxcInvoiceFlowHandler $ixcInvoiceHandler,
     ) {}
 
     /**
@@ -223,6 +224,10 @@ class GeneralMenuFlowHandler
 
         if ($kind === 'appointments_cancel') {
             return $this->appointmentHandler->startCancellation($company, $conversation);
+        }
+
+        if ($kind === 'ixc_invoices_start') {
+            return $this->ixcInvoiceHandler->start($company, $conversation, $action);
         }
 
         if ($kind !== 'handoff') {

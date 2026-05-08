@@ -247,6 +247,17 @@ class BotFlowRegistry
             ];
         }
 
+        if ($kind === 'ixc_invoices_start') {
+            $targetAreaName = trim((string) ($raw['target_area_name'] ?? self::AREA_ATTENDANCE));
+            $replyText = trim((string) ($raw['reply_text'] ?? ''));
+
+            return [
+                'kind' => 'ixc_invoices_start',
+                'target_area_name' => $targetAreaName !== '' ? $targetAreaName : self::AREA_ATTENDANCE,
+                'reply_text' => $replyText === '' ? null : $replyText,
+            ];
+        }
+
         return null;
     }
 

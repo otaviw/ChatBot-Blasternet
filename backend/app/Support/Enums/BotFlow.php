@@ -11,4 +11,5 @@ enum BotFlow: string
     case SUPPORT            = 'support';
     case APPOINTMENTS       = 'appointments';
     case CANCEL_APPOINTMENT = 'cancel_appointment';
+    case IXC_INVOICES       = 'ixc_invoices';
 }

@@ -27,6 +27,10 @@ function getActionSummary(action, stepOptions = []) {
     return 'Iniciar cancelamento de agendamento';
   }
 
+  if (action.kind === 'ixc_invoices_start') {
+    return 'Iniciar fluxo de boleto IXC';
+  }
+
   if (action.kind === 'handoff') {
     return `Transferir para: ${action.target_area_name || 'area nao definida'}`;
   }
@@ -90,6 +94,15 @@ function ActionEditor({
       return;
     }
 
+    if (value === 'ixc_invoices_start') {
+      onChange({
+        ...safeAction,
+        kind: 'ixc_invoices_start',
+        target_area_name: safeAction.target_area_name || 'Atendimento',
+      });
+      return;
+    }
+
     onChange({
       ...safeAction,
       kind: 'go_to',
@@ -130,6 +143,7 @@ function ActionEditor({
             <option value="handoff">Transferir para uma area</option>
             <option value="appointments_start">Iniciar agendamento automatico</option>
             <option value="appointments_cancel">Cancelar agendamento</option>
+            <option value="ixc_invoices_start">Iniciar fluxo de boleto IXC</option>
           </select>
         </label>
 
@@ -158,6 +172,27 @@ function ActionEditor({
           </p>
           <label className="stateful-field">
             <span className="stateful-field-label">Area de fallback (se nao houver horarios disponiveis)</span>
+            <select
+              value={safeAction.target_area_name || 'Atendimento'}
+              onChange={(e) => onChange({ ...safeAction, target_area_name: e.target.value })}
+              className="stateful-input"
+            >
+              <option value="Atendimento">Atendimento (padrao)</option>
+              {(serviceAreas ?? []).map((area) => (
+                <option key={String(area)} value={String(area)}>
+                  {String(area)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      ) : safeAction.kind === 'ixc_invoices_start' ? (
+        <div className="space-y-3">
+          <p className="stateful-editor-card-subtitle">
+            O cliente será encaminhado para o fluxo automático de boletos IXC (pedindo CPF/CNPJ e enviando o boleto aberto escolhido).
+          </p>
+          <label className="stateful-field">
+            <span className="stateful-field-label">Área de fallback (em caso de falha/tentativas inválidas)</span>
             <select
               value={safeAction.target_area_name || 'Atendimento'}
               onChange={(e) => onChange({ ...safeAction, target_area_name: e.target.value })}

@@ -131,7 +131,8 @@ class InboundMessageService
             $company,
             $conversation,
             $normalizedText,
-            $isFirstInboundMessage
+            $isFirstInboundMessage,
+            $sendOutbound
         );
 
         $statefulHandled = (bool) ($statefulResult['handled'] ?? false);
@@ -255,6 +256,12 @@ class InboundMessageService
             $outMessage->refresh();
         }
 
+        $extraOutMessages = $this->processStatefulExtraOutboundMessages(
+            $updatedConversation,
+            $statefulHandled ? $statefulResult : [],
+            $outMeta
+        );
+
         if ($sendOutbound && ! $wasSent) {
             Log::warning('Falha ao enviar resposta automatica para WhatsApp.', [
                 'conversation_id' => $updatedConversation->id,
@@ -282,6 +289,7 @@ class InboundMessageService
             'conversation' => $updatedConversation,
             'in_message' => $inMessage,
             'out_message' => $outMessage,
+            'extra_out_messages' => $extraOutMessages,
             'reply' => $reply,
             'was_sent' => $wasSent,
             'auto_replied' => true,
@@ -456,6 +464,62 @@ class InboundMessageService
         $this->updateManualModeStatus($conversation);
 
         return $this->noReplyResult($conversation, $inMessage);
+    }
+
+    /**
+     * @param  array<string, mixed>  $statefulResult
+     * @param  array<string, mixed>  $baseMeta
+     * @return array<int, Message>
+     */
+    private function processStatefulExtraOutboundMessages(
+        Conversation $conversation,
+        array $statefulResult,
+        array $baseMeta
+    ): array {
+        $rawExtraMessages = $statefulResult['extra_outbound_messages'] ?? null;
+        if (! is_array($rawExtraMessages) || $rawExtraMessages === []) {
+            return [];
+        }
+
+        $created = [];
+        foreach ($rawExtraMessages as $rawExtra) {
+            if (! is_array($rawExtra)) {
+                continue;
+            }
+
+            $contentType = trim((string) ($rawExtra['content_type'] ?? 'document'));
+            if ($contentType === '') {
+                $contentType = 'document';
+            }
+
+            $meta = array_merge(
+                $baseMeta,
+                is_array($rawExtra['meta'] ?? null) ? $rawExtra['meta'] : []
+            );
+
+            /** @var Message $message */
+            $message = Message::create([
+                'conversation_id' => (int) $conversation->id,
+                'direction' => 'out',
+                'type' => 'bot',
+                'content_type' => $contentType,
+                'text' => isset($rawExtra['text']) ? (string) $rawExtra['text'] : null,
+                'media_mime_type' => isset($rawExtra['media_mime_type']) ? (string) $rawExtra['media_mime_type'] : null,
+                'media_filename' => isset($rawExtra['media_filename']) ? (string) $rawExtra['media_filename'] : null,
+                'delivery_status' => MessageDeliveryStatus::PENDING,
+                'meta' => $meta,
+            ]);
+
+            $sendResult = is_array($rawExtra['send_result'] ?? null) ? $rawExtra['send_result'] : null;
+            if (is_array($sendResult)) {
+                $this->deliveryStatus->applySendResult($message, $sendResult, 'bot_stateful_extra');
+                $message->refresh();
+            }
+
+            $created[] = $message;
+        }
+
+        return $created;
     }
 
     private function normalizePhone(string $phone): string

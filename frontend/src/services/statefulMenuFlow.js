@@ -16,7 +16,13 @@ function slugify(text) {
 
 function toActionEditor(action) {
   const rawKind = action?.kind;
-  const kind = rawKind === 'handoff' || rawKind === 'appointments_start' || rawKind === 'appointments_cancel' ? rawKind : 'go_to';
+  const kind =
+    rawKind === 'handoff' ||
+    rawKind === 'appointments_start' ||
+    rawKind === 'appointments_cancel' ||
+    rawKind === 'ixc_invoices_start'
+      ? rawKind
+      : 'go_to';
 
   return {
     id: makeId('action'),
@@ -183,7 +189,13 @@ function statefulMenuFlowToEditor(flow, welcomeMessage = 'Ola! O que você preci
 
 function fromActionEditor(action) {
   const rawKind = action?.kind;
-  const kind = rawKind === 'handoff' || rawKind === 'appointments_start' || rawKind === 'appointments_cancel' ? rawKind : 'go_to';
+  const kind =
+    rawKind === 'handoff' ||
+    rawKind === 'appointments_start' ||
+    rawKind === 'appointments_cancel' ||
+    rawKind === 'ixc_invoices_start'
+      ? rawKind
+      : 'go_to';
   const payload = { kind };
 
   const reply = String(action?.reply_text ?? '').trim();
@@ -191,7 +203,7 @@ function fromActionEditor(action) {
     payload.reply_text = reply;
   }
 
-  if (kind === 'handoff' || kind === 'appointments_start') {
+  if (kind === 'handoff' || kind === 'appointments_start' || kind === 'ixc_invoices_start') {
     payload.target_area_name = String(action?.target_area_name ?? '').trim();
   } else if (kind !== 'appointments_cancel') {
     payload.flow = String(action?.flow ?? '').trim();
@@ -283,9 +295,15 @@ function editorToStatefulMenuFlow(editor) {
 function validateAction(action, stepLabel) {
   const errors = [];
   const rawKind = action?.kind;
-  const kind = rawKind === 'handoff' || rawKind === 'appointments_start' || rawKind === 'appointments_cancel' ? rawKind : 'go_to';
+  const kind =
+    rawKind === 'handoff' ||
+    rawKind === 'appointments_start' ||
+    rawKind === 'appointments_cancel' ||
+    rawKind === 'ixc_invoices_start'
+      ? rawKind
+      : 'go_to';
 
-  if (kind === 'appointments_start' || kind === 'appointments_cancel') {
+  if (kind === 'appointments_start' || kind === 'appointments_cancel' || kind === 'ixc_invoices_start') {
     return errors;
   }
 

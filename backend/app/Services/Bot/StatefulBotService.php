@@ -9,6 +9,7 @@ use App\Models\Company;
 use App\Models\Conversation;
 use App\Services\Bot\Handlers\AppointmentFlowHandler;
 use App\Services\Bot\Handlers\GeneralMenuFlowHandler;
+use App\Services\Bot\Handlers\IxcInvoiceFlowHandler;
 use App\Support\Enums\BotFlow;
 
 class StatefulBotService
@@ -17,6 +18,7 @@ class StatefulBotService
         private BotFlowRegistry $registry,
         private AppointmentFlowHandler $appointmentHandler,
         private GeneralMenuFlowHandler $generalMenuHandler,
+        private IxcInvoiceFlowHandler $ixcInvoiceHandler,
     ) {}
 
     /**
@@ -26,7 +28,8 @@ class StatefulBotService
         ?Company $company,
         Conversation $conversation,
         string $inputText,
-        bool $isFirstInboundMessage
+        bool $isFirstInboundMessage,
+        bool $sendOutbound = true,
     ): array {
         unset($isFirstInboundMessage);
 
@@ -49,6 +52,10 @@ class StatefulBotService
 
         if ($flow === BotFlow::CANCEL_APPOINTMENT->value) {
             return $this->appointmentHandler->handleCancellation($company, $conversation, $step, $normalizedText);
+        }
+
+        if ($flow === BotFlow::IXC_INVOICES->value) {
+            return $this->ixcInvoiceHandler->handle($company, $conversation, $step, $normalizedText, $sendOutbound);
         }
 
         if ($this->isCancelCommand($normalizedText)) {
