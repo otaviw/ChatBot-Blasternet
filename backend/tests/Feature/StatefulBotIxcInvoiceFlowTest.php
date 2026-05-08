@@ -93,13 +93,9 @@ class StatefulBotIxcInvoiceFlowTest extends TestCase
         $this->assertNull($conversation->bot_step);
     }
 
-    public function test_ixc_invoice_flow_blocks_when_document_phone_does_not_match_sender(): void
+    public function test_ixc_invoice_flow_allows_document_even_when_phone_does_not_match_sender(): void
     {
         $company = $this->createCompanyWithIxcAndInvoiceFlow('Empresa IXC Phone Guard');
-        Area::create([
-            'company_id' => (int) $company->id,
-            'name' => 'Atendimento',
-        ]);
         $admin = $this->createSystemAdmin('sys.ixc.phoneguard@test.local');
 
         $this->mockIxcPhoneMismatchPath();
@@ -107,22 +103,17 @@ class StatefulBotIxcInvoiceFlowTest extends TestCase
 
         $this->simulateInbound($admin, $company, '5511999990003', '#')->assertOk();
         $this->simulateInbound($admin, $company, '5511999990003', '1')->assertOk();
-        $first = $this->simulateInbound($admin, $company, '5511999990003', '12345678901');
+        $confirm = $this->simulateInbound($admin, $company, '5511999990003', '12345678901');
 
-        $first->assertOk();
-        $this->assertStringContainsString(
-            'nao confere com o telefone registrado',
-            mb_strtolower((string) $first->json('reply'))
-        );
+        $confirm->assertOk();
+        $this->assertStringContainsString('Deseja que eu envie esse boleto agora?', (string) $confirm->json('reply'));
 
-        $this->simulateInbound($admin, $company, '5511999990003', '12345678901')->assertOk();
-        $third = $this->simulateInbound($admin, $company, '5511999990003', '12345678901');
-        $third->assertOk();
-        $this->assertStringContainsString('vou te encaminhar para um atendente', mb_strtolower((string) $third->json('reply')));
+        $final = $this->simulateInbound($admin, $company, '5511999990003', '1');
+        $final->assertOk();
+        $this->assertStringContainsString('Pronto! Enviei o boleto #79', (string) $final->json('reply'));
 
-        $conversation = Conversation::findOrFail((int) $third->json('conversation.id'));
-        $this->assertSame('human', (string) $conversation->handling_mode);
-        $this->assertSame('area', (string) $conversation->assigned_type);
+        $conversation = Conversation::findOrFail((int) $final->json('conversation.id'));
+        $this->assertSame('bot', (string) $conversation->handling_mode);
     }
 
     public function test_ixc_invoice_flow_can_cancel_before_send(): void
@@ -234,6 +225,26 @@ class StatefulBotIxcInvoiceFlowTest extends TestCase
                             'cnpj_cpf' => '12345678901',
                             'telefone_celular' => '(51) 99888-7777',
                         ]],
+                    ];
+                }
+
+                if ($resource === 'fn_areceber') {
+                    return [
+                        'page' => '1',
+                        'total' => 1,
+                        'registros' => [[
+                            'id' => '79',
+                            'id_cliente' => '28',
+                            'status' => 'A',
+                            'valor' => '35.90',
+                            'data_vencimento' => '2026-07-05',
+                        ]],
+                    ];
+                }
+
+                if ($resource === 'get_boleto') {
+                    return [
+                        'pdf_base64' => base64_encode('%PDF-1.4 boleto phone mismatch no longer blocked'),
                     ];
                 }
 

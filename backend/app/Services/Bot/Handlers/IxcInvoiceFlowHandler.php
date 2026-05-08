@@ -11,7 +11,6 @@ use App\Services\IxcApiService;
 use App\Services\WhatsApp\WhatsAppSendService;
 use App\Support\Enums\BotFlow;
 use App\Support\IxcUrlGuard;
-use App\Support\PhoneNumberNormalizer;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
@@ -117,9 +116,8 @@ class IxcInvoiceFlowHandler
         }
 
         try {
-            $searchResult = $this->searchClientsByDocument($company, $document, (string) ($conversation->customer_phone ?? ''));
+            $searchResult = $this->searchClientsByDocument($company, $document);
             $clients = is_array($searchResult['clients'] ?? null) ? $searchResult['clients'] : [];
-            $phoneMismatch = (bool) ($searchResult['phone_mismatch'] ?? false);
         } catch (RuntimeException $exception) {
             return $this->handoffResult(
                 $company,
@@ -130,17 +128,6 @@ class IxcInvoiceFlowHandler
         }
 
         if ($clients === []) {
-            if ($phoneMismatch) {
-                return $this->invalidAttempt(
-                    $company,
-                    $conversation,
-                    self::STEP_ASK_DOCUMENT,
-                    $context,
-                    'Encontrei cadastro para esse CPF/CNPJ, mas este numero de WhatsApp nao confere com o telefone registrado. Confira os dados ou fale com um atendente.',
-                    $handoffArea
-                );
-            }
-
             return $this->invalidAttempt(
                 $company,
                 $conversation,
@@ -568,9 +555,9 @@ class IxcInvoiceFlowHandler
     }
 
     /**
-     * @return array{clients: array<int, array{id:int,label:string}>, phone_mismatch: bool}
+     * @return array{clients: array<int, array{id:int,label:string}>}
      */
-    private function searchClientsByDocument(Company $company, string $document, string $senderPhone): array
+    private function searchClientsByDocument(Company $company, string $document): array
     {
         $attempts = $this->buildDocumentLookupAttempts($document);
 
@@ -597,36 +584,18 @@ class IxcInvoiceFlowHandler
                 $mapped[$id] = [
                     'id' => $id,
                     'label' => $label,
-                    'phone_variants' => $this->extractClientPhoneVariants($row),
                 ];
             }
 
             if ($mapped !== []) {
-                $filterResult = $this->filterClientsBySenderPhone(array_values($mapped), $senderPhone);
-                if ($filterResult['clients'] !== []) {
-                    return [
-                        'clients' => $filterResult['clients'],
-                        'phone_mismatch' => false,
-                    ];
-                }
-
-                if ($filterResult['strict_mismatch']) {
-                    return [
-                        'clients' => [],
-                        'phone_mismatch' => true,
-                    ];
-                }
-
                 return [
-                    'clients' => [],
-                    'phone_mismatch' => false,
+                    'clients' => array_values($mapped),
                 ];
             }
         }
 
         return [
             'clients' => [],
-            'phone_mismatch' => false,
         ];
     }
 
@@ -765,134 +734,6 @@ class IxcInvoiceFlowHandler
         }
 
         return array_values(array_unique($resources));
-    }
-
-    /**
-     * @param  array<int, array{id:int,label:string,phone_variants?:array<int,string>}>  $clients
-     * @return array{clients: array<int, array{id:int,label:string}>, strict_mismatch: bool}
-     */
-    private function filterClientsBySenderPhone(array $clients, string $senderPhone): array
-    {
-        $senderVariants = PhoneNumberNormalizer::variantsForLookup($senderPhone);
-        if ($senderVariants === []) {
-            return [
-                'clients' => array_map(
-                    static fn (array $item): array => [
-                        'id' => (int) ($item['id'] ?? 0),
-                        'label' => (string) ($item['label'] ?? ''),
-                    ],
-                    $clients
-                ),
-                'strict_mismatch' => false,
-            ];
-        }
-
-        $matched = [];
-        $withoutPhone = [];
-        $withPhoneNoMatch = [];
-
-        foreach ($clients as $client) {
-            $phoneVariants = is_array($client['phone_variants'] ?? null) ? $client['phone_variants'] : [];
-            $normalizedClient = [
-                'id' => (int) ($client['id'] ?? 0),
-                'label' => (string) ($client['label'] ?? ''),
-            ];
-
-            if ($phoneVariants === []) {
-                $withoutPhone[] = $normalizedClient;
-                continue;
-            }
-
-            if ($this->hasIntersection($senderVariants, $phoneVariants)) {
-                $matched[] = $normalizedClient;
-            } else {
-                $withPhoneNoMatch[] = $normalizedClient;
-            }
-        }
-
-        if ($matched !== []) {
-            return [
-                'clients' => $matched,
-                'strict_mismatch' => false,
-            ];
-        }
-
-        if ($withPhoneNoMatch !== [] && $withoutPhone === []) {
-            return [
-                'clients' => [],
-                'strict_mismatch' => true,
-            ];
-        }
-
-        if ($withPhoneNoMatch !== [] && $withoutPhone !== []) {
-            return [
-                'clients' => [],
-                'strict_mismatch' => true,
-            ];
-        }
-
-        return [
-            'clients' => $withoutPhone,
-            'strict_mismatch' => false,
-        ];
-    }
-
-    /**
-     * @param  array<string, mixed>  $row
-     * @return array<int, string>
-     */
-    private function extractClientPhoneVariants(array $row): array
-    {
-        $possiblePhoneFields = [
-            'whatsapp',
-            'telefone_celular',
-            'fone',
-            'telefone_comercial',
-            'telefone',
-            'celular',
-            'telefone_residencial',
-            'fone_celular',
-        ];
-
-        $variants = [];
-        foreach ($possiblePhoneFields as $field) {
-            $raw = trim((string) ($row[$field] ?? ''));
-            if ($raw === '') {
-                continue;
-            }
-
-            foreach (PhoneNumberNormalizer::variantsForLookup($raw) as $variant) {
-                if (! in_array($variant, $variants, true)) {
-                    $variants[] = $variant;
-                }
-            }
-        }
-
-        return $variants;
-    }
-
-    /**
-     * @param  array<int, string>  $left
-     * @param  array<int, string>  $right
-     */
-    private function hasIntersection(array $left, array $right): bool
-    {
-        if ($left === [] || $right === []) {
-            return false;
-        }
-
-        $rightMap = [];
-        foreach ($right as $value) {
-            $rightMap[(string) $value] = true;
-        }
-
-        foreach ($left as $value) {
-            if (isset($rightMap[(string) $value])) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**
