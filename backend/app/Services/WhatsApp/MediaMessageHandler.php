@@ -109,8 +109,11 @@ class MediaMessageHandler
         $url = rtrim(config('whatsapp.api_url'), '/') . "/{$phoneNumberId}/media";
 
         $response = Http::withToken($accessToken)
-            ->attach('filedata', $binaryData, $filename ?: 'file', $mimeType)
-            ->post($url);
+            ->attach('file', $binaryData, $filename ?: 'file', ['Content-Type' => $mimeType])
+            ->post($url, [
+                'messaging_product' => 'whatsapp',
+                'type' => $mimeType,
+            ]);
 
         if (! $response->successful()) {
             Log::warning('Upload mídia falhou', ['status' => $response->status(), 'body' => $response->body()]);
