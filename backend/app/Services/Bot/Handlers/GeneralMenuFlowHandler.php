@@ -17,6 +17,7 @@ class GeneralMenuFlowHandler
         private BotFlowRegistry $registry,
         private AppointmentFlowHandler $appointmentHandler,
         private IxcInvoiceFlowHandler $ixcInvoiceHandler,
+        private IxcFiscalNoteFlowHandler $ixcFiscalNoteHandler,
     ) {}
 
     /**
@@ -228,6 +229,9 @@ class GeneralMenuFlowHandler
 
         if ($kind === 'ixc_invoices_start') {
             return $this->ixcInvoiceHandler->start($company, $conversation, $action);
+        }
+        if ($kind === 'ixc_fiscal_notes_start') {
+            return $this->ixcFiscalNoteHandler->start($company, $conversation, $action);
         }
 
         if ($kind !== 'handoff') {

@@ -257,6 +257,16 @@ class BotFlowRegistry
                 'reply_text' => $replyText === '' ? null : $replyText,
             ];
         }
+        if ($kind === 'ixc_fiscal_notes_start') {
+            $targetAreaName = trim((string) ($raw['target_area_name'] ?? self::AREA_ATTENDANCE));
+            $replyText = trim((string) ($raw['reply_text'] ?? ''));
+
+            return [
+                'kind' => 'ixc_fiscal_notes_start',
+                'target_area_name' => $targetAreaName !== '' ? $targetAreaName : self::AREA_ATTENDANCE,
+                'reply_text' => $replyText === '' ? null : $replyText,
+            ];
+        }
 
         return null;
     }
@@ -486,6 +496,24 @@ class BotFlowRegistry
                 ],
             ];
         }
+        if ($company?->hasIxcIntegration()) {
+            $steps[$this->stateKey(self::FLOW_MAIN, self::STEP_MENU)]['options']['6'] = [
+                'label' => '2ª via de boleto',
+                'action' => [
+                    'kind' => 'ixc_invoices_start',
+                    'target_area_name' => self::AREA_ATTENDANCE,
+                    'reply_text' => null,
+                ],
+            ];
+            $steps[$this->stateKey(self::FLOW_MAIN, self::STEP_MENU)]['options']['7'] = [
+                'label' => 'Nota fiscal',
+                'action' => [
+                    'kind' => 'ixc_fiscal_notes_start',
+                    'target_area_name' => self::AREA_ATTENDANCE,
+                    'reply_text' => null,
+                ],
+            ];
+        }
 
         return [
             'commands' => ['#', 'menu'],
@@ -502,11 +530,12 @@ class BotFlowRegistry
         $welcome = trim((string) ($company?->botSetting?->welcome_message ?? ''));
         $appointmentsEnabled = $this->hasActiveAppointments($company);
         $appointmentsLine = $appointmentsEnabled ? "\n4 - Marcar agendamento\n5 - Cancelar agendamento" : '';
+        $ixcLine = $company?->hasIxcIntegration() ? "\n6 - 2ª via de boleto\n7 - Nota fiscal" : '';
         if ($welcome === '') {
-            return "Olá! O que você precisa?\n1 - Suporte técnico\n2 - Vendas\n3 - Falar com atendente{$appointmentsLine}";
+            return "Olá! O que você precisa?\n1 - Suporte técnico\n2 - Vendas\n3 - Falar com atendente{$appointmentsLine}{$ixcLine}";
         }
 
-        return "{$welcome}\n1 - Suporte técnico\n2 - Vendas\n3 - Falar com atendente{$appointmentsLine}";
+        return "{$welcome}\n1 - Suporte técnico\n2 - Vendas\n3 - Falar com atendente{$appointmentsLine}{$ixcLine}";
     }
 
     private function hasActiveAppointments(?Company $company): bool
@@ -526,5 +555,6 @@ class BotFlowRegistry
         return "{$flow}.{$step}";
     }
 }
+
 
 

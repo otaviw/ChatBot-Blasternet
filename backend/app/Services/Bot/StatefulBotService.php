@@ -9,6 +9,7 @@ use App\Models\Company;
 use App\Models\Conversation;
 use App\Services\Bot\Handlers\AppointmentFlowHandler;
 use App\Services\Bot\Handlers\GeneralMenuFlowHandler;
+use App\Services\Bot\Handlers\IxcFiscalNoteFlowHandler;
 use App\Services\Bot\Handlers\IxcInvoiceFlowHandler;
 use App\Support\Enums\BotFlow;
 
@@ -19,6 +20,7 @@ class StatefulBotService
         private AppointmentFlowHandler $appointmentHandler,
         private GeneralMenuFlowHandler $generalMenuHandler,
         private IxcInvoiceFlowHandler $ixcInvoiceHandler,
+        private IxcFiscalNoteFlowHandler $ixcFiscalNoteHandler,
     ) {}
 
     /**
@@ -55,6 +57,10 @@ class StatefulBotService
         }
 
         if ($flow === BotFlow::IXC_INVOICES->value) {
+            $context = is_array($conversation->bot_context) ? $conversation->bot_context : [];
+            if (($context['mode'] ?? null) === 'fiscal_note') {
+                return $this->ixcFiscalNoteHandler->handle($company, $conversation, $step, $normalizedText, $sendOutbound);
+            }
             return $this->ixcInvoiceHandler->handle($company, $conversation, $step, $normalizedText, $sendOutbound);
         }
 

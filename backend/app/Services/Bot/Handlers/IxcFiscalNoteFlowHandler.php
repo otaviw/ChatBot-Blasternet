@@ -1,0 +1,1413 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services\Bot\Handlers;
+
+use App\Models\Company;
+use App\Models\Conversation;
+use App\Services\Bot\BotFlowRegistry;
+use App\Services\IxcApiService;
+use App\Services\WhatsApp\WhatsAppSendService;
+use App\Support\Enums\BotFlow;
+use App\Support\IxcUrlGuard;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use RuntimeException;
+
+class IxcFiscalNoteFlowHandler
+{
+    use BotHandlerHelpers;
+
+    private const STEP_ASK_DOCUMENT = 'ask_document';
+    private const STEP_CHOOSE_CLIENT = 'choose_client';
+    private const STEP_CHOOSE_INVOICE = 'choose_invoice';
+    private const STEP_CONFIRM_INVOICE = 'confirm_invoice';
+    private const MAX_ATTEMPTS = 3;
+
+    public function __construct(
+        private readonly BotFlowRegistry $registry,
+        private readonly IxcApiService $ixcApi,
+        private readonly WhatsAppSendService $whatsAppSend,
+    ) {}
+
+    /**
+     * @param  array<string, mixed>  $action
+     * @return array<string, mixed>
+     */
+    public function start(?Company $company, Conversation $conversation, array $action): array
+    {
+        $companyEntity = $this->resolveCompany($company, $conversation);
+        $handoffArea = trim((string) ($action['target_area_name'] ?? BotFlowRegistry::AREA_ATTENDANCE));
+        if ($handoffArea === '') {
+            $handoffArea = BotFlowRegistry::AREA_ATTENDANCE;
+        }
+        Log::info('bot_ixc_fiscal_note.start', [
+            'company_id' => $companyEntity?->id,
+            'conversation_id' => $conversation->id,
+        ]);
+
+        if (! $companyEntity || ! $companyEntity->hasIxcIntegration()) {
+            return $this->handoffResult(
+                $companyEntity,
+                $conversation,
+                'Não consegui acessar a integração de notas fiscais agora. Vou te encaminhar para um atendente.',
+                $handoffArea
+            );
+        }
+
+        $prompt = "Perfeito. Para consultar notas fiscais, informe o CPF/CNPJ somente com números.\nExemplo CPF: 12345678901\nExemplo CNPJ: 12345678000199";
+
+        return $this->botStateResult($prompt, [
+            'flow' => BotFlow::IXC_INVOICES->value,
+            'step' => self::STEP_ASK_DOCUMENT,
+            'context' => [
+                'attempts' => 0,
+                'handoff_area' => $handoffArea,
+                'mode' => 'fiscal_note',
+            ],
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function handle(
+        ?Company $company,
+        Conversation $conversation,
+        string $step,
+        string $normalizedText,
+        bool $sendOutbound = true
+    ): array {
+        $companyEntity = $this->resolveCompany($company, $conversation);
+        if (! $companyEntity) {
+            return $this->notHandled();
+        }
+
+        $context = is_array($conversation->bot_context ?? null) ? $conversation->bot_context : [];
+        $handoffArea = $this->resolveHandoffArea($context);
+
+        return match ($step) {
+            self::STEP_ASK_DOCUMENT => $this->handleAskDocument($companyEntity, $conversation, $normalizedText, $context, $handoffArea, $sendOutbound),
+            self::STEP_CHOOSE_CLIENT => $this->handleChooseClient($companyEntity, $conversation, $normalizedText, $context, $handoffArea, $sendOutbound),
+            self::STEP_CHOOSE_INVOICE => $this->handleChooseInvoice($companyEntity, $conversation, $normalizedText, $context, $handoffArea, $sendOutbound),
+            self::STEP_CONFIRM_INVOICE => $this->handleConfirmInvoice($companyEntity, $conversation, $normalizedText, $context, $handoffArea, $sendOutbound),
+            default => $this->notHandled(),
+        };
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     * @return array<string, mixed>
+     */
+    private function handleAskDocument(
+        Company $company,
+        Conversation $conversation,
+        string $input,
+        array $context,
+        string $handoffArea,
+        bool $sendOutbound
+    ): array {
+        $document = preg_replace('/\D+/', '', $input) ?? '';
+        if (! in_array(strlen($document), [11, 14], true)) {
+            return $this->invalidAttempt(
+                $company,
+                $conversation,
+                self::STEP_ASK_DOCUMENT,
+                $context,
+                "Documento inválido. Informe um CPF (11 dígitos) ou CNPJ (14 dígitos).",
+                $handoffArea
+            );
+        }
+
+        try {
+            $searchResult = $this->searchClientsByDocument($company, $document);
+            $clients = is_array($searchResult['clients'] ?? null) ? $searchResult['clients'] : [];
+        } catch (RuntimeException $exception) {
+            return $this->handoffResult(
+                $company,
+                $conversation,
+                'Tive um problema para consultar notas fiscais na IXC. Vou te encaminhar para um atendente.',
+                $handoffArea
+            );
+        }
+
+        if ($clients === []) {
+            return $this->invalidAttempt(
+                $company,
+                $conversation,
+                self::STEP_ASK_DOCUMENT,
+                $context,
+                'Não encontrei cliente para esse CPF/CNPJ. Confira e tente novamente.',
+                $handoffArea
+            );
+        }
+
+        if (count($clients) === 1) {
+            return $this->handleClientResolved($company, $conversation, $context, $clients[0], $handoffArea, $sendOutbound);
+        }
+
+        $options = [];
+        $lines = ['Encontrei mais de um cliente para esse documento. Escolha um número:'];
+        foreach (array_slice($clients, 0, 10) as $index => $client) {
+            $key = (string) ($index + 1);
+            $options[$key] = [
+                'id' => (int) ($client['id'] ?? 0),
+                'label' => (string) ($client['label'] ?? 'Cliente'),
+            ];
+            $lines[] = "{$key} - {$options[$key]['label']}";
+        }
+
+        $replyText = implode("\n", $lines);
+
+        return $this->botStateResult($replyText, [
+            'flow' => BotFlow::IXC_INVOICES->value,
+            'step' => self::STEP_CHOOSE_CLIENT,
+            'context' => array_merge($context, [
+                'attempts' => 0,
+                'handoff_area' => $handoffArea,
+                'document' => $document,
+                'client_options' => $options,
+            ]),
+        ], $this->buildChoiceMessage($replyText, $options, 'Escolher cliente'));
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     * @return array<string, mixed>
+     */
+    private function handleChooseClient(
+        Company $company,
+        Conversation $conversation,
+        string $input,
+        array $context,
+        string $handoffArea,
+        bool $sendOutbound
+    ): array {
+        $options = is_array($context['client_options'] ?? null) ? $context['client_options'] : [];
+        if ($options === []) {
+            return $this->botStateResult(
+                'Vamos reiniciar a consulta de nota fiscal. Informe o CPF/CNPJ novamente.',
+                [
+                    'flow' => BotFlow::IXC_INVOICES->value,
+                    'step' => self::STEP_ASK_DOCUMENT,
+                    'context' => [
+                        'attempts' => 0,
+                        'handoff_area' => $handoffArea,
+                    ],
+                ]
+            );
+        }
+
+        $selectedKey = $this->resolveSelectionKey($input, $options);
+        if ($selectedKey === null) {
+            return $this->invalidAttempt(
+                $company,
+                $conversation,
+                self::STEP_CHOOSE_CLIENT,
+                $context,
+                'Opção inválida. Responda com o número do cliente desejado.',
+                $handoffArea
+            );
+        }
+
+        $selected = is_array($options[$selectedKey] ?? null) ? $options[$selectedKey] : null;
+        if (! is_array($selected) || (int) ($selected['id'] ?? 0) <= 0) {
+            return $this->invalidAttempt(
+                $company,
+                $conversation,
+                self::STEP_CHOOSE_CLIENT,
+                $context,
+                'Não consegui identificar o cliente escolhido. Tente novamente.',
+                $handoffArea
+            );
+        }
+
+        return $this->handleClientResolved($company, $conversation, $context, $selected, $handoffArea, $sendOutbound);
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     * @param  array<string, mixed>  $selectedClient
+     * @return array<string, mixed>
+     */
+    private function handleClientResolved(
+        Company $company,
+        Conversation $conversation,
+        array $context,
+        array $selectedClient,
+        string $handoffArea,
+        bool $sendOutbound
+    ): array {
+        $clientId = (string) ((int) ($selectedClient['id'] ?? 0));
+        if ($clientId === '0') {
+            return $this->invalidAttempt(
+                $company,
+                $conversation,
+                self::STEP_ASK_DOCUMENT,
+                $context,
+                'Cliente inválido. Informe o CPF/CNPJ novamente.',
+                $handoffArea
+            );
+        }
+
+        Log::info('bot_ixc_fiscal_note.list_notes.start', [
+            'company_id' => $company->id,
+            'conversation_id' => $conversation->id,
+            'ixc_client_id' => (int) $clientId,
+        ]);
+        try {
+            $invoices = $this->listOpenInvoices($company, $clientId);
+        } catch (RuntimeException $exception) {
+            Log::warning('bot_ixc_fiscal_note.list_notes_failed', [
+                'company_id' => $company->id,
+                'conversation_id' => $conversation->id,
+                'ixc_client_id' => (int) $clientId,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return $this->handoffResult(
+                $company,
+                $conversation,
+                'Não consegui listar as notas fiscais na IXC. Vou te encaminhar para um atendente.',
+                $handoffArea
+            );
+        }
+
+        if ($invoices === []) {
+            return $this->returnToMainMenu(
+                $company,
+                'Não encontrei notas fiscais para esse cadastro no momento.'
+            );
+        }
+        Log::info('bot_ixc_fiscal_note.list_notes.success', [
+            'company_id' => $company->id,
+            'conversation_id' => $conversation->id,
+            'ixc_client_id' => (int) $clientId,
+            'count' => count($invoices),
+        ]);
+
+        if (count($invoices) === 1) {
+            return $this->prepareInvoiceConfirmation(
+                $company,
+                $clientId,
+                $invoices[0],
+                $context,
+                $handoffArea
+            );
+        }
+
+        $options = [];
+        $lines = ['Encontrei mais de uma nota fiscal. Escolha um número:'];
+        foreach (array_slice($invoices, 0, 10) as $index => $invoice) {
+            $key = (string) ($index + 1);
+            $options[$key] = [
+                'id' => (int) ($invoice['id'] ?? 0),
+                'label' => (string) ($invoice['label'] ?? "Nota fiscal {$key}"),
+                'data_vencimento' => (string) ($invoice['data_vencimento'] ?? ''),
+                'valor' => (string) ($invoice['valor'] ?? ''),
+                'invoice_id' => (int) ($invoice['invoice_id'] ?? 0),
+            ];
+            $lines[] = "{$key} - {$options[$key]['label']}";
+        }
+
+        $replyText = implode("\n", $lines);
+
+        return $this->botStateResult($replyText, [
+            'flow' => BotFlow::IXC_INVOICES->value,
+            'step' => self::STEP_CHOOSE_INVOICE,
+            'context' => array_merge($context, [
+                'attempts' => 0,
+                'handoff_area' => $handoffArea,
+                'selected_client_id' => (int) $clientId,
+                'invoice_options' => $options,
+            ]),
+        ], $this->buildChoiceMessage($replyText, $options, 'Escolher nota fiscal'));
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     * @return array<string, mixed>
+     */
+    private function handleChooseInvoice(
+        Company $company,
+        Conversation $conversation,
+        string $input,
+        array $context,
+        string $handoffArea,
+        bool $sendOutbound
+    ): array {
+        $clientId = (int) ($context['selected_client_id'] ?? 0);
+        $options = is_array($context['invoice_options'] ?? null) ? $context['invoice_options'] : [];
+        if ($clientId <= 0 || $options === []) {
+            return $this->botStateResult(
+                'Vamos reiniciar a consulta de nota fiscal. Informe o CPF/CNPJ novamente.',
+                [
+                    'flow' => BotFlow::IXC_INVOICES->value,
+                    'step' => self::STEP_ASK_DOCUMENT,
+                    'context' => [
+                        'attempts' => 0,
+                        'handoff_area' => $handoffArea,
+                    ],
+                ]
+            );
+        }
+
+        $selectedKey = $this->resolveSelectionKey($input, $options);
+        if ($selectedKey === null) {
+            return $this->invalidAttempt(
+                $company,
+                $conversation,
+                self::STEP_CHOOSE_INVOICE,
+                $context,
+                'Opção inválida. Responda com o número da nota fiscal desejada.',
+                $handoffArea
+            );
+        }
+
+        $invoice = is_array($options[$selectedKey] ?? null) ? $options[$selectedKey] : null;
+        if (! is_array($invoice) || (int) ($invoice['id'] ?? 0) <= 0) {
+            return $this->invalidAttempt(
+                $company,
+                $conversation,
+                self::STEP_CHOOSE_INVOICE,
+                $context,
+                'Não consegui identificar a nota fiscal escolhida. Tente novamente.',
+                $handoffArea
+            );
+        }
+
+        return $this->prepareInvoiceConfirmation(
+            $company,
+            (string) $clientId,
+            $invoice,
+            $context,
+            $handoffArea
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     * @return array<string, mixed>
+     */
+    private function handleConfirmInvoice(
+        Company $company,
+        Conversation $conversation,
+        string $input,
+        array $context,
+        string $handoffArea,
+        bool $sendOutbound
+    ): array {
+        $clientId = (int) ($context['selected_client_id'] ?? 0);
+        $invoice = is_array($context['selected_invoice'] ?? null) ? $context['selected_invoice'] : [];
+        $invoiceId = (int) ($invoice['id'] ?? 0);
+
+        if ($clientId <= 0 || $invoiceId <= 0) {
+            return $this->botStateResult(
+                'Vamos reiniciar a consulta de nota fiscal. Informe o CPF/CNPJ novamente.',
+                [
+                    'flow' => BotFlow::IXC_INVOICES->value,
+                    'step' => self::STEP_ASK_DOCUMENT,
+                    'context' => [
+                        'attempts' => 0,
+                        'handoff_area' => $handoffArea,
+                    ],
+                ]
+            );
+        }
+
+        if ($this->isConfirmInput($input)) {
+            return $this->sendSelectedInvoice(
+                $company,
+                $conversation,
+                (string) $clientId,
+                $invoice,
+                $sendOutbound,
+                $handoffArea
+            );
+        }
+
+        if ($this->isCancelInput($input)) {
+            return $this->returnToMainMenu(
+                $company,
+                'Sem problemas. Se quiser, posso te ajudar com outra opção.'
+            );
+        }
+
+        return $this->invalidAttempt(
+            $company,
+            $conversation,
+            self::STEP_CONFIRM_INVOICE,
+            $context,
+            'Opção inválida. Responda 1 para confirmar o envio da nota fiscal ou 2 para cancelar.',
+            $handoffArea
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $invoice
+     * @param  array<string, mixed>  $context
+     * @return array<string, mixed>
+     */
+    private function prepareInvoiceConfirmation(
+        Company $company,
+        string $clientId,
+        array $invoice,
+        array $context,
+        string $handoffArea
+    ): array {
+        $invoiceId = (int) ($invoice['id'] ?? 0);
+        if ($invoiceId <= 0) {
+            return $this->botStateResult(
+                'Não consegui identificar a nota fiscal. Informe o CPF/CNPJ novamente.',
+                [
+                    'flow' => BotFlow::IXC_INVOICES->value,
+                    'step' => self::STEP_ASK_DOCUMENT,
+                    'context' => [
+                        'attempts' => 0,
+                        'handoff_area' => $handoffArea,
+                    ],
+                ]
+            );
+        }
+
+        $invoiceSummary = trim((string) ($invoice['label'] ?? "Nota fiscal {$invoiceId}"));
+        $replyText = "Você escolheu {$invoiceSummary}.\nDeseja que eu envie essa nota fiscal agora?\n1 - Confirmar envio\n2 - Cancelar";
+
+        return $this->botStateResult($replyText, [
+            'flow' => BotFlow::IXC_INVOICES->value,
+            'step' => self::STEP_CONFIRM_INVOICE,
+            'context' => array_merge($context, [
+                'attempts' => 0,
+                'handoff_area' => $handoffArea,
+                'selected_client_id' => (int) $clientId,
+                'selected_invoice' => [
+                    'id' => $invoiceId,
+                    'label' => $invoiceSummary,
+                    'data_vencimento' => (string) ($invoice['data_vencimento'] ?? ''),
+                    'valor' => (string) ($invoice['valor'] ?? ''),
+                    'invoice_id' => (int) ($invoice['invoice_id'] ?? 0),
+                ],
+            ]),
+        ], $this->buildConfirmMessage($replyText));
+    }
+
+    /**
+     * @param  array<string, mixed>  $invoice
+     * @return array<string, mixed>
+     */
+    private function sendSelectedInvoice(
+        Company $company,
+        Conversation $conversation,
+        string $clientId,
+        array $invoice,
+        bool $sendOutbound,
+        string $handoffArea
+    ): array {
+        $noteId = (string) ((int) ($invoice['id'] ?? 0));
+        $invoiceId = (string) ((int) ($invoice['invoice_id'] ?? 0));
+        if ($noteId === '0') {
+            return $this->handoffResult(
+                $company,
+                $conversation,
+                'Não consegui identificar a nota fiscal escolhida. Vou te encaminhar para um atendente.',
+                $handoffArea
+            );
+        }
+
+        if (! $sendOutbound) {
+            return $this->returnToMainMenu(
+                $company,
+                "Nota fiscal #{$noteId} selecionada. (Simulação sem envio ativo.)"
+            );
+        }
+
+        try {
+            $binaryPayload = $this->resolveFiscalNoteBinary($company, $clientId, $noteId, $invoiceId);
+            $filename = $this->resolveFiscalNoteFilename($noteId, (string) ($invoice['data_vencimento'] ?? ''));
+            $caption = "Nota fiscal {$noteId}";
+            $sendResult = $this->whatsAppSend->sendMediaBinary(
+                $company,
+                (string) $conversation->customer_phone,
+                (string) ($binaryPayload['binary'] ?? ''),
+                (string) ($binaryPayload['content_type'] ?? 'application/pdf'),
+                'document',
+                $caption,
+                $filename,
+                true
+            );
+
+            if (! (bool) ($sendResult['ok'] ?? false)) {
+                $error = $this->extractSendError($sendResult);
+                throw new RuntimeException($error !== '' ? $error : 'Falha ao enviar nota fiscal pelo WhatsApp.');
+            }
+        } catch (RuntimeException $exception) {
+            Log::warning('bot_ixc_fiscal_note.send_selected_note_failed', [
+                'company_id' => $company->id,
+                'conversation_id' => $conversation->id,
+                'ixc_client_id' => (int) $clientId,
+                'ixc_note_id' => (int) $noteId,
+                'ixc_invoice_id' => (int) $invoiceId,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return $this->handoffResult(
+                $company,
+                $conversation,
+                'Não consegui enviar a nota fiscal automaticamente. Vou te encaminhar para um atendente.',
+                $handoffArea
+            );
+        }
+
+        $result = $this->returnToMainMenu(
+            $company,
+            "Pronto! Enviei a nota fiscal #{$noteId} no seu WhatsApp."
+        );
+        Log::info('bot_ixc_fiscal_note.send_selected_note_success', [
+            'company_id' => $company->id,
+            'conversation_id' => $conversation->id,
+            'ixc_client_id' => (int) $clientId,
+            'ixc_note_id' => (int) $noteId,
+            'ixc_invoice_id' => (int) $invoiceId,
+        ]);
+
+        $result['extra_outbound_messages'] = [[
+            'content_type' => 'document',
+            'text' => $caption,
+            'media_mime_type' => (string) ($binaryPayload['content_type'] ?? 'application/pdf'),
+            'media_filename' => $filename,
+            'meta' => [
+                'source' => 'bot_ixc_fiscal_note',
+                'ixc_client_id' => (int) $clientId,
+                'ixc_note_id' => (int) $noteId,
+                'ixc_invoice_id' => (int) $invoiceId,
+            ],
+            'send_result' => is_array($sendResult ?? null) ? $sendResult : null,
+        ]];
+
+        return $result;
+    }
+
+    /**
+     * @return array{clients: array<int, array{id:int,label:string}>}
+     */
+    private function searchClientsByDocument(Company $company, string $document): array
+    {
+        $attempts = $this->buildDocumentLookupAttempts($document);
+
+        foreach ($attempts as $attempt) {
+            try {
+                $payload = $this->ixcApi->request($company, (string) $attempt['resource'], (array) $attempt['params']);
+                $list = $this->ixcApi->normalizeList($payload, 1, 20);
+            } catch (RuntimeException) {
+                continue;
+            }
+
+            $mapped = [];
+            foreach ($list['items'] as $row) {
+                $id = (int) ($row['id'] ?? 0);
+                if ($id <= 0 || isset($mapped[$id])) {
+                    continue;
+                }
+                $name = trim((string) ($row['razao'] ?? $row['nome'] ?? $row['fantasia'] ?? "Cliente {$id}"));
+                $doc = trim((string) ($row['cnpj_cpf'] ?? ''));
+                $label = $name;
+                if ($doc !== '') {
+                    $label .= " - {$doc}";
+                }
+                $mapped[$id] = [
+                    'id' => $id,
+                    'label' => $label,
+                ];
+            }
+
+            if ($mapped !== []) {
+                return [
+                    'clients' => array_values($mapped),
+                ];
+            }
+        }
+
+        return [
+            'clients' => [],
+        ];
+    }
+
+    /**
+     * @return array<int, array{resource:string,params:array<string,mixed>}>
+     */
+    private function buildDocumentLookupAttempts(string $document): array
+    {
+        $variants = $this->documentSearchVariants($document);
+        $attempts = [];
+        foreach ($variants as $variant) {
+            $attempts[] = [
+                'resource' => 'cliente',
+                'params' => [
+                    'qtype' => 'cliente.cnpj_cpf',
+                    'query' => $variant,
+                    'oper' => '=',
+                    'page' => 1,
+                    'rp' => 20,
+                    'sortname' => 'cliente.id',
+                    'sortorder' => 'asc',
+                ],
+            ];
+        }
+
+        $resourceAttempts = $this->buildAlternativeDocumentResourceAttempts($variants);
+        foreach ($resourceAttempts as $resourceAttempt) {
+            $attempts[] = $resourceAttempt;
+        }
+
+        $attempts[] = [
+            'resource' => 'cliente',
+            'params' => [
+                'qtype' => 'cliente.cnpj_cpf',
+                'query' => $document,
+                'oper' => 'L',
+                'page' => 1,
+                'rp' => 20,
+                'sortname' => 'cliente.id',
+                'sortorder' => 'asc',
+            ],
+        ];
+
+        return $attempts;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function documentSearchVariants(string $document): array
+    {
+        $variants = [$document];
+
+        $formatted = $this->formatCpfCnpjForSearch($document);
+        if ($formatted !== '') {
+            $variants[] = $formatted;
+        }
+
+        return array_values(array_unique(array_filter(array_map(
+            static fn ($value) => trim((string) $value),
+            $variants
+        ))));
+    }
+
+    private function formatCpfCnpjForSearch(string $document): string
+    {
+        if (strlen($document) === 11) {
+            return preg_replace(
+                '/(\d{3})(\d{3})(\d{3})(\d{2})/',
+                '$1.$2.$3-$4',
+                $document
+            ) ?? '';
+        }
+
+        if (strlen($document) === 14) {
+            return preg_replace(
+                '/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/',
+                '$1.$2.$3/$4-$5',
+                $document
+            ) ?? '';
+        }
+
+        return '';
+    }
+
+    /**
+     * @param  array<int, string>  $variants
+     * @return array<int, array{resource:string,params:array<string,mixed>}>
+     */
+    private function buildAlternativeDocumentResourceAttempts(array $variants): array
+    {
+        $resources = $this->resolveAlternativeClientResources();
+        if ($resources === []) {
+            return [];
+        }
+
+        $attempts = [];
+        foreach ($resources as $resource) {
+            if ($resource === 'listar_clientes_por_cpf') {
+                foreach ($variants as $variant) {
+                    foreach (['cpf', 'cpf_cnpj', 'cnpj_cpf'] as $field) {
+                        $attempts[] = [
+                            'resource' => $resource,
+                            'params' => [
+                                $field => $variant,
+                                'page' => 1,
+                                'rp' => 20,
+                            ],
+                        ];
+                    }
+                }
+            }
+        }
+
+        return $attempts;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function resolveAlternativeClientResources(): array
+    {
+        $configured = config('ixc.client_alternative_resources', []);
+        if (! is_array($configured)) {
+            return [];
+        }
+
+        $resources = [];
+        foreach ($configured as $resource) {
+            $normalized = strtolower(trim((string) $resource));
+            if ($normalized === '') {
+                continue;
+            }
+
+            $resources[] = $normalized;
+        }
+
+        return array_values(array_unique($resources));
+    }
+
+    /**
+     * @return array<int, array{id:int,label:string,data_vencimento:string,valor:string}>
+     */
+    private function listOpenInvoices(Company $company, string $clientId): array
+    {
+        $params = [
+            'qtype' => 'fn_areceber.id_cliente',
+            'query' => $clientId,
+            'oper' => '=',
+            'page' => 1,
+            'rp' => 200,
+            'sortname' => 'fn_areceber.id',
+            'sortorder' => 'desc',
+        ];
+
+        $payload = $this->ixcApi->request($company, 'fn_areceber', $params);
+        $list = $this->ixcApi->normalizeList($payload, 1, 30);
+
+        $invoices = [];
+        $seenNotes = [];
+        foreach ($list['items'] as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $noteId = $this->extractInvoiceNoteId($row);
+            if ($noteId === '' || isset($seenNotes[$noteId])) {
+                continue;
+            }
+            $seenNotes[$noteId] = true;
+
+            $dueDate = trim((string) ($row['data_vencimento'] ?? ''));
+            $value = trim((string) ($row['valor'] ?? $row['valor_parcela'] ?? ''));
+            $status = trim((string) ($row['status'] ?? ''));
+            $summary = "Nota fiscal {$noteId}";
+            if ($dueDate !== '') {
+                $summary .= " | Venc: {$dueDate}";
+            }
+            if ($value !== '') {
+                $summary .= " | Valor: {$value}";
+            }
+            if ($status !== '') {
+                $summary .= ' | Status: ' . $this->humanizeInvoiceStatus($status);
+            }
+
+            $invoices[] = [
+                'id' => (int) $noteId,
+                'label' => $summary,
+                'data_vencimento' => $dueDate,
+                'valor' => $value,
+                'invoice_id' => (int) ($row['id'] ?? 0),
+            ];
+        }
+
+        return $invoices;
+    }
+
+    private function humanizeInvoiceStatus(string $status): string
+    {
+        $code = strtoupper(trim($status));
+        $map = [
+            'A' => 'Aberto',
+            'P' => 'Pago',
+            'C' => 'Cancelado',
+            'R' => 'Renegociado',
+            'V' => 'Vencido',
+            'N' => 'Negativado',
+            'B' => 'Baixado',
+        ];
+
+        return $map[$code] ?? ($code !== '' ? $code : '-');
+    }
+
+    /**
+     * @return array{binary:string,content_type:string}
+     */
+    private function resolveInvoiceBinary(Company $company, string $clientId, string $invoiceId): array
+    {
+        $baseHost = strtolower((string) (parse_url((string) ($company->ixc_base_url ?? ''), PHP_URL_HOST) ?? ''));
+        $allowPrivateHosts = (bool) config('ixc.allow_private_hosts', false);
+
+        Log::info('bot_ixc_fiscal_note.binary_fetch.start', [
+            'company_id' => (int) $company->id,
+            'invoice_id' => $invoiceId,
+            'client_id' => $clientId,
+        ]);
+
+        $modernAttempt = $this->resolveInvoiceBinaryFromModernGetBoleto($company, $invoiceId, $baseHost, $allowPrivateHosts);
+        if ($modernAttempt !== null) {
+            Log::info('bot_ixc_fiscal_note.binary_fetch.success', [
+                'company_id' => (int) $company->id,
+                'invoice_id' => $invoiceId,
+                'stage' => 'modern_get_boleto',
+                'content_type' => (string) ($modernAttempt['content_type'] ?? ''),
+                'bytes' => strlen((string) ($modernAttempt['binary'] ?? '')),
+            ]);
+            return $modernAttempt;
+        }
+
+        try {
+            $jsonAttempt = $this->ixcApi->request($company, 'get_boleto', [
+                'id' => $invoiceId,
+                'id_cliente' => $clientId,
+            ]);
+            $payloadBinary = $this->extractBinaryFromPayload($company, $jsonAttempt, $baseHost, $allowPrivateHosts);
+            if ($payloadBinary !== null) {
+                Log::info('bot_ixc_fiscal_note.binary_fetch.success', [
+                    'company_id' => (int) $company->id,
+                    'invoice_id' => $invoiceId,
+                    'stage' => 'legacy_get_boleto_json',
+                    'content_type' => (string) ($payloadBinary['content_type'] ?? ''),
+                    'bytes' => strlen((string) ($payloadBinary['binary'] ?? '')),
+                ]);
+                return $payloadBinary;
+            }
+        } catch (RuntimeException) {
+        }
+
+        try {
+            $binaryAttempt = $this->ixcApi->requestBinary($company, 'get_boleto', [
+                'id' => $invoiceId,
+                'id_cliente' => $clientId,
+            ]);
+            $body = (string) ($binaryAttempt['body'] ?? '');
+            if ($body !== '') {
+                $rawBodyBinary = $this->extractBinaryFromRawBody(
+                    $company,
+                    $body,
+                    (string) ($binaryAttempt['content_type'] ?? ''),
+                    $baseHost,
+                    $allowPrivateHosts
+                );
+                if ($rawBodyBinary !== null) {
+                    Log::info('bot_ixc_fiscal_note.binary_fetch.success', [
+                        'company_id' => (int) $company->id,
+                        'invoice_id' => $invoiceId,
+                        'stage' => 'legacy_get_boleto_binary',
+                        'content_type' => (string) ($rawBodyBinary['content_type'] ?? ''),
+                        'bytes' => strlen((string) ($rawBodyBinary['binary'] ?? '')),
+                    ]);
+                    return $rawBodyBinary;
+                }
+
+                return [
+                    'binary' => $body,
+                    'content_type' => (string) ($binaryAttempt['content_type'] ?? 'application/pdf'),
+                ];
+            }
+        } catch (RuntimeException) {
+        }
+
+        $invoiceRow = $this->loadInvoiceRow($company, $clientId, $invoiceId);
+        if (is_array($invoiceRow)) {
+            $payloadBinary = $this->extractBinaryFromPayload($company, $invoiceRow, $baseHost, $allowPrivateHosts);
+            if ($payloadBinary !== null) {
+                Log::info('bot_ixc_fiscal_note.binary_fetch.success', [
+                    'company_id' => (int) $company->id,
+                    'invoice_id' => $invoiceId,
+                    'stage' => 'fn_areceber_fallback',
+                    'content_type' => (string) ($payloadBinary['content_type'] ?? ''),
+                    'bytes' => strlen((string) ($payloadBinary['binary'] ?? '')),
+                ]);
+                return $payloadBinary;
+            }
+        }
+
+        throw new RuntimeException('Não foi possível obter o arquivo do boleto na IXC.');
+    }
+
+    /**
+     * @return array{binary:string,content_type:string}|null
+     */
+    private function resolveInvoiceBinaryFromModernGetBoleto(
+        Company $company,
+        string $invoiceId,
+        string $baseHost,
+        bool $allowPrivateHosts
+    ): ?array {
+        $payload = [
+            'boletos' => $invoiceId,
+            'juro' => 'N',
+            'multa' => 'N',
+            'atualiza_boleto' => 'S',
+            'tipo_boleto' => 'arquivo',
+            'base64' => 'S',
+            'layout_impressao' => '',
+        ];
+
+        foreach (['post', 'get'] as $method) {
+            try {
+                $response = $this->ixcApi->requestBinary($company, 'get_boleto', $payload, $method);
+            } catch (RuntimeException $e) {
+                Log::info('bot_ixc_fiscal_note.binary_fetch.attempt_failed', [
+                    'company_id' => (int) $company->id,
+                    'invoice_id' => $invoiceId,
+                    'stage' => 'modern_get_boleto',
+                    'method' => strtoupper($method),
+                    'error' => $e->getMessage(),
+                ]);
+                continue;
+            }
+
+            $parsed = $this->extractBinaryFromRawBody(
+                $company,
+                (string) ($response['body'] ?? ''),
+                (string) ($response['content_type'] ?? ''),
+                $baseHost,
+                $allowPrivateHosts
+            );
+            if ($parsed !== null) {
+                return $parsed;
+            }
+
+            Log::info('bot_ixc_fiscal_note.binary_fetch.attempt_empty', [
+                'company_id' => (int) $company->id,
+                'invoice_id' => $invoiceId,
+                'stage' => 'modern_get_boleto',
+                'method' => strtoupper($method),
+                'content_type' => (string) ($response['content_type'] ?? ''),
+                'bytes' => strlen((string) ($response['body'] ?? '')),
+            ]);
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array{binary:string,content_type:string}|null
+     */
+    private function extractBinaryFromRawBody(
+        Company $company,
+        string $body,
+        string $contentType,
+        string $baseHost,
+        bool $allowPrivateHosts
+    ): ?array {
+        $trimmed = trim($body);
+        if ($trimmed === '') {
+            return null;
+        }
+
+        if (str_contains(strtolower($contentType), 'json') || str_starts_with($trimmed, '{') || str_starts_with($trimmed, '[')) {
+            $decoded = json_decode($trimmed, true);
+            if (is_array($decoded)) {
+                $payloadBinary = $this->extractBinaryFromPayload($company, $decoded, $baseHost, $allowPrivateHosts);
+                if ($payloadBinary !== null) {
+                    return $payloadBinary;
+                }
+            }
+        }
+
+        $decodedBase64 = $this->decodeRawBase64Pdf($trimmed);
+        if ($decodedBase64 !== null) {
+            return [
+                'binary' => $decodedBase64,
+                'content_type' => 'application/pdf',
+            ];
+        }
+
+        if (str_starts_with($trimmed, '%PDF-')) {
+            return [
+                'binary' => $body,
+                'content_type' => 'application/pdf',
+            ];
+        }
+
+        return null;
+    }
+
+    private function decodeRawBase64Pdf(string $value): ?string
+    {
+        $normalized = preg_replace('/\s+/', '', $value) ?? '';
+        if ($normalized === '') {
+            return null;
+        }
+        if (preg_match('/^[A-Za-z0-9+\/=]+$/', $normalized) !== 1) {
+            return null;
+        }
+
+        $decoded = base64_decode($normalized, true);
+        if ($decoded === false || $decoded === '' || ! str_starts_with($decoded, '%PDF-')) {
+            return null;
+        }
+
+        return $decoded;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array{binary:string,content_type:string}|null
+     */
+    private function extractBinaryFromPayload(
+        Company $company,
+        array $payload,
+        string $baseHost,
+        bool $allowPrivateHosts
+    ): ?array {
+        $base64Keys = ['pdf_base64', 'arquivo_base64', 'boleto_base64', 'pdf', 'base64', 'arquivo'];
+        foreach ($base64Keys as $key) {
+            $value = trim((string) ($payload[$key] ?? ''));
+            if ($value === '') {
+                continue;
+            }
+            $decoded = $this->decodeRawBase64Pdf($value);
+            if ($decoded !== null) {
+                return [
+                    'binary' => $decoded,
+                    'content_type' => 'application/pdf',
+                ];
+            }
+        }
+
+        $urlKeys = ['url', 'link', 'link_boleto', 'boleto_link', 'pdf_url', 'arquivo_url'];
+        foreach ($urlKeys as $key) {
+            $value = trim((string) ($payload[$key] ?? ''));
+            if ($value === '' || ! IxcUrlGuard::isSafeInvoiceUrl($value, $baseHost, $allowPrivateHosts)) {
+                continue;
+            }
+
+            try {
+                $response = Http::timeout(max(5, min(60, (int) ($company->ixc_timeout_seconds ?? 15))))
+                    ->withOptions(['verify' => ! (bool) $company->ixc_self_signed])
+                    ->get($value);
+            } catch (\Throwable) {
+                continue;
+            }
+
+            if ($response->successful() && $response->body() !== '') {
+                return [
+                    'binary' => (string) $response->body(),
+                    'content_type' => (string) $response->header('Content-Type', 'application/pdf'),
+                ];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function loadInvoiceRow(Company $company, string $clientId, string $invoiceId): ?array
+    {
+        $params = [
+            'qtype' => 'fn_areceber.id',
+            'query' => $invoiceId,
+            'oper' => '=',
+            'page' => 1,
+            'rp' => 1,
+            'sortname' => 'fn_areceber.id',
+            'sortorder' => 'desc',
+            'grid_param' => json_encode([
+                ['TB' => 'fn_areceber.id_cliente', 'OP' => '=', 'P' => $clientId],
+            ]),
+        ];
+
+        try {
+            $payload = $this->ixcApi->request($company, 'fn_areceber', $params);
+            $list = $this->ixcApi->normalizeList($payload, 1, 1);
+        } catch (RuntimeException) {
+            return null;
+        }
+
+        $row = $list['items'][0] ?? null;
+        return is_array($row) ? $row : null;
+    }
+
+    private function resolveHandoffArea(array $context): string
+    {
+        $area = trim((string) ($context['handoff_area'] ?? BotFlowRegistry::AREA_ATTENDANCE));
+
+        return $area !== '' ? $area : BotFlowRegistry::AREA_ATTENDANCE;
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     * @return array<string, mixed>
+     */
+    private function invalidAttempt(
+        Company $company,
+        Conversation $conversation,
+        string $step,
+        array $context,
+        string $message,
+        string $handoffArea
+    ): array {
+        $attempts = max(0, (int) ($context['attempts'] ?? 0)) + 1;
+        if ($attempts >= self::MAX_ATTEMPTS) {
+            return $this->handoffResult(
+                $company,
+                $conversation,
+                'Não consegui concluir a consulta de notas fiscais. Vou te encaminhar para um atendente.',
+                $handoffArea
+            );
+        }
+
+        $state = [
+            'flow' => BotFlow::IXC_INVOICES->value,
+            'step' => $step,
+            'context' => array_merge($context, [
+                'attempts' => $attempts,
+                'handoff_area' => $handoffArea,
+            ]),
+        ];
+
+        return $this->botStateResult($message, $state);
+    }
+
+    /**
+     * @param  array<string, array{id:int,label:string}>  $options
+     * @return array<string, mixed>
+     */
+    private function buildChoiceMessage(string $bodyText, array $options, string $actionLabel): array
+    {
+        if (count($options) <= 3) {
+            $buttons = [];
+            foreach ($options as $key => $option) {
+                $buttons[] = [
+                    'id' => (string) $key,
+                    'title' => "Opção {$key}",
+                ];
+            }
+
+            return [
+                'type' => 'interactive_buttons',
+                'body_text' => $bodyText,
+                'header_text' => '',
+                'footer_text' => '',
+                'buttons' => $buttons,
+            ];
+        }
+
+        $rows = [];
+        foreach ($options as $key => $option) {
+            $rows[] = [
+                'id' => (string) $key,
+                'title' => "Opção {$key}",
+                'description' => mb_substr((string) ($option['label'] ?? ''), 0, 60),
+            ];
+        }
+
+        return [
+            'type' => 'interactive_list',
+            'body_text' => $bodyText,
+            'header_text' => '',
+            'footer_text' => '',
+            'action_label' => $actionLabel,
+            'rows' => $rows,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildConfirmMessage(string $bodyText): array
+    {
+        return [
+            'type' => 'interactive_buttons',
+            'body_text' => $bodyText,
+            'header_text' => '',
+            'footer_text' => '',
+            'buttons' => [
+                ['id' => '1', 'title' => 'Confirmar'],
+                ['id' => '2', 'title' => 'Cancelar'],
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string, array{id:int,label:string}>  $options
+     */
+    private function resolveSelectionKey(string $input, array $options): ?string
+    {
+        $normalized = trim((string) $input);
+        if ($normalized === '') {
+            return null;
+        }
+
+        foreach ($options as $key => $option) {
+            if ((string) $key === $normalized) {
+                return (string) $key;
+            }
+        }
+
+        return null;
+    }
+
+    private function isConfirmInput(string $input): bool
+    {
+        $token = $this->normalizeDecisionToken($input);
+        if ($token === '') {
+            return false;
+        }
+
+        return in_array($token, ['1', 'sim', 's', 'confirmar', 'enviar', 'ok'], true);
+    }
+
+    private function isCancelInput(string $input): bool
+    {
+        $token = $this->normalizeDecisionToken($input);
+        if ($token === '') {
+            return false;
+        }
+
+        return in_array($token, ['2', 'não', 'n', 'cancelar', 'voltar'], true);
+    }
+
+    private function normalizeDecisionToken(string $value): string
+    {
+        $accents = [
+            'á' => 'a', 'à' => 'a', 'â' => 'a', 'ã' => 'a',
+            'é' => 'e', 'ê' => 'e',
+            'í' => 'i', 'ó' => 'o', 'ô' => 'o', 'õ' => 'o',
+            'ú' => 'u', 'ç' => 'c',
+        ];
+
+        $normalized = mb_strtolower(trim((string) strtr($value, $accents)));
+        return preg_replace('/\s+/', ' ', $normalized) ?? '';
+    }
+
+    private function returnToMainMenu(Company $company, string $message): array
+    {
+        $definition = $this->registry->definitionForCompany($company);
+        $menu = $this->buildInitialMenuResponse($definition);
+
+        $menuText = trim((string) ($menu['reply_text'] ?? ''));
+        $replyText = trim($message);
+        if ($menuText !== '') {
+            $replyText = $replyText !== '' ? "{$replyText}\n\n{$menuText}" : $menuText;
+        }
+
+        $newState = is_array($menu['new_state'] ?? null) ? $menu['new_state'] : [
+            'flow' => BotFlow::MAIN->value,
+            'step' => BotFlowRegistry::STEP_MENU,
+            'context' => ['last_menu_keys' => ['1', '2', '3']],
+        ];
+
+        return $this->botStateResult($replyText, $newState);
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
+    private function extractInvoiceNoteId(array $row): string
+    {
+        $candidates = [
+            (string) ($row['id_nota_gerada'] ?? ''),
+            (string) ($row['id_nota_gerada_opc2'] ?? ''),
+            (string) ($row['id_nota_gerada_opc3'] ?? ''),
+            (string) ($row['id_nota_gerada_opc4'] ?? ''),
+        ];
+
+        foreach ($candidates as $candidate) {
+            $value = trim($candidate);
+            if ($value !== '' && $value !== '0') {
+                return $value;
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * @return array{binary:string,content_type:string}
+     */
+    private function resolveFiscalNoteBinary(Company $company, string $clientId, string $noteId, string $invoiceId): array
+    {
+        $baseHost = strtolower((string) (parse_url((string) ($company->ixc_base_url ?? ''), PHP_URL_HOST) ?? ''));
+        $allowPrivateHosts = (bool) config('ixc.allow_private_hosts', false);
+
+        foreach (['nota_fiscal', 'nota_fiscal_saida', 'nfe'] as $resource) {
+            try {
+                $payload = $this->ixcApi->request($company, $resource, ['id' => $noteId]);
+                $binary = $this->extractBinaryFromPayload($company, $payload, $baseHost, $allowPrivateHosts);
+                if ($binary !== null) {
+                    return $binary;
+                }
+            } catch (RuntimeException) {
+            }
+
+            try {
+                $binaryResponse = $this->ixcApi->requestBinary($company, $resource, ['id' => $noteId]);
+                $body = (string) ($binaryResponse['body'] ?? '');
+                if ($body !== '') {
+                    $parsed = $this->extractBinaryFromRawBody(
+                        $company,
+                        $body,
+                        (string) ($binaryResponse['content_type'] ?? ''),
+                        $baseHost,
+                        $allowPrivateHosts
+                    );
+                    if ($parsed !== null) {
+                        return $parsed;
+                    }
+                }
+            } catch (RuntimeException) {
+            }
+        }
+
+        if ($invoiceId !== '' && $invoiceId !== '0') {
+            return $this->resolveInvoiceBinary($company, $clientId, $invoiceId);
+        }
+
+        throw new RuntimeException('Não foi possível obter o arquivo da nota fiscal na IXC.');
+    }
+
+    private function resolveFiscalNoteFilename(string $noteId, string $dueDate): string
+    {
+        $normalizedDate = preg_replace('/[^0-9]/', '', $dueDate) ?: date('Ymd');
+        return "nota_fiscal_{$noteId}_{$normalizedDate}.pdf";
+    }
+
+    private function resolveInvoiceFilename(string $invoiceId, string $dueDate): string
+    {
+        $normalizedDate = preg_replace('/[^0-9]/', '', $dueDate) ?: date('Ymd');
+        return "boleto_{$invoiceId}_{$normalizedDate}.pdf";
+    }
+
+    /**
+     * @param  array<string, mixed>  $sendResult
+     */
+    private function extractSendError(array $sendResult): string
+    {
+        $error = $sendResult['error'] ?? null;
+        if (is_string($error)) {
+            return trim($error);
+        }
+
+        if (is_array($error)) {
+            $message = trim((string) (Arr::get($error, 'message') ?? Arr::get($error, 'error_user_msg') ?? ''));
+            if ($message !== '') {
+                return $message;
+            }
+        }
+
+        return '';
+    }
+}
+
+
+
