@@ -414,7 +414,7 @@ class IxcInvoiceFlowHandler
         if ($this->isCancelInput($input)) {
             return $this->returnToMainMenu(
                 $company,
-                'Sem problemas. Se quiser, posso te ajudar com outra opcao.'
+                'Sem problemas. Se quiser, posso te ajudar com outra opção.'
             );
         }
 
@@ -423,7 +423,7 @@ class IxcInvoiceFlowHandler
             $conversation,
             self::STEP_CONFIRM_INVOICE,
             $context,
-            'Opcao invalida. Responda 1 para confirmar o envio do boleto ou 2 para cancelar.',
+            'Opção inválida. Responda 1 para confirmar o envio do boleto ou 2 para cancelar.',
             $handoffArea
         );
     }
@@ -443,7 +443,7 @@ class IxcInvoiceFlowHandler
         $invoiceId = (int) ($invoice['id'] ?? 0);
         if ($invoiceId <= 0) {
             return $this->botStateResult(
-                'Nao consegui identificar o boleto. Informe o CPF/CNPJ novamente.',
+                'Não consegui identificar o boleto. Informe o CPF/CNPJ novamente.',
                 [
                     'flow' => BotFlow::IXC_INVOICES->value,
                     'step' => self::STEP_ASK_DOCUMENT,

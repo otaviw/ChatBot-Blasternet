@@ -597,7 +597,7 @@ class AppointmentFlowHandler
 
         if (mb_strlen($customerName) < 2) {
             return $this->botStateResult(
-                'Nome invalido. Informe o nome do cliente para concluir o agendamento.',
+                'Nome inválido. Informe o nome do cliente para concluir o agendamento.',
                 [
                     'flow'    => BotFlow::APPOINTMENTS->value,
                     'step'    => 'collect_customer_name',
