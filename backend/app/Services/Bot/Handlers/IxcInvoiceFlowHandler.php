@@ -786,7 +786,7 @@ class IxcInvoiceFlowHandler
                 $summary .= " | Valor: {$value}";
             }
             if ($status !== '') {
-                $summary .= " | Status: {$status}";
+                $summary .= ' | Status: ' . $this->humanizeInvoiceStatus($status);
             }
 
             $invoices[] = [
@@ -798,6 +798,22 @@ class IxcInvoiceFlowHandler
         }
 
         return $invoices;
+    }
+
+    private function humanizeInvoiceStatus(string $status): string
+    {
+        $code = strtoupper(trim($status));
+        $map = [
+            'A' => 'Aberto',
+            'P' => 'Pago',
+            'C' => 'Cancelado',
+            'R' => 'Renegociado',
+            'V' => 'Vencido',
+            'N' => 'Negativado',
+            'B' => 'Baixado',
+        ];
+
+        return $map[$code] ?? ($code !== '' ? $code : '-');
     }
 
     /**

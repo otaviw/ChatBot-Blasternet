@@ -202,7 +202,7 @@ function IxcClientDetailPage() {
                     {invoices.map((invoice) => (
                       <tr key={invoice.id} className="border-b border-[#f0f0f0]">
                         <td className="py-2 pr-2">{invoice.id}</td>
-                        <td className="py-2 pr-2">{invoice.status || '-'}</td>
+                        <td className="py-2 pr-2">{invoice.status_label || invoice.status || '-'}</td>
                         <td className="py-2 pr-2">{invoice.data_vencimento || '-'}</td>
                         <td className="py-2 pr-2">{invoice.valor || '-'}</td>
                         <td className="py-2 pr-2">{invoice.documento || '-'}</td>
@@ -330,7 +330,7 @@ function IxcClientDetailPage() {
               </button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-              <p><strong>Status:</strong> {selectedInvoice.status || '-'}</p>
+              <p><strong>Status:</strong> {selectedInvoice.status_label || selectedInvoice.status || '-'}</p>
               <p><strong>Valor:</strong> {selectedInvoice.valor || '-'}</p>
               <p><strong>Vencimento:</strong> {selectedInvoice.data_vencimento || '-'}</p>
               <p><strong>Documento:</strong> {selectedInvoice.documento || '-'}</p>

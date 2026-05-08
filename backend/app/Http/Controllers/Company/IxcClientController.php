@@ -773,15 +773,32 @@ class IxcClientController extends Controller
      */
     private function mapInvoiceItem(array $row): array
     {
+        $statusCode = strtoupper(trim((string) ($row['status'] ?? '')));
         return [
             'id' => (int) ($row['id'] ?? 0),
             'id_cliente' => (int) ($row['id_cliente'] ?? 0),
-            'status' => (string) ($row['status'] ?? ''),
+            'status' => $statusCode,
+            'status_label' => $this->invoiceStatusLabel($statusCode),
             'valor' => (string) ($row['valor'] ?? $row['valor_parcela'] ?? ''),
             'data_vencimento' => (string) ($row['data_vencimento'] ?? ''),
             'linha_digitavel' => (string) ($row['linha_digitavel'] ?? ''),
             'documento' => (string) ($row['documento'] ?? ''),
         ];
+    }
+
+    private function invoiceStatusLabel(string $statusCode): string
+    {
+        $map = [
+            'A' => 'Aberto',
+            'P' => 'Pago',
+            'C' => 'Cancelado',
+            'R' => 'Renegociado',
+            'V' => 'Vencido',
+            'N' => 'Negativado',
+            'B' => 'Baixado',
+        ];
+
+        return $map[$statusCode] ?? ($statusCode !== '' ? $statusCode : '-');
     }
 
     private function loadInvoiceRow(Company $company, string $clientId, string $invoiceId): ?array
