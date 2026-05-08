@@ -7,6 +7,18 @@ import { listIxcClients } from '@/services/ixcService';
 import { useNavigate } from 'react-router-dom';
 import ErrorMessage from '@/components/ui/ErrorMessage/ErrorMessage.jsx';
 
+function extractContacts(client) {
+  const emailContacts = String(client?.email || '')
+    .split(/[;,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (emailContacts.length > 0) return emailContacts;
+
+  const phoneContact = String(client?.telefone_celular || '').trim();
+  return phoneContact ? [phoneContact] : [];
+}
+
 function IxcClientsPage() {
   const { logout } = useLogout();
   const { can } = usePermissions();
@@ -96,19 +108,38 @@ function IxcClientsPage() {
                 </tr>
               </thead>
               <tbody>
-                {items.map((client) => (
-                  <tr
-                    key={client.id}
-                    className="border-b border-[#f0f0f0] hover:bg-[#fafafa] cursor-pointer"
-                    onClick={() => navigate(`/minha-conta/ixc/clientes/${client.id}`)}
-                  >
-                    <td className="py-2 pr-2">{client.id}</td>
-                    <td className="py-2 pr-2">{client.razao || '-'}</td>
-                    <td className="py-2 pr-2">{client.fantasia || '-'}</td>
-                    <td className="py-2 pr-2">{client.cpf_cnpj || '-'}</td>
-                    <td className="py-2 pr-2">{client.email || client.telefone_celular || '-'}</td>
-                  </tr>
-                ))}
+                {items.map((client) => {
+                  const contacts = extractContacts(client);
+
+                  return (
+                    <tr
+                      key={client.id}
+                      className="border-b border-[#f0f0f0] hover:bg-[#fafafa] cursor-pointer"
+                      onClick={() => navigate(`/minha-conta/ixc/clientes/${client.id}`)}
+                    >
+                      <td className="py-2 pr-2">{client.id}</td>
+                      <td className="py-2 pr-2">{client.razao || '-'}</td>
+                      <td className="py-2 pr-2">{client.fantasia || '-'}</td>
+                      <td className="py-2 pr-2">{client.cpf_cnpj || '-'}</td>
+                      <td className="py-2 pr-2">
+                        {contacts.length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {contacts.map((contact, index) => (
+                              <span
+                                key={`${contact}-${index}`}
+                                className="inline-flex items-center rounded-md border border-[#2b3757] bg-[#17213a] px-2 py-1 text-xs text-[#d7e3ff]"
+                              >
+                                {contact}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          '-'
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
