@@ -523,7 +523,15 @@ class IxcInvoiceFlowHandler
                 $error = $this->extractSendError($sendResult);
                 throw new RuntimeException($error !== '' ? $error : 'Falha ao enviar boleto pelo WhatsApp.');
             }
-        } catch (RuntimeException) {
+        } catch (RuntimeException $exception) {
+            Log::warning('bot_ixc_invoice.send_selected_invoice_failed', [
+                'company_id' => $company->id,
+                'conversation_id' => $conversation->id,
+                'ixc_client_id' => (int) $clientId,
+                'ixc_invoice_id' => (int) $invoiceId,
+                'error' => $exception->getMessage(),
+            ]);
+
             return $this->handoffResult(
                 $company,
                 $conversation,
@@ -828,12 +836,12 @@ class IxcInvoiceFlowHandler
                             return $payloadBinary;
                         }
                     }
-                } else {
-                    return [
-                        'binary' => $body,
-                        'content_type' => (string) ($binaryAttempt['content_type'] ?? 'application/pdf'),
-                    ];
                 }
+
+                return [
+                    'binary' => $body,
+                    'content_type' => (string) ($binaryAttempt['content_type'] ?? 'application/pdf'),
+                ];
             }
         } catch (RuntimeException) {
         }
