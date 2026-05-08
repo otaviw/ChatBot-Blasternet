@@ -114,3 +114,70 @@ export async function sendIxcInvoiceSms(clientId, invoiceId, phone) {
     throw new Error(normalizeIxcMessage(error?.message, 'Falha ao enviar boleto por SMS.'));
   }
 }
+
+export async function listIxcClientFiscalNotes(clientId, params = {}) {
+  try {
+    const response = await api.get(`/minha-conta/ixc/clientes/${clientId}/notas-fiscais`, { params });
+    return ensureOk(response?.data ?? { ok: false }, 'Falha ao listar notas fiscais.');
+  } catch (error) {
+    throw new Error(normalizeIxcMessage(error?.message, 'Falha ao listar notas fiscais.'));
+  }
+}
+
+export async function getIxcFiscalNoteDetail(clientId, noteId) {
+  try {
+    const response = await api.get(`/minha-conta/ixc/clientes/${clientId}/notas-fiscais/${noteId}`);
+    return ensureOk(response?.data ?? { ok: false }, 'Falha ao consultar nota fiscal.');
+  } catch (error) {
+    throw new Error(normalizeIxcMessage(error?.message, 'Falha ao consultar nota fiscal.'));
+  }
+}
+
+export async function downloadIxcFiscalNote(clientId, noteId) {
+  try {
+    const response = await api.post(
+      `/minha-conta/ixc/clientes/${clientId}/notas-fiscais/${noteId}/download`,
+      {},
+      { responseType: 'blob' }
+    );
+    return response;
+  } catch (error) {
+    const blob = error?.response?.data;
+    if (blob instanceof Blob) {
+      try {
+        const text = await blob.text();
+        const parsed = JSON.parse(text);
+        const message = String(parsed?.message || parsed?.error || '').trim();
+        if (message) {
+          throw { ...error, message: normalizeIxcMessage(message, 'Falha ao baixar nota fiscal.') };
+        }
+      } catch {
+        // ignore parse error and keep original
+      }
+    }
+
+    if (error && typeof error === 'object') {
+      throw { ...error, message: normalizeIxcMessage(error?.message, 'Falha ao baixar nota fiscal.') };
+    }
+
+    throw error;
+  }
+}
+
+export async function sendIxcFiscalNoteEmail(clientId, noteId, email) {
+  try {
+    const response = await api.post(`/minha-conta/ixc/clientes/${clientId}/notas-fiscais/${noteId}/enviar-email`, { email });
+    return ensureOk(response?.data ?? { ok: false }, 'Falha ao enviar nota fiscal por e-mail.');
+  } catch (error) {
+    throw new Error(normalizeIxcMessage(error?.message, 'Falha ao enviar nota fiscal por e-mail.'));
+  }
+}
+
+export async function sendIxcFiscalNoteSms(clientId, noteId, phone) {
+  try {
+    const response = await api.post(`/minha-conta/ixc/clientes/${clientId}/notas-fiscais/${noteId}/enviar-sms`, { phone });
+    return ensureOk(response?.data ?? { ok: false }, 'Falha ao enviar nota fiscal por SMS.');
+  } catch (error) {
+    throw new Error(normalizeIxcMessage(error?.message, 'Falha ao enviar nota fiscal por SMS.'));
+  }
+}

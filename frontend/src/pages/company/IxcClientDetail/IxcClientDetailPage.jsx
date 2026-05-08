@@ -5,10 +5,15 @@ import useLogout from '@/hooks/useLogout';
 import usePermissions from '@/hooks/usePermissions';
 import { PERM } from '@/constants/permissions';
 import {
+  downloadIxcFiscalNote,
   downloadIxcInvoice,
+  getIxcFiscalNoteDetail,
   getIxcClient,
   getIxcInvoiceDetail,
+  listIxcClientFiscalNotes,
   listIxcClientInvoices,
+  sendIxcFiscalNoteEmail,
+  sendIxcFiscalNoteSms,
   sendIxcInvoiceEmail,
   sendIxcInvoiceSms,
 } from '@/services/ixcService';
@@ -48,6 +53,18 @@ function sortInvoicesNewestFirst(items) {
   });
 }
 
+function parseFiscalNoteDate(note) {
+  return parseInvoiceDate(note?.data_emissao || note?.data_vencimento || '');
+}
+
+function sortFiscalNotesNewestFirst(items) {
+  return [...items].sort((a, b) => {
+    const diff = parseFiscalNoteDate(b) - parseFiscalNoteDate(a);
+    if (diff !== 0) return diff;
+    return Number(b?.id || 0) - Number(a?.id || 0);
+  });
+}
+
 function IxcClientDetailPage() {
   const { clientId = '' } = useParams();
   const navigate = useNavigate();
@@ -68,11 +85,14 @@ function IxcClientDetailPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
+  const [activeTab, setActiveTab] = useState('boletos');
   const [invoiceActionBusyId, setInvoiceActionBusyId] = useState(null);
+  const [noteActionBusyId, setNoteActionBusyId] = useState(null);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [selectedFiscalNote, setSelectedFiscalNote] = useState(null);
   const [detailBusy, setDetailBusy] = useState(false);
   const [actionFeedback, setActionFeedback] = useState({ type: '', message: '' });
-  const [sendModal, setSendModal] = useState({ type: '', invoice: null });
+  const [sendModal, setSendModal] = useState({ type: '', invoice: null, resource: 'invoice' });
   const [sendTarget, setSendTarget] = useState('');
   const [sendBusy, setSendBusy] = useState(false);
   const [sendModalMessage, setSendModalMessage] = useState({ type: '', message: '' });
@@ -109,23 +129,30 @@ function IxcClientDetailPage() {
     setLoadingInvoices(true);
     setError('');
 
-    listIxcClientInvoices(clientId, {
-      status,
-      date_from: dateFrom || undefined,
-      date_to: dateTo || undefined,
-      page,
-      per_page: 30,
-    })
+    const request = activeTab === 'boletos'
+      ? listIxcClientInvoices(clientId, {
+        status,
+        date_from: dateFrom || undefined,
+        date_to: dateTo || undefined,
+        page,
+        per_page: 30,
+      })
+      : listIxcClientFiscalNotes(clientId, {
+        page,
+        per_page: 30,
+      });
+
+    request
       .then((data) => {
         if (canceled) return;
         const list = Array.isArray(data?.items) ? data.items : [];
-        setInvoices(sortInvoicesNewestFirst(list));
+        setInvoices(activeTab === 'boletos' ? sortInvoicesNewestFirst(list) : sortFiscalNotesNewestFirst(list));
         setInvoicePagination(data?.pagination ?? { page: 1, per_page: 30, total: 0, has_next: false });
       })
       .catch((err) => {
         if (canceled) return;
         setInvoices([]);
-        setError(err?.message || 'Falha ao carregar boletos.');
+        setError(err?.message || (activeTab === 'boletos' ? 'Falha ao carregar boletos.' : 'Falha ao carregar notas fiscais.'));
       })
       .finally(() => {
         if (!canceled) setLoadingInvoices(false);
@@ -134,7 +161,7 @@ function IxcClientDetailPage() {
     return () => {
       canceled = true;
     };
-  }, [canViewInvoices, clientId, dateFrom, dateTo, page, status]);
+  }, [activeTab, canViewInvoices, clientId, dateFrom, dateTo, page, status]);
 
   async function readBlobErrorMessage(blobData) {
     if (!(blobData instanceof Blob)) {
@@ -208,11 +235,33 @@ function IxcClientDetailPage() {
       </section>
 
       <section className="app-panel">
-        <h2 className="font-medium mb-3">Boletos</h2>
+        <div className="mb-3 flex items-center gap-2">
+          <button
+            type="button"
+            className={`app-btn-secondary ${activeTab === 'boletos' ? 'ring-1 ring-[#2b3757]' : ''}`}
+            onClick={() => {
+              setActiveTab('boletos');
+              setPage(1);
+            }}
+          >
+            Boletos
+          </button>
+          <button
+            type="button"
+            className={`app-btn-secondary ${activeTab === 'notas' ? 'ring-1 ring-[#2b3757]' : ''}`}
+            onClick={() => {
+              setActiveTab('notas');
+              setPage(1);
+            }}
+          >
+            Notas fiscais
+          </button>
+        </div>
         {!canViewInvoices ? (
           <p className="text-sm text-[#525252]">Seu usuário não possui permissão para visualizar boletos.</p>
         ) : (
           <>
+            {activeTab === 'boletos' ? (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-4">
               <label className="text-sm">
                 Status
@@ -232,9 +281,10 @@ function IxcClientDetailPage() {
                 <input type="date" value={dateTo} onChange={(event) => { setPage(1); setDateTo(event.target.value); }} className="app-input" />
               </label>
             </div>
+            ) : null}
 
-            {loadingInvoices ? <p className="text-sm text-[#525252]">Carregando boletos...</p> : null}
-            {!loadingInvoices && invoices.length === 0 ? <p className="text-sm text-[#525252]">Nenhum boleto encontrado.</p> : null}
+            {loadingInvoices ? <p className="text-sm text-[#525252]">{activeTab === 'boletos' ? 'Carregando boletos...' : 'Carregando notas fiscais...'}</p> : null}
+            {!loadingInvoices && invoices.length === 0 ? <p className="text-sm text-[#525252]">{activeTab === 'boletos' ? 'Nenhum boleto encontrado.' : 'Nenhuma nota fiscal encontrada.'}</p> : null}
 
             {!loadingInvoices && invoices.length > 0 ? (
               <div className="overflow-x-auto">
@@ -243,7 +293,7 @@ function IxcClientDetailPage() {
                     <tr className="text-left border-b border-[#e5e5e5]">
                       <th className="py-2 pr-2">ID</th>
                       <th className="py-2 pr-2">Status</th>
-                      <th className="py-2 pr-2">Vencimento</th>
+                      <th className="py-2 pr-2">{activeTab === 'boletos' ? 'Vencimento' : 'EmissÃ£o'}</th>
                       <th className="py-2 pr-2">Valor</th>
                       <th className="py-2 pr-2">Documento</th>
                       <th className="py-2 pr-2">Ações</th>
@@ -254,7 +304,7 @@ function IxcClientDetailPage() {
                       <tr key={invoice.id} className="border-b border-[#f0f0f0]">
                         <td className="py-2 pr-2">{invoice.id}</td>
                         <td className="py-2 pr-2">{invoice.status_label || invoice.status || '-'}</td>
-                        <td className="py-2 pr-2">{invoice.data_vencimento || '-'}</td>
+                        <td className="py-2 pr-2">{activeTab === 'boletos' ? (invoice.data_vencimento || '-') : (invoice.data_emissao || invoice.data_vencimento || '-')}</td>
                         <td className="py-2 pr-2">{invoice.valor || '-'}</td>
                         <td className="py-2 pr-2">{invoice.documento || '-'}</td>
                         <td className="py-2 pr-2">
@@ -267,13 +317,26 @@ function IxcClientDetailPage() {
                                 setDetailBusy(true);
                                 setActionFeedback({ type: '', message: '' });
                                 try {
-                                  const detail = await getIxcInvoiceDetail(clientId, invoice.id);
+                                  const detail = activeTab === 'boletos'
+                                    ? await getIxcInvoiceDetail(clientId, invoice.id)
+                                    : await getIxcFiscalNoteDetail(clientId, invoice.id);
                                   if (!detail?.item) {
-                                    throw new Error('Nao foi possivel consultar os detalhes do boleto na IXC.');
+                                    throw new Error(
+                                      activeTab === 'boletos'
+                                        ? 'Nao foi possivel consultar os detalhes do boleto na IXC.'
+                                        : 'Nao foi possivel consultar os detalhes da nota fiscal na IXC.'
+                                    );
                                   }
-                                  setSelectedInvoice(detail.item);
+                                  if (activeTab === 'boletos') {
+                                    setSelectedInvoice(detail.item);
+                                  } else {
+                                    setSelectedFiscalNote(detail.item);
+                                  }
                                 } catch (err) {
-                                  setActionFeedback({ type: 'error', message: err?.message || 'Falha ao consultar boleto.' });
+                                  setActionFeedback({
+                                    type: 'error',
+                                    message: err?.message || (activeTab === 'boletos' ? 'Falha ao consultar boleto.' : 'Falha ao consultar nota fiscal.'),
+                                  });
                                 } finally {
                                   setDetailBusy(false);
                                 }
@@ -284,18 +347,24 @@ function IxcClientDetailPage() {
                             <button
                               type="button"
                               className="app-btn-secondary text-xs px-2 py-1"
-                              disabled={!canDownloadInvoices || invoiceActionBusyId === invoice.id}
+                              disabled={!canDownloadInvoices || invoiceActionBusyId === invoice.id || noteActionBusyId === invoice.id}
                               onClick={async () => {
-                                setInvoiceActionBusyId(invoice.id);
+                                if (activeTab === 'boletos') {
+                                  setInvoiceActionBusyId(invoice.id);
+                                } else {
+                                  setNoteActionBusyId(invoice.id);
+                                }
                                 setActionFeedback({ type: '', message: '' });
                                 try {
-                                  const response = await downloadIxcInvoice(clientId, invoice.id);
+                                  const response = activeTab === 'boletos'
+                                    ? await downloadIxcInvoice(clientId, invoice.id)
+                                    : await downloadIxcFiscalNote(clientId, invoice.id);
                                   const blob = response?.data;
                                   const contentType = String(response?.headers?.['content-type'] ?? 'application/pdf');
                                   const disposition = String(response?.headers?.['content-disposition'] ?? '');
                                   const match = disposition.match(/filename=\"?([^\";]+)\"?/i);
                                   const fallbackDate = String(invoice?.data_vencimento ?? '').replace(/[^0-9]/g, '') || 'arquivo';
-                                  const filename = match?.[1] || `boleto_${invoice.id}_${fallbackDate}.pdf`;
+                                  const filename = match?.[1] || `${activeTab === 'boletos' ? 'boleto' : 'nota_fiscal'}_${invoice.id}_${fallbackDate}.pdf`;
 
                                   const downloadBlob = blob instanceof Blob ? blob : new Blob([blob], { type: contentType });
                                   const errorMessage = await readBlobErrorMessage(downloadBlob);
@@ -310,15 +379,24 @@ function IxcClientDetailPage() {
                                   anchor.click();
                                   anchor.remove();
                                   URL.revokeObjectURL(url);
-                                  setActionFeedback({ type: 'success', message: `Boleto ${invoice.id} baixado com sucesso.` });
+                                  setActionFeedback({
+                                    type: 'success',
+                                    message: activeTab === 'boletos'
+                                      ? `Boleto ${invoice.id} baixado com sucesso.`
+                                      : `Nota fiscal ${invoice.id} baixada com sucesso.`,
+                                  });
                                 } catch (err) {
-                                  setActionFeedback({ type: 'error', message: err?.message || 'Falha ao baixar boleto.' });
+                                  setActionFeedback({
+                                    type: 'error',
+                                    message: err?.message || (activeTab === 'boletos' ? 'Falha ao baixar boleto.' : 'Falha ao baixar nota fiscal.'),
+                                  });
                                 } finally {
                                   setInvoiceActionBusyId(null);
+                                  setNoteActionBusyId(null);
                                 }
                               }}
                             >
-                              {invoiceActionBusyId === invoice.id ? 'Baixando...' : 'Baixar'}
+                              {invoiceActionBusyId === invoice.id || noteActionBusyId === invoice.id ? 'Baixando...' : 'Baixar'}
                             </button>
                             <button
                               type="button"
@@ -326,7 +404,7 @@ function IxcClientDetailPage() {
                               disabled={!canSendEmailInvoices}
                               onClick={() => {
                                 const firstEmail = extractEmailContacts(client?.email)[0] || '';
-                                setSendModal({ type: 'email', invoice });
+                                setSendModal({ type: 'email', invoice, resource: activeTab === 'boletos' ? 'invoice' : 'note' });
                                 setSendTarget(firstEmail);
                                 setSendModalMessage({ type: '', message: '' });
                               }}
@@ -338,7 +416,7 @@ function IxcClientDetailPage() {
                               className="app-btn-secondary text-xs px-2 py-1"
                               disabled={!canSendSmsInvoices}
                               onClick={() => {
-                                setSendModal({ type: 'sms', invoice });
+                                setSendModal({ type: 'sms', invoice, resource: activeTab === 'boletos' ? 'invoice' : 'note' });
                                 setSendTarget(String(client?.telefone_celular ?? '').trim());
                                 setSendModalMessage({ type: '', message: '' });
                               }}
@@ -392,18 +470,43 @@ function IxcClientDetailPage() {
         </div>
       ) : null}
 
+      {selectedFiscalNote ? (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+          onClick={() => setSelectedFiscalNote(null)}
+        >
+          <section className="app-panel w-full max-w-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-medium">Detalhe da nota fiscal #{selectedFiscalNote.id}</h2>
+              <button type="button" className="app-btn-secondary" onClick={() => setSelectedFiscalNote(null)}>
+                Fechar
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+              <p><strong>Status:</strong> {selectedFiscalNote.status_label || selectedFiscalNote.status || '-'}</p>
+              <p><strong>Valor:</strong> {selectedFiscalNote.valor || '-'}</p>
+              <p><strong>EmissÃ£o:</strong> {selectedFiscalNote.data_emissao || '-'}</p>
+              <p><strong>Vencimento:</strong> {selectedFiscalNote.data_vencimento || '-'}</p>
+              <p className="md:col-span-2"><strong>Documento:</strong> {selectedFiscalNote.documento || '-'}</p>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
       {sendModal?.invoice ? (
         <section className="app-panel mt-6">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-medium">
-              {sendModal.type === 'email' ? 'Enviar boleto por e-mail' : 'Enviar boleto por SMS'} #{sendModal.invoice.id}
+              {sendModal.type === 'email'
+                ? `Enviar ${sendModal.resource === 'note' ? 'nota fiscal' : 'boleto'} por e-mail`
+                : `Enviar ${sendModal.resource === 'note' ? 'nota fiscal' : 'boleto'} por SMS`} #{sendModal.invoice.id}
             </h2>
             <button
               type="button"
               className="app-btn-secondary"
               onClick={() => {
                 if (sendBusy) return;
-                setSendModal({ type: '', invoice: null });
+                setSendModal({ type: '', invoice: null, resource: 'invoice' });
                 setSendTarget('');
                 setSendModalMessage({ type: '', message: '' });
               }}
@@ -438,21 +541,27 @@ function IxcClientDetailPage() {
               setActionFeedback({ type: '', message: '' });
               setSendModalMessage({ type: '', message: '' });
               try {
+                const isNote = sendModal.resource === 'note';
+
                 if (sendModal.type === 'email') {
-                  const response = await sendIxcInvoiceEmail(clientId, sendModal.invoice.id, String(sendTarget).trim());
-                  const message = response?.message || 'Boleto enviado por e-mail com sucesso.';
+                  const response = isNote
+                    ? await sendIxcFiscalNoteEmail(clientId, sendModal.invoice.id, String(sendTarget).trim())
+                    : await sendIxcInvoiceEmail(clientId, sendModal.invoice.id, String(sendTarget).trim());
+                  const message = response?.message || (isNote ? 'Nota fiscal enviada por e-mail com sucesso.' : 'Boleto enviado por e-mail com sucesso.');
                   setActionFeedback({ type: 'success', message });
                   setSendModalMessage({ type: 'success', message });
                 } else {
-                  const response = await sendIxcInvoiceSms(clientId, sendModal.invoice.id, String(sendTarget).trim());
-                  const message = response?.message || 'Boleto enviado por SMS com sucesso.';
+                  const response = isNote
+                    ? await sendIxcFiscalNoteSms(clientId, sendModal.invoice.id, String(sendTarget).trim())
+                    : await sendIxcInvoiceSms(clientId, sendModal.invoice.id, String(sendTarget).trim());
+                  const message = response?.message || (isNote ? 'Nota fiscal enviada por SMS com sucesso.' : 'Boleto enviado por SMS com sucesso.');
                   setActionFeedback({ type: 'success', message });
                   setSendModalMessage({ type: 'success', message });
                 }
-                setSendModal({ type: '', invoice: null });
+                setSendModal({ type: '', invoice: null, resource: 'invoice' });
                 setSendTarget('');
               } catch (err) {
-                const message = err?.message || 'Falha ao enviar boleto.';
+                const message = err?.message || (sendModal.resource === 'note' ? 'Falha ao enviar nota fiscal.' : 'Falha ao enviar boleto.');
                 setActionFeedback({ type: 'error', message });
                 setSendModalMessage({ type: 'error', message });
               } finally {
