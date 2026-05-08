@@ -1099,12 +1099,26 @@ class IxcClientController extends Controller
      */
     private function resolveFiscalNoteBinary(Company $company, array $invoiceRow, string $noteId): array
     {
+        $invoiceId = trim((string) ($invoiceRow['id'] ?? ''));
+        $clientId = trim((string) ($invoiceRow['id_cliente'] ?? ''));
         $baseHost = strtolower((string) (parse_url((string) ($company->ixc_base_url ?? ''), PHP_URL_HOST) ?? ''));
         $allowPrivateHosts = (bool) config('ixc.allow_private_hosts', false);
         $lastError = null;
 
+        Log::info('ixc.fiscal_note.download.start', [
+            'company_id' => (int) $company->id,
+            'note_id' => $noteId,
+            'invoice_id' => $invoiceId,
+            'client_id' => $clientId,
+        ]);
+
         $fromInvoice = $this->extractBinaryFromPayload($company, $invoiceRow, $baseHost, $allowPrivateHosts);
         if ($fromInvoice !== null) {
+            Log::info('ixc.fiscal_note.download.ok', [
+                'company_id' => (int) $company->id,
+                'note_id' => $noteId,
+                'source' => 'invoice_row',
+            ]);
             return $fromInvoice;
         }
 
@@ -1119,6 +1133,11 @@ class IxcClientController extends Controller
                 $payload = $this->ixcApi->request($company, (string) $attempt['resource'], (array) $attempt['params']);
                 $fromPayload = $this->extractBinaryFromPayload($company, $payload, $baseHost, $allowPrivateHosts);
                 if ($fromPayload !== null) {
+                    Log::info('ixc.fiscal_note.download.ok', [
+                        'company_id' => (int) $company->id,
+                        'note_id' => $noteId,
+                        'source' => (string) $attempt['resource'],
+                    ]);
                     return $fromPayload;
                 }
                 $providerMessage = $this->extractProviderMessageFromPayload($payload);
@@ -1126,20 +1145,69 @@ class IxcClientController extends Controller
                     $lastError = $providerMessage;
                 }
             } catch (RuntimeException $exception) {
-                $lastError = $exception->getMessage();
+                $message = $exception->getMessage();
+                if (! $this->isUnavailableIxcResourceError($message)) {
+                    $lastError = $message;
+                }
+                Log::info('ixc.fiscal_note.download.attempt_failed', [
+                    'company_id' => (int) $company->id,
+                    'note_id' => $noteId,
+                    'resource' => (string) $attempt['resource'],
+                    'error' => $message,
+                ]);
             }
 
             try {
                 $binary = $this->ixcApi->requestBinary($company, (string) $attempt['resource'], (array) $attempt['params']);
                 $body = (string) ($binary['body'] ?? '');
                 if ($body !== '') {
+                    Log::info('ixc.fiscal_note.download.ok', [
+                        'company_id' => (int) $company->id,
+                        'note_id' => $noteId,
+                        'source' => (string) $attempt['resource'] . '_binary',
+                    ]);
                     return [
                         'binary' => $body,
                         'content_type' => (string) ($binary['content_type'] ?? 'application/pdf'),
                     ];
                 }
             } catch (RuntimeException $exception) {
-                $lastError = $exception->getMessage();
+                $message = $exception->getMessage();
+                if (! $this->isUnavailableIxcResourceError($message)) {
+                    $lastError = $message;
+                }
+                Log::info('ixc.fiscal_note.download.attempt_failed', [
+                    'company_id' => (int) $company->id,
+                    'note_id' => $noteId,
+                    'resource' => (string) $attempt['resource'] . '_binary',
+                    'error' => $message,
+                ]);
+            }
+        }
+
+        // Mantém exatamente o mesmo comportamento já validado do boleto.
+        if ($invoiceId !== '' && $invoiceId !== '0' && $clientId !== '' && $clientId !== '0') {
+            try {
+                $fallback = $this->resolveInvoiceBinary($company, $invoiceRow, $clientId, $invoiceId);
+                Log::info('ixc.fiscal_note.download.ok', [
+                    'company_id' => (int) $company->id,
+                    'note_id' => $noteId,
+                    'source' => 'invoice_fallback',
+                ]);
+
+                return $fallback;
+            } catch (RuntimeException $exception) {
+                $message = $exception->getMessage();
+                if (! $this->isUnavailableIxcResourceError($message)) {
+                    $lastError = $message;
+                }
+                Log::warning('ixc.fiscal_note.download.fallback_failed', [
+                    'company_id' => (int) $company->id,
+                    'note_id' => $noteId,
+                    'invoice_id' => $invoiceId,
+                    'client_id' => $clientId,
+                    'error' => $message,
+                ]);
             }
         }
 
@@ -1160,43 +1228,44 @@ class IxcClientController extends Controller
         array $destination
     ): array {
         $invoiceId = (string) ($invoiceRow['id'] ?? '');
-        $attempts = $channel === 'email'
-            ? [
-                ['resource' => 'nota_fiscal', 'method' => 'post', 'payload' => ['id' => $noteId, 'enviar_email' => 'S', 'email' => $destination['email'] ?? '']],
-                ['resource' => 'nota_fiscal_saida', 'method' => 'post', 'payload' => ['id' => $noteId, 'enviar_email' => 'S', 'email' => $destination['email'] ?? '']],
-            ]
-            : [
-                ['resource' => 'nota_fiscal', 'method' => 'post', 'payload' => ['id' => $noteId, 'enviar_sms' => 'S', 'celular' => $destination['phone'] ?? '']],
-                ['resource' => 'nota_fiscal_saida', 'method' => 'post', 'payload' => ['id' => $noteId, 'enviar_sms' => 'S', 'celular' => $destination['phone'] ?? '']],
-            ];
+        Log::info('ixc.fiscal_note.send.start', [
+            'company_id' => (int) $company->id,
+            'note_id' => $noteId,
+            'invoice_id' => $invoiceId,
+            'channel' => $channel,
+        ]);
 
-        $lastError = null;
-        foreach ($attempts as $attempt) {
-            try {
-                $response = $this->ixcApi->request(
-                    $company,
-                    (string) $attempt['resource'],
-                    (array) $attempt['payload'],
-                    (string) $attempt['method'],
-                );
-                $providerStatus = $this->readProviderStatus($response);
-                if ($providerStatus['ok']) {
-                    return [
-                        'provider_status' => $providerStatus['status'] ?? 'ok',
-                        'raw' => $response,
-                    ];
-                }
-                $lastError = $providerStatus['error'] ?? 'Falha no provedor IXC.';
-            } catch (RuntimeException $exception) {
-                $lastError = $exception->getMessage();
-            }
-        }
-
+        // Alinha ao mesmo fluxo do boleto (já validado): evita chamadas fiscais que
+        // podem cair em validação de período fechado.
         if ($invoiceId !== '' && $invoiceId !== '0') {
-            return $this->sendInvoiceThroughIxc($company, $clientId, $invoiceId, $channel, $destination);
+            $result = $this->sendInvoiceThroughIxc($company, $clientId, $invoiceId, $channel, $destination);
+            Log::info('ixc.fiscal_note.send.ok', [
+                'company_id' => (int) $company->id,
+                'note_id' => $noteId,
+                'invoice_id' => $invoiceId,
+                'channel' => $channel,
+                'source' => 'invoice_fallback',
+            ]);
+
+            return $result;
         }
 
-        throw new RuntimeException($lastError ?: 'Nao foi possivel enviar nota fiscal pela IXC.');
+        throw new RuntimeException('Nao foi possivel enviar nota fiscal pela IXC: titulo financeiro nao identificado.');
+    }
+
+    private function isUnavailableIxcResourceError(string $message): bool
+    {
+        $normalized = mb_strtolower(trim($message));
+        if ($normalized === '') {
+            return false;
+        }
+
+        return str_contains($normalized, 'recurso')
+            && (
+                str_contains($normalized, 'nao esta disponivel')
+                || str_contains($normalized, 'nÃƒÂ£o estÃƒÂ¡ disponÃƒÂ­vel')
+                || str_contains($normalized, 'nÃ£o estÃ¡ disponÃ­vel')
+            );
     }
 
     /**
