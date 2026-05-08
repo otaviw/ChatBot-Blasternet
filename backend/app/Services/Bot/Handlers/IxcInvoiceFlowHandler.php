@@ -808,8 +808,21 @@ class IxcInvoiceFlowHandler
         $baseHost = strtolower((string) (parse_url((string) ($company->ixc_base_url ?? ''), PHP_URL_HOST) ?? ''));
         $allowPrivateHosts = (bool) config('ixc.allow_private_hosts', false);
 
+        Log::info('bot_ixc_invoice.binary_fetch.start', [
+            'company_id' => (int) $company->id,
+            'invoice_id' => $invoiceId,
+            'client_id' => $clientId,
+        ]);
+
         $modernAttempt = $this->resolveInvoiceBinaryFromModernGetBoleto($company, $invoiceId, $baseHost, $allowPrivateHosts);
         if ($modernAttempt !== null) {
+            Log::info('bot_ixc_invoice.binary_fetch.success', [
+                'company_id' => (int) $company->id,
+                'invoice_id' => $invoiceId,
+                'stage' => 'modern_get_boleto',
+                'content_type' => (string) ($modernAttempt['content_type'] ?? ''),
+                'bytes' => strlen((string) ($modernAttempt['binary'] ?? '')),
+            ]);
             return $modernAttempt;
         }
 
@@ -820,6 +833,13 @@ class IxcInvoiceFlowHandler
             ]);
             $payloadBinary = $this->extractBinaryFromPayload($company, $jsonAttempt, $baseHost, $allowPrivateHosts);
             if ($payloadBinary !== null) {
+                Log::info('bot_ixc_invoice.binary_fetch.success', [
+                    'company_id' => (int) $company->id,
+                    'invoice_id' => $invoiceId,
+                    'stage' => 'legacy_get_boleto_json',
+                    'content_type' => (string) ($payloadBinary['content_type'] ?? ''),
+                    'bytes' => strlen((string) ($payloadBinary['binary'] ?? '')),
+                ]);
                 return $payloadBinary;
             }
         } catch (RuntimeException) {
@@ -840,6 +860,13 @@ class IxcInvoiceFlowHandler
                     $allowPrivateHosts
                 );
                 if ($rawBodyBinary !== null) {
+                    Log::info('bot_ixc_invoice.binary_fetch.success', [
+                        'company_id' => (int) $company->id,
+                        'invoice_id' => $invoiceId,
+                        'stage' => 'legacy_get_boleto_binary',
+                        'content_type' => (string) ($rawBodyBinary['content_type'] ?? ''),
+                        'bytes' => strlen((string) ($rawBodyBinary['binary'] ?? '')),
+                    ]);
                     return $rawBodyBinary;
                 }
 
@@ -855,6 +882,13 @@ class IxcInvoiceFlowHandler
         if (is_array($invoiceRow)) {
             $payloadBinary = $this->extractBinaryFromPayload($company, $invoiceRow, $baseHost, $allowPrivateHosts);
             if ($payloadBinary !== null) {
+                Log::info('bot_ixc_invoice.binary_fetch.success', [
+                    'company_id' => (int) $company->id,
+                    'invoice_id' => $invoiceId,
+                    'stage' => 'fn_areceber_fallback',
+                    'content_type' => (string) ($payloadBinary['content_type'] ?? ''),
+                    'bytes' => strlen((string) ($payloadBinary['binary'] ?? '')),
+                ]);
                 return $payloadBinary;
             }
         }
@@ -871,15 +905,6 @@ class IxcInvoiceFlowHandler
         string $baseHost,
         bool $allowPrivateHosts
     ): ?array {
-        $baseUrl = rtrim((string) ($company->ixc_base_url ?? ''), '/');
-        $token = trim((string) ($company->ixc_api_token ?? ''));
-        if ($baseUrl === '' || $token === '') {
-            return null;
-        }
-        if (! IxcUrlGuard::isSafeBaseUrl($baseUrl, (bool) config('ixc.allow_private_hosts', false))) {
-            return null;
-        }
-
         $payload = [
             'boletos' => $invoiceId,
             'juro' => 'N',
@@ -890,36 +915,39 @@ class IxcInvoiceFlowHandler
             'layout_impressao' => '',
         ];
 
-        foreach (['POST', 'GET'] as $method) {
+        foreach (['post', 'get'] as $method) {
             try {
-                $response = Http::timeout(max(5, min(60, (int) ($company->ixc_timeout_seconds ?? 15))))
-                    ->withOptions(['verify' => ! (bool) $company->ixc_self_signed])
-                    ->withHeaders([
-                        'ixcsoft' => $token,
-                        'Authorization' => 'Basic ' . base64_encode($token),
-                        'Accept' => 'application/json',
-                    ])
-                    ->send($method, $baseUrl . '/webservice/v1/get_boleto', [
-                        'json' => $payload,
-                    ]);
-            } catch (\Throwable) {
-                continue;
-            }
-
-            if (! $response->successful()) {
+                $response = $this->ixcApi->requestBinary($company, 'get_boleto', $payload, $method);
+            } catch (RuntimeException $e) {
+                Log::info('bot_ixc_invoice.binary_fetch.attempt_failed', [
+                    'company_id' => (int) $company->id,
+                    'invoice_id' => $invoiceId,
+                    'stage' => 'modern_get_boleto',
+                    'method' => strtoupper($method),
+                    'error' => $e->getMessage(),
+                ]);
                 continue;
             }
 
             $parsed = $this->extractBinaryFromRawBody(
                 $company,
-                (string) $response->body(),
-                (string) $response->header('Content-Type', ''),
+                (string) ($response['body'] ?? ''),
+                (string) ($response['content_type'] ?? ''),
                 $baseHost,
                 $allowPrivateHosts
             );
             if ($parsed !== null) {
                 return $parsed;
             }
+
+            Log::info('bot_ixc_invoice.binary_fetch.attempt_empty', [
+                'company_id' => (int) $company->id,
+                'invoice_id' => $invoiceId,
+                'stage' => 'modern_get_boleto',
+                'method' => strtoupper($method),
+                'content_type' => (string) ($response['content_type'] ?? ''),
+                'bytes' => strlen((string) ($response['body'] ?? '')),
+            ]);
         }
 
         return null;

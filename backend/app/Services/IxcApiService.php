@@ -169,7 +169,7 @@ class IxcApiService
      * @param  array<string, mixed>  $params
      * @return array{status:int, body:string, content_type:string}
      */
-    public function requestBinary(Company $company, string $resource, array $params = []): array
+    public function requestBinary(Company $company, string $resource, array $params = [], string $method = 'get'): array
     {
         if (! $company->hasIxcIntegration()) {
             throw new RuntimeException('Integração IXC não está habilitada para esta empresa.');
@@ -184,7 +184,10 @@ class IxcApiService
             throw new RuntimeException('URL base da IXC inválida ou não permitida.');
         }
 
-        $normalizedMethod = 'get';
+        $normalizedMethod = strtolower(trim($method));
+        if (! in_array($normalizedMethod, ['get', 'post'], true)) {
+            $normalizedMethod = 'get';
+        }
         $breakerState = $this->breakerStateKey((int) $company->id, $resource, $normalizedMethod);
         if (Cache::get($breakerState) === 'open') {
             $this->registerBreakerOpen($company, $resource, $normalizedMethod);
@@ -200,7 +203,7 @@ class IxcApiService
                     'Authorization' => 'Basic ' . base64_encode($token),
                     'Accept' => 'application/json',
                 ])
-                ->send('GET', $baseUrl . '/' . ltrim($resource, '/'), [
+                ->send(strtoupper($normalizedMethod), $baseUrl . '/' . ltrim($resource, '/'), [
                     'json' => $params,
                 ]);
         } catch (ConnectionException) {
