@@ -134,6 +134,14 @@ class MediaMessageHandler
         $normalizedTo  = $this->normalizeRecipient($toPhone);
 
         if (! $phoneNumberId || ! $accessToken || ! $normalizedTo) {
+            Log::warning('Send midia falhou: config invalida.', [
+                'company_id' => $company?->id,
+                'has_phone_number_id' => $phoneNumberId !== '',
+                'has_access_token' => $accessToken !== '',
+                'recipient_valid' => $normalizedTo !== '',
+                'type' => $type,
+            ]);
+
             return $this->failedResult('config_invalida');
         }
 

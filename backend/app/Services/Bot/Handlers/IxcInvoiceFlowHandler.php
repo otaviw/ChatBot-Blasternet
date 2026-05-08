@@ -13,6 +13,7 @@ use App\Support\Enums\BotFlow;
 use App\Support\IxcUrlGuard;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 class IxcInvoiceFlowHandler
@@ -248,7 +249,15 @@ class IxcInvoiceFlowHandler
 
         try {
             $invoices = $this->listOpenInvoices($company, $clientId);
-        } catch (RuntimeException) {
+        } catch (RuntimeException $exception) {
+            Log::warning('bot_ixc_invoice.send_selected_invoice_failed', [
+                'company_id' => $company->id,
+                'conversation_id' => $conversation->id,
+                'ixc_client_id' => (int) $clientId,
+                'ixc_invoice_id' => (int) $invoiceId,
+                'error' => $exception->getMessage(),
+            ]);
+
             return $this->handoffResult(
                 $company,
                 $conversation,
