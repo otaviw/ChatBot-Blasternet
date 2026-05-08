@@ -15,6 +15,7 @@ use App\Support\MessageDeliveryStatus;
 use App\Support\PhoneNumberNormalizer;
 use App\Support\RealtimeEvents;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
@@ -198,8 +199,26 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
                 if ($inMessage instanceof Message) {
                     $inMessage->content_type = 'interactive_reply';
                     $inMessage->text         = $buttonTitle !== '' ? $buttonTitle : $buttonId;
-                    $inMessage->meta         = ['button_id' => $buttonId];
-                    $inMessage->save();
+                    $meta = is_array($inMessage->meta) ? $inMessage->meta : [];
+                    $inMessage->meta = array_merge($meta, [
+                        'button_id' => $buttonId,
+                        'interactive_reply' => true,
+                    ]);
+
+                    try {
+                        $inMessage->save();
+                    } catch (QueryException $exception) {
+                        // Compatibilidade: em bases sem migration do content_type,
+                        // caímos para text para não quebrar o fluxo do bot.
+                        $inMessage->content_type = 'text';
+                        $inMessage->save();
+
+                        Log::warning('Webhook interactive reply salvo com fallback de content_type.', [
+                            'company_id' => $company->id,
+                            'message_id' => $inMessage->id,
+                            'error' => $exception->getMessage(),
+                        ]);
+                    }
                 }
 
                 Log::info('Webhook interactive reply processado.', [
