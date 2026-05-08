@@ -159,6 +159,26 @@ class StatefulBotIxcInvoiceFlowTest extends TestCase
         $this->assertNull($documentMessage);
     }
 
+    public function test_ixc_invoice_flow_finds_cnpj_with_formatted_ixc_match(): void
+    {
+        $company = $this->createCompanyWithIxcAndInvoiceFlow('Empresa IXC CNPJ Format');
+        $admin = $this->createSystemAdmin('sys.ixc.cnpjformat@test.local');
+
+        $this->mockIxcFormattedCnpjPath();
+        $this->mockWhatsAppForFlow();
+
+        $this->simulateInbound($admin, $company, '5511999990005', '#')->assertOk();
+        $this->simulateInbound($admin, $company, '5511999990005', '1')->assertOk();
+
+        $confirm = $this->simulateInbound($admin, $company, '5511999990005', '87277018000113');
+        $confirm->assertOk();
+        $this->assertStringContainsString('Deseja que eu envie esse boleto agora?', (string) $confirm->json('reply'));
+
+        $final = $this->simulateInbound($admin, $company, '5511999990005', '1');
+        $final->assertOk();
+        $this->assertStringContainsString('Pronto! Enviei o boleto #88', (string) $final->json('reply'));
+    }
+
     private function mockIxcSuccessPath(): void
     {
         $ixcMock = Mockery::mock(IxcApiService::class)->makePartial();
@@ -214,6 +234,56 @@ class StatefulBotIxcInvoiceFlowTest extends TestCase
                             'cnpj_cpf' => '12345678901',
                             'telefone_celular' => '(51) 99888-7777',
                         ]],
+                    ];
+                }
+
+                throw new RuntimeException("Recurso IXC inesperado no teste: {$resource}");
+            });
+
+        $this->app->instance(IxcApiService::class, $ixcMock);
+    }
+
+    private function mockIxcFormattedCnpjPath(): void
+    {
+        $ixcMock = Mockery::mock(IxcApiService::class)->makePartial();
+        $ixcMock->shouldReceive('request')
+            ->andReturnUsing(function (Company $company, string $resource, array $params, string $method = 'get'): array {
+                unset($company, $method);
+
+                if ($resource === 'cliente') {
+                    $query = (string) ($params['query'] ?? '');
+                    if ($query !== '87.277.018/0001-13') {
+                        return ['page' => '1', 'total' => 0, 'registros' => []];
+                    }
+
+                    return [
+                        'page' => '1',
+                        'total' => 1,
+                        'registros' => [[
+                            'id' => '31',
+                            'razao' => 'Cliente CNPJ Formatado',
+                            'cnpj_cpf' => '87.277.018/0001-13',
+                        ]],
+                    ];
+                }
+
+                if ($resource === 'fn_areceber') {
+                    return [
+                        'page' => '1',
+                        'total' => 1,
+                        'registros' => [[
+                            'id' => '88',
+                            'id_cliente' => '31',
+                            'status' => 'A',
+                            'valor' => '49.90',
+                            'data_vencimento' => '2026-06-10',
+                        ]],
+                    ];
+                }
+
+                if ($resource === 'get_boleto') {
+                    return [
+                        'pdf_base64' => base64_encode('%PDF-1.4 boleto cnpj format test'),
                     ];
                 }
 

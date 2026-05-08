@@ -572,48 +572,7 @@ class IxcInvoiceFlowHandler
      */
     private function searchClientsByDocument(Company $company, string $document, string $senderPhone): array
     {
-        $attempts = [
-            [
-                'resource' => 'cliente',
-                'params' => [
-                    'qtype' => 'cliente.cnpj_cpf',
-                    'query' => $document,
-                    'oper' => '=',
-                    'page' => 1,
-                    'rp' => 20,
-                    'sortname' => 'cliente.id',
-                    'sortorder' => 'asc',
-                ],
-            ],
-            [
-                'resource' => 'cliente',
-                'params' => [
-                    'qtype' => 'cnpj_cpf',
-                    'query' => $document,
-                    'oper' => '=',
-                    'page' => 1,
-                    'rp' => 20,
-                    'sortname' => 'id',
-                    'sortorder' => 'asc',
-                ],
-            ],
-            [
-                'resource' => 'cliente',
-                'params' => [
-                    'qtype' => 'cliente.cnpj_cpf',
-                    'query' => $document,
-                    'oper' => 'L',
-                    'page' => 1,
-                    'rp' => 20,
-                    'sortname' => 'cliente.id',
-                    'sortorder' => 'asc',
-                ],
-            ],
-            [
-                'resource' => 'listar_clientes_por_cpf',
-                'params' => ['cpf' => $document, 'page' => 1, 'rp' => 20],
-            ],
-        ];
+        $attempts = $this->buildDocumentLookupAttempts($document);
 
         foreach ($attempts as $attempt) {
             try {
@@ -669,6 +628,143 @@ class IxcInvoiceFlowHandler
             'clients' => [],
             'phone_mismatch' => false,
         ];
+    }
+
+    /**
+     * @return array<int, array{resource:string,params:array<string,mixed>}>
+     */
+    private function buildDocumentLookupAttempts(string $document): array
+    {
+        $variants = $this->documentSearchVariants($document);
+        $attempts = [];
+        foreach ($variants as $variant) {
+            $attempts[] = [
+                'resource' => 'cliente',
+                'params' => [
+                    'qtype' => 'cliente.cnpj_cpf',
+                    'query' => $variant,
+                    'oper' => '=',
+                    'page' => 1,
+                    'rp' => 20,
+                    'sortname' => 'cliente.id',
+                    'sortorder' => 'asc',
+                ],
+            ];
+        }
+
+        $resourceAttempts = $this->buildAlternativeDocumentResourceAttempts($variants);
+        foreach ($resourceAttempts as $resourceAttempt) {
+            $attempts[] = $resourceAttempt;
+        }
+
+        $attempts[] = [
+            'resource' => 'cliente',
+            'params' => [
+                'qtype' => 'cliente.cnpj_cpf',
+                'query' => $document,
+                'oper' => 'L',
+                'page' => 1,
+                'rp' => 20,
+                'sortname' => 'cliente.id',
+                'sortorder' => 'asc',
+            ],
+        ];
+
+        return $attempts;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function documentSearchVariants(string $document): array
+    {
+        $variants = [$document];
+
+        $formatted = $this->formatCpfCnpjForSearch($document);
+        if ($formatted !== '') {
+            $variants[] = $formatted;
+        }
+
+        return array_values(array_unique(array_filter(array_map(
+            static fn ($value) => trim((string) $value),
+            $variants
+        ))));
+    }
+
+    private function formatCpfCnpjForSearch(string $document): string
+    {
+        if (strlen($document) === 11) {
+            return preg_replace(
+                '/(\d{3})(\d{3})(\d{3})(\d{2})/',
+                '$1.$2.$3-$4',
+                $document
+            ) ?? '';
+        }
+
+        if (strlen($document) === 14) {
+            return preg_replace(
+                '/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/',
+                '$1.$2.$3/$4-$5',
+                $document
+            ) ?? '';
+        }
+
+        return '';
+    }
+
+    /**
+     * @param  array<int, string>  $variants
+     * @return array<int, array{resource:string,params:array<string,mixed>}>
+     */
+    private function buildAlternativeDocumentResourceAttempts(array $variants): array
+    {
+        $resources = $this->resolveAlternativeClientResources();
+        if ($resources === []) {
+            return [];
+        }
+
+        $attempts = [];
+        foreach ($resources as $resource) {
+            if ($resource === 'listar_clientes_por_cpf') {
+                foreach ($variants as $variant) {
+                    foreach (['cpf', 'cpf_cnpj', 'cnpj_cpf'] as $field) {
+                        $attempts[] = [
+                            'resource' => $resource,
+                            'params' => [
+                                $field => $variant,
+                                'page' => 1,
+                                'rp' => 20,
+                            ],
+                        ];
+                    }
+                }
+            }
+        }
+
+        return $attempts;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function resolveAlternativeClientResources(): array
+    {
+        $configured = config('ixc.client_alternative_resources', []);
+        if (! is_array($configured)) {
+            return [];
+        }
+
+        $resources = [];
+        foreach ($configured as $resource) {
+            $normalized = strtolower(trim((string) $resource));
+            if ($normalized === '') {
+                continue;
+            }
+
+            $resources[] = $normalized;
+        }
+
+        return array_values(array_unique($resources));
     }
 
     /**
