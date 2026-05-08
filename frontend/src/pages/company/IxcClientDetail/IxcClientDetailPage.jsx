@@ -14,6 +14,40 @@ import {
 } from '@/services/ixcService';
 import ErrorMessage from '@/components/ui/ErrorMessage/ErrorMessage.jsx';
 
+function extractEmailContacts(value) {
+  return String(value || '')
+    .split(/[;,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function parseInvoiceDate(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return Number.NEGATIVE_INFINITY;
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const date = new Date(`${raw}T00:00:00`);
+    return Number.isNaN(date.getTime()) ? Number.NEGATIVE_INFINITY : date.getTime();
+  }
+
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) {
+    const [day, month, year] = raw.split('/');
+    const date = new Date(`${year}-${month}-${day}T00:00:00`);
+    return Number.isNaN(date.getTime()) ? Number.NEGATIVE_INFINITY : date.getTime();
+  }
+
+  const fallbackDate = new Date(raw);
+  return Number.isNaN(fallbackDate.getTime()) ? Number.NEGATIVE_INFINITY : fallbackDate.getTime();
+}
+
+function sortInvoicesNewestFirst(items) {
+  return [...items].sort((a, b) => {
+    const diff = parseInvoiceDate(b?.data_vencimento) - parseInvoiceDate(a?.data_vencimento);
+    if (diff !== 0) return diff;
+    return Number(b?.id || 0) - Number(a?.id || 0);
+  });
+}
+
 function IxcClientDetailPage() {
   const { clientId = '' } = useParams();
   const navigate = useNavigate();
@@ -84,7 +118,8 @@ function IxcClientDetailPage() {
     })
       .then((data) => {
         if (canceled) return;
-        setInvoices(Array.isArray(data?.items) ? data.items : []);
+        const list = Array.isArray(data?.items) ? data.items : [];
+        setInvoices(sortInvoicesNewestFirst(list));
         setInvoicePagination(data?.pagination ?? { page: 1, per_page: 30, total: 0, has_next: false });
       })
       .catch((err) => {
@@ -149,7 +184,23 @@ function IxcClientDetailPage() {
             <p><strong>Razão:</strong> {client.razao || '-'}</p>
             <p><strong>Fantasia:</strong> {client.fantasia || '-'}</p>
             <p><strong>Documento:</strong> {client.cpf_cnpj || '-'}</p>
-            <p><strong>E-mail:</strong> {client.email || '-'}</p>
+            <div className="min-w-0">
+              <strong>E-mail:</strong>
+              {extractEmailContacts(client.email).length > 0 ? (
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {extractEmailContacts(client.email).map((email, index) => (
+                    <span
+                      key={`${email}-${index}`}
+                      className="inline-flex max-w-full items-center break-all rounded-md border border-[#2b3757] bg-[#17213a] px-2 py-1 text-xs text-[#d7e3ff]"
+                    >
+                      {email}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <span> -</span>
+              )}
+            </div>
             <p><strong>Celular:</strong> {client.telefone_celular || '-'}</p>
             <p><strong>Ativo:</strong> {client.ativo || '-'}</p>
           </div>
@@ -274,8 +325,9 @@ function IxcClientDetailPage() {
                               className="app-btn-secondary text-xs px-2 py-1"
                               disabled={!canSendEmailInvoices}
                               onClick={() => {
+                                const firstEmail = extractEmailContacts(client?.email)[0] || '';
                                 setSendModal({ type: 'email', invoice });
-                                setSendTarget(String(client?.email ?? '').trim());
+                                setSendTarget(firstEmail);
                                 setSendModalMessage({ type: '', message: '' });
                               }}
                             >
