@@ -808,6 +808,11 @@ class IxcInvoiceFlowHandler
         $baseHost = strtolower((string) (parse_url((string) ($company->ixc_base_url ?? ''), PHP_URL_HOST) ?? ''));
         $allowPrivateHosts = (bool) config('ixc.allow_private_hosts', false);
 
+        $modernAttempt = $this->resolveInvoiceBinaryFromModernGetBoleto($company, $invoiceId, $baseHost, $allowPrivateHosts);
+        if ($modernAttempt !== null) {
+            return $modernAttempt;
+        }
+
         try {
             $jsonAttempt = $this->ixcApi->request($company, 'get_boleto', [
                 'id' => $invoiceId,
@@ -827,15 +832,15 @@ class IxcInvoiceFlowHandler
             ]);
             $body = (string) ($binaryAttempt['body'] ?? '');
             if ($body !== '') {
-                $contentType = strtolower((string) ($binaryAttempt['content_type'] ?? ''));
-                if (str_contains($contentType, 'json') || str_starts_with(trim($body), '{')) {
-                    $decoded = json_decode($body, true);
-                    if (is_array($decoded)) {
-                        $payloadBinary = $this->extractBinaryFromPayload($company, $decoded, $baseHost, $allowPrivateHosts);
-                        if ($payloadBinary !== null) {
-                            return $payloadBinary;
-                        }
-                    }
+                $rawBodyBinary = $this->extractBinaryFromRawBody(
+                    $company,
+                    $body,
+                    (string) ($binaryAttempt['content_type'] ?? ''),
+                    $baseHost,
+                    $allowPrivateHosts
+                );
+                if ($rawBodyBinary !== null) {
+                    return $rawBodyBinary;
                 }
 
                 return [
@@ -858,6 +863,130 @@ class IxcInvoiceFlowHandler
     }
 
     /**
+     * @return array{binary:string,content_type:string}|null
+     */
+    private function resolveInvoiceBinaryFromModernGetBoleto(
+        Company $company,
+        string $invoiceId,
+        string $baseHost,
+        bool $allowPrivateHosts
+    ): ?array {
+        $baseUrl = rtrim((string) ($company->ixc_base_url ?? ''), '/');
+        $token = trim((string) ($company->ixc_api_token ?? ''));
+        if ($baseUrl === '' || $token === '') {
+            return null;
+        }
+        if (! IxcUrlGuard::isSafeBaseUrl($baseUrl, (bool) config('ixc.allow_private_hosts', false))) {
+            return null;
+        }
+
+        $payload = [
+            'boletos' => $invoiceId,
+            'juro' => 'N',
+            'multa' => 'N',
+            'atualiza_boleto' => 'S',
+            'tipo_boleto' => 'arquivo',
+            'base64' => 'S',
+            'layout_impressao' => '',
+        ];
+
+        foreach (['POST', 'GET'] as $method) {
+            try {
+                $response = Http::timeout(max(5, min(60, (int) ($company->ixc_timeout_seconds ?? 15))))
+                    ->withOptions(['verify' => ! (bool) $company->ixc_self_signed])
+                    ->withHeaders([
+                        'ixcsoft' => $token,
+                        'Authorization' => 'Basic ' . base64_encode($token),
+                        'Accept' => 'application/json',
+                    ])
+                    ->send($method, $baseUrl . '/webservice/v1/get_boleto', [
+                        'json' => $payload,
+                    ]);
+            } catch (\Throwable) {
+                continue;
+            }
+
+            if (! $response->successful()) {
+                continue;
+            }
+
+            $parsed = $this->extractBinaryFromRawBody(
+                $company,
+                (string) $response->body(),
+                (string) $response->header('Content-Type', ''),
+                $baseHost,
+                $allowPrivateHosts
+            );
+            if ($parsed !== null) {
+                return $parsed;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array{binary:string,content_type:string}|null
+     */
+    private function extractBinaryFromRawBody(
+        Company $company,
+        string $body,
+        string $contentType,
+        string $baseHost,
+        bool $allowPrivateHosts
+    ): ?array {
+        $trimmed = trim($body);
+        if ($trimmed === '') {
+            return null;
+        }
+
+        if (str_contains(strtolower($contentType), 'json') || str_starts_with($trimmed, '{') || str_starts_with($trimmed, '[')) {
+            $decoded = json_decode($trimmed, true);
+            if (is_array($decoded)) {
+                $payloadBinary = $this->extractBinaryFromPayload($company, $decoded, $baseHost, $allowPrivateHosts);
+                if ($payloadBinary !== null) {
+                    return $payloadBinary;
+                }
+            }
+        }
+
+        $decodedBase64 = $this->decodeRawBase64Pdf($trimmed);
+        if ($decodedBase64 !== null) {
+            return [
+                'binary' => $decodedBase64,
+                'content_type' => 'application/pdf',
+            ];
+        }
+
+        if (str_starts_with($trimmed, '%PDF-')) {
+            return [
+                'binary' => $body,
+                'content_type' => 'application/pdf',
+            ];
+        }
+
+        return null;
+    }
+
+    private function decodeRawBase64Pdf(string $value): ?string
+    {
+        $normalized = preg_replace('/\s+/', '', $value) ?? '';
+        if ($normalized === '') {
+            return null;
+        }
+        if (preg_match('/^[A-Za-z0-9+\/=]+$/', $normalized) !== 1) {
+            return null;
+        }
+
+        $decoded = base64_decode($normalized, true);
+        if ($decoded === false || $decoded === '' || ! str_starts_with($decoded, '%PDF-')) {
+            return null;
+        }
+
+        return $decoded;
+    }
+
+    /**
      * @param  array<string, mixed>  $payload
      * @return array{binary:string,content_type:string}|null
      */
@@ -867,14 +996,14 @@ class IxcInvoiceFlowHandler
         string $baseHost,
         bool $allowPrivateHosts
     ): ?array {
-        $base64Keys = ['pdf_base64', 'arquivo_base64', 'boleto_base64', 'pdf'];
+        $base64Keys = ['pdf_base64', 'arquivo_base64', 'boleto_base64', 'pdf', 'base64', 'arquivo'];
         foreach ($base64Keys as $key) {
             $value = trim((string) ($payload[$key] ?? ''));
             if ($value === '') {
                 continue;
             }
-            $decoded = base64_decode($value, true);
-            if ($decoded !== false && $decoded !== '') {
+            $decoded = $this->decodeRawBase64Pdf($value);
+            if ($decoded !== null) {
                 return [
                     'binary' => $decoded,
                     'content_type' => 'application/pdf',
