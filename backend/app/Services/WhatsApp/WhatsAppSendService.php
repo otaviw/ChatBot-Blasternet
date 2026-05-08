@@ -51,6 +51,31 @@ class WhatsAppSendService
     /**
      * @return array{ok:bool,whatsapp_message_id:?string,status:'sent'|'failed',error:mixed,response:array<mixed>|null}
      */
+    public function sendMediaBinary(
+        ?Company $company,
+        string $toPhone,
+        string $binaryData,
+        string $mimeType,
+        string $type,
+        ?string $caption = null,
+        ?string $filename = null,
+        bool $strict = false
+    ): array {
+        return $this->media->sendMediaBinary(
+            $company,
+            $toPhone,
+            $binaryData,
+            $mimeType,
+            $type,
+            $caption,
+            $filename,
+            $strict
+        );
+    }
+
+    /**
+     * @return array{ok:bool,whatsapp_message_id:?string,status:'sent'|'failed',error:mixed,response:array<mixed>|null}
+     */
     public function sendMediaFile(
         ?Company $company,
         string $toPhone,
@@ -58,9 +83,10 @@ class WhatsAppSendService
         string $mimeType,
         string $type,
         ?string $caption = null,
-        ?string $filename = null
+        ?string $filename = null,
+        bool $strict = false
     ): array {
-        return $this->media->sendMediaFile($company, $toPhone, $filePath, $mimeType, $type, $caption, $filename);
+        return $this->media->sendMediaFile($company, $toPhone, $filePath, $mimeType, $type, $caption, $filename, $strict);
     }
 
     /**

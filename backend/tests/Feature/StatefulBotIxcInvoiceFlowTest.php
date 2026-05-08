@@ -318,8 +318,7 @@ class StatefulBotIxcInvoiceFlowTest extends TestCase
         $whatsAppMock->shouldReceive('sendText')->andReturn($ok)->byDefault();
         $whatsAppMock->shouldReceive('sendInteractiveButtons')->andReturn($ok)->byDefault();
         $whatsAppMock->shouldReceive('sendInteractiveList')->andReturn($ok)->byDefault();
-        $whatsAppMock->shouldReceive('uploadMedia')->andReturn(['id' => 'media-doc-77'])->byDefault();
-        $whatsAppMock->shouldReceive('sendMedia')->andReturn([
+        $whatsAppMock->shouldReceive('sendMediaBinary')->andReturn([
             'ok' => true,
             'whatsapp_message_id' => 'wamid-doc-77',
             'status' => 'sent',

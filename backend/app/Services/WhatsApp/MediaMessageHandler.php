@@ -184,22 +184,35 @@ class MediaMessageHandler
     /**
      * @return array{ok:bool,whatsapp_message_id:?string,status:'sent'|'failed',error:mixed,response:array<mixed>|null}
      */
-    public function sendMediaFile(
+    public function sendMediaBinary(
         ?Company $company,
         string $toPhone,
-        string $filePath,
+        string $binaryData,
         string $mimeType,
         string $type,
         ?string $caption = null,
-        ?string $filename = null
+        ?string $filename = null,
+        bool $strict = false
     ): array {
         $phoneNumberId = $this->resolvePhoneNumberId($company);
         $accessToken   = $this->resolveAccessToken($company);
         $normalizedTo  = $this->normalizeRecipient($toPhone);
 
         if (! $phoneNumberId || ! $accessToken || ! $normalizedTo) {
+            if ($strict) {
+                Log::warning('sendMediaBinary: config invalida.', [
+                    'company_id' => $company?->id,
+                    'has_phone_number_id' => $phoneNumberId !== '',
+                    'has_access_token' => $accessToken !== '',
+                    'recipient_valid' => $normalizedTo !== '',
+                    'type' => $type,
+                ]);
+
+                return $this->failedResult('config_invalida');
+            }
+
             Log::info('Envio local simulado (sem config Meta).', [
-                'file' => basename($filePath),
+                'file' => $filename ?: 'file',
                 'type' => $type,
             ]);
 
@@ -212,6 +225,38 @@ class MediaMessageHandler
             ];
         }
 
+        if ($binaryData === '') {
+            Log::error('sendMediaBinary: conteudo vazio.', [
+                'company_id' => $company?->id,
+                'type' => $type,
+                'mime_type' => $mimeType,
+            ]);
+
+            return $this->failedResult('arquivo_nao_lido');
+        }
+
+        $upload = $this->uploadMedia($company, $binaryData, $mimeType, $filename);
+        $mediaId = is_array($upload) ? trim((string) ($upload['id'] ?? '')) : '';
+        if ($mediaId === '') {
+            return $this->failedResult('upload_falhou');
+        }
+
+        return $this->sendMedia($company, $toPhone, $mediaId, $type, $caption);
+    }
+
+    /**
+     * @return array{ok:bool,whatsapp_message_id:?string,status:'sent'|'failed',error:mixed,response:array<mixed>|null}
+     */
+    public function sendMediaFile(
+        ?Company $company,
+        string $toPhone,
+        string $filePath,
+        string $mimeType,
+        string $type,
+        ?string $caption = null,
+        ?string $filename = null,
+        bool $strict = false
+    ): array {
         $fileExists = file_exists($filePath);
         $fileSize   = $fileExists ? (int) filesize($filePath) : 0;
 
@@ -236,47 +281,16 @@ class MediaMessageHandler
             return $this->failedResult('arquivo_nao_lido');
         }
 
-        $uploadUrl = rtrim(config('whatsapp.api_url'), '/') . "/{$phoneNumberId}/media";
-
-        $uploadResponse = Http::withToken($accessToken)
-            ->attach('file', $fileBinary, $filename ?: basename($filePath), ['Content-Type' => $mimeType])
-            ->post($uploadUrl, [
-                'messaging_product' => 'whatsapp',
-                'type'              => $mimeType,
-            ]);
-
-        if (! $uploadResponse->successful()) {
-            return $this->failedResult('upload_falhou', $this->responseJson($uploadResponse));
-        }
-
-        $mediaId = $uploadResponse->json('id');
-        if (! $mediaId) {
-            return $this->failedResult('media_id_invalido');
-        }
-
-        $sendUrl = $this->messagesUrl($phoneNumberId);
-        $body    = [
-            'messaging_product' => 'whatsapp',
-            'to'                => $normalizedTo,
-            'type'              => $type,
-            $type               => ['id' => $mediaId],
-        ];
-        if ($caption) {
-            $body[$type]['caption'] = trim((string) $caption);
-        }
-
-        $sendResponse = Http::withToken($accessToken)
-            ->withHeaders(['Content-Type' => 'application/json'])
-            ->asJson()
-            ->post($sendUrl, $body);
-
-        if (! $sendResponse->successful()) {
-            return $this->failedResult('envio_falhou', $this->responseJson($sendResponse));
-        }
-
-        $graphMessageId = $this->normalizeGraphMessageId($sendResponse->json('messages.0.id') ?? null);
-
-        return $this->successResult($graphMessageId, $this->responseJson($sendResponse));
+        return $this->sendMediaBinary(
+            $company,
+            $toPhone,
+            $fileBinary,
+            $mimeType,
+            $type,
+            $caption,
+            $filename ?: basename($filePath),
+            $strict
+        );
     }
 
     /** @return array{binary:string,mime_type:?string,size_bytes:?int}|null */

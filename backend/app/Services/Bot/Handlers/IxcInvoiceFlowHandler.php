@@ -250,11 +250,10 @@ class IxcInvoiceFlowHandler
         try {
             $invoices = $this->listOpenInvoices($company, $clientId);
         } catch (RuntimeException $exception) {
-            Log::warning('bot_ixc_invoice.send_selected_invoice_failed', [
+            Log::warning('bot_ixc_invoice.list_open_invoices_failed', [
                 'company_id' => $company->id,
                 'conversation_id' => $conversation->id,
                 'ixc_client_id' => (int) $clientId,
-                'ixc_invoice_id' => (int) $invoiceId,
                 'error' => $exception->getMessage(),
             ]);
 
@@ -509,24 +508,15 @@ class IxcInvoiceFlowHandler
             $binaryPayload = $this->resolveInvoiceBinary($company, $clientId, $invoiceId);
             $filename = $this->resolveInvoiceFilename($invoiceId, (string) ($invoice['data_vencimento'] ?? ''));
             $caption = "Boleto {$invoiceId}";
-            $upload = $this->whatsAppSend->uploadMedia(
-                $company,
-                (string) ($binaryPayload['binary'] ?? ''),
-                (string) ($binaryPayload['content_type'] ?? 'application/pdf'),
-                $filename
-            );
-
-            $mediaId = is_array($upload) ? trim((string) ($upload['id'] ?? '')) : '';
-            if ($mediaId === '') {
-                throw new RuntimeException('Falha no upload do boleto para o WhatsApp.');
-            }
-
-            $sendResult = $this->whatsAppSend->sendMedia(
+            $sendResult = $this->whatsAppSend->sendMediaBinary(
                 $company,
                 (string) $conversation->customer_phone,
-                $mediaId,
+                (string) ($binaryPayload['binary'] ?? ''),
+                (string) ($binaryPayload['content_type'] ?? 'application/pdf'),
                 'document',
-                $caption
+                $caption,
+                $filename,
+                true
             );
 
             if (! (bool) ($sendResult['ok'] ?? false)) {
