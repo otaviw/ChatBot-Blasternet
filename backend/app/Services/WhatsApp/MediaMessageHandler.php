@@ -15,6 +15,8 @@ class MediaMessageHandler
 {
     use WhatsAppApiHelpers;
 
+    private const SUPPORTED_MEDIA_TYPES = ['image', 'document', 'audio', 'video', 'sticker'];
+
     /**
      * @return array{ok:bool,whatsapp_message_id:?string,status:'sent'|'failed',error:mixed,response:array<mixed>|null}
      */
@@ -32,6 +34,14 @@ class MediaMessageHandler
             Log::warning('WhatsApp envio de imagem ignorado: URL vazia.', ['to' => $toPhone]);
 
             return $this->failedResult('imagem_url_vazia');
+        }
+        if (! $this->isValidMediaUrl($normalizedUrl)) {
+            Log::warning('WhatsApp envio de imagem ignorado: URL inválida.', [
+                'company_id' => $company?->id,
+                'to' => $toPhone,
+            ]);
+
+            return $this->failedResult('imagem_url_invalida');
         }
 
         if ($normalizedTo === '') {
@@ -107,8 +117,10 @@ class MediaMessageHandler
         }
 
         $url = rtrim(config('whatsapp.api_url'), '/') . "/{$phoneNumberId}/media";
+        $timeoutSeconds = max(5, (int) config('services.whatsapp.timeout', 20));
 
         $response = Http::withToken($accessToken)
+            ->timeout($timeoutSeconds)
             ->attach('file', $binaryData, $filename ?: 'file', ['Content-Type' => $mimeType])
             ->post($url, [
                 'messaging_product' => 'whatsapp',
@@ -135,6 +147,16 @@ class MediaMessageHandler
         $phoneNumberId = $this->resolvePhoneNumberId($company);
         $accessToken   = $this->resolveAccessToken($company);
         $normalizedTo  = $this->normalizeRecipient($toPhone);
+        $normalizedType = trim(strtolower($type));
+
+        if (! $this->isSupportedMediaType($normalizedType)) {
+            Log::warning('Send mídia falhou: tipo inválido.', [
+                'company_id' => $company?->id,
+                'type' => $type,
+            ]);
+
+            return $this->failedResult('tipo_midia_invalido');
+        }
 
         if (! $phoneNumberId || ! $accessToken || ! $normalizedTo) {
             Log::warning('Send midia falhou: config invalida.', [
@@ -152,21 +174,21 @@ class MediaMessageHandler
         $body = [
             'messaging_product' => 'whatsapp',
             'to'                => $normalizedTo,
-            'type'              => $type,
-            $type               => ['id' => $mediaId],
+            'type'              => $normalizedType,
+            $normalizedType     => ['id' => $mediaId],
         ];
         if ($caption) {
-            $body[$type]['caption'] = $caption;
+            $body[$normalizedType]['caption'] = $caption;
         }
 
-        $this->logRequestDiagnostics($company, $type, $url, $phoneNumberId, $normalizedTo);
+        $this->logRequestDiagnostics($company, $normalizedType, $url, $phoneNumberId, $normalizedTo);
 
         $response = Http::withToken($accessToken)
             ->withHeaders(['Content-Type' => 'application/json'])
             ->asJson()
             ->post($url, $body);
 
-        $this->logResponseDiagnostics($type, $response);
+        $this->logResponseDiagnostics($normalizedType, $response);
         $responseJson   = $this->responseJson($response);
         $graphMessageId = $this->normalizeGraphMessageId($response->json('messages.0.id') ?? null);
 
@@ -197,6 +219,7 @@ class MediaMessageHandler
         $phoneNumberId = $this->resolvePhoneNumberId($company);
         $accessToken   = $this->resolveAccessToken($company);
         $normalizedTo  = $this->normalizeRecipient($toPhone);
+        $normalizedType = trim(strtolower($type));
 
         if (! $phoneNumberId || ! $accessToken || ! $normalizedTo) {
             if ($strict) {
@@ -225,14 +248,43 @@ class MediaMessageHandler
             ];
         }
 
+        if (! $this->isSupportedMediaType($normalizedType)) {
+            Log::warning('sendMediaBinary: tipo inválido.', [
+                'company_id' => $company?->id,
+                'type' => $type,
+            ]);
+
+            return $this->failedResult('tipo_midia_invalido');
+        }
+
         if ($binaryData === '') {
             Log::error('sendMediaBinary: conteudo vazio.', [
                 'company_id' => $company?->id,
-                'type' => $type,
+                'type' => $normalizedType,
                 'mime_type' => $mimeType,
             ]);
 
             return $this->failedResult('arquivo_nao_lido');
+        }
+        if (! $this->isMimeTypeAllowedForType($mimeType, $normalizedType)) {
+            Log::warning('sendMediaBinary: mime type incompatível com tipo de mídia.', [
+                'company_id' => $company?->id,
+                'type' => $normalizedType,
+                'mime_type' => $mimeType,
+            ]);
+
+            return $this->failedResult('mime_type_invalido');
+        }
+        $maxBytes = $this->resolveMaxUploadBytes();
+        if (strlen($binaryData) > $maxBytes) {
+            Log::warning('sendMediaBinary: arquivo excede limite de tamanho.', [
+                'company_id' => $company?->id,
+                'type' => $normalizedType,
+                'size_bytes' => strlen($binaryData),
+                'max_bytes' => $maxBytes,
+            ]);
+
+            return $this->failedResult('arquivo_muito_grande');
         }
 
         $upload = $this->uploadMedia($company, $binaryData, $mimeType, $filename);
@@ -241,7 +293,7 @@ class MediaMessageHandler
             return $this->failedResult('upload_falhou');
         }
 
-        return $this->sendMedia($company, $toPhone, $mediaId, $type, $caption);
+        return $this->sendMedia($company, $toPhone, $mediaId, $normalizedType, $caption);
     }
 
     /**
@@ -272,6 +324,16 @@ class MediaMessageHandler
             Log::error('sendMediaFile: arquivo não encontrado ou vazio.', ['path' => $filePath]);
 
             return $this->failedResult('arquivo_nao_encontrado');
+        }
+        $maxBytes = $this->resolveMaxUploadBytes();
+        if ($fileSize > $maxBytes) {
+            Log::warning('sendMediaFile: arquivo excede limite de tamanho.', [
+                'path' => $filePath,
+                'size_bytes' => $fileSize,
+                'max_bytes' => $maxBytes,
+            ]);
+
+            return $this->failedResult('arquivo_muito_grande');
         }
 
         $fileBinary = file_get_contents($filePath);
@@ -338,5 +400,45 @@ class MediaMessageHandler
                 ? (int) $metadata['file_size']
                 : strlen((string) $mediaResponse->body()),
         ];
+    }
+
+    private function resolveMaxUploadBytes(): int
+    {
+        $kb = (int) config('whatsapp.media_max_size_kb', 5120);
+
+        return max(1, $kb) * 1024;
+    }
+
+    private function isSupportedMediaType(string $type): bool
+    {
+        return in_array($type, self::SUPPORTED_MEDIA_TYPES, true);
+    }
+
+    private function isMimeTypeAllowedForType(string $mimeType, string $type): bool
+    {
+        $normalizedMime = trim(strtolower($mimeType));
+        if ($normalizedMime === '') {
+            return false;
+        }
+
+        return match ($type) {
+            'image' => str_starts_with($normalizedMime, 'image/'),
+            'audio' => str_starts_with($normalizedMime, 'audio/'),
+            'video' => str_starts_with($normalizedMime, 'video/'),
+            'sticker' => in_array($normalizedMime, ['image/webp', 'image/png'], true),
+            'document' => true,
+            default => false,
+        };
+    }
+
+    private function isValidMediaUrl(string $url): bool
+    {
+        if (! filter_var($url, FILTER_VALIDATE_URL)) {
+            return false;
+        }
+
+        $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
+
+        return in_array($scheme, ['http', 'https'], true);
     }
 }

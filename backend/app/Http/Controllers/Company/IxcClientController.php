@@ -554,6 +554,197 @@ class IxcClientController extends Controller
         ]);
     }
 
+    public function fiscalNotes(Request $request, string $clientId): JsonResponse
+    {
+        $company = $this->resolveCompany($request);
+        if ($company instanceof JsonResponse) {
+            return $company;
+        }
+
+        $page = max(1, (int) $request->integer('page', 1));
+        $perPage = min(200, max(10, (int) $request->integer('per_page', 30)));
+
+        $params = [
+            'qtype' => 'fn_areceber.id_cliente',
+            'query' => (string) $clientId,
+            'oper' => '=',
+            'page' => 1,
+            'rp' => 200,
+            'sortname' => 'fn_areceber.id',
+            'sortorder' => 'desc',
+        ];
+
+        try {
+            $payload = $this->ixcApi->request($company, 'fn_areceber', $params);
+            $list = $this->ixcApi->normalizeList($payload, 1, 200);
+        } catch (RuntimeException $exception) {
+            return response()->json([
+                'ok' => false,
+                'message' => $this->friendlyIxcErrorMessage(
+                    $exception->getMessage(),
+                    'Nao foi possivel consultar notas fiscais na IXC agora.'
+                ),
+            ], 422);
+        }
+
+        $grouped = [];
+        foreach ($list['items'] as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $noteId = $this->extractInvoiceNoteId($row);
+            if ($noteId === '') {
+                continue;
+            }
+            if (! isset($grouped[$noteId])) {
+                $grouped[$noteId] = $row;
+            }
+        }
+
+        $items = array_values(array_map(fn(array $row) => $this->mapFiscalNoteItem($row), $grouped));
+        $total = count($items);
+        $offset = ($page - 1) * $perPage;
+        $pagedItems = array_slice($items, $offset, $perPage);
+
+        return response()->json([
+            'ok' => true,
+            'client_id' => (int) $clientId,
+            'items' => $pagedItems,
+            'pagination' => [
+                'page' => $page,
+                'per_page' => $perPage,
+                'total' => $total,
+                'has_next' => ($page * $perPage) < $total,
+            ],
+        ]);
+    }
+
+    public function fiscalNoteDetail(Request $request, string $clientId, string $noteId): JsonResponse
+    {
+        $company = $this->resolveCompany($request);
+        if ($company instanceof JsonResponse) {
+            return $company;
+        }
+
+        $invoiceRow = $this->loadInvoiceRowByFiscalNoteId($company, $clientId, $noteId);
+        if (! is_array($invoiceRow)) {
+            return response()->json(['ok' => false, 'message' => 'Nota fiscal nao encontrada.'], 404);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'item' => $this->mapFiscalNoteItem($invoiceRow),
+        ]);
+    }
+
+    public function downloadFiscalNote(Request $request, string $clientId, string $noteId): Response
+    {
+        $company = $this->resolveCompany($request);
+        if ($company instanceof JsonResponse) {
+            return $company;
+        }
+
+        $invoiceRow = $this->loadInvoiceRowByFiscalNoteId($company, $clientId, $noteId);
+        if (! is_array($invoiceRow)) {
+            return response()->json(['ok' => false, 'message' => 'Nota fiscal nao encontrada.'], 404);
+        }
+
+        try {
+            $binaryPayload = $this->resolveFiscalNoteBinary($company, $invoiceRow, $noteId);
+        } catch (RuntimeException $exception) {
+            return response()->json([
+                'ok' => false,
+                'message' => $this->friendlyIxcErrorMessage(
+                    $exception->getMessage(),
+                    'Nao foi possivel obter o arquivo da nota fiscal na IXC.'
+                ),
+            ], 422);
+        }
+
+        $filename = "nota_fiscal_{$noteId}.pdf";
+        $contentType = (string) ($binaryPayload['content_type'] ?? 'application/pdf');
+
+        return response((string) $binaryPayload['binary'], 200, [
+            'Content-Type' => $contentType,
+            'Content-Disposition' => 'attachment; filename="' . addslashes($filename) . '"',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate',
+        ]);
+    }
+
+    public function sendFiscalNoteEmail(Request $request, string $clientId, string $noteId): JsonResponse
+    {
+        $company = $this->resolveCompany($request);
+        if ($company instanceof JsonResponse) {
+            return $company;
+        }
+
+        $validated = $request->validate([
+            'email' => ['required', 'email:rfc,dns', 'max:190'],
+        ]);
+
+        $invoiceRow = $this->loadInvoiceRowByFiscalNoteId($company, $clientId, $noteId);
+        if (! is_array($invoiceRow)) {
+            return response()->json(['ok' => false, 'message' => 'Nota fiscal nao encontrada.'], 404);
+        }
+
+        try {
+            $sendResult = $this->sendFiscalNoteThroughIxc($company, $invoiceRow, $clientId, $noteId, 'email', [
+                'email' => (string) $validated['email'],
+            ]);
+        } catch (RuntimeException $exception) {
+            return response()->json([
+                'ok' => false,
+                'message' => $this->friendlyIxcErrorMessage(
+                    $exception->getMessage(),
+                    'Nao foi possivel enviar a nota fiscal por e-mail na IXC.'
+                ),
+            ], 422);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Nota fiscal enviada por e-mail com sucesso.',
+            'provider_status' => $sendResult['provider_status'] ?? 'ok',
+        ]);
+    }
+
+    public function sendFiscalNoteSms(Request $request, string $clientId, string $noteId): JsonResponse
+    {
+        $company = $this->resolveCompany($request);
+        if ($company instanceof JsonResponse) {
+            return $company;
+        }
+
+        $validated = $request->validate([
+            'phone' => ['required', 'string', 'min:8', 'max:25'],
+        ]);
+
+        $invoiceRow = $this->loadInvoiceRowByFiscalNoteId($company, $clientId, $noteId);
+        if (! is_array($invoiceRow)) {
+            return response()->json(['ok' => false, 'message' => 'Nota fiscal nao encontrada.'], 404);
+        }
+
+        try {
+            $sendResult = $this->sendFiscalNoteThroughIxc($company, $invoiceRow, $clientId, $noteId, 'sms', [
+                'phone' => (string) $validated['phone'],
+            ]);
+        } catch (RuntimeException $exception) {
+            return response()->json([
+                'ok' => false,
+                'message' => $this->friendlyIxcErrorMessage(
+                    $exception->getMessage(),
+                    'Nao foi possivel enviar a nota fiscal por SMS na IXC.'
+                ),
+            ], 422);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Nota fiscal enviada por SMS com sucesso.',
+            'provider_status' => $sendResult['provider_status'] ?? 'ok',
+        ]);
+    }
+
     public function invoiceDetail(Request $request, string $clientId, string $invoiceId): JsonResponse
     {
         $company = $this->resolveCompany($request);
@@ -786,6 +977,28 @@ class IxcClientController extends Controller
         ];
     }
 
+    /**
+     * @param  array<string, mixed>  $row
+     * @return array<string, mixed>
+     */
+    private function mapFiscalNoteItem(array $row): array
+    {
+        $noteId = $this->extractInvoiceNoteId($row);
+        $statusCode = strtoupper(trim((string) ($row['status'] ?? '')));
+
+        return [
+            'id' => (int) $noteId,
+            'id_cliente' => (int) ($row['id_cliente'] ?? 0),
+            'id_financeiro' => (int) ($row['id'] ?? 0),
+            'status' => $statusCode,
+            'status_label' => $this->invoiceStatusLabel($statusCode),
+            'data_emissao' => (string) ($row['data_emissao'] ?? ''),
+            'data_vencimento' => (string) ($row['data_vencimento'] ?? ''),
+            'valor' => (string) ($row['valor'] ?? $row['valor_parcela'] ?? ''),
+            'documento' => (string) ($row['documento'] ?? ''),
+        ];
+    }
+
     private function invoiceStatusLabel(string $statusCode): string
     {
         $map = [
@@ -825,6 +1038,165 @@ class IxcClientController extends Controller
 
         $row = $list['items'][0] ?? null;
         return is_array($row) ? $row : null;
+    }
+
+    private function loadInvoiceRowByFiscalNoteId(Company $company, string $clientId, string $noteId): ?array
+    {
+        $params = [
+            'qtype' => 'fn_areceber.id_cliente',
+            'query' => (string) $clientId,
+            'oper' => '=',
+            'page' => 1,
+            'rp' => 200,
+            'sortname' => 'fn_areceber.id',
+            'sortorder' => 'desc',
+        ];
+
+        try {
+            $payload = $this->ixcApi->request($company, 'fn_areceber', $params);
+            $list = $this->ixcApi->normalizeList($payload, 1, 200);
+        } catch (RuntimeException) {
+            return null;
+        }
+
+        foreach ($list['items'] as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            if ($this->extractInvoiceNoteId($row) === (string) $noteId) {
+                return $row;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function extractInvoiceNoteId(array $row): string
+    {
+        $candidates = [
+            (string) ($row['id_nota_gerada'] ?? ''),
+            (string) ($row['id_nota_gerada_opc2'] ?? ''),
+            (string) ($row['id_nota_gerada_opc3'] ?? ''),
+            (string) ($row['id_nota_gerada_opc4'] ?? ''),
+        ];
+
+        foreach ($candidates as $candidate) {
+            $value = trim($candidate);
+            if ($value !== '' && $value !== '0') {
+                return $value;
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * @param  array<string, mixed>  $invoiceRow
+     * @return array{binary:string, content_type:string}
+     */
+    private function resolveFiscalNoteBinary(Company $company, array $invoiceRow, string $noteId): array
+    {
+        $baseHost = strtolower((string) (parse_url((string) ($company->ixc_base_url ?? ''), PHP_URL_HOST) ?? ''));
+        $allowPrivateHosts = (bool) config('ixc.allow_private_hosts', false);
+        $lastError = null;
+
+        $fromInvoice = $this->extractBinaryFromPayload($company, $invoiceRow, $baseHost, $allowPrivateHosts);
+        if ($fromInvoice !== null) {
+            return $fromInvoice;
+        }
+
+        $attempts = [
+            ['resource' => 'nota_fiscal', 'params' => ['id' => $noteId]],
+            ['resource' => 'nota_fiscal_saida', 'params' => ['id' => $noteId]],
+            ['resource' => 'nfe', 'params' => ['id' => $noteId]],
+        ];
+
+        foreach ($attempts as $attempt) {
+            try {
+                $payload = $this->ixcApi->request($company, (string) $attempt['resource'], (array) $attempt['params']);
+                $fromPayload = $this->extractBinaryFromPayload($company, $payload, $baseHost, $allowPrivateHosts);
+                if ($fromPayload !== null) {
+                    return $fromPayload;
+                }
+                $providerMessage = $this->extractProviderMessageFromPayload($payload);
+                if ($providerMessage !== null) {
+                    $lastError = $providerMessage;
+                }
+            } catch (RuntimeException $exception) {
+                $lastError = $exception->getMessage();
+            }
+
+            try {
+                $binary = $this->ixcApi->requestBinary($company, (string) $attempt['resource'], (array) $attempt['params']);
+                $body = (string) ($binary['body'] ?? '');
+                if ($body !== '') {
+                    return [
+                        'binary' => $body,
+                        'content_type' => (string) ($binary['content_type'] ?? 'application/pdf'),
+                    ];
+                }
+            } catch (RuntimeException $exception) {
+                $lastError = $exception->getMessage();
+            }
+        }
+
+        throw new RuntimeException($lastError ?: 'Nao foi possivel obter o arquivo da nota fiscal na IXC.');
+    }
+
+    /**
+     * @param  array<string, mixed>  $invoiceRow
+     * @param  array<string, string>  $destination
+     * @return array<string, mixed>
+     */
+    private function sendFiscalNoteThroughIxc(
+        Company $company,
+        array $invoiceRow,
+        string $clientId,
+        string $noteId,
+        string $channel,
+        array $destination
+    ): array {
+        $invoiceId = (string) ($invoiceRow['id'] ?? '');
+        $attempts = $channel === 'email'
+            ? [
+                ['resource' => 'nota_fiscal', 'method' => 'post', 'payload' => ['id' => $noteId, 'enviar_email' => 'S', 'email' => $destination['email'] ?? '']],
+                ['resource' => 'nota_fiscal_saida', 'method' => 'post', 'payload' => ['id' => $noteId, 'enviar_email' => 'S', 'email' => $destination['email'] ?? '']],
+            ]
+            : [
+                ['resource' => 'nota_fiscal', 'method' => 'post', 'payload' => ['id' => $noteId, 'enviar_sms' => 'S', 'celular' => $destination['phone'] ?? '']],
+                ['resource' => 'nota_fiscal_saida', 'method' => 'post', 'payload' => ['id' => $noteId, 'enviar_sms' => 'S', 'celular' => $destination['phone'] ?? '']],
+            ];
+
+        $lastError = null;
+        foreach ($attempts as $attempt) {
+            try {
+                $response = $this->ixcApi->request(
+                    $company,
+                    (string) $attempt['resource'],
+                    (array) $attempt['payload'],
+                    (string) $attempt['method'],
+                );
+                $providerStatus = $this->readProviderStatus($response);
+                if ($providerStatus['ok']) {
+                    return [
+                        'provider_status' => $providerStatus['status'] ?? 'ok',
+                        'raw' => $response,
+                    ];
+                }
+                $lastError = $providerStatus['error'] ?? 'Falha no provedor IXC.';
+            } catch (RuntimeException $exception) {
+                $lastError = $exception->getMessage();
+            }
+        }
+
+        if ($invoiceId !== '' && $invoiceId !== '0') {
+            return $this->sendInvoiceThroughIxc($company, $clientId, $invoiceId, $channel, $destination);
+        }
+
+        throw new RuntimeException($lastError ?: 'Nao foi possivel enviar nota fiscal pela IXC.');
     }
 
     /**

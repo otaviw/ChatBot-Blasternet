@@ -163,6 +163,16 @@ Route::middleware(['web', 'auth', 'company.user'])->group(function () {
                 ->middleware(['throttle:ixc-write', 'permission:' . UserPermissions::PAGE_IXC_CLIENTS, 'permission:' . UserPermissions::IXC_INVOICES_SEND_EMAIL]);
             Route::post('/clientes/{clientId}/boletos/{invoiceId}/enviar-sms', [IxcClientController::class, 'sendInvoiceSms'])
                 ->middleware(['throttle:ixc-write', 'permission:' . UserPermissions::PAGE_IXC_CLIENTS, 'permission:' . UserPermissions::IXC_INVOICES_SEND_SMS]);
+            Route::get('/clientes/{clientId}/notas-fiscais', [IxcClientController::class, 'fiscalNotes'])
+                ->middleware(['throttle:ixc-read', 'permission:' . UserPermissions::PAGE_IXC_CLIENTS, 'permission:' . UserPermissions::IXC_INVOICES_VIEW]);
+            Route::get('/clientes/{clientId}/notas-fiscais/{noteId}', [IxcClientController::class, 'fiscalNoteDetail'])
+                ->middleware(['throttle:ixc-read', 'permission:' . UserPermissions::PAGE_IXC_CLIENTS, 'permission:' . UserPermissions::IXC_INVOICES_VIEW]);
+            Route::post('/clientes/{clientId}/notas-fiscais/{noteId}/download', [IxcClientController::class, 'downloadFiscalNote'])
+                ->middleware(['throttle:ixc-write', 'permission:' . UserPermissions::PAGE_IXC_CLIENTS, 'permission:' . UserPermissions::IXC_INVOICES_DOWNLOAD]);
+            Route::post('/clientes/{clientId}/notas-fiscais/{noteId}/enviar-email', [IxcClientController::class, 'sendFiscalNoteEmail'])
+                ->middleware(['throttle:ixc-write', 'permission:' . UserPermissions::PAGE_IXC_CLIENTS, 'permission:' . UserPermissions::IXC_INVOICES_SEND_EMAIL]);
+            Route::post('/clientes/{clientId}/notas-fiscais/{noteId}/enviar-sms', [IxcClientController::class, 'sendFiscalNoteSms'])
+                ->middleware(['throttle:ixc-write', 'permission:' . UserPermissions::PAGE_IXC_CLIENTS, 'permission:' . UserPermissions::IXC_INVOICES_SEND_SMS]);
         });
 
         Route::post('/ia/sugestoes/{suggestionId}/feedback', [AiSuggestionFeedbackController::class, 'store'])
