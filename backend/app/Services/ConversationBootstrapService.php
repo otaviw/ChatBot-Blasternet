@@ -12,9 +12,13 @@ use App\Support\ConversationAssignedType;
 use App\Support\ConversationHandlingMode;
 use App\Support\ConversationStatus;
 use App\Support\PhoneNumberNormalizer;
+use Illuminate\Support\Facades\Cache;
+use Throwable;
 
 class ConversationBootstrapService
 {
+    private const INACTIVITY_CHECK_INTERVAL_SECONDS = 300;
+
     public function __construct(
         private ConversationInactivityService $inactivityService
     ) {}
@@ -25,7 +29,7 @@ class ConversationBootstrapService
         ?string $normalizedContactName
     ): Conversation {
         if ($company?->id) {
-            $this->inactivityService->closeInactiveConversations((int) $company->id);
+            $this->maybeCloseInactiveConversations((int) $company->id);
         }
 
         $companyId = (int) ($company?->id ?? 0);
@@ -68,6 +72,27 @@ class ConversationBootstrapService
         }
 
         return $conversation;
+    }
+
+    private function maybeCloseInactiveConversations(int $companyId): void
+    {
+        if ($companyId <= 0) {
+            return;
+        }
+
+        $key = "conversation:inactivity:close-check:{$companyId}";
+
+        try {
+            $shouldRun = Cache::add($key, 1, self::INACTIVITY_CHECK_INTERVAL_SECONDS);
+        } catch (Throwable) {
+            $shouldRun = true;
+        }
+
+        if (! $shouldRun) {
+            return;
+        }
+
+        $this->inactivityService->closeInactiveConversations($companyId);
     }
 
     private function upsertContact(int $companyId, string $phone, ?string $name): void

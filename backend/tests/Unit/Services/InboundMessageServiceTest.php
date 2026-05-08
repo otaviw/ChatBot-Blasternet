@@ -375,47 +375,16 @@ class InboundMessageServiceTest extends TestCase
         $this->assertSame('Resposta assistida da IA', $reply);
     }
 
-    public function test_sandbox_on_stateful_interactive_keeps_buttons_and_overrides_only_text(): void
+    public function test_sandbox_on_stateful_interactive_skips_ai_and_keeps_legacy_text(): void
     {
         $chatbotAiSuggestion = Mockery::mock(ConversationAiSuggestionService::class);
-        $chatbotAiSuggestion
-            ->shouldReceive('generateSuggestion')
-            ->once()
-            ->andReturn([
-                'suggestion' => 'Texto assistido para menu',
-                'confidence_score' => 0.9,
-                'used_rag' => false,
-                'rag_chunks' => [],
-            ]);
+        $chatbotAiSuggestion->shouldNotReceive('generateSuggestion');
 
         $intentClassifier = Mockery::mock(ChatbotAiIntentClassifier::class);
-        $intentClassifier
-            ->shouldReceive('classify')
-            ->once()
-            ->andReturn([
-                'intent' => 'duvida_geral',
-                'confidence' => 0.93,
-                'extracted_data' => [],
-                'suggested_reply' => null,
-                'should_transfer_to_human' => false,
-                'reason' => 'provider_classification',
-            ]);
+        $intentClassifier->shouldNotReceive('classify');
 
         $decisionLogger = Mockery::mock(ChatbotAiDecisionLoggerService::class);
-        $decisionLogger
-            ->shouldReceive('logDecision')
-            ->once()
-            ->with(Mockery::on(function (array $payload): bool {
-                $comparison = is_array($payload['gate_result']['reply_comparison'] ?? null)
-                    ? $payload['gate_result']['reply_comparison']
-                    : [];
-
-                return ($payload['mode'] ?? null) === 'sandbox'
-                    && ($payload['action'] ?? null) === 'suggest_reply'
-                    && ($comparison['ai_applied'] ?? null) === true
-                    && ($comparison['stateful_handled'] ?? null) === true
-                    && ($comparison['final_reply'] ?? null) === 'Texto assistido para menu';
-            }));
+        $decisionLogger->shouldNotReceive('logDecision');
 
         $service = $this->makeService(
             chatbotAiIntentClassifier: $intentClassifier,
@@ -449,10 +418,10 @@ class InboundMessageServiceTest extends TestCase
             statefulHandled: true
         );
 
-        $this->assertSame('Texto assistido para menu', $reply);
+        $this->assertSame('Texto legado do menu', $reply);
         $this->assertIsArray($replyMessage);
         $this->assertSame('interactive_buttons', $replyMessage['type'] ?? null);
-        $this->assertSame('Texto assistido para menu', $replyMessage['body_text'] ?? null);
+        $this->assertSame('Texto legado do menu', $replyMessage['body_text'] ?? null);
         $this->assertSame($originalMessage['buttons'], $replyMessage['buttons'] ?? null);
         $this->assertSame($originalMessage['header_text'], $replyMessage['header_text'] ?? null);
         $this->assertSame($originalMessage['footer_text'], $replyMessage['footer_text'] ?? null);

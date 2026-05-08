@@ -51,6 +51,7 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
 
     public function handle(InboundMessageService $inboundMessage, RealtimePublisher $realtimePublisher): void
     {
+        $startedAtNs = hrtime(true);
         $company = $this->resolveCompany();
 
         if (! $company) {
@@ -75,6 +76,7 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
             $contactNameByWaId[$waId] = $name;
         }
 
+        $processedCount = 0;
         foreach ($this->changeValue['messages'] ?? [] as $msg) {
             $from = (string) ($msg['from'] ?? '');
             $messageId = (string) ($msg['id'] ?? '');
@@ -118,11 +120,13 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
                     $contactName
                 );
 
+                $processedCount++;
                 continue;
             }
 
             if (in_array($messageType, ['image', 'audio', 'video', 'document', 'sticker'], true)) {
                 $this->processMediaMessage($inboundMessage, $company, $from, $messageId, $messageType, $msg, $contactName);
+                $processedCount++;
                 continue;
             }
 
@@ -139,6 +143,7 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
                 );
 
                 Log::info('Webhook location processado.', ['company_id' => $company->id]);
+                $processedCount++;
                 continue;
             }
 
@@ -205,9 +210,16 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
                     'button_id'        => $buttonId,
                     'button_title'     => $buttonTitle,
                 ]);
+                $processedCount++;
                 continue;
             }
         }
+
+        Log::info('Webhook WhatsApp job finalizado.', [
+            'company_id' => (int) $company->id,
+            'messages_processed' => $processedCount,
+            'duration_ms' => max(0, (int) floor((hrtime(true) - $startedAtNs) / 1_000_000)),
+        ]);
     }
 
     private function resolveCompany(): ?Company

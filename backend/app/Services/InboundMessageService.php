@@ -715,6 +715,12 @@ class InboundMessageService
             return [$legacyReply, $replyMessage];
         }
 
+        // Fluxos stateful (menu/IXC/agendamento) ja produziram resposta deterministica.
+        // Nesses casos, pulamos a camada assistiva para reduzir latencia do webhook.
+        if ($statefulHandled) {
+            return [$legacyReply, $replyMessage];
+        }
+
         $shadowEnabled = (bool) ($settings->ai_chatbot_shadow_mode ?? false);
         $sandboxEnabled = (bool) ($settings->ai_chatbot_sandbox_enabled ?? false);
         $sandboxNumberAllowed = $sandboxEnabled && $this->isSandboxTestNumberAllowed($settings->ai_chatbot_test_numbers, $normalizedFrom);
