@@ -141,6 +141,17 @@ function ReplyComposer({
               className="hidden"
             />
           </label>
+          <label className="app-btn-secondary text-xs cursor-pointer inbox-reply-action-btn">
+            Tirar foto
+            <input
+              type="file"
+              name="camera_file"
+              accept="image/*"
+              capture="environment"
+              onChange={onManualImageChange}
+              className="hidden"
+            />
+          </label>
           {manualImageFile ? (
             <button
               type="button"

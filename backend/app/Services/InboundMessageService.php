@@ -715,20 +715,23 @@ class InboundMessageService
             return [$legacyReply, $replyMessage];
         }
 
-        // Fluxos stateful (menu/IXC/agendamento) ja produziram resposta deterministica.
-        // Nesses casos, pulamos a camada assistiva para reduzir latencia do webhook.
-        if ($statefulHandled) {
-            return [$legacyReply, $replyMessage];
-        }
-
         $shadowEnabled = (bool) ($settings->ai_chatbot_shadow_mode ?? false);
         $sandboxEnabled = (bool) ($settings->ai_chatbot_sandbox_enabled ?? false);
         $sandboxNumberAllowed = $sandboxEnabled && $this->isSandboxTestNumberAllowed($settings->ai_chatbot_test_numbers, $normalizedFrom);
+        $activeEnabled = $this->chatbotAiDecision->shouldUseAi($company);
         $mode = $sandboxNumberAllowed
             ? AiChatbotDecisionLog::MODE_SANDBOX
-            : ($shadowEnabled ? AiChatbotDecisionLog::MODE_SHADOW : AiChatbotDecisionLog::MODE_OFF);
+            : ($shadowEnabled
+                ? AiChatbotDecisionLog::MODE_SHADOW
+                : ($activeEnabled ? AiChatbotDecisionLog::MODE_ACTIVE : AiChatbotDecisionLog::MODE_OFF));
 
         if ($mode === AiChatbotDecisionLog::MODE_OFF) {
+            return [$legacyReply, $replyMessage];
+        }
+
+        // Fluxos stateful (menu/IXC/agendamento) continuam determinísticos em shadow,
+        // mas podem ser enriquecidos por IA no modo active/sandbox.
+        if ($statefulHandled && ! in_array($mode, [AiChatbotDecisionLog::MODE_ACTIVE, AiChatbotDecisionLog::MODE_SANDBOX], true)) {
             return [$legacyReply, $replyMessage];
         }
 
@@ -841,10 +844,19 @@ class InboundMessageService
             $aiApplied = false;
             $error = null;
 
+            $canApplyAiSuggestion = false;
+            if ($mode === AiChatbotDecisionLog::MODE_SANDBOX && $action === ChatbotAiPolicyService::ACTION_SUGGEST_REPLY) {
+                $canApplyAiSuggestion = true;
+            }
+
             if (
-                $mode === AiChatbotDecisionLog::MODE_SANDBOX
-                && $action === ChatbotAiPolicyService::ACTION_SUGGEST_REPLY
+                $mode === AiChatbotDecisionLog::MODE_ACTIVE
+                && $action !== ChatbotAiPolicyService::ACTION_HANDOFF
             ) {
+                $canApplyAiSuggestion = true;
+            }
+
+            if ($canApplyAiSuggestion) {
                 $suggestionPayload = $this->generateChatbotAiSuggestionPayload($company, $conversation);
                 $aiReply = isset($suggestionPayload['reply']) ? trim((string) $suggestionPayload['reply']) : null;
 
@@ -852,19 +864,22 @@ class InboundMessageService
                     $finalReply = $aiReply;
                     $finalReplyMessage = $this->applyAiReplyToStatefulMessage($finalReplyMessage, $aiReply);
                     $aiApplied = true;
-                    $this->productMetrics->track(
-                        ProductFunnels::CHATBOT,
-                        'ai_sandbox_reply_applied',
-                        'chatbot_ai_sandbox_reply_applied',
-                        (int) ($company->id ?? 0),
-                        null,
-                        [
-                            'conversation_id' => (int) $conversation->id,
-                            'message_id' => (int) $inMessage->id,
-                            'intent' => $intent,
-                            'policy_action' => $action,
-                        ],
-                    );
+
+                    if ($mode === AiChatbotDecisionLog::MODE_SANDBOX) {
+                        $this->productMetrics->track(
+                            ProductFunnels::CHATBOT,
+                            'ai_sandbox_reply_applied',
+                            'chatbot_ai_sandbox_reply_applied',
+                            (int) ($company->id ?? 0),
+                            null,
+                            [
+                                'conversation_id' => (int) $conversation->id,
+                                'message_id' => (int) $inMessage->id,
+                                'intent' => $intent,
+                                'policy_action' => $action,
+                            ],
+                        );
+                    }
                 } else {
                     $error = 'ai_reply_unavailable';
                     $action = ChatbotAiPolicyService::ACTION_FALLBACK_LEGACY;

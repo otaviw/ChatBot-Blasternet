@@ -16,6 +16,16 @@ function InternalChatComposer({
           Anexar arquivo
           <input type="file" className="hidden" onChange={onMessageFileChange} />
         </label>
+        <label className="app-btn-secondary internal-chat-file-btn">
+          Tirar foto
+          <input
+            type="file"
+            className="hidden"
+            accept="image/*"
+            capture="environment"
+            onChange={onMessageFileChange}
+          />
+        </label>
         {messageFile ? (
           <button type="button" className="app-btn-danger" onClick={onClearFile}>
             Remover arquivo
