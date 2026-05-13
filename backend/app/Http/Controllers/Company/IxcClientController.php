@@ -230,7 +230,7 @@ class IxcClientController extends Controller
             && str_contains($normalized, 'cliente')
             && (
                 str_contains($normalized, 'nao esta disponivel')
-                || str_contains($normalized, 'nÃ£o estÃ¡ disponÃ­vel')
+                || str_contains($normalized, 'nao esta disponivel')
             );
     }
     /**
@@ -473,7 +473,7 @@ class IxcClientController extends Controller
         if (! is_array($client)) {
             return response()->json([
                 'ok' => false,
-                'message' => 'Cliente nÃ£o encontrado na IXC.',
+                'message' => 'Cliente nao encontrado na IXC.',
             ], 404);
         }
 
@@ -754,7 +754,7 @@ class IxcClientController extends Controller
 
         $invoice = $this->loadInvoiceRow($company, $clientId, $invoiceId);
         if (! is_array($invoice)) {
-            return response()->json(['ok' => false, 'message' => 'Boleto nÃ£o encontrado.'], 404);
+            return response()->json(['ok' => false, 'message' => 'Boleto nao encontrado.'], 404);
         }
 
         $this->auditLog->record(
@@ -782,7 +782,7 @@ class IxcClientController extends Controller
 
         $invoice = $this->loadInvoiceRow($company, $clientId, $invoiceId);
         if (! is_array($invoice)) {
-            return response()->json(['ok' => false, 'message' => 'Boleto nÃ£o encontrado.'], 404);
+            return response()->json(['ok' => false, 'message' => 'Boleto nao encontrado.'], 404);
         }
 
         try {
@@ -831,7 +831,7 @@ class IxcClientController extends Controller
 
         $invoice = $this->loadInvoiceRow($company, $clientId, $invoiceId);
         if (! is_array($invoice)) {
-            return response()->json(['ok' => false, 'message' => 'Boleto nÃ£o encontrado.'], 404);
+            return response()->json(['ok' => false, 'message' => 'Boleto nao encontrado.'], 404);
         }
 
         try {
@@ -880,7 +880,7 @@ class IxcClientController extends Controller
 
         $invoice = $this->loadInvoiceRow($company, $clientId, $invoiceId);
         if (! is_array($invoice)) {
-            return response()->json(['ok' => false, 'message' => 'Boleto nÃ£o encontrado.'], 404);
+            return response()->json(['ok' => false, 'message' => 'Boleto nao encontrado.'], 404);
         }
 
         try {
@@ -921,12 +921,12 @@ class IxcClientController extends Controller
         $user = $request->user();
         $companyId = (int) ($user?->company_id ?? 0);
         if ($companyId <= 0) {
-            return response()->json(['ok' => false, 'message' => 'Empresa nÃ£o encontrada.'], 404);
+            return response()->json(['ok' => false, 'message' => 'Empresa nao encontrada.'], 404);
         }
 
         $company = Company::find($companyId);
         if (! $company) {
-            return response()->json(['ok' => false, 'message' => 'Empresa nÃ£o encontrada.'], 404);
+            return response()->json(['ok' => false, 'message' => 'Empresa nao encontrada.'], 404);
         }
 
         return $company;
@@ -1263,8 +1263,8 @@ class IxcClientController extends Controller
         return str_contains($normalized, 'recurso')
             && (
                 str_contains($normalized, 'nao esta disponivel')
-                || str_contains($normalized, 'nÃƒÂ£o estÃƒÂ¡ disponÃƒÂ­vel')
-                || str_contains($normalized, 'nÃ£o estÃ¡ disponÃ­vel')
+                || str_contains($normalized, 'nao esta disponivel')
+                || str_contains($normalized, 'nao esta disponivel')
             );
     }
 
@@ -1333,7 +1333,7 @@ class IxcClientController extends Controller
             $lastError = $exception->getMessage();
         }
 
-        throw new RuntimeException($lastError ?: 'NÃ£o foi possÃ­vel obter o arquivo do boleto na IXC.');
+        throw new RuntimeException($lastError ?: 'Nao foi possivel obter o arquivo do boleto na IXC.');
     }
 
     /**
@@ -1450,7 +1450,7 @@ class IxcClientController extends Controller
             $lastError = $providerStatus['error'] ?? 'Falha no provedor IXC.';
         }
 
-        throw new RuntimeException($lastError ?: 'NÃ£o foi possÃ­vel enviar boleto pela IXC.');
+        throw new RuntimeException($lastError ?: 'Nao foi possivel enviar boleto pela IXC.');
     }
 
     /**

@@ -8,16 +8,29 @@ namespace App\Services;
 use App\Models\Company;
 use App\Models\Contact;
 use App\Models\Conversation;
+use App\Models\User;
+use App\Services\AuditService;
 use App\Support\ConversationAssignedType;
 use App\Support\ConversationHandlingMode;
 use App\Support\ConversationStatus;
 use App\Support\PhoneNumberNormalizer;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class ConversationBootstrapService
 {
     private const INACTIVITY_CHECK_INTERVAL_SECONDS = 300;
+    private const DEFAULT_ATTENDANT_UNAVAILABLE_FALLBACK_MESSAGE = 'Seu atendente padrão não está disponível no momento.';
+
+    /** @var array{mode:string,should_send_fallback:bool,fallback_message:?string,attendant_id:?int,attendant_name:?string} */
+    private array $lastRoutingDecision = [
+        'mode' => 'bot',
+        'should_send_fallback' => false,
+        'fallback_message' => null,
+        'attendant_id' => null,
+        'attendant_name' => null,
+    ];
 
     public function __construct(
         private ConversationInactivityService $inactivityService
@@ -28,6 +41,8 @@ class ConversationBootstrapService
         string $normalizedPhone,
         ?string $normalizedContactName
     ): Conversation {
+        $this->resetRoutingDecision();
+
         if ($company?->id) {
             $this->maybeCloseInactiveConversations((int) $company->id);
         }
@@ -41,6 +56,9 @@ class ConversationBootstrapService
             ->orderByDesc('id')
             ->first();
 
+        $isNewConversation = false;
+        $wasClosed = false;
+
         if (! $conversation) {
             $conversation = Conversation::create([
                 'company_id' => $companyId,
@@ -50,6 +68,7 @@ class ConversationBootstrapService
                 'handling_mode' => ConversationHandlingMode::BOT,
                 'customer_name' => $normalizedContactName,
             ]);
+            $isNewConversation = true;
         }
 
         if ($normalizedContactName !== null && $conversation->customer_name !== $normalizedContactName) {
@@ -61,6 +80,7 @@ class ConversationBootstrapService
         }
 
         if ($conversation->status === ConversationStatus::CLOSED) {
+            $wasClosed = true;
             $this->reopenClosedConversation($conversation);
         }
 
@@ -68,10 +88,24 @@ class ConversationBootstrapService
         $conversation->save();
 
         if ($companyId > 0) {
-            $this->upsertContact($companyId, $normalizedPhone, $normalizedContactName);
+            $contact = $this->upsertContact($companyId, $normalizedPhone, $normalizedContactName);
+            $this->applyDefaultAttendantRouting(
+                $conversation,
+                $contact,
+                $isNewConversation || $wasClosed,
+                $companyId
+            );
         }
 
         return $conversation;
+    }
+
+    /**
+     * @return array{mode:string,should_send_fallback:bool,fallback_message:?string,attendant_id:?int,attendant_name:?string}
+     */
+    public function lastRoutingDecision(): array
+    {
+        return $this->lastRoutingDecision;
     }
 
     private function maybeCloseInactiveConversations(int $companyId): void
@@ -95,7 +129,7 @@ class ConversationBootstrapService
         $this->inactivityService->closeInactiveConversations($companyId);
     }
 
-    private function upsertContact(int $companyId, string $phone, ?string $name): void
+    private function upsertContact(int $companyId, string $phone, ?string $name): Contact
     {
         $contact = Contact::firstOrCreate(
             ['company_id' => $companyId, 'phone' => $phone],
@@ -109,6 +143,8 @@ class ConversationBootstrapService
         }
 
         $contact->save();
+
+        return $contact->fresh(['defaultAttendant:id,name,company_id,is_active']) ?? $contact;
     }
 
     private function reopenClosedConversation(Conversation $conversation): void
@@ -123,5 +159,131 @@ class ConversationBootstrapService
         $conversation->assigned_area = null;
         $conversation->assumed_at = null;
         $conversation->clearBotState();
+    }
+
+    private function resetRoutingDecision(): void
+    {
+        $this->lastRoutingDecision = [
+            'mode' => 'bot',
+            'should_send_fallback' => false,
+            'fallback_message' => null,
+            'attendant_id' => null,
+            'attendant_name' => null,
+        ];
+    }
+
+    private function applyDefaultAttendantRouting(
+        Conversation $conversation,
+        Contact $contact,
+        bool $isNewEntry,
+        int $companyId
+    ): void {
+        if (! $isNewEntry) {
+            return;
+        }
+
+        if (! (bool) ($contact->skip_bot_to_default_attendant ?? false)) {
+            return;
+        }
+
+        $attendantId = (int) ($contact->default_attendant_user_id ?? 0);
+        if ($attendantId <= 0) {
+            $this->markUnavailableFallbackDecision($conversation, $contact, null, 'missing_default_attendant');
+            return;
+        }
+
+        $attendant = $this->resolveValidDefaultAttendant($attendantId, $companyId);
+        if (! $attendant) {
+            $this->markUnavailableFallbackDecision($conversation, $contact, $attendantId, 'inactive_or_cross_company');
+            return;
+        }
+
+        $conversation->handling_mode = ConversationHandlingMode::HUMAN;
+        $conversation->assigned_type = ConversationAssignedType::USER;
+        $conversation->assigned_id = (int) $attendant->id;
+        $conversation->assigned_user_id = (int) $attendant->id;
+        $conversation->current_area_id = null;
+        $conversation->assigned_area = null;
+        $conversation->assumed_at = now();
+        $conversation->status = ConversationStatus::IN_PROGRESS;
+        $conversation->clearBotState();
+        $conversation->save();
+
+        $this->lastRoutingDecision = [
+            'mode' => 'human_default_attendant',
+            'should_send_fallback' => false,
+            'fallback_message' => null,
+            'attendant_id' => (int) $attendant->id,
+            'attendant_name' => (string) ($attendant->name ?? ''),
+        ];
+
+        Log::info('default_attendant_routing_applied', [
+            'company_id' => $companyId,
+            'conversation_id' => (int) $conversation->id,
+            'contact_id' => (int) $contact->id,
+            'default_attendant_user_id' => (int) $attendant->id,
+        ]);
+
+        AuditService::log(
+            'company.conversation.default_attendant_auto_routed',
+            'conversation',
+            (int) $conversation->id,
+            null,
+            [
+                'company_id' => (int) $conversation->company_id,
+                'conversation_id' => (int) $conversation->id,
+                'contact_id' => (int) $contact->id,
+                'default_attendant_user_id' => (int) $attendant->id,
+                'default_attendant_name' => (string) ($attendant->name ?? ''),
+                'routing_mode' => 'human_default_attendant',
+            ]
+        );
+    }
+
+    private function resolveValidDefaultAttendant(int $attendantId, int $companyId): ?User
+    {
+        return User::query()
+            ->whereKey($attendantId)
+            ->where('company_id', $companyId)
+            ->where('is_active', true)
+            ->first();
+    }
+
+    private function markUnavailableFallbackDecision(
+        Conversation $conversation,
+        Contact $contact,
+        ?int $attendantId,
+        string $reason
+    ): void {
+        $this->lastRoutingDecision = [
+            'mode' => 'bot_fallback_unavailable',
+            'should_send_fallback' => true,
+            'fallback_message' => self::DEFAULT_ATTENDANT_UNAVAILABLE_FALLBACK_MESSAGE,
+            'attendant_id' => $attendantId,
+            'attendant_name' => null,
+        ];
+
+        Log::info('default_attendant_unavailable_fallback', [
+            'company_id' => (int) $conversation->company_id,
+            'conversation_id' => (int) $conversation->id,
+            'contact_id' => (int) $contact->id,
+            'default_attendant_user_id' => $attendantId,
+            'reason' => $reason,
+        ]);
+
+        AuditService::log(
+            'company.conversation.default_attendant_fallback',
+            'conversation',
+            (int) $conversation->id,
+            null,
+            [
+                'company_id' => (int) $conversation->company_id,
+                'conversation_id' => (int) $conversation->id,
+                'contact_id' => (int) $contact->id,
+                'default_attendant_user_id' => $attendantId,
+                'fallback_reason' => $reason,
+                'routing_mode' => 'bot_fallback_unavailable',
+            ]
+        );
     }
 }

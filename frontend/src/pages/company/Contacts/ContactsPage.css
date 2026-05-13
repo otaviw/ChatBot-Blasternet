@@ -130,6 +130,25 @@
   gap: 0.9rem;
 }
 
+.contacts-checkbox-row {
+  display: flex;
+  align-items: center;
+}
+
+.contacts-checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--ui-text, #171717);
+}
+
+.contacts-help-text {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--ui-text-muted, #6b7280);
+}
+
 .contacts-modal-actions {
   display: flex;
   justify-content: flex-end;
@@ -172,4 +191,8 @@ body.theme-dark .contacts-modal {
 
 body.theme-dark .contacts-close-btn {
   color: #8b8fa8;
+}
+
+body.theme-dark .contacts-checkbox-label {
+  color: var(--ui-text, #e5e7eb);
 }

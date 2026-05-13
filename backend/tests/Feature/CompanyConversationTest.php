@@ -435,6 +435,47 @@ describe('PUT /minha-conta/conversas/{id}/contato', function () {
             ->putJson("/api/minha-conta/conversas/{$conv->id}/contato", ['customer_name' => 'X'])
             ->assertNotFound();
     });
+
+    it('atualiza atendente padrao e skip bot via endpoint da conversa', function () {
+        $company = Company::create(['name' => 'Empresa Contato Config']);
+        $agent = makeAgent($company);
+        $attendant = makeAgent($company);
+        $conv = makeOpenConversation($company, '5511777777000');
+
+        $response = $this->actingAs($agent)
+            ->putJson("/api/minha-conta/conversas/{$conv->id}/contato", [
+                'customer_name' => 'Cliente Configurado',
+                'default_attendant_user_id' => $attendant->id,
+                'skip_bot_to_default_attendant' => true,
+            ]);
+
+        $response->assertOk()
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('conversation.customer_name', 'Cliente Configurado')
+            ->assertJsonPath('conversation.default_attendant_user_id', $attendant->id)
+            ->assertJsonPath('conversation.skip_bot_to_default_attendant', true)
+            ->assertJsonPath('conversation.default_attendant.id', $attendant->id);
+
+        $this->assertDatabaseHas('contacts', [
+            'company_id' => $company->id,
+            'phone' => '5511777777000',
+            'default_attendant_user_id' => $attendant->id,
+            'skip_bot_to_default_attendant' => 1,
+        ]);
+    });
+
+    it('retorna 422 quando skip bot for true sem atendente padrao', function () {
+        $company = Company::create(['name' => 'Empresa Skip Invalido']);
+        $agent = makeAgent($company);
+        $conv = makeOpenConversation($company, '5511888888000');
+
+        $this->actingAs($agent)
+            ->putJson("/api/minha-conta/conversas/{$conv->id}/contato", [
+                'skip_bot_to_default_attendant' => true,
+                'default_attendant_user_id' => null,
+            ])
+            ->assertUnprocessable();
+    });
 });
 
 

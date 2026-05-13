@@ -10,6 +10,7 @@ use App\Http\Requests\Company\ImportContactsCsvRequest;
 use App\Http\Requests\Company\StoreContactRequest;
 use App\Http\Requests\Company\UpdateContactRequest;
 use App\Models\Contact;
+use App\Services\AuditLogService;
 use App\Services\ContactCsvImportService;
 use App\Support\PhoneNumberNormalizer;
 use Illuminate\Http\JsonResponse;
@@ -17,7 +18,10 @@ use Illuminate\Http\Request;
 
 class ContactController extends Controller
 {
-    public function __construct(private readonly ContactCsvImportService $csvImport) {}
+    public function __construct(
+        private readonly ContactCsvImportService $csvImport,
+        private readonly AuditLogService $auditLog
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -26,7 +30,7 @@ class ContactController extends Controller
             return $this->errorResponse('Empresa não identificada.', 'company_not_found', 403);
         }
 
-        $contacts = Contact::with('addedBy:id,name')
+        $contacts = Contact::with(['addedBy:id,name', 'defaultAttendant:id,name'])
             ->where('company_id', $companyId)
             ->orderBy('name')
             ->paginate(50);
@@ -79,6 +83,16 @@ class ContactController extends Controller
             ], 422);
         }
 
+        $defaultAttendantId = isset($validated['default_attendant_user_id'])
+            ? (int) $validated['default_attendant_user_id']
+            : null;
+
+        $skipBot = (bool) ($validated['skip_bot_to_default_attendant'] ?? false);
+
+        if ($defaultAttendantId === null) {
+            $skipBot = false;
+        }
+
         $contact = Contact::create([
             'company_id'       => $companyId,
             'name'             => trim((string) $validated['name']),
@@ -86,11 +100,32 @@ class ContactController extends Controller
             'last_interaction_at' => null,
             'source'           => 'manual',
             'added_by_user_id' => auth()->id(),
+            'default_attendant_user_id' => $defaultAttendantId,
+            'skip_bot_to_default_attendant' => $skipBot,
+
         ]);
+
+        if ($defaultAttendantId !== null) {
+            $this->auditLog->record($request, 'company.contact.default_attendant_updated', $companyId, [
+                'contact_id' => (int) $contact->id,
+                'contact_phone' => (string) $contact->phone,
+                'before_default_attendant_user_id' => null,
+                'after_default_attendant_user_id' => (int) $defaultAttendantId,
+            ]);
+        }
+
+        if ($skipBot) {
+            $this->auditLog->record($request, 'company.contact.skip_bot_updated', $companyId, [
+                'contact_id' => (int) $contact->id,
+                'contact_phone' => (string) $contact->phone,
+                'before_skip_bot_to_default_attendant' => false,
+                'after_skip_bot_to_default_attendant' => true,
+            ]);
+        }
 
         return response()->json([
             'ok' => true,
-            'contact' => $contact,
+            'contact' => $contact->fresh(['addedBy:id,name', 'defaultAttendant:id,name']),
         ], 201);
     }
 
@@ -128,12 +163,47 @@ class ContactController extends Controller
             ], 422);
         }
 
+        $defaultAttendantId = isset($validated['default_attendant_user_id'])
+            ? (int) $validated['default_attendant_user_id']
+            : null;
+
+        $skipBot = (bool) ($validated['skip_bot_to_default_attendant'] ?? false);
+
+        if ($defaultAttendantId === null) {
+            $skipBot = false;
+        }
+
+        $beforeDefaultAttendantId = $contact->default_attendant_user_id !== null
+            ? (int) $contact->default_attendant_user_id
+            : null;
+        $beforeSkipBot = (bool) ($contact->skip_bot_to_default_attendant ?? false);
+
         $contact->update([
             'name'  => mb_substr(trim((string) $validated['name']), 0, 160),
             'phone' => $phone,
+            'default_attendant_user_id' => $defaultAttendantId,
+            'skip_bot_to_default_attendant' => $skipBot,
         ]);
 
-        return response()->json(['ok' => true, 'contact' => $contact->fresh('addedBy')]);
+        if ($beforeDefaultAttendantId !== $defaultAttendantId) {
+            $this->auditLog->record($request, 'company.contact.default_attendant_updated', $companyId, [
+                'contact_id' => (int) $contact->id,
+                'contact_phone' => (string) $contact->phone,
+                'before_default_attendant_user_id' => $beforeDefaultAttendantId,
+                'after_default_attendant_user_id' => $defaultAttendantId,
+            ]);
+        }
+
+        if ($beforeSkipBot !== $skipBot) {
+            $this->auditLog->record($request, 'company.contact.skip_bot_updated', $companyId, [
+                'contact_id' => (int) $contact->id,
+                'contact_phone' => (string) $contact->phone,
+                'before_skip_bot_to_default_attendant' => $beforeSkipBot,
+                'after_skip_bot_to_default_attendant' => $skipBot,
+            ]);
+        }
+
+        return response()->json(['ok' => true, 'contact' => $contact->fresh(['addedBy:id,name', 'defaultAttendant:id,name'])]);
     }
 
     public function destroy(Request $request, int $contactId): JsonResponse
@@ -152,5 +222,4 @@ class ContactController extends Controller
 
         return response()->json(['ok' => true]);
     }
-
 }

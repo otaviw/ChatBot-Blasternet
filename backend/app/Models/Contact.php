@@ -21,10 +21,13 @@ class Contact extends Model
         'company_id',
         'source',
         'added_by_user_id',
+        'default_attendant_user_id',
+        'skip_bot_to_default_attendant',
     ];
 
     protected $casts = [
         'last_interaction_at' => 'datetime',
+        'skip_bot_to_default_attendant' => 'boolean',
     ];
 
     public function company(): BelongsTo
@@ -46,5 +49,10 @@ class Contact extends Model
     {
         return $this->last_interaction_at !== null
             && $this->last_interaction_at->gt(now()->subHours(24));
+    }
+
+    public function defaultAttendant(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'default_attendant_user_id');
     }
 }

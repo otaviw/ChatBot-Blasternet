@@ -24,6 +24,7 @@ function ConversationToolbar({
   onOpenTagsModal,
   onOpenTransferModal,
   onOpenSendTemplateModal,
+  onOpenDefaultAttendantModal,
   onOpenConversationSearchModal,
   onDetachTag,
 }) {
@@ -212,6 +213,13 @@ function ConversationToolbar({
                 onClick={() => { onOpenTransferModal(); closeMenu(); }}
               >
                 Transferir…
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => { onOpenDefaultAttendantModal(); closeMenu(); }}
+              >
+                Atendente padrão…
               </button>
               <div className="inbox-toolbar-actions-sep" role="separator" />
               <button

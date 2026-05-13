@@ -32,6 +32,7 @@ vi.mock('./components/TagsModal.jsx', () => ({ default: () => null }));
 vi.mock('./components/TransferModal.jsx', () => ({ default: () => null }));
 vi.mock('./components/SendTemplateModal.jsx', () => ({ default: () => null }));
 vi.mock('./components/ConversationSearchModal.jsx', () => ({ default: () => null }));
+vi.mock('./components/DefaultAttendantModal.jsx', () => ({ default: () => null }));
 vi.mock('./components/NewConversationModal.jsx', () => ({
   default: ({ open }) => (open ? <div>modal nova conversa aberta</div> : null),
 }));
@@ -166,6 +167,17 @@ function setupBaseMocks() {
     sendTemplateError: '',
     sendTemplateSuccess: '',
     setSendTemplateModalOpen: vi.fn(),
+    openDefaultAttendantModal: vi.fn(),
+    saveDefaultAttendantConfig: vi.fn(),
+    defaultAttendantModalOpen: false,
+    setDefaultAttendantModalOpen: vi.fn(),
+    defaultAttendantBusy: false,
+    defaultAttendantError: '',
+    defaultAttendantSuccess: '',
+    defaultAttendantUserId: '',
+    setDefaultAttendantUserId: vi.fn(),
+    defaultAttendantSkipBot: false,
+    setDefaultAttendantSkipBot: vi.fn(),
     usageWarning: '',
     setUsageWarning: vi.fn(),
   });
@@ -256,6 +268,17 @@ describe('CompanyInboxPage', () => {
       sendTemplateError: '',
       sendTemplateSuccess: '',
       setSendTemplateModalOpen: vi.fn(),
+      openDefaultAttendantModal: vi.fn(),
+      saveDefaultAttendantConfig: vi.fn(),
+      defaultAttendantModalOpen: false,
+      setDefaultAttendantModalOpen: vi.fn(),
+      defaultAttendantBusy: false,
+      defaultAttendantError: '',
+      defaultAttendantSuccess: '',
+      defaultAttendantUserId: '',
+      setDefaultAttendantUserId: vi.fn(),
+      defaultAttendantSkipBot: false,
+      setDefaultAttendantSkipBot: vi.fn(),
       usageWarning: '',
       setUsageWarning: vi.fn(),
     });

@@ -331,9 +331,13 @@ class SearchConversationsAction
             'company.conversation.manual_reply' => 'Resposta manual enviada',
             'company.conversation.send_template' => 'Template enviado',
             'company.conversation.contact_updated' => 'Contato atualizado',
+            'company.conversation.default_attendant_auto_routed' => 'Conversa direcionada automaticamente para atendente padrão',
+            'company.conversation.default_attendant_fallback' => 'Fallback aplicado: atendente padrão indisponível',
             'company.conversation.tags_updated' => 'Tags da conversa atualizadas',
             'company.conversation.tag_attached' => 'Tag adicionada na conversa',
             'company.conversation.tag_detached' => 'Tag removida da conversa',
+            'company.contact.default_attendant_updated' => 'Atendente padrão do contato atualizado',
+            'company.contact.skip_bot_updated' => 'Configuração de pular bot do contato atualizada',
             'admin.conversation.contact_updated' => 'Contato atualizado por admin',
         ];
     }

@@ -36,6 +36,12 @@ export default function useCompanyInboxActions({
   const [sendTemplateSuccess, setSendTemplateSuccess] = useState('');
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+  const [defaultAttendantModalOpen, setDefaultAttendantModalOpen] = useState(false);
+  const [defaultAttendantBusy, setDefaultAttendantBusy] = useState(false);
+  const [defaultAttendantError, setDefaultAttendantError] = useState('');
+  const [defaultAttendantSuccess, setDefaultAttendantSuccess] = useState('');
+  const [defaultAttendantUserId, setDefaultAttendantUserId] = useState('');
+  const [defaultAttendantSkipBot, setDefaultAttendantSkipBot] = useState(false);
 
   const messageComposer = useMessageComposer({
     detail,
@@ -67,7 +73,19 @@ export default function useCompanyInboxActions({
     setSendTemplateModalOpen(false);
     setSendTemplateError('');
     setSendTemplateSuccess('');
+    setDefaultAttendantModalOpen(false);
+    setDefaultAttendantError('');
+    setDefaultAttendantSuccess('');
   }, [conversationSearch, messageComposer]);
+
+  const openDefaultAttendantModal = useCallback(() => {
+    const currentId = Number.parseInt(String(detail?.default_attendant_user_id ?? ''), 10);
+    setDefaultAttendantUserId(currentId > 0 ? String(currentId) : '');
+    setDefaultAttendantSkipBot(Boolean(detail?.skip_bot_to_default_attendant));
+    setDefaultAttendantError('');
+    setDefaultAttendantSuccess('');
+    setDefaultAttendantModalOpen(true);
+  }, [detail?.default_attendant_user_id, detail?.skip_bot_to_default_attendant]);
 
   const assumeConversation = useCallback(async () => {
     if (!detail?.id) return;
@@ -247,6 +265,58 @@ export default function useCompanyInboxActions({
     upsertConversationInList,
   ]);
 
+  const saveDefaultAttendantConfig = useCallback(async () => {
+    if (!detail?.id) return;
+
+    setDefaultAttendantBusy(true);
+    setDefaultAttendantError('');
+    setDefaultAttendantSuccess('');
+
+    const parsedDefaultAttendantId = Number.parseInt(String(defaultAttendantUserId ?? ''), 10);
+    const normalizedDefaultAttendantId = Number.isFinite(parsedDefaultAttendantId) && parsedDefaultAttendantId > 0
+      ? parsedDefaultAttendantId
+      : null;
+    const normalizedSkipBot = normalizedDefaultAttendantId
+      ? Boolean(defaultAttendantSkipBot)
+      : false;
+
+    try {
+      const response = await api.put(`/minha-conta/conversas/${detail.id}/contato`, {
+        customer_name: detail.customer_name ?? null,
+        default_attendant_user_id: normalizedDefaultAttendantId,
+        skip_bot_to_default_attendant: normalizedSkipBot,
+      });
+
+      const updatedConversation = response?.data?.conversation ?? null;
+      if (updatedConversation) {
+        setDetail((prev) => ({ ...(prev ?? {}), ...updatedConversation }));
+        upsertConversationInList(updatedConversation);
+      }
+
+      setDefaultAttendantUserId(normalizedDefaultAttendantId ? String(normalizedDefaultAttendantId) : '');
+      setDefaultAttendantSkipBot(normalizedSkipBot);
+      setDefaultAttendantSuccess('Configuração salva.');
+      await refreshConversations();
+    } catch (err) {
+      const message =
+        err?.response?.data?.errors?.default_attendant_user_id?.[0] ??
+        err?.response?.data?.errors?.skip_bot_to_default_attendant?.[0] ??
+        err?.response?.data?.message ??
+        'Falha ao salvar configuração de atendente padrão.';
+      setDefaultAttendantError(message);
+    } finally {
+      setDefaultAttendantBusy(false);
+    }
+  }, [
+    defaultAttendantSkipBot,
+    defaultAttendantUserId,
+    detail?.customer_name,
+    detail?.id,
+    refreshConversations,
+    setDetail,
+    upsertConversationInList,
+  ]);
+
   const handleContactNameInputChange = useCallback(
     (value) => {
       setContactNameInput(value);
@@ -375,6 +445,17 @@ export default function useCompanyInboxActions({
     setShowTemplates: conversationSearch.setShowTemplates,
     setTagsModalOpen,
     setTransferModalOpen,
+    openDefaultAttendantModal,
+    saveDefaultAttendantConfig,
+    defaultAttendantModalOpen,
+    setDefaultAttendantModalOpen,
+    defaultAttendantBusy,
+    defaultAttendantError,
+    defaultAttendantSuccess,
+    defaultAttendantUserId,
+    setDefaultAttendantUserId,
+    defaultAttendantSkipBot,
+    setDefaultAttendantSkipBot,
     showTemplates: conversationSearch.showTemplates,
     tagsModalOpen,
     transferArea: conversationSearch.transferArea,

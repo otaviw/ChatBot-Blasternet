@@ -293,7 +293,7 @@ function IxcClientDetailPage() {
                     <tr className="text-left border-b border-[#e5e5e5]">
                       <th className="py-2 pr-2">ID</th>
                       <th className="py-2 pr-2">Status</th>
-                      <th className="py-2 pr-2">{activeTab === 'boletos' ? 'Vencimento' : 'EmissÃ£o'}</th>
+                      <th className="py-2 pr-2">{activeTab === 'boletos' ? 'Vencimento' : 'Emissao'}</th>
                       <th className="py-2 pr-2">Valor</th>
                       <th className="py-2 pr-2">Documento</th>
                       <th className="py-2 pr-2">Ações</th>
@@ -485,7 +485,7 @@ function IxcClientDetailPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
               <p><strong>Status:</strong> {selectedFiscalNote.status_label || selectedFiscalNote.status || '-'}</p>
               <p><strong>Valor:</strong> {selectedFiscalNote.valor || '-'}</p>
-              <p><strong>EmissÃ£o:</strong> {selectedFiscalNote.data_emissao || '-'}</p>
+              <p><strong>Emissao:</strong> {selectedFiscalNote.data_emissao || '-'}</p>
               <p><strong>Vencimento:</strong> {selectedFiscalNote.data_vencimento || '-'}</p>
               <p className="md:col-span-2"><strong>Documento:</strong> {selectedFiscalNote.documento || '-'}</p>
             </div>

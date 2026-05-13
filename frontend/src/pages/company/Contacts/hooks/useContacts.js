@@ -12,6 +12,23 @@ const sortContactsByName = (items) =>
 const digitsOnly = (value) => String(value ?? '').replace(/\D/g, '');
 const normalizeText = (value) => String(value ?? '').trim().toLowerCase();
 
+function normalizeDefaultAttendantConfig(input = {}) {
+  const rawId = input?.default_attendant_user_id;
+  const parsedId = Number.parseInt(String(rawId ?? ''), 10);
+  const defaultAttendantId = Number.isFinite(parsedId) && parsedId > 0 ? parsedId : null;
+
+  let skipBot = Boolean(input?.skip_bot_to_default_attendant);
+  if (!defaultAttendantId) {
+    skipBot = false;
+  }
+
+  return {
+    default_attendant_user_id: defaultAttendantId,
+    skip_bot_to_default_attendant: skipBot,
+  };
+}
+
+
 async function fetchAllContacts() {
   const contacts = [];
   let page = 1;
@@ -85,15 +102,25 @@ function useContacts() {
     });
   }, [allContacts, searchQuery]);
 
-  const createContact = useCallback(async ({ name, phone }) => {
+  const createContact = useCallback(async ({
+    name,
+    phone,
+    default_attendant_user_id = null,
+    skip_bot_to_default_attendant = false,
+  }) => {
     const safeName = String(name ?? '').trim();
     const safePhone = String(phone ?? '').trim();
+    const routing = normalizeDefaultAttendantConfig({
+      default_attendant_user_id,
+      skip_bot_to_default_attendant,
+    });
 
     setCreating(true);
     try {
       const response = await api.post(CONTACTS_ENDPOINT, {
         name: safeName,
         phone: safePhone,
+        ...routing,
       });
 
       const contact = response?.data?.contact;
@@ -104,6 +131,8 @@ function useContacts() {
       }
     } catch (err) {
       const message =
+        err?.response?.data?.errors?.default_attendant_user_id?.[0] ??
+        err?.response?.data?.errors?.skip_bot_to_default_attendant?.[0] ??
         err?.response?.data?.errors?.phone?.[0] ??
         err?.response?.data?.errors?.name?.[0] ??
         err?.response?.data?.message ??
@@ -114,13 +143,26 @@ function useContacts() {
     }
   }, [fetchContacts]);
 
-  const updateContact = useCallback(async (id, { name, phone }) => {
+
+  const updateContact = useCallback(async (id, {
+    name,
+    phone,
+    default_attendant_user_id = null,
+    skip_bot_to_default_attendant = false,
+  }) => {
+    const routing = normalizeDefaultAttendantConfig({
+      default_attendant_user_id,
+      skip_bot_to_default_attendant,
+    });
+
     setSaving(true);
     try {
       const response = await api.patch(`${CONTACTS_ENDPOINT}/${id}`, {
         name: String(name ?? '').trim(),
         phone: String(phone ?? '').trim(),
+        ...routing,
       });
+
       const updated = response?.data?.contact;
       if (updated) {
         setAllContacts((previous) =>
@@ -128,9 +170,12 @@ function useContacts() {
         );
         return updated;
       }
+
       await fetchContacts();
     } catch (err) {
       const message =
+        err?.response?.data?.errors?.default_attendant_user_id?.[0] ??
+        err?.response?.data?.errors?.skip_bot_to_default_attendant?.[0] ??
         err?.response?.data?.errors?.phone?.[0] ??
         err?.response?.data?.errors?.name?.[0] ??
         err?.response?.data?.message ??
@@ -140,6 +185,7 @@ function useContacts() {
       setSaving(false);
     }
   }, [fetchContacts]);
+
 
   const deleteContact = useCallback(async (id) => {
     setDeleting(true);

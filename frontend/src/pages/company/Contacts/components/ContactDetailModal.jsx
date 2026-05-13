@@ -14,10 +14,20 @@ const formatDate = (value) => {
   return date.toLocaleString('pt-BR');
 };
 
-function ContactDetailModal({ contact, onClose, onUpdate, onDelete, saving, deleting }) {
+function ContactDetailModal({
+  contact,
+  onClose,
+  onUpdate,
+  onDelete,
+  saving,
+  deleting,
+  attendants = [],
+}) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [defaultAttendantId, setDefaultAttendantId] = useState('');
+  const [skipBot, setSkipBot] = useState(false);
   const [fieldError, setFieldError] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -25,6 +35,10 @@ function ContactDetailModal({ contact, onClose, onUpdate, onDelete, saving, dele
     if (!contact) return undefined;
     setName(contact.name ?? '');
     setPhone(contact.phone ?? '');
+    setDefaultAttendantId(
+      contact.default_attendant_user_id ? String(contact.default_attendant_user_id) : ''
+    );
+    setSkipBot(Boolean(contact.skip_bot_to_default_attendant));
     setEditing(false);
     setFieldError('');
     setConfirmOpen(false);
@@ -47,6 +61,10 @@ function ContactDetailModal({ contact, onClose, onUpdate, onDelete, saving, dele
   const startEdit = () => {
     setName(contact.name ?? '');
     setPhone(contact.phone ?? '');
+    setDefaultAttendantId(
+      contact.default_attendant_user_id ? String(contact.default_attendant_user_id) : ''
+    );
+    setSkipBot(Boolean(contact.skip_bot_to_default_attendant));
     setFieldError('');
     setEditing(true);
   };
@@ -63,8 +81,14 @@ function ContactDetailModal({ contact, onClose, onUpdate, onDelete, saving, dele
       setFieldError('Preencha nome e telefone.');
       return;
     }
+
     try {
-      await onUpdate(contact.id, { name, phone });
+      await onUpdate(contact.id, {
+        name,
+        phone,
+        default_attendant_user_id: defaultAttendantId || null,
+        skip_bot_to_default_attendant: skipBot,
+      });
       setEditing(false);
     } catch (err) {
       setFieldError(err.message || 'Não foi possível salvar.');
@@ -107,7 +131,7 @@ function ContactDetailModal({ contact, onClose, onUpdate, onDelete, saving, dele
               disabled={busy}
               aria-label="Fechar"
             >
-              ✕
+              ×
             </button>
           </div>
 
@@ -121,6 +145,14 @@ function ContactDetailModal({ contact, onClose, onUpdate, onDelete, saving, dele
                 <div className="contact-detail-row">
                   <dt>Telefone</dt>
                   <dd>{contact.phone || '-'}</dd>
+                </div>
+                <div className="contact-detail-row">
+                  <dt>Atendente padrão</dt>
+                  <dd>{contact?.default_attendant?.name ?? 'Não definido'}</dd>
+                </div>
+                <div className="contact-detail-row">
+                  <dt>Pular bot</dt>
+                  <dd>{contact?.skip_bot_to_default_attendant ? 'Ativo' : 'Inativo'}</dd>
                 </div>
                 <div className="contact-detail-row">
                   <dt>Adicionado em</dt>
@@ -186,6 +218,7 @@ function ContactDetailModal({ contact, onClose, onUpdate, onDelete, saving, dele
                   required
                 />
               </div>
+
               <div>
                 <label htmlFor="cd-phone" className="contacts-label">
                   Telefone
@@ -201,6 +234,47 @@ function ContactDetailModal({ contact, onClose, onUpdate, onDelete, saving, dele
                   required
                 />
               </div>
+
+              <div>
+                <label htmlFor="cd-default-attendant" className="contacts-label">
+                  Atendente padrão
+                </label>
+                <select
+                  id="cd-default-attendant"
+                  className="app-input"
+                  value={defaultAttendantId}
+                  onChange={(event) => {
+                    const nextValue = event.target.value;
+                    setDefaultAttendantId(nextValue);
+                    if (!nextValue) setSkipBot(false);
+                  }}
+                  disabled={saving}
+                >
+                  <option value="">Selecione um atendente</option>
+                  {attendants.map((attendant) => (
+                    <option key={attendant.id} value={String(attendant.id)}>
+                      {attendant.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="contacts-checkbox-row">
+                <label className="contacts-checkbox-label" htmlFor="cd-skip-bot">
+                  <input
+                    id="cd-skip-bot"
+                    type="checkbox"
+                    checked={skipBot}
+                    disabled={saving || !defaultAttendantId}
+                    onChange={(event) => setSkipBot(event.target.checked)}
+                  />
+                  <span>Pular bot e ir direto para atendente</span>
+                </label>
+              </div>
+
+              <p className="contacts-help-text">
+                Quando ativo, novas entradas desse cliente vão direto para o atendente padrão.
+              </p>
 
               {fieldError ? (
                 <p className="contact-detail-error">{fieldError}</p>

@@ -18,6 +18,7 @@ import TransferModal from './components/TransferModal.jsx';
 import NewConversationModal from './components/NewConversationModal.jsx';
 import SendTemplateModal from './components/SendTemplateModal.jsx';
 import ConversationSearchModal from './components/ConversationSearchModal.jsx';
+import DefaultAttendantModal from './components/DefaultAttendantModal.jsx';
 import useCompanyInboxConversations from './hooks/useCompanyInboxConversations';
 import useCompanyInboxDetailMessages from './hooks/useCompanyInboxDetailMessages';
 import useCompanyInboxActions from './hooks/useCompanyInboxActions';
@@ -186,6 +187,17 @@ function CompanyInboxPage() {
     sendTemplateError,
     sendTemplateSuccess,
     setSendTemplateModalOpen,
+    openDefaultAttendantModal,
+    saveDefaultAttendantConfig,
+    defaultAttendantModalOpen,
+    setDefaultAttendantModalOpen,
+    defaultAttendantBusy,
+    defaultAttendantError,
+    defaultAttendantSuccess,
+    defaultAttendantUserId,
+    setDefaultAttendantUserId,
+    defaultAttendantSkipBot,
+    setDefaultAttendantSkipBot,
     usageWarning,
     setUsageWarning,
   } = useCompanyInboxActions({
@@ -468,6 +480,7 @@ function CompanyInboxPage() {
                   onOpenTagsModal={() => setTagsModalOpen(true)}
                   onOpenTransferModal={() => setTransferModalOpen(true)}
                   onOpenSendTemplateModal={() => setSendTemplateModalOpen(true)}
+                  onOpenDefaultAttendantModal={openDefaultAttendantModal}
                   onOpenConversationSearchModal={() => setConversationSearchOpen(true)}
                   onDetachTag={detachTag}
                 />
@@ -587,6 +600,21 @@ function CompanyInboxPage() {
         onQueryChange={setConversationSearchQuery}
         onClose={() => setConversationSearchOpen(false)}
         onSelectResult={handleSelectConversationSearchResult}
+      />
+
+      <DefaultAttendantModal
+        open={defaultAttendantModalOpen}
+        detail={detail}
+        attendants={attendants}
+        valueUserId={defaultAttendantUserId}
+        valueSkipBot={defaultAttendantSkipBot}
+        onUserIdChange={setDefaultAttendantUserId}
+        onSkipBotChange={setDefaultAttendantSkipBot}
+        onSave={saveDefaultAttendantConfig}
+        busy={defaultAttendantBusy}
+        error={defaultAttendantError}
+        success={defaultAttendantSuccess}
+        onClose={() => setDefaultAttendantModalOpen(false)}
       />
     </Layout>
   );

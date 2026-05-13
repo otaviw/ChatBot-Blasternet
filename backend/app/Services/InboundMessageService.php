@@ -34,6 +34,10 @@ use Throwable;
 
 class InboundMessageService
 {
+    private const DEFAULT_ATTENDANT_BYPASS_TEMPLATE = 'Olá! Você está falando com nosso time. Seu atendimento será direcionado para %s. Pode nos contar o motivo do seu contato?';
+    private const ROUTING_META_GENERATOR = 'contact_default_attendant_routing';
+    private const ROUTING_DEDUPE_WINDOW_MINUTES = 2;
+
     public function __construct(
         private BotReplyService $botReply,
         private WhatsAppSendService $whatsAppSend,
@@ -76,6 +80,8 @@ class InboundMessageService
         }
 
         $conversation = $this->conversationBootstrap->bootstrap($company, $normalizedFrom, $normalizedContactName);
+        $routingDecision = $this->conversationBootstrap->lastRoutingDecision();
+        $routingDecision = $this->conversationBootstrap->lastRoutingDecision();
 
         $isFirstInboundMessage = ! Message::where('conversation_id', $conversation->id)
             ->where('direction', 'in')
@@ -100,6 +106,15 @@ class InboundMessageService
 
             return $this->noReplyResult($conversation, $inMessage);
         }
+
+        $this->sendDefaultAttendantRoutingMessages(
+            $conversation,
+            $company,
+            $from,
+            $sendOutbound,
+            $outMeta,
+            $routingDecision
+        );
 
         $this->productMetrics->track(
             ProductFunnels::CHATBOT,
@@ -378,6 +393,15 @@ class InboundMessageService
             return $msg;
         });
 
+        $this->sendDefaultAttendantRoutingMessages(
+            $conversation,
+            $company,
+            $from,
+            true,
+            [],
+            $routingDecision
+        );
+
         return $this->noReplyResult($conversation, $inMessage);
     }
 
@@ -403,6 +427,7 @@ class InboundMessageService
         }
 
         $conversation = $this->conversationBootstrap->bootstrap($company, $normalizedFrom, $normalizedContactName);
+        $routingDecision = $this->conversationBootstrap->lastRoutingDecision();
 
         $inMessage = DB::transaction(function () use ($conversation, $latitude, $longitude, $name, $address, $inMeta) {
             $msg = $this->createMessageOrFetchDuplicate([
@@ -419,6 +444,15 @@ class InboundMessageService
 
             return $msg;
         });
+
+        $this->sendDefaultAttendantRoutingMessages(
+            $conversation,
+            $company,
+            $from,
+            true,
+            [],
+            $routingDecision
+        );
 
         return $this->noReplyResult($conversation, $inMessage);
     }
@@ -440,6 +474,7 @@ class InboundMessageService
         }
 
         $conversation = $this->conversationBootstrap->bootstrap($company, $normalizedFrom, $normalizedContactName);
+        $routingDecision = $this->conversationBootstrap->lastRoutingDecision();
 
         $storedMedia = $this->mediaStorage->storeUploadedImage($imageFile, $company?->id);
         $meta = array_merge($inMeta, ['media_uploaded' => true]);
@@ -462,6 +497,15 @@ class InboundMessageService
         ]);
 
         $this->updateManualModeStatus($conversation);
+
+        $this->sendDefaultAttendantRoutingMessages(
+            $conversation,
+            $company,
+            $from,
+            true,
+            [],
+            $routingDecision
+        );
 
         return $this->noReplyResult($conversation, $inMessage);
     }
@@ -654,6 +698,123 @@ class InboundMessageService
             $conversation->status = ConversationStatus::IN_PROGRESS;
             $conversation->save();
         }
+    }
+
+    /**
+     * @param array<string, mixed> $outMeta
+     * @param array<string, mixed> $routingDecision
+     */
+    private function sendDefaultAttendantRoutingMessages(
+        Conversation $conversation,
+        ?Company $company,
+        string $from,
+        bool $sendOutbound,
+        array $outMeta,
+        array $routingDecision
+    ): void {
+        $mode = trim((string) ($routingDecision['mode'] ?? ''));
+
+        if ($mode === 'bot_fallback_unavailable' && (bool) ($routingDecision['should_send_fallback'] ?? false)) {
+            $fallbackMessage = trim((string) ($routingDecision['fallback_message'] ?? ''));
+            if ($fallbackMessage !== '') {
+                $this->sendRoutingSystemMessage(
+                    $conversation,
+                    $company,
+                    $from,
+                    $fallbackMessage,
+                    $sendOutbound,
+                    $outMeta,
+                    'default_attendant_unavailable_fallback',
+                    $mode
+                );
+            }
+
+            return;
+        }
+
+        if ($mode !== 'human_default_attendant') {
+            return;
+        }
+
+        $attendantName = trim((string) ($routingDecision['attendant_name'] ?? ''));
+        if ($attendantName === '') {
+            return;
+        }
+
+        $welcomeMessage = sprintf(self::DEFAULT_ATTENDANT_BYPASS_TEMPLATE, $attendantName);
+        $this->sendRoutingSystemMessage(
+            $conversation,
+            $company,
+            $from,
+            $welcomeMessage,
+            $sendOutbound,
+            $outMeta,
+            'default_attendant_bypass_welcome',
+            $mode
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $outMeta
+     */
+    private function sendRoutingSystemMessage(
+        Conversation $conversation,
+        ?Company $company,
+        string $from,
+        string $text,
+        bool $sendOutbound,
+        array $outMeta,
+        string $context,
+        string $mode
+    ): void {
+        $messageText = trim($text);
+        if ($messageText === '') {
+            return;
+        }
+
+        if ($this->alreadySentRoutingSystemMessage($conversation->id, $context)) {
+            return;
+        }
+
+        $meta = array_merge($outMeta, [
+            'routing_context' => $context,
+            'routing_mode' => $mode,
+            'generated_by' => self::ROUTING_META_GENERATOR,
+        ]);
+
+        $outMessage = Message::create([
+            'conversation_id' => $conversation->id,
+            'direction' => 'out',
+            'type' => 'bot',
+            'content_type' => 'text',
+            'text' => $messageText,
+            'delivery_status' => MessageDeliveryStatus::PENDING,
+            'meta' => $meta,
+        ]);
+
+        if (! $sendOutbound) {
+            return;
+        }
+
+        $sendResult = $this->whatsAppSend->sendText($company, $from, $messageText);
+        $this->deliveryStatus->applySendResult($outMessage, $sendResult, $context);
+    }
+
+    private function alreadySentRoutingSystemMessage(int $conversationId, string $context): bool
+    {
+        if ($conversationId <= 0 || trim($context) === '') {
+            return false;
+        }
+
+        return Message::query()
+            ->where('conversation_id', $conversationId)
+            ->where('direction', 'out')
+            ->where('type', 'bot')
+            ->where('content_type', 'text')
+            ->where('meta->routing_context', $context)
+            ->where('meta->generated_by', self::ROUTING_META_GENERATOR)
+            ->where('created_at', '>=', now()->subMinutes(self::ROUTING_DEDUPE_WINDOW_MINUTES))
+            ->exists();
     }
 
     /**

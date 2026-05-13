@@ -28,6 +28,7 @@ use App\Http\Requests\Company\SendConversationTemplateRequest;
 use App\Http\Requests\Company\TransferConversationRequest;
 use App\Http\Requests\Company\UpdateConversationContactRequest;
 use App\Http\Requests\Company\UpdateConversationTagsRequest;
+use App\Models\Contact;
 use App\Models\Conversation;
 use App\Services\AuditLogService;
 use App\Services\Company\CompanyConversationCountersService;
@@ -83,7 +84,7 @@ class ConversationController extends Controller
         $payload = $action->handle($user, $conversationId, (string) $validated['q'], $messagesPerPage);
         if (! $payload) {
             return response()->json([
-                'message' => 'Conversa não encontrada para esta empresa.',
+                'message' => 'Conversa nao encontrada para esta empresa.',
             ], 404);
         }
 
@@ -97,7 +98,7 @@ class ConversationController extends Controller
         $payload = $action->handle($user, $conversationId, $request);
         if (! $payload) {
             return response()->json([
-                'message' => 'Conversa não encontrada para esta empresa.',
+                'message' => 'Conversa nao encontrada para esta empresa.',
             ], 404);
         }
 
@@ -125,14 +126,14 @@ class ConversationController extends Controller
             $message = collect($errors)->flatten()->first();
 
             return response()->json([
-                'message' => $message ?: 'Não foi possível gerar sugestão da IA.',
+                'message' => $message ?: 'Nao foi possivel gerar sugestao da IA.',
                 'errors' => $errors,
             ], 422);
         }
 
         if (! $payload) {
             return response()->json([
-                'message' => 'Conversa não encontrada para esta empresa.',
+                'message' => 'Conversa nao encontrada para esta empresa.',
             ], 404);
         }
 
@@ -145,7 +146,7 @@ class ConversationController extends Controller
 
         $conversation = $action->handle($request, $user, $conversationId, 'assume');
         if (! $conversation) {
-            return response()->json(['message' => 'Conversa não encontrada para esta empresa.'], 404);
+            return response()->json(['message' => 'Conversa nao encontrada para esta empresa.'], 404);
         }
 
         return response()->json([
@@ -160,7 +161,7 @@ class ConversationController extends Controller
 
         $conversation = $action->handle($request, $user, $conversationId, 'release');
         if (! $conversation) {
-            return response()->json(['message' => 'Conversa não encontrada para esta empresa.'], 404);
+            return response()->json(['message' => 'Conversa nao encontrada para esta empresa.'], 404);
         }
 
         return response()->json([
@@ -182,7 +183,7 @@ class ConversationController extends Controller
 
         $conversation = $action->handle($request, $user, $conversationId, 'close');
         if (! $conversation) {
-            return response()->json(['message' => 'Conversa não encontrada para esta empresa.'], 404);
+            return response()->json(['message' => 'Conversa nao encontrada para esta empresa.'], 404);
         }
 
         return response()->json([
@@ -200,7 +201,7 @@ class ConversationController extends Controller
             ->first();
 
         if (! $conversation) {
-            return response()->json(['message' => 'Conversa não encontrada.'], 404);
+            return response()->json(['message' => 'Conversa nao encontrada.'], 404);
         }
 
         $conversation->delete();
@@ -220,19 +221,17 @@ class ConversationController extends Controller
 
         $result = $action->handle($request, $user, $conversationId, $validated);
         if (! $result) {
-            return response()->json(['message' => 'Conversa não encontrada para esta empresa.'], 404);
+            return response()->json(['message' => 'Conversa nao encontrada para esta empresa.'], 404);
         }
 
         return response()->json([
             'ok' => true,
             'tags' => $result['tags'],
         ]);
-    }
-
+    }
     public function updateContact(UpdateConversationContactRequest $request, int $conversationId): JsonResponse
     {
         $user = $request->user();
-
         $validated = $request->validated();
 
         $conversation = Conversation::query()
@@ -241,28 +240,104 @@ class ConversationController extends Controller
             ->first();
 
         if (! $conversation) {
-            return response()->json(['message' => 'Conversa não encontrada para esta empresa.'], 404);
+            return response()->json(['message' => 'Conversa nao encontrada para esta empresa.'], 404);
         }
 
-        $customerName = trim((string) ($validated['customer_name'] ?? ''));
-        $customerName = $customerName !== '' ? $customerName : null;
-        $before = $conversation->customer_name;
+        $contact = Contact::query()->firstOrCreate(
+            [
+                'company_id' => (int) $conversation->company_id,
+                'phone' => (string) $conversation->customer_phone,
+            ],
+            [
+                'name' => (string) ($conversation->customer_name ?: $conversation->customer_phone),
+                'source' => 'manual',
+                'added_by_user_id' => auth()->id(),
+            ]
+        );
 
-        $conversation->customer_name = $customerName;
+        $hasCustomerName = array_key_exists('customer_name', $validated);
+        $hasDefaultAttendant = array_key_exists('default_attendant_user_id', $validated);
+        $hasSkipBot = array_key_exists('skip_bot_to_default_attendant', $validated);
+
+        $beforeConversationName = $conversation->customer_name;
+        $beforeDefaultAttendantId = $contact->default_attendant_user_id !== null
+            ? (int) $contact->default_attendant_user_id
+            : null;
+        $beforeSkipBot = (bool) ($contact->skip_bot_to_default_attendant ?? false);
+
+        if ($hasCustomerName) {
+            $customerName = trim((string) ($validated['customer_name'] ?? ''));
+            $customerName = $customerName !== '' ? $customerName : null;
+            $conversation->customer_name = $customerName;
+
+            if ($customerName !== null) {
+                $contact->name = $customerName;
+            }
+        }
+
+        if ($hasDefaultAttendant) {
+            $contact->default_attendant_user_id = isset($validated['default_attendant_user_id'])
+                ? (int) $validated['default_attendant_user_id']
+                : null;
+        }
+
+        if ($hasSkipBot) {
+            $contact->skip_bot_to_default_attendant = (bool) ($validated['skip_bot_to_default_attendant'] ?? false);
+        }
+
+        if ($contact->default_attendant_user_id === null) {
+            $contact->skip_bot_to_default_attendant = false;
+        }
+
         $conversation->save();
+        $contact->save();
 
-        $this->auditLog->record($request, 'company.conversation.contact_updated', $conversation->company_id, [
-            'conversation_id' => $conversation->id,
-            'before_customer_name' => $before,
-            'after_customer_name' => $conversation->customer_name,
-        ]);
+        if ($hasCustomerName && $beforeConversationName !== $conversation->customer_name) {
+            $this->auditLog->record($request, 'company.conversation.contact_updated', $conversation->company_id, [
+                'conversation_id' => $conversation->id,
+                'before_customer_name' => $beforeConversationName,
+                'after_customer_name' => $conversation->customer_name,
+            ]);
+        }
+
+        $afterDefaultAttendantId = $contact->default_attendant_user_id !== null
+            ? (int) $contact->default_attendant_user_id
+            : null;
+        if (($hasDefaultAttendant || $hasSkipBot) && $beforeDefaultAttendantId !== $afterDefaultAttendantId) {
+            $this->auditLog->record($request, 'company.contact.default_attendant_updated', $conversation->company_id, [
+                'contact_id' => (int) $contact->id,
+                'contact_phone' => (string) $contact->phone,
+                'before_default_attendant_user_id' => $beforeDefaultAttendantId,
+                'after_default_attendant_user_id' => $afterDefaultAttendantId,
+            ]);
+        }
+
+        $afterSkipBot = (bool) ($contact->skip_bot_to_default_attendant ?? false);
+        if (($hasDefaultAttendant || $hasSkipBot) && $beforeSkipBot !== $afterSkipBot) {
+            $this->auditLog->record($request, 'company.contact.skip_bot_updated', $conversation->company_id, [
+                'contact_id' => (int) $contact->id,
+                'contact_phone' => (string) $contact->phone,
+                'before_skip_bot_to_default_attendant' => $beforeSkipBot,
+                'after_skip_bot_to_default_attendant' => $afterSkipBot,
+            ]);
+        }
+
+        $contact->loadMissing('defaultAttendant:id,name');
+        $conversationPayload = $conversation->toArray();
+        $conversationPayload['default_attendant_user_id'] = $afterDefaultAttendantId;
+        $conversationPayload['skip_bot_to_default_attendant'] = $afterSkipBot;
+        $conversationPayload['default_attendant'] = $contact->defaultAttendant
+            ? [
+                'id' => (int) $contact->defaultAttendant->id,
+                'name' => (string) $contact->defaultAttendant->name,
+            ]
+            : null;
 
         return response()->json([
             'ok' => true,
-            'conversation' => $conversation,
+            'conversation' => $conversationPayload,
         ]);
     }
-
     public function transfer(TransferConversationRequest $request, int $conversationId, TransferCompanyConversationAction $action): JsonResponse
     {
         $user = $request->user();
@@ -281,7 +356,7 @@ class ConversationController extends Controller
         }
 
         if (! $payload) {
-            return response()->json(['message' => 'Conversa não encontrada para esta empresa.'], 404);
+            return response()->json(['message' => 'Conversa nao encontrada para esta empresa.'], 404);
         }
 
         return response()->json($payload);
@@ -332,7 +407,7 @@ class ConversationController extends Controller
     }
 
     /**
-     * Download de mídia de mensagem (document/image/video/audio).
+     * Download de midia de mensagem (document/image/video/audio).
      */
     public function downloadMessageMedia(
         Request $request,
@@ -352,3 +427,8 @@ class ConversationController extends Controller
     }
 
 }
+
+
+
+
+

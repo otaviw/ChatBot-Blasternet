@@ -1,5 +1,5 @@
 import './ContactsPage.css';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import Layout from '@/components/layout/Layout/Layout.jsx';
 import EmptyState from '@/components/ui/EmptyState/EmptyState.jsx';
 import ErrorMessage from '@/components/ui/ErrorMessage/ErrorMessage.jsx';
@@ -42,6 +42,8 @@ function ContactsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
+  const [newDefaultAttendantId, setNewDefaultAttendantId] = useState('');
+  const [newSkipBot, setNewSkipBot] = useState(false);
   const [modalError, setModalError] = useState('');
 
   const openCreateModal = () => {
@@ -49,6 +51,8 @@ function ContactsPage() {
     setModalError('');
     setNewName('');
     setNewPhone('');
+    setNewDefaultAttendantId('');
+    setNewSkipBot(false);
   };
 
   const closeCreateModal = () => {
@@ -67,7 +71,13 @@ function ContactsPage() {
     }
 
     try {
-      await createContact({ name: newName, phone: newPhone });
+      await createContact({
+        name: newName,
+        phone: newPhone,
+        default_attendant_user_id: newDefaultAttendantId || null,
+        skip_bot_to_default_attendant: newSkipBot,
+      });
+
       setIsModalOpen(false);
       showSuccess('Contato criado com sucesso.');
     } catch (err) {
@@ -85,6 +95,18 @@ function ContactsPage() {
     await deleteContact(id);
     showSuccess('Contato excluído.');
   };
+
+  const attendants = useMemo(() => {
+    const raw = Array.isArray(data?.attendants) ? data.attendants : [];
+    return raw
+      .filter((item) => Boolean(item?.is_active ?? true))
+      .map((item) => ({
+        id: Number(item?.id ?? 0),
+        name: String(item?.name ?? '').trim(),
+      }))
+      .filter((item) => item.id > 0 && item.name !== '');
+  }, [data]);
+
 
   const triggerCsvImport = () => {
     csvInputRef.current?.click();
@@ -233,6 +255,7 @@ function ContactsPage() {
         onDelete={handleDeleteContact}
         saving={saving}
         deleting={deleting}
+        attendants={attendants}
       />
 
       {isModalOpen ? (
@@ -289,6 +312,47 @@ function ContactsPage() {
                   required
                 />
               </div>
+
+              <div>
+                <label htmlFor="contacts-new-default-attendant" className="contacts-label">
+                  Atendente padrão
+                </label>
+                <select
+                  id="contacts-new-default-attendant"
+                  className="app-input"
+                  value={newDefaultAttendantId}
+                  onChange={(event) => {
+                    const nextValue = event.target.value;
+                    setNewDefaultAttendantId(nextValue);
+                    if (!nextValue) setNewSkipBot(false);
+                  }}
+                  disabled={creating}
+                >
+                  <option value="">Selecione um atendente</option>
+                  {attendants.map((attendant) => (
+                    <option key={attendant.id} value={String(attendant.id)}>
+                      {attendant.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="contacts-checkbox-row">
+                <label className="contacts-checkbox-label" htmlFor="contacts-new-skip-bot">
+                  <input
+                    id="contacts-new-skip-bot"
+                    type="checkbox"
+                    checked={newSkipBot}
+                    disabled={creating || !newDefaultAttendantId}
+                    onChange={(event) => setNewSkipBot(event.target.checked)}
+                  />
+                  <span>Pular bot e ir direto para atendente</span>
+                </label>
+              </div>
+
+              <p className="contacts-help-text">
+                Quando ativo, novas entradas desse cliente vão direto para o atendente padrão.
+              </p>
 
               {modalError ? <p className="text-xs text-red-600">{modalError}</p> : null}
 
