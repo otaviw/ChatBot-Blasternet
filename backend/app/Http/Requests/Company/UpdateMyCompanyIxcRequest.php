@@ -19,6 +19,7 @@ class UpdateMyCompanyIxcRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'name' => ['sometimes', 'string', 'min:2', 'max:120'],
             'ixc_base_url' => ['nullable', 'url', 'max:500'],
             'ixc_api_token' => ['sometimes', 'nullable', 'string', 'max:4000'],
             'ixc_self_signed' => ['sometimes', 'boolean'],

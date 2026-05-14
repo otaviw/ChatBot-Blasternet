@@ -51,6 +51,9 @@ class CompanyProfileController extends Controller
         }
 
         $validated = $request->validated();
+        if (array_key_exists('name', $validated)) {
+            $company->name = trim((string) $validated['name']);
+        }
         $baseUrl = (string) ($validated['ixc_base_url'] ?? $company->ixc_base_url ?? '');
         $apiToken = array_key_exists('ixc_api_token', $validated)
             ? (string) ($validated['ixc_api_token'] ?? '')
@@ -83,7 +86,7 @@ class CompanyProfileController extends Controller
 
         $this->auditLog->record(
             $request,
-            'company.settings.ixc_updated',
+            'company.settings.profile_updated',
             $company->id,
             [
                 'ixc_enabled' => (bool) $company->ixc_enabled,

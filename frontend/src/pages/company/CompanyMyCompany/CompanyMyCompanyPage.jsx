@@ -12,6 +12,7 @@ function CompanyMyCompanyPage() {
   const [status, setStatus] = useState({ type: 'idle', message: '' });
   const [testState, setTestState] = useState({ type: 'idle', message: '' });
   const [form, setForm] = useState({
+    name: '',
     ixc_base_url: '',
     ixc_api_token: '',
     ixc_self_signed: false,
@@ -24,6 +25,7 @@ function CompanyMyCompanyPage() {
     if (!company) return;
 
     setForm({
+      name: String(company.name ?? ''),
       ixc_base_url: String(company.ixc_base_url ?? ''),
       ixc_api_token: '',
       ixc_self_signed: Boolean(company.ixc_self_signed),
@@ -40,6 +42,7 @@ function CompanyMyCompanyPage() {
     setStatus({ type: 'idle', message: '' });
     try {
       const payload = {
+        name: String(form.name ?? '').trim(),
         ixc_base_url: String(form.ixc_base_url ?? '').trim() || null,
         ixc_self_signed: Boolean(form.ixc_self_signed),
         ixc_timeout_seconds: Math.max(5, Math.min(60, Number(form.ixc_timeout_seconds || 15))),
@@ -56,11 +59,11 @@ function CompanyMyCompanyPage() {
         setData((previous) => ({ ...(previous ?? {}), ok: true, company }));
       }
       setForm((previous) => ({ ...previous, ixc_api_token: '' }));
-      setStatus({ type: 'ok', message: 'Configuracao IXC salva com sucesso.' });
+      setStatus({ type: 'ok', message: 'Dados da empresa salvos com sucesso.' });
     } catch (err) {
       setStatus({
         type: 'error',
-        message: err?.response?.data?.message || 'Falha ao salvar configuracao IXC.',
+        message: err?.response?.data?.message || 'Falha ao salvar dados da empresa.',
       });
     } finally {
       setSaving(false);
@@ -95,7 +98,7 @@ function CompanyMyCompanyPage() {
 
   if (loading) {
     return (
-      <Layout role="company" onLogout={logout}>
+      <Layout role="company" companyName={data?.company?.name} onLogout={logout}>
         <PageLoading rows={2} cards={1} />
       </Layout>
     );
@@ -103,19 +106,31 @@ function CompanyMyCompanyPage() {
 
   if (error || !data?.company) {
     return (
-      <Layout role="company" onLogout={logout}>
+      <Layout role="company" companyName={data?.company?.name} onLogout={logout}>
         <p className="text-sm text-red-600">Nao foi possivel carregar os dados da empresa.</p>
       </Layout>
     );
   }
 
   return (
-    <Layout role="company" onLogout={logout}>
+    <Layout role="company" companyName={data?.company?.name} onLogout={logout}>
       <h1 className="app-page-title">Minha empresa</h1>
-      <p className="app-page-subtitle mb-6">Configuracao da integracao IXC por tenant.</p>
+      <p className="app-page-subtitle mb-6">Dados da empresa e configuracao da integracao IXC por tenant.</p>
 
       <section className="app-panel">
         <form onSubmit={save} className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <label className="block text-sm md:col-span-2">
+            Nome da empresa
+            <input
+              type="text"
+              value={form.name}
+              onChange={(event) => setForm((previous) => ({ ...previous, name: event.target.value }))}
+              className="app-input"
+              maxLength={120}
+              required
+            />
+          </label>
+
           <label className="block text-sm md:col-span-2">
             URL base IXC
             <input
