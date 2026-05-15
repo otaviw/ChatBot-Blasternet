@@ -5,11 +5,15 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Exceptions\MetaNumberResolutionException;
 use App\Models\Campaign;
 use App\Models\CampaignContact;
 use App\Models\Contact;
+use App\Services\AuditService;
+use App\Services\ContactSendNumberResolver;
 use App\Services\RealtimePublisher;
 use App\Services\WhatsApp\WhatsAppSendService;
+use App\Support\AuditActions;
 use App\Support\RealtimeEvents;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -29,7 +33,11 @@ class ProcessCampaignJob implements ShouldQueue
         $this->onQueue('campaigns');
     }
 
-    public function handle(WhatsAppSendService $whatsAppSend, RealtimePublisher $realtimePublisher): void
+    public function handle(
+        WhatsAppSendService $whatsAppSend,
+        RealtimePublisher $realtimePublisher,
+        ContactSendNumberResolver $sendNumberResolver
+    ): void
     {
         $campaign = Campaign::with('company')->find($this->campaignId);
 
@@ -66,6 +74,7 @@ class ProcessCampaignJob implements ShouldQueue
                     $campaignContact,
                     $campaign,
                     $whatsAppSend,
+                    $sendNumberResolver,
                     $realtimePublisher,
                     $counters
                 );
@@ -93,6 +102,7 @@ class ProcessCampaignJob implements ShouldQueue
         CampaignContact $campaignContact,
         Campaign $campaign,
         WhatsAppSendService $whatsAppSend,
+        ContactSendNumberResolver $sendNumberResolver,
         RealtimePublisher $realtimePublisher,
         array &$counters
     ): void {
@@ -107,6 +117,42 @@ class ProcessCampaignJob implements ShouldQueue
                 $this->applyCountersAfterProcessedContact($counters, 'failed');
                 $this->publishCampaignUpdated($campaign, $realtimePublisher, $counters);
 
+                return;
+            }
+
+            try {
+                $resolvedMetaNumber = $sendNumberResolver->resolveForContact(
+                    $contact,
+                    true,
+                    null,
+                    (int) $campaign->id
+                );
+            } catch (MetaNumberResolutionException $exception) {
+                $campaignContact->status = 'failed';
+                $campaignContact->error = $exception->errorCode();
+                $campaignContact->save();
+
+                AuditService::log(
+                    AuditActions::CAMPAIGN_SEND_NUMBER_RESOLVED,
+                    'campaign_contact',
+                    $campaignContact->id,
+                    null,
+                    [
+                        'company_id' => (int) $campaign->company_id,
+                        'entity_type' => 'campaign_contact',
+                        'entity_id' => (int) $campaignContact->id,
+                        'after' => [
+                            'contact_id' => (int) $contact->id,
+                            'campaign_id' => (int) $campaign->id,
+                            'status' => 'failed',
+                            'error' => $exception->errorCode(),
+                            'resolved_meta_number_id' => null,
+                        ],
+                    ]
+                );
+
+                $this->applyCountersAfterProcessedContact($counters, 'failed');
+                $this->publishCampaignUpdated($campaign, $realtimePublisher, $counters);
                 return;
             }
 
@@ -128,6 +174,25 @@ class ProcessCampaignJob implements ShouldQueue
             }
 
             $campaignContact->save();
+
+            AuditService::log(
+                AuditActions::CAMPAIGN_SEND_NUMBER_RESOLVED,
+                'campaign_contact',
+                $campaignContact->id,
+                null,
+                [
+                    'company_id' => (int) $campaign->company_id,
+                    'entity_type' => 'campaign_contact',
+                    'entity_id' => (int) $campaignContact->id,
+                    'after' => [
+                        'contact_id' => (int) $contact->id,
+                        'campaign_id' => (int) $campaign->id,
+                        'status' => (string) $campaignContact->status,
+                        'error' => $campaignContact->error,
+                        'resolved_meta_number_id' => (int) $resolvedMetaNumber->id,
+                    ],
+                ]
+            );
 
             $this->applyCountersAfterProcessedContact($counters, (string) $campaignContact->status);
             $this->publishCampaignUpdated($campaign, $realtimePublisher, $counters);

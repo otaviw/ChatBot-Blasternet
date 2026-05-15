@@ -20,6 +20,16 @@ class CreateConversationRequest extends FormRequest
         return [
             'customer_phone' => ['required', 'string', 'max:30'],
             'customer_name'  => ['nullable', 'string', 'max:160'],
+            'selected_meta_number_id' => [
+                'sometimes',
+                'nullable',
+                'integer',
+            ],
+            'meta_number_id' => [
+                'sometimes',
+                'nullable',
+                'integer',
+            ],
             'send_template'  => ['sometimes', 'boolean'],
             'template_name'  => ['sometimes', 'string', 'max:100'],
             'template_variables'   => ['sometimes', 'array', 'max:50'],

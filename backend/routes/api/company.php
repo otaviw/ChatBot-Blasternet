@@ -47,6 +47,8 @@ Route::middleware(['web', 'auth', 'company.user'])->group(function () {
             ->middleware('throttle:conversation-search');
         Route::post('/conversas', [CompanyConversationController::class, 'createConversation'])
             ->middleware('throttle:bot-write');
+        Route::post('/conversations', [CompanyConversationController::class, 'createConversation'])
+            ->middleware('throttle:bot-write');
         Route::get('/conversas/{conversationId}', [CompanyConversationController::class, 'show'])
             ->middleware('throttle:inbox-read');
         Route::get('/mensagens/{messageId}/media', [CompanyConversationController::class, 'media'])
@@ -56,6 +58,8 @@ Route::middleware(['web', 'auth', 'company.user'])->group(function () {
         Route::post('/conversas/{conversationId}/soltar', [CompanyConversationController::class, 'release'])
             ->middleware('throttle:bot-write');
         Route::post('/conversas/{conversationId}/responder-manual', [CompanyConversationController::class, 'manualReply'])
+            ->middleware('throttle:bot-write');
+        Route::post('/conversations/{conversationId}/messages', [CompanyConversationController::class, 'manualReply'])
             ->middleware('throttle:bot-write');
         Route::post('/conversas/{conversationId}/transferir', [CompanyConversationController::class, 'transfer'])
             ->middleware('throttle:bot-write');
@@ -139,6 +143,8 @@ Route::middleware(['web', 'auth', 'company.user'])->group(function () {
         Route::post('/contatos', [ContactController::class, 'store'])->middleware('throttle:bot-write');
         Route::post('/contatos/importar-csv', [ContactController::class, 'importCsv'])->middleware('throttle:bot-write');
         Route::patch('/contatos/{contactId}', [ContactController::class, 'update'])->middleware('throttle:bot-write');
+        Route::patch('/contatos/{contactId}/meta-number', [ContactController::class, 'updateMetaNumber'])->middleware('throttle:bot-write');
+        Route::patch('/contacts/{contactId}/meta-number', [ContactController::class, 'updateMetaNumber'])->middleware('throttle:bot-write');
         Route::delete('/contatos/{contactId}', [ContactController::class, 'destroy'])->middleware('throttle:bot-write');
 
         Route::get('/campanhas', [CampaignController::class, 'index'])->middleware('throttle:inbox-read');

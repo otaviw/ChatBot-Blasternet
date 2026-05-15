@@ -8,13 +8,18 @@ namespace App\Actions\Company\Conversation;
 use App\Actions\Conversation\UpdateConversationStatusAction;
 use App\Data\ActionResponse;
 use App\Http\Requests\Company\CreateConversationRequest;
+use App\Exceptions\MetaNumberResolutionException;
 use App\Models\Conversation;
+use App\Models\Contact;
 use App\Models\Message;
 use App\Models\User;
 use App\Services\AuditLogService;
 use App\Services\AuditService;
+use App\Services\ContactSendNumberResolver;
+use App\Services\Company\CompanyMetaNumberService;
 use App\Services\MessageDeliveryStatusService;
 use App\Services\WhatsApp\WhatsAppSendService;
+use App\Support\AuditActions;
 use App\Support\ConversationAssignedType;
 use App\Support\ConversationHandlingMode;
 use App\Support\ConversationStatus;
@@ -28,6 +33,8 @@ class CreateCompanyConversationAction
         private readonly WhatsAppSendService $whatsAppSend,
         private readonly MessageDeliveryStatusService $deliveryStatus,
         private readonly AuditLogService $auditLog,
+        private readonly ContactSendNumberResolver $sendNumberResolver,
+        private readonly CompanyMetaNumberService $companyMetaNumberService,
         private readonly UpdateConversationStatusAction $statusAction,
     ) {}
 
@@ -79,18 +86,98 @@ class CreateCompanyConversationAction
         });
         $conversation->load(['company', 'currentArea:id,name', 'assignedUser:id,name,email']);
 
+        $contact = Contact::query()->firstOrCreate(
+            [
+                'company_id' => (int) $conversation->company_id,
+                'phone' => $normalizedPhone,
+            ],
+            [
+                'name' => $customerName !== '' ? $customerName : $normalizedPhone,
+                'source' => 'manual',
+                'added_by_user_id' => $user->id,
+            ]
+        );
+
+        $selectedMetaNumberId = null;
+        if (isset($validated['meta_number_id'])) {
+            $selectedMetaNumberId = (int) $validated['meta_number_id'];
+        } elseif (isset($validated['selected_meta_number_id'])) {
+            $selectedMetaNumberId = (int) $validated['selected_meta_number_id'];
+        }
+        $activeNumbers = $this->companyMetaNumberService->listActive((int) $conversation->company_id);
+        if ($selectedMetaNumberId === null && $activeNumbers->count() > 1 && $contact->meta_number_id === null) {
+            return ActionResponse::unprocessable('Selecione o número de envio para iniciar a conversa.', [
+                'selected_meta_number_id' => ['Selecione o número de envio para iniciar a conversa.'],
+            ]);
+        }
+
+        if ($selectedMetaNumberId !== null) {
+            try {
+                $this->companyMetaNumberService->assertBelongsToCompanyAndActive((int) $conversation->company_id, $selectedMetaNumberId);
+            } catch (\RuntimeException $exception) {
+                return ActionResponse::unprocessable($exception->getMessage(), ['error' => $exception->getMessage()]);
+            }
+            if ((int) ($contact->meta_number_id ?? 0) !== $selectedMetaNumberId) {
+                $beforeMetaNumberId = $contact->meta_number_id !== null ? (int) $contact->meta_number_id : null;
+                $contact->meta_number_id = $selectedMetaNumberId;
+                $contact->save();
+
+                AuditService::log(
+                    AuditActions::CONTACT_META_NUMBER_CHANGED,
+                    'contact',
+                    $contact->id,
+                    ['before' => ['meta_number_id' => $beforeMetaNumberId]],
+                    [
+                        'actor_user_id' => (int) $user->id,
+                        'company_id' => (int) $conversation->company_id,
+                        'entity_type' => 'contact',
+                        'entity_id' => (int) $contact->id,
+                        'after' => ['meta_number_id' => $selectedMetaNumberId],
+                        'reason' => 'conversation_selected_send_number',
+                    ]
+                );
+            }
+
+            AuditService::log(
+                AuditActions::CONVERSATION_SEND_NUMBER_SELECTED,
+                'conversation',
+                $conversation->id,
+                null,
+                [
+                    'actor_user_id' => (int) $user->id,
+                    'company_id' => (int) $conversation->company_id,
+                    'entity_type' => 'conversation',
+                    'entity_id' => (int) $conversation->id,
+                    'after' => ['selected_meta_number_id' => $selectedMetaNumberId, 'contact_id' => (int) $contact->id],
+                ]
+            );
+        }
+
         $sendTemplate = (bool) ($validated['send_template'] ?? false);
         $message      = null;
         $templateSent = false;
 
+        try {
+            $resolvedMetaNumber = $this->sendNumberResolver->resolveForContact(
+                $contact,
+                true,
+                (int) $conversation->id,
+                null
+            );
+        } catch (MetaNumberResolutionException $exception) {
+            return ActionResponse::unprocessable($exception->errorCode(), ['error' => $exception->errorCode()]);
+        }
+
         if ($sendTemplate) {
-            [$message, $templateSent] = $this->sendOpeningTemplate($conversation, $validated, $user);
+            [$message, $templateSent] = $this->sendOpeningTemplate($conversation, $validated, $user, $resolvedMetaNumber->id);
         }
 
         $this->auditLog->record($request, 'company.conversation.created', $conversation->company_id, [
             'conversation_id' => $conversation->id,
             'send_template'   => $sendTemplate,
             'template_sent'   => $templateSent,
+            'contact_id' => (int) $contact->id,
+            'resolved_meta_number_id' => (int) $resolvedMetaNumber->id,
         ]);
 
         return ActionResponse::ok([
@@ -107,7 +194,7 @@ class CreateCompanyConversationAction
      * @param  array<string, mixed>  $validated
      * @return array{0: Message, 1: bool}
      */
-    private function sendOpeningTemplate(Conversation $conversation, array $validated, User $user): array
+    private function sendOpeningTemplate(Conversation $conversation, array $validated, User $user, int $resolvedMetaNumberId): array
     {
         $templateName = trim((string) ($validated['template_name'] ?? 'iniciar_conversa'));
         $templateVariables = collect($validated['template_variables'] ?? [])
@@ -143,6 +230,7 @@ class CreateCompanyConversationAction
                     'template_name'   => $templateName,
                     'actor_user_id'   => $user->id,
                     'actor_user_name' => $user->name,
+                    'resolved_meta_number_id' => $resolvedMetaNumberId,
                     'send_result'     => $sendResult,
                 ],
             ]);

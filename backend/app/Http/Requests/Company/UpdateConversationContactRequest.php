@@ -32,6 +32,11 @@ class UpdateConversationContactRequest extends FormRequest
                 }),
             ],
             'skip_bot_to_default_attendant' => ['sometimes', 'boolean'],
+            'meta_number_id' => [
+                'sometimes',
+                'nullable',
+                'integer',
+            ],
         ];
     }
 

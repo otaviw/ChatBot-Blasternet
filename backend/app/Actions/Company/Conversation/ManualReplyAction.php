@@ -6,12 +6,15 @@ declare(strict_types=1);
 namespace App\Actions\Company\Conversation;
 
 use App\Data\ActionResponse;
+use App\Exceptions\MetaNumberResolutionException;
 use App\Http\Requests\Company\ManualReplyRequest;
+use App\Models\Contact;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\User;
 use App\Services\AuditLogService;
 use App\Services\AuditService;
+use App\Services\ContactSendNumberResolver;
 use App\Services\Company\CompanyConversationSupportService;
 use App\Services\Company\CompanyUsageLimitsService;
 use App\Services\MessageDeliveryStatusService;
@@ -32,6 +35,7 @@ class ManualReplyAction
         private readonly MessageDeliveryStatusService $deliveryStatus,
         private readonly MessageMediaStorageService $mediaStorage,
         private readonly AuditLogService $auditLog,
+        private readonly ContactSendNumberResolver $sendNumberResolver,
         private readonly CompanyConversationSupportService $conversationSupport,
         private readonly CompanyUsageLimitsService $usageLimits,
         private readonly ProductMetricsService $productMetrics,
@@ -67,6 +71,31 @@ class ManualReplyAction
             return $limitCheck->toBlockedResponse();
         }
 
+        $contact = Contact::query()->firstOrCreate(
+            [
+                'company_id' => (int) $conversation->company_id,
+                'phone' => (string) $conversation->customer_phone,
+            ],
+            [
+                'name' => (string) ($conversation->customer_name ?: $conversation->customer_phone),
+                'source' => 'manual',
+                'added_by_user_id' => $user->id,
+            ]
+        );
+
+        $resolvedMetaNumberId = null;
+        try {
+            $resolvedMetaNumber = $this->sendNumberResolver->resolveForContact(
+                $contact,
+                true,
+                (int) $conversation->id,
+                null
+            );
+            $resolvedMetaNumberId = (int) $resolvedMetaNumber->id;
+        } catch (MetaNumberResolutionException $exception) {
+            return ActionResponse::unprocessable($exception->errorCode(), ['error' => $exception->errorCode()]);
+        }
+
         $storedMedia = null;
         if ($uploadedFile) {
             $storedMedia = $this->mediaStorage->storeUploadedImage($uploadedFile, $conversation->company_id);
@@ -97,6 +126,7 @@ class ManualReplyAction
                     'source'          => 'manual',
                     'actor_user_id'   => $user->id,
                     'actor_user_name' => $user->name,
+                    'resolved_meta_number_id' => $resolvedMetaNumberId,
                 ],
             ]);
         });
@@ -124,6 +154,7 @@ class ManualReplyAction
             'conversation_id' => $conversation->id,
             'message_id'      => $message->id,
             'sent'            => $wasSent,
+            'resolved_meta_number_id' => $resolvedMetaNumberId,
         ]);
 
         $this->productMetrics->track(

@@ -19,6 +19,7 @@ class Contact extends Model
         'phone',
         'last_interaction_at',
         'company_id',
+        'meta_number_id',
         'source',
         'added_by_user_id',
         'default_attendant_user_id',
@@ -54,5 +55,10 @@ class Contact extends Model
     public function defaultAttendant(): BelongsTo
     {
         return $this->belongsTo(User::class, 'default_attendant_user_id');
+    }
+
+    public function metaNumber(): BelongsTo
+    {
+        return $this->belongsTo(CompanyMetaNumber::class, 'meta_number_id');
     }
 }

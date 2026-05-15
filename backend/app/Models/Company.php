@@ -165,6 +165,11 @@ class Company extends Model
         return $this->hasMany(Contact::class);
     }
 
+    public function metaNumbers(): HasMany
+    {
+        return $this->hasMany(CompanyMetaNumber::class);
+    }
+
     public function campaigns(): HasMany
     {
         return $this->hasMany(Campaign::class);

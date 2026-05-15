@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\CompanyController;
+use App\Http\Controllers\Admin\CompanyMetaNumberController;
 use App\Http\Controllers\Admin\ConversationController as AdminConversationController;
 use App\Http\Controllers\Admin\ResellerController;
 use App\Http\Controllers\Admin\SupportTicketController as AdminSupportTicketController;
@@ -19,6 +20,11 @@ Route::middleware(['web', 'auth', 'admin'])->group(function () {
         Route::get('/empresas', [CompanyController::class, 'index']);
         Route::post('/empresas', [CompanyController::class, 'store'])->middleware('throttle:bot-write');
         Route::get('/empresas/{company}', [CompanyController::class, 'show']);
+        Route::get('/companies/{company}/meta-numbers', [CompanyMetaNumberController::class, 'index'])->middleware('throttle:inbox-read');
+        Route::post('/companies/{company}/meta-numbers', [CompanyMetaNumberController::class, 'store'])->middleware('throttle:bot-write');
+        Route::patch('/companies/{company}/meta-numbers/{numberId}', [CompanyMetaNumberController::class, 'update'])->middleware('throttle:bot-write');
+        Route::patch('/companies/{company}/meta-numbers/{numberId}/set-primary', [CompanyMetaNumberController::class, 'setPrimary'])->middleware('throttle:bot-write');
+        Route::delete('/companies/{company}/meta-numbers/{numberId}', [CompanyMetaNumberController::class, 'destroy'])->middleware('throttle:bot-write');
         Route::put('/empresas/{company}', [CompanyController::class, 'update'])->middleware(['throttle:bot-write', 'critical.audit:settings.integrations_config_updated']);
         Route::put('/empresas/{company}/bot', [CompanyController::class, 'updateBotSettings'])
             ->middleware(['throttle:bot-write', 'critical.audit:settings.ai_config_updated']);

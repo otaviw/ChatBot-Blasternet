@@ -31,11 +31,15 @@ use App\Http\Requests\Company\UpdateConversationTagsRequest;
 use App\Models\Contact;
 use App\Models\Conversation;
 use App\Services\AuditLogService;
+use App\Services\AuditService;
+use App\Services\Company\CompanyMetaNumberService;
 use App\Services\Company\CompanyConversationCountersService;
 use App\Services\WhatsApp\WhatsAppSendService;
+use App\Support\AuditActions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
 
 class ConversationController extends Controller
 {
@@ -46,6 +50,7 @@ class ConversationController extends Controller
         private readonly CreateCompanyConversationAction $createConversationAction,
         private readonly SendConversationTemplateAction $sendTemplateAction,
         private readonly WhatsAppSendService $whatsAppSend,
+        private readonly CompanyMetaNumberService $companyMetaNumberService,
     ) {}
 
     public function index(Request $request, ListCompanyConversationsAction $action): JsonResponse
@@ -258,12 +263,14 @@ class ConversationController extends Controller
         $hasCustomerName = array_key_exists('customer_name', $validated);
         $hasDefaultAttendant = array_key_exists('default_attendant_user_id', $validated);
         $hasSkipBot = array_key_exists('skip_bot_to_default_attendant', $validated);
+        $hasMetaNumberId = array_key_exists('meta_number_id', $validated);
 
         $beforeConversationName = $conversation->customer_name;
         $beforeDefaultAttendantId = $contact->default_attendant_user_id !== null
             ? (int) $contact->default_attendant_user_id
             : null;
         $beforeSkipBot = (bool) ($contact->skip_bot_to_default_attendant ?? false);
+        $beforeMetaNumberId = $contact->meta_number_id !== null ? (int) $contact->meta_number_id : null;
 
         if ($hasCustomerName) {
             $customerName = trim((string) ($validated['customer_name'] ?? ''));
@@ -283,6 +290,25 @@ class ConversationController extends Controller
 
         if ($hasSkipBot) {
             $contact->skip_bot_to_default_attendant = (bool) ($validated['skip_bot_to_default_attendant'] ?? false);
+        }
+
+        if ($hasMetaNumberId) {
+            if (($validated['meta_number_id'] ?? null) === null) {
+                $contact->meta_number_id = null;
+            } else {
+                $metaNumberId = (int) $validated['meta_number_id'];
+                try {
+                    $this->companyMetaNumberService->assertBelongsToCompanyAndActive((int) $conversation->company_id, $metaNumberId);
+                } catch (RuntimeException $exception) {
+                    return match ($exception->getMessage()) {
+                        'META_NUMBER_NOT_FOUND' => $this->errorResponse('META_NUMBER_NOT_FOUND', 'META_NUMBER_NOT_FOUND', 404),
+                        'META_NUMBER_COMPANY_MISMATCH' => $this->errorResponse('META_NUMBER_COMPANY_MISMATCH', 'META_NUMBER_COMPANY_MISMATCH', 422),
+                        'META_NUMBER_INACTIVE' => $this->errorResponse('META_NUMBER_INACTIVE', 'META_NUMBER_INACTIVE', 422),
+                        default => $this->errorResponse($exception->getMessage(), $exception->getMessage(), 422),
+                    };
+                }
+                $contact->meta_number_id = $metaNumberId;
+            }
         }
 
         if ($contact->default_attendant_user_id === null) {
@@ -322,6 +348,24 @@ class ConversationController extends Controller
             ]);
         }
 
+        $afterMetaNumberId = $contact->meta_number_id !== null ? (int) $contact->meta_number_id : null;
+        if ($hasMetaNumberId && $beforeMetaNumberId !== $afterMetaNumberId) {
+            AuditService::log(
+                AuditActions::CONTACT_META_NUMBER_CHANGED,
+                'contact',
+                $contact->id,
+                ['before' => ['meta_number_id' => $beforeMetaNumberId]],
+                [
+                    'actor_user_id' => (int) ($user->id ?? 0),
+                    'company_id' => (int) $conversation->company_id,
+                    'entity_type' => 'contact',
+                    'entity_id' => (int) $contact->id,
+                    'after' => ['meta_number_id' => $afterMetaNumberId],
+                    'reason' => 'conversation_contact_update',
+                ]
+            );
+        }
+
         $contact->loadMissing('defaultAttendant:id,name');
         $conversationPayload = $conversation->toArray();
         $conversationPayload['default_attendant_user_id'] = $afterDefaultAttendantId;
@@ -332,6 +376,7 @@ class ConversationController extends Controller
                 'name' => (string) $contact->defaultAttendant->name,
             ]
             : null;
+        $conversationPayload['meta_number_id'] = $afterMetaNumberId;
 
         return response()->json([
             'ok' => true,
