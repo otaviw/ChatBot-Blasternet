@@ -45,9 +45,10 @@ const extractBodyVariables = (template) => {
     .map(([token, hint]) => ({ token, hint, example: exampleByToken.get(token) ?? '' }));
 };
 
-function NewConversationModal({ open, onClose, onSubmit, busy, error }) {
+function NewConversationModal({ open, onClose, onSubmit, busy, error, activeNumbers = [] }) {
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
+  const [senderNumberId, setSenderNumberId] = useState('');
   const [sendTemplate, setSendTemplate] = useState(true);
   const [selectedTemplateKey, setSelectedTemplateKey] = useState('');
   const [templateVariables, setTemplateVariables] = useState([]);
@@ -60,13 +61,15 @@ function NewConversationModal({ open, onClose, onSubmit, busy, error }) {
 
     setPhone('');
     setName('');
+    const onlyOne = activeNumbers.length === 1 ? String(activeNumbers[0]?.id ?? '') : '';
+    setSenderNumberId(onlyOne);
     setSendTemplate(true);
     setSelectedTemplateKey('');
     setTemplateVariables([]);
     loadTemplates();
     setTimeout(() => phoneRef.current?.focus(), 50);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, activeNumbers]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -91,13 +94,16 @@ function NewConversationModal({ open, onClose, onSubmit, busy, error }) {
     onSubmit({
       phone: phone.trim(),
       name: name.trim(),
+      senderNumberId: senderNumberId || null,
       sendTemplate,
       templateName,
       templateVariables: bodyVariables.map((_, index) => String(templateVariables[index] ?? '').trim()),
     });
   };
 
+  const mustSelectSender = activeNumbers.length > 1;
   const canSubmit = phone.trim()
+    && (!mustSelectSender || senderNumberId)
     && (!sendTemplate || selectedTemplateData || templates.length === 0)
     && (!sendTemplate || bodyVariables.length === 0 || allVariablesFilled);
 
@@ -124,6 +130,29 @@ function NewConversationModal({ open, onClose, onSubmit, busy, error }) {
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <div>
+            <label className="block text-xs text-[var(--ui-text-muted)] mb-1">
+              Numero de envio {mustSelectSender ? <span className="text-red-600">*</span> : null}
+            </label>
+            <select
+              value={senderNumberId}
+              onChange={(event) => setSenderNumberId(event.target.value)}
+              required={mustSelectSender}
+              disabled={busy || activeNumbers.length <= 1}
+              className="w-full app-input text-xs py-1.5"
+            >
+              {mustSelectSender ? <option value="">Selecione um numero ativo</option> : null}
+              {activeNumbers.map((item) => (
+                <option key={String(item.id)} value={String(item.id)}>
+                  {String(item.label || item.id)}
+                </option>
+              ))}
+            </select>
+            <p className="text-[10px] text-[var(--ui-text-subtle)] mt-0.5">
+              Esse numero sera salvo como padrao deste contato.
+            </p>
+          </div>
+
           <div>
             <label className="block text-xs text-[var(--ui-text-muted)] mb-1">
               Telefone <span className="text-red-600">*</span>

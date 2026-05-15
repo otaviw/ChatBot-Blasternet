@@ -7,6 +7,7 @@ import ServiceAreaBadge from '@/components/company/ServiceAreaBadge/ServiceAreaB
 
 function ConversationToolbar({
   detail,
+  contactDefaultNumberLabel = '-',
   serviceAreaNames = [],
   contactNameInput,
   onContactNameChange,
@@ -26,6 +27,7 @@ function ConversationToolbar({
   onOpenSendTemplateModal,
   onOpenDefaultAttendantModal,
   onOpenConversationSearchModal,
+  onChangeDefaultSenderNumber,
   onDetachTag,
 }) {
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
@@ -34,19 +36,14 @@ function ConversationToolbar({
 
   useEffect(() => {
     if (!actionsMenuOpen) return undefined;
-
     const handlePointerDown = (event) => {
       if (actionsMenuRef.current && !actionsMenuRef.current.contains(event.target)) {
         setActionsMenuOpen(false);
       }
     };
-
     const handleKeyDown = (event) => {
-      if (event.key === 'Escape') {
-        setActionsMenuOpen(false);
-      }
+      if (event.key === 'Escape') setActionsMenuOpen(false);
     };
-
     document.addEventListener('mousedown', handlePointerDown);
     document.addEventListener('keydown', handleKeyDown);
     return () => {
@@ -55,16 +52,16 @@ function ConversationToolbar({
     };
   }, [actionsMenuOpen]);
 
-  const closeMenu = () => { setActionsMenuOpen(false); setDeleteConfirmOpen(false); };
+  const closeMenu = () => {
+    setActionsMenuOpen(false);
+    setDeleteConfirmOpen(false);
+  };
   const tags = Array.isArray(detail.tags) ? detail.tags : [];
 
   return (
     <div className="inbox-toolbar shrink-0">
-      {/* Linha 1 — nome/área/tags + ações */}
       <div className="flex items-start gap-x-2 gap-y-1 flex-wrap">
-        {/* Info + tags */}
         <div className="flex-1 min-w-0 space-y-1">
-          {/* Modo, atendente, área */}
           <span className="text-xs text-[#525252] inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
             <span className="min-w-0 truncate">
               <strong>{detail.handling_mode === CONVERSATION_HANDLING_MODE.HUMAN ? 'Manual' : 'Bot'}</strong>
@@ -77,8 +74,10 @@ function ConversationToolbar({
               </>
             ) : null}
           </span>
+          <p className="text-[11px] text-[#737373]">
+            Numero padrao do contato: <strong>{contactDefaultNumberLabel}</strong>
+          </p>
 
-          {/* Tags inline com X */}
           {tags.length > 0 && (
             <div className="flex flex-wrap gap-1">
               {tags.map((tag) => (
@@ -88,16 +87,16 @@ function ConversationToolbar({
                   style={{ backgroundColor: tag.color }}
                 >
                   {tag.name}
-                  {onDetachTag && (
+                  {onDetachTag ? (
                     <button
                       type="button"
                       onClick={() => onDetachTag(tag.id)}
                       className="ml-0.5 opacity-80 hover:opacity-100 leading-none"
                       aria-label={`Remover tag ${tag.name}`}
                     >
-                      ×
+                      x
                     </button>
-                  )}
+                  ) : null}
                 </span>
               ))}
               <button
@@ -112,7 +111,6 @@ function ConversationToolbar({
           )}
         </div>
 
-        {/* Nome do contato — oculto em telas muito pequenas */}
         <div className="hidden sm:flex items-center gap-1.5 shrink-0">
           <input
             type="text"
@@ -142,51 +140,16 @@ function ConversationToolbar({
             aria-expanded={actionsMenuOpen}
             aria-haspopup="menu"
           >
-            Ações
-            <span className="text-[10px]" aria-hidden>
-              {actionsMenuOpen ? '▴' : '▾'}
-            </span>
+            Acoes
+            <span className="text-[10px]" aria-hidden>{actionsMenuOpen ? '^' : 'v'}</span>
           </button>
 
           {actionsMenuOpen ? (
             <div className="inbox-toolbar-actions-menu" role="menu">
-              {/* Nome do contato dentro do menu no mobile */}
-              <div className="sm:hidden px-2 py-1.5 border-b border-[#e5e5e5]">
-                <p className="text-[10px] uppercase font-semibold text-[#a3a3a3] mb-1">Renomear contato</p>
-                <div className="flex gap-1">
-                  <input
-                    type="text"
-                    value={contactNameInput}
-                    onChange={(event) => onContactNameChange(event.target.value)}
-                    placeholder="Nome"
-                    className="flex-1 app-input text-xs py-1"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => { onSaveContactName(); closeMenu(); }}
-                    disabled={contactBusy}
-                    className="app-btn-secondary text-xs py-1 shrink-0"
-                  >
-                    {contactBusy ? '...' : 'OK'}
-                  </button>
-                </div>
-                {contactSuccess && <p className="text-[10px] text-green-600 mt-0.5">{contactSuccess}</p>}
-                {contactError && <p className="text-[10px] text-red-600 mt-0.5">{contactError}</p>}
-              </div>
-              <button
-                type="button"
-                role="menuitem"
-                disabled={actionBusy}
-                onClick={() => { onAssumeConversation(); closeMenu(); }}
-              >
+              <button type="button" role="menuitem" disabled={actionBusy} onClick={() => { onAssumeConversation(); closeMenu(); }}>
                 Assumir conversa
               </button>
-              <button
-                type="button"
-                role="menuitem"
-                disabled={actionBusy}
-                onClick={() => { onReleaseConversation(); closeMenu(); }}
-              >
+              <button type="button" role="menuitem" disabled={actionBusy} onClick={() => { onReleaseConversation(); closeMenu(); }}>
                 Soltar conversa
               </button>
               <div className="inbox-toolbar-actions-sep" role="separator" />
@@ -200,67 +163,38 @@ function ConversationToolbar({
                 Encerrar conversa
               </button>
               <div className="inbox-toolbar-actions-sep" role="separator" />
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => { onOpenTagsModal(); closeMenu(); }}
-              >
+              <button type="button" role="menuitem" onClick={() => { onOpenTagsModal(); closeMenu(); }}>
                 Tags{tags.length > 0 ? ` (${tags.length})` : ''}
               </button>
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => { onOpenTransferModal(); closeMenu(); }}
-              >
-                Transferir…
+              <button type="button" role="menuitem" onClick={() => { onOpenTransferModal(); closeMenu(); }}>
+                Transferir...
               </button>
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => { onOpenDefaultAttendantModal(); closeMenu(); }}
-              >
-                Atendente padrão…
+              <button type="button" role="menuitem" onClick={() => { onOpenDefaultAttendantModal(); closeMenu(); }}>
+                Atendente padrao...
+              </button>
+              <button type="button" role="menuitem" onClick={() => { onChangeDefaultSenderNumber?.(); closeMenu(); }}>
+                Alterar numero padrao
               </button>
               <div className="inbox-toolbar-actions-sep" role="separator" />
-              <button
-                type="button"
-                role="menuitem"
-                disabled={actionBusy}
-                onClick={() => { onOpenSendTemplateModal(); closeMenu(); }}
-              >
-                Enviar template…
+              <button type="button" role="menuitem" disabled={actionBusy} onClick={() => { onOpenSendTemplateModal(); closeMenu(); }}>
+                Enviar template...
               </button>
               <div className="inbox-toolbar-actions-sep" role="separator" />
               {deleteConfirmOpen ? (
                 <div className="px-3 py-2 space-y-2">
                   <p className="text-xs text-[#171717] font-medium">Apagar esta conversa permanentemente?</p>
-                  {deleteError && <p className="text-[10px] text-red-600">{deleteError}</p>}
+                  {deleteError ? <p className="text-[10px] text-red-600">{deleteError}</p> : null}
                   <div className="flex gap-2">
-                    <button
-                      type="button"
-                      disabled={deleteBusy}
-                      className="app-btn-secondary text-xs py-1 flex-1"
-                      onClick={() => setDeleteConfirmOpen(false)}
-                    >
+                    <button type="button" disabled={deleteBusy} className="app-btn-secondary text-xs py-1 flex-1" onClick={() => setDeleteConfirmOpen(false)}>
                       Cancelar
                     </button>
-                    <button
-                      type="button"
-                      disabled={deleteBusy}
-                      className="app-btn-secondary text-xs py-1 flex-1 !text-red-700 hover:!bg-red-50 border-red-300"
-                      onClick={onDeleteConversation}
-                    >
+                    <button type="button" disabled={deleteBusy} className="app-btn-secondary text-xs py-1 flex-1 !text-red-700 hover:!bg-red-50 border-red-300" onClick={onDeleteConversation}>
                       {deleteBusy ? '...' : 'Apagar'}
                     </button>
                   </div>
                 </div>
               ) : (
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="!text-red-700 hover:!bg-red-50"
-                  onClick={() => setDeleteConfirmOpen(true)}
-                >
+                <button type="button" role="menuitem" className="!text-red-700 hover:!bg-red-50" onClick={() => setDeleteConfirmOpen(true)}>
                   Apagar conversa
                 </button>
               )}
@@ -269,13 +203,12 @@ function ConversationToolbar({
         </div>
       </div>
 
-      {/* Feedback de contato — somente no desktop */}
-      {(contactSuccess || contactError) && (
+      {(contactSuccess || contactError) ? (
         <div className="hidden sm:flex gap-2 mt-0.5">
-          {contactSuccess && <span className="text-xs text-green-600">{contactSuccess}</span>}
-          {contactError && <span className="text-xs text-red-600">{contactError}</span>}
+          {contactSuccess ? <span className="text-xs text-green-600">{contactSuccess}</span> : null}
+          {contactError ? <span className="text-xs text-red-600">{contactError}</span> : null}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

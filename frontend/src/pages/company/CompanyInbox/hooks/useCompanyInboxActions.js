@@ -332,13 +332,14 @@ export default function useCompanyInboxActions({
   }, [conversationSearch, messageComposer]);
 
   const createConversation = useCallback(
-    async ({ phone, name, sendTemplate, templateName, templateVariables = [] }) => {
+    async ({ phone, name, senderNumberId, sendTemplate, templateName, templateVariables = [] }) => {
       setNewConvBusy(true);
       setNewConvError('');
       try {
         const response = await api.post('/minha-conta/conversas', {
           customer_phone: phone,
           customer_name: name || null,
+          sender_number_id: senderNumberId || null,
           send_template: sendTemplate,
           template_name: templateName || 'iniciar_conversa',
           template_variables: templateVariables,

@@ -23,6 +23,7 @@ import useCompanyInboxConversations from './hooks/useCompanyInboxConversations';
 import useCompanyInboxDetailMessages from './hooks/useCompanyInboxDetailMessages';
 import useCompanyInboxActions from './hooks/useCompanyInboxActions';
 import api from '@/services/api';
+import { getActiveCompanyNumbers } from '@/utils/companyPhoneNumbers';
 
 const CONV_PER_PAGE = 25;
 
@@ -39,6 +40,7 @@ function CompanyInboxPage() {
   });
   const typingTimersRef = useRef(new Map());
   const [typingConversationIds, setTypingConversationIds] = useState(new Set());
+  const [companyProfile, setCompanyProfile] = useState(null);
 
   const { data, loading, error } = usePageData(
     `/minha-conta/conversas?page=1&per_page=${CONV_PER_PAGE}`
@@ -231,6 +233,24 @@ function CompanyInboxPage() {
   }, [data?.authenticated, loadConversationCounters]);
 
   useEffect(() => {
+    let canceled = false;
+    if (!data?.authenticated) return undefined;
+    (async () => {
+      try {
+        const response = await api.get('/minha-conta/empresa');
+        if (!canceled) setCompanyProfile(response?.data?.company ?? response?.data ?? null);
+      } catch (_error) {
+        if (!canceled) setCompanyProfile(null);
+      }
+    })();
+    return () => {
+      canceled = true;
+    };
+  }, [data?.authenticated]);
+
+  const activeNumbers = useMemo(() => getActiveCompanyNumbers(companyProfile), [companyProfile]);
+
+  useEffect(() => {
     setConversationSearchOpen(false);
     setConversationSearchQuery('');
     setConversationSearchResults([]);
@@ -264,6 +284,37 @@ function CompanyInboxPage() {
     },
     [createConversation, openConversation]
   );
+
+  const contactDefaultNumberLabel = String(
+    detail?.contact_default_sender_number_label
+    ?? detail?.contact_default_sender_number
+    ?? detail?.contact_default_sender_number_id
+    ?? '-'
+  );
+
+  const handleChangeDefaultSenderNumber = useCallback(async () => {
+    if (!detail?.id || activeNumbers.length === 0) return;
+    const contactPhone = String(detail?.customer_phone ?? '').trim();
+    const contactName = String(detail?.customer_name ?? '').trim();
+    if (!contactPhone || !contactName) return;
+
+    const selected = window.prompt(
+      `Informe o ID do numero padrao:\n${activeNumbers.map((n) => `${n.id} - ${n.label}`).join('\n')}`,
+      String(detail?.contact_default_sender_number_id ?? activeNumbers[0]?.id ?? '')
+    );
+    const senderId = String(selected ?? '').trim();
+    if (!senderId) return;
+
+    try {
+      await api.put(`/minha-conta/conversas/${detail.id}/contato`, {
+        customer_name: contactName,
+        customer_phone: contactPhone,
+        default_sender_number_id: senderId,
+      });
+      await refreshConversationDetail();
+      await refreshConversations();
+    } catch (_error) {}
+  }, [activeNumbers, detail, refreshConversationDetail, refreshConversations]);
 
   useEffect(() => {
     if (!conversationSearchOpen || !selectedId) {
@@ -463,6 +514,7 @@ function CompanyInboxPage() {
               <div className="inbox-detail-layout">
                 <ConversationToolbar
                   detail={detail}
+                  contactDefaultNumberLabel={contactDefaultNumberLabel}
                   serviceAreaNames={serviceAreaNames}
                   contactNameInput={contactNameInput}
                   onContactNameChange={handleContactNameInputChange}
@@ -482,6 +534,7 @@ function CompanyInboxPage() {
                   onOpenSendTemplateModal={() => setSendTemplateModalOpen(true)}
                   onOpenDefaultAttendantModal={openDefaultAttendantModal}
                   onOpenConversationSearchModal={() => setConversationSearchOpen(true)}
+                  onChangeDefaultSenderNumber={handleChangeDefaultSenderNumber}
                   onDetachTag={detachTag}
                 />
                 {selectedId && typingConversationIds.has(Number(selectedId)) ? (
@@ -577,6 +630,7 @@ function CompanyInboxPage() {
       <NewConversationModal
         open={newConvModalOpen}
         onClose={() => setNewConvModalOpen(false)}
+        activeNumbers={activeNumbers}
         onSubmit={handleCreateConversation}
         busy={newConvBusy}
         error={newConvError}

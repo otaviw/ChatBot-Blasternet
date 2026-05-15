@@ -4,6 +4,7 @@ import { DAY_KEYS, DAY_LABELS } from '@/constants/botSettings';
 import Notice from '@/components/ui/Notice/Notice.jsx';
 import EmptyState from '@/components/ui/EmptyState/EmptyState.jsx';
 import ErrorMessage from '@/components/ui/ErrorMessage/ErrorMessage.jsx';
+import { useState } from 'react';
 
 function SettingsTab({
   companyForm,
@@ -40,9 +41,68 @@ function SettingsTab({
   removeServiceArea,
   loadSuggestedMenuTemplate,
   enableCustomMenuBuilder,
+  companyNumbers = [],
+  onAddCompanyNumber,
+  onUpdateCompanyNumber,
+  onSetPrimaryCompanyNumber,
+  onRemoveCompanyNumber,
 }) {
+  const [newNumberId, setNewNumberId] = useState('');
+  const [newNumberLabel, setNewNumberLabel] = useState('');
+
+  const handleAddNumber = async (event) => {
+    event.preventDefault();
+    if (!newNumberId.trim()) return;
+    await onAddCompanyNumber?.({ id: newNumberId, label: newNumberLabel });
+    setNewNumberId('');
+    setNewNumberLabel('');
+  };
+
   return (
     <>
+      <section className="app-panel mb-8">
+        <h2 className="font-medium mb-3">Numeros da empresa</h2>
+        {companyNumbers.length === 0 ? (
+          <EmptyState title="Nenhum numero cadastrado" subtitle="Adicione ao menos um numero para envio." />
+        ) : (
+          <div className="space-y-2">
+            {companyNumbers.map((number) => (
+              <div key={number.id} className="border border-[var(--ui-border)] rounded p-2 flex flex-wrap items-center gap-2">
+                <div className="text-xs">
+                  <strong>{number.label || number.id}</strong> ({number.id})
+                  {' '}
+                  <span>{number.is_active ? 'Ativo' : 'Inativo'}</span>
+                  {' '}
+                  <span>{number.is_primary ? 'Principal' : ''}</span>
+                </div>
+                <button type="button" className="app-btn-secondary text-xs" onClick={() => onUpdateCompanyNumber?.(number.id, { is_active: !number.is_active })}>
+                  {number.is_active ? 'Inativar' : 'Ativar'}
+                </button>
+                <button type="button" className="app-btn-secondary text-xs" onClick={() => onSetPrimaryCompanyNumber?.(number.id)} disabled={number.is_primary}>
+                  Definir principal
+                </button>
+                <button
+                  type="button"
+                  className="app-btn-secondary text-xs !text-red-700 border-red-300"
+                  onClick={() => {
+                    const ok = window.confirm('Remover este numero? Os contatos serao reatribuidos automaticamente para outro numero ativo/principal.');
+                    if (ok) onRemoveCompanyNumber?.(number.id);
+                  }}
+                >
+                  Remover
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <form className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-3" onSubmit={handleAddNumber}>
+          <input className="app-input" placeholder="ID do numero" value={newNumberId} onChange={(e) => setNewNumberId(e.target.value)} />
+          <input className="app-input" placeholder="Rotulo exibicao" value={newNumberLabel} onChange={(e) => setNewNumberLabel(e.target.value)} />
+          <button type="submit" className="app-btn-primary">Adicionar numero</button>
+        </form>
+      </section>
+
       <section className="app-panel mb-8">
         <h2 className="font-medium mb-3">Dados da empresa (admin)</h2>
         <form onSubmit={saveCompanyData} className="grid grid-cols-1 md:grid-cols-2 gap-3">

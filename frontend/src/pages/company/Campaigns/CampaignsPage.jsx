@@ -148,7 +148,7 @@ function CampaignsPage() {
 
     const { data: response, error: loadError } = await runCampaignsRequest(
       () => api.get('/minha-conta/campanhas'),
-      { mapError: (err) => err?.response?.data?.message ?? 'Não foi possível carregar campanhas.' }
+      { mapError: (err) => err?.response?.data?.message ?? 'Nï¿½o foi possï¿½vel carregar campanhas.' }
     );
 
     if (loadError || !response) {
@@ -245,7 +245,7 @@ function CampaignsPage() {
       })
       .catch((err) => {
         setContacts([]);
-        setContactsError(err?.response?.data?.message ?? 'Não foi possível carregar contatos.');
+        setContactsError(err?.response?.data?.message ?? 'Nï¿½o foi possï¿½vel carregar contatos.');
       })
       .finally(() => {
         setContactsLoading(false);
@@ -273,9 +273,9 @@ function CampaignsPage() {
       const skipped = Number(response?.data?.skipped ?? 0);
       const refreshedContacts = await fetchAllCompanyContacts();
       setContacts(refreshedContacts);
-      showSuccess(`Importação concluída: ${imported} importados, ${skipped} ignorados.`);
+      showSuccess(`Importaï¿½ï¿½o concluï¿½da: ${imported} importados, ${skipped} ignorados.`);
     } catch (err) {
-      const message = err?.response?.data?.message ?? 'Não foi possível importar CSV de contatos.';
+      const message = err?.response?.data?.message ?? 'Nï¿½o foi possï¿½vel importar CSV de contatos.';
       setContactsImportError(message);
       showError(message);
     } finally {
@@ -325,7 +325,7 @@ function CampaignsPage() {
         err?.response?.data?.errors?.name?.[0] ??
         err?.response?.data?.errors?.type?.[0] ??
         err?.response?.data?.message ??
-        'Não foi possível criar campanha.';
+        'Nï¿½o foi possï¿½vel criar campanha.';
       setModalError(message);
     } finally {
       setCreateBusy(false);
@@ -344,7 +344,7 @@ function CampaignsPage() {
       await loadCampaigns({ silent: true });
       showSuccess('Envio da campanha iniciado.');
     } catch (err) {
-      showError(err?.response?.data?.message ?? 'Não foi possível iniciar o envio.');
+      showError(err?.response?.data?.message ?? 'Nï¿½o foi possï¿½vel iniciar o envio.');
     } finally {
       setStartingId(null);
     }
@@ -369,7 +369,7 @@ function CampaignsPage() {
         <section className="campaigns-page">
           <h1 className="app-page-title">Campanhas</h1>
           <div className="app-panel">
-            <ErrorMessage message="Não foi possível carregar a página." />
+            <ErrorMessage message="Nï¿½o foi possï¿½vel carregar a pï¿½gina." />
           </div>
         </section>
       </Layout>
@@ -383,6 +383,7 @@ function CampaignsPage() {
           <div>
             <h1 className="app-page-title">Campanhas</h1>
             <p className="app-page-subtitle">Envios em massa por template, aberta ou livre.</p>
+            <p className="text-xs text-[#737373] mt-1">O envio usa o numero padrao configurado em cada contato.</p>
           </div>
           <button type="button" className="app-btn-primary" onClick={openCreateModal}>
             Nova campanha
@@ -419,7 +420,7 @@ function CampaignsPage() {
                     <th>Enviados</th>
                     <th>Falhas</th>
                     <th>Ignorados</th>
-                    <th>Ações</th>
+                    <th>Aï¿½ï¿½es</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -454,6 +455,7 @@ function CampaignsPage() {
                         <td>{toDisplayCount(campaign?.sent_count)}</td>
                         <td>{toDisplayCount(campaign?.failed_count)}</td>
                         <td>{toDisplayCount(campaign?.skipped_count)}</td>
+                        <td>{campaign?.used_sender_number_label ?? campaign?.used_sender_number ?? '-'}</td>
                         <td>
                           {isDraft ? (
                             <button

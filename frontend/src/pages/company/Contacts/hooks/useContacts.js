@@ -105,6 +105,7 @@ function useContacts() {
   const createContact = useCallback(async ({
     name,
     phone,
+    default_sender_number_id = null,
     default_attendant_user_id = null,
     skip_bot_to_default_attendant = false,
   }) => {
@@ -120,6 +121,7 @@ function useContacts() {
       const response = await api.post(CONTACTS_ENDPOINT, {
         name: safeName,
         phone: safePhone,
+        default_sender_number_id: default_sender_number_id || null,
         ...routing,
       });
 
@@ -147,6 +149,7 @@ function useContacts() {
   const updateContact = useCallback(async (id, {
     name,
     phone,
+    default_sender_number_id = null,
     default_attendant_user_id = null,
     skip_bot_to_default_attendant = false,
   }) => {
@@ -160,6 +163,7 @@ function useContacts() {
       const response = await api.patch(`${CONTACTS_ENDPOINT}/${id}`, {
         name: String(name ?? '').trim(),
         phone: String(phone ?? '').trim(),
+        default_sender_number_id: default_sender_number_id || null,
         ...routing,
       });
 

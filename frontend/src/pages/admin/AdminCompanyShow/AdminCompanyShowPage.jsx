@@ -12,6 +12,7 @@ import api from '@/services/api';
 import GeneralTab from './tabs/GeneralTab.jsx';
 import UsersTab from './tabs/UsersTab.jsx';
 import SettingsTab from './tabs/SettingsTab.jsx';
+import { normalizeCompanyNumbers } from '@/utils/companyPhoneNumbers';
 
 const ADMIN_COMPANY_TABS = [
   { key: 'general', label: 'Geral' },
@@ -45,6 +46,7 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
   const [testResult, setTestResult] = useState(null);
   const [ixcTestState, setIxcTestState] = useState('idle');
   const [ixcTestResult, setIxcTestResult] = useState(null);
+  const [companyNumbers, setCompanyNumbers] = useState([]);
 
   const reloadSettings = useCallback(async () => {
     const response = await api.get(`/admin/empresas/${companyId}`);
@@ -94,6 +96,7 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
     }
 
     setCompanyData(data.company);
+    setCompanyNumbers(normalizeCompanyNumbers(data.company));
     setCompanyForm({
       name: data.company.name ?? '',
       meta_phone_number_id: data.company.meta_phone_number_id ?? '',
@@ -107,6 +110,58 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
       ai_internal_chat_enabled: Boolean(data.company.bot_setting?.ai_internal_chat_enabled),
     });
   }, [data]);
+
+  const syncNumbersOnServer = async (nextNumbers) => {
+    await api.put(`/admin/empresas/${companyId}`, {
+      whatsapp_numbers: nextNumbers,
+    });
+  };
+
+  const addCompanyNumber = async ({ id, label }) => {
+    const cleanId = String(id ?? '').trim();
+    if (!cleanId) return;
+    const cleanLabel = String(label ?? '').trim() || cleanId;
+    const next = [
+      ...companyNumbers,
+      { id: cleanId, label: cleanLabel, is_active: true, is_primary: companyNumbers.length === 0 },
+    ];
+    setCompanyNumbers(next);
+    try {
+      await syncNumbersOnServer(next);
+    } catch (_error) {}
+  };
+
+  const updateCompanyNumber = async (targetId, patch) => {
+    const next = companyNumbers.map((item) => (
+      item.id === targetId ? { ...item, ...patch } : item
+    ));
+    setCompanyNumbers(next);
+    try {
+      await syncNumbersOnServer(next);
+    } catch (_error) {}
+  };
+
+  const setPrimaryCompanyNumber = async (targetId) => {
+    const next = companyNumbers.map((item) => ({
+      ...item,
+      is_primary: item.id === targetId,
+    }));
+    setCompanyNumbers(next);
+    try {
+      await syncNumbersOnServer(next);
+    } catch (_error) {}
+  };
+
+  const removeCompanyNumber = async (targetId) => {
+    const next = companyNumbers.filter((item) => item.id !== targetId);
+    if (next.length > 0 && !next.some((item) => item.is_primary)) {
+      next[0] = { ...next[0], is_primary: true };
+    }
+    setCompanyNumbers(next);
+    try {
+      await syncNumbersOnServer(next);
+    } catch (_error) {}
+  };
 
   const testConnection = async () => {
     setTestState('loading');
@@ -312,6 +367,11 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
             removeServiceArea={removeServiceArea}
             loadSuggestedMenuTemplate={loadSuggestedMenuTemplate}
             enableCustomMenuBuilder={enableCustomMenuBuilder}
+            companyNumbers={companyNumbers}
+            onAddCompanyNumber={addCompanyNumber}
+            onUpdateCompanyNumber={updateCompanyNumber}
+            onSetPrimaryCompanyNumber={setPrimaryCompanyNumber}
+            onRemoveCompanyNumber={removeCompanyNumber}
           />
         </div>
       )}
