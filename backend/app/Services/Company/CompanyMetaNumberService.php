@@ -315,7 +315,7 @@ class CompanyMetaNumberService
 
     public function assertBelongsToCompanyAndActive(int $companyId, int $metaNumberId): CompanyMetaNumber
     {
-        $number = CompanyMetaNumber::query()->find($metaNumberId);
+        $number = CompanyMetaNumber::withoutCompanyScope()->find($metaNumberId);
         if (! $number) {
             throw new RuntimeException('META_NUMBER_NOT_FOUND');
         }

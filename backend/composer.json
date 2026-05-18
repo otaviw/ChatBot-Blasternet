@@ -53,12 +53,12 @@
         ],
         "test": [
             "@php artisan config:clear --ansi",
-            "@php artisan test"
+            "@php -d memory_limit=768M artisan test"
         ],
         "test:security": [
             "@php artisan config:clear --ansi",
-            "@php artisan test --testsuite=Security",
-            "@php artisan test tests/Unit/Services/Ai/AiSafetyPipelineTest.php"
+            "@php -d memory_limit=768M artisan test --testsuite=Security",
+            "@php -d memory_limit=768M artisan test tests/Unit/Services/Ai/AiSafetyPipelineTest.php"
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",

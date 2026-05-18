@@ -14,6 +14,7 @@ use App\Services\RealtimePublisher;
 use App\Support\MessageDeliveryStatus;
 use App\Support\PhoneNumberNormalizer;
 use App\Support\RealtimeEvents;
+use App\Support\LogSanitizer;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Queue\Queueable;
@@ -63,7 +64,7 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
         $this->processTypingEvents($company, $this->changeValue, $realtimePublisher);
 
         Log::info('Webhook WhatsApp company resolvida por metadata.phone_number_id.', [
-            'phone_number_id' => (string) (($this->changeValue['metadata'] ?? [])['phone_number_id'] ?? ''),
+            'phone_number_id' => LogSanitizer::maskToken((string) (($this->changeValue['metadata'] ?? [])['phone_number_id'] ?? '')),
             'company_id' => $company->id,
         ]);
 
@@ -163,7 +164,7 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
                 } else {
                     Log::info('Webhook interactive ignorado por tipo desconhecido.', [
                         'company_id'       => $company->id,
-                        'from'             => $from,
+                        'from'             => LogSanitizer::maskPhone($from),
                         'interactive_type' => $interactiveType,
                     ]);
                     continue;
@@ -172,7 +173,7 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
                 if ($buttonId === '') {
                     Log::warning('Webhook interactive ignorado: button_id vazio.', [
                         'company_id'       => $company->id,
-                        'from'             => $from,
+                        'from'             => LogSanitizer::maskPhone($from),
                         'interactive_type' => $interactiveType,
                     ]);
                     continue;
@@ -223,11 +224,11 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
 
                 Log::info('Webhook interactive reply processado.', [
                     'company_id'       => $company->id,
-                    'from'             => $from,
+                    'from'             => LogSanitizer::maskPhone($from),
                     'message_id'       => $messageId,
                     'interactive_type' => $interactiveType,
                     'button_id'        => $buttonId,
-                    'button_title'     => $buttonTitle,
+                    'button_title'     => LogSanitizer::truncateText($buttonTitle, 40),
                 ]);
                 $processedCount++;
                 continue;
@@ -260,7 +261,7 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
 
         if (! $company) {
             Log::warning('Webhook WhatsApp sem company correspondente para phone_number_id.', [
-                'phone_number_id' => $phoneNumberId,
+                'phone_number_id' => LogSanitizer::maskToken($phoneNumberId),
             ]);
         }
 
@@ -279,7 +280,7 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
         Log::info('Webhook WhatsApp recebeu status de entrega.', [
             'company_id' => (int) $company->id,
             'statuses_count' => count($statuses),
-            'phone_number_id' => $metadata['phone_number_id'] ?? null,
+            'phone_number_id' => LogSanitizer::maskToken((string) ($metadata['phone_number_id'] ?? '')),
         ]);
 
         foreach ($statuses as $statusPayload) {
@@ -608,7 +609,7 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
 
         Log::error('ProcessWhatsAppWebhookJob: falhou após todas as tentativas.', [
             'company_id'      => $this->companyId,
-            'phone_number_id' => $metadata['phone_number_id'] ?? null,
+            'phone_number_id' => LogSanitizer::maskToken((string) ($metadata['phone_number_id'] ?? '')),
             'messages_count'  => count($this->changeValue['messages'] ?? []),
             'statuses_count'  => count($this->changeValue['statuses'] ?? []),
             'attempts'        => $this->tries,

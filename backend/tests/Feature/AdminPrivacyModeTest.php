@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Company;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Models\Reseller;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -102,5 +103,45 @@ class AdminPrivacyModeTest extends TestCase
             $response->assertStatus(403);
             $response->assertJsonPath('privacy_mode', 'blind_default');
         }
+    }
+
+    public function test_reseller_admin_cannot_filter_admin_conversations_with_foreign_company_id(): void
+    {
+        $resellerA = Reseller::create(['name' => 'Revenda A', 'slug' => 'revenda-a']);
+        $resellerB = Reseller::create(['name' => 'Revenda B', 'slug' => 'revenda-b']);
+
+        $companyA = Company::create(['name' => 'Empresa A', 'reseller_id' => $resellerA->id]);
+        $companyB = Company::create(['name' => 'Empresa B', 'reseller_id' => $resellerB->id]);
+
+        Conversation::create([
+            'company_id' => $companyA->id,
+            'customer_phone' => '5511911111111',
+            'status' => 'open',
+            'assigned_type' => 'unassigned',
+            'handling_mode' => 'bot',
+        ]);
+
+        Conversation::create([
+            'company_id' => $companyB->id,
+            'customer_phone' => '5511922222222',
+            'status' => 'open',
+            'assigned_type' => 'unassigned',
+            'handling_mode' => 'bot',
+        ]);
+
+        $resellerAdminA = User::create([
+            'name' => 'Admin Revenda A',
+            'email' => 'admin-revenda-a-conv@test.local',
+            'password' => 'secret123',
+            'role' => User::ROLE_RESELLER_ADMIN,
+            'reseller_id' => $resellerA->id,
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($resellerAdminA)
+            ->getJson("/api/admin/conversas?company_id={$companyB->id}");
+
+        $response->assertStatus(403)
+            ->assertJsonPath('message', 'Acesso negado para esta empresa.');
     }
 }

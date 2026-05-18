@@ -31,21 +31,21 @@ class ProductMetricsFunnelTest extends TestCase
             'funnel' => 'cadastro',
             'step' => 'company_created',
             'event_name' => 'admin_company_created',
-            'occurred_at' => now()->subDay(),
+            'occurred_at' => '2026-04-10 09:00:00',
         ]);
         ProductEvent::create([
             'company_id' => $companyA->id,
             'funnel' => 'cadastro',
             'step' => 'user_created',
             'event_name' => 'company_user_created',
-            'occurred_at' => now()->subDay(),
+            'occurred_at' => '2026-04-10 09:01:00',
         ]);
         ProductEvent::create([
             'company_id' => $companyA->id,
             'funnel' => 'uso_chatbot',
             'step' => 'inbound_received',
             'event_name' => 'chatbot_inbound_received',
-            'occurred_at' => now()->subDay(),
+            'occurred_at' => '2026-04-10 09:02:00',
         ]);
 
         ProductEvent::create([
@@ -53,14 +53,14 @@ class ProductMetricsFunnelTest extends TestCase
             'funnel' => 'cadastro',
             'step' => 'company_created',
             'event_name' => 'admin_company_created',
-            'occurred_at' => now()->subDay(),
+            'occurred_at' => '2026-04-10 11:00:00',
         ]);
         ProductEvent::create([
             'company_id' => $companyB->id,
             'funnel' => 'cadastro',
             'step' => 'user_created',
             'event_name' => 'company_user_created',
-            'occurred_at' => now()->subDay(),
+            'occurred_at' => '2026-04-10 11:01:00',
         ]);
 
         $response = $this->actingAs($userA)

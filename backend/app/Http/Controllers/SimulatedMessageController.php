@@ -22,14 +22,14 @@ class SimulatedMessageController extends Controller
     public function store(Request $request): JsonResponse
     {
         $user = $request->user();
-        if (! $user || ! $user->isSystemAdmin()) {
+        if (! $user) {
             return response()->json([
                 'authenticated' => false,
                 'redirect' => '/entrar',
             ], 403);
         }
         $role = User::normalizeRole($user->role);
-        $canViewMedia = true;
+        $canViewMedia = false;
 
         $validated = $request->validate([
             'company_id' => ['required', 'integer', 'exists:companies,id'],
@@ -42,6 +42,16 @@ class SimulatedMessageController extends Controller
         ]);
 
         $companyId = (int) $validated['company_id'];
+        $canSimulate = $user->isSystemAdmin()
+            || ($user->isCompanyUser() && (int) $user->company_id === $companyId);
+
+        if (! $canSimulate) {
+            return response()->json([
+                'authenticated' => false,
+                'redirect' => '/entrar',
+            ], 403);
+        }
+
         $company = Company::with('botSetting')->findOrFail($companyId);
         $sendOutbound = (bool) ($validated['send_outbound'] ?? true);
         $text = trim((string) ($validated['text'] ?? ''));

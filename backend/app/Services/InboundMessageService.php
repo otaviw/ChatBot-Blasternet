@@ -81,7 +81,6 @@ class InboundMessageService
 
         $conversation = $this->conversationBootstrap->bootstrap($company, $normalizedFrom, $normalizedContactName);
         $routingDecision = $this->conversationBootstrap->lastRoutingDecision();
-        $routingDecision = $this->conversationBootstrap->lastRoutingDecision();
 
         $isFirstInboundMessage = ! Message::where('conversation_id', $conversation->id)
             ->where('direction', 'in')
@@ -339,6 +338,7 @@ class InboundMessageService
         }
 
         $conversation = $this->conversationBootstrap->bootstrap($company, $normalizedFrom, $normalizedContactName);
+        $routingDecision = $this->conversationBootstrap->lastRoutingDecision();
 
         $download = $this->whatsAppSend->downloadInboundImage($company, $normalizedMediaId);
         $storedMedia = null;
@@ -879,12 +879,18 @@ class InboundMessageService
         $shadowEnabled = (bool) ($settings->ai_chatbot_shadow_mode ?? false);
         $sandboxEnabled = (bool) ($settings->ai_chatbot_sandbox_enabled ?? false);
         $sandboxNumberAllowed = $sandboxEnabled && $this->isSandboxTestNumberAllowed($settings->ai_chatbot_test_numbers, $normalizedFrom);
-        $activeEnabled = $this->chatbotAiDecision->shouldUseAi($company);
-        $mode = $sandboxNumberAllowed
-            ? AiChatbotDecisionLog::MODE_SANDBOX
-            : ($shadowEnabled
-                ? AiChatbotDecisionLog::MODE_SHADOW
-                : ($activeEnabled ? AiChatbotDecisionLog::MODE_ACTIVE : AiChatbotDecisionLog::MODE_OFF));
+        if ($sandboxNumberAllowed) {
+            $mode = AiChatbotDecisionLog::MODE_SANDBOX;
+        } elseif ($shadowEnabled) {
+            $mode = AiChatbotDecisionLog::MODE_SHADOW;
+        } else {
+            try {
+                $activeEnabled = $this->chatbotAiDecision->shouldUseAi($company);
+            } catch (Throwable) {
+                $activeEnabled = false;
+            }
+            $mode = $activeEnabled ? AiChatbotDecisionLog::MODE_ACTIVE : AiChatbotDecisionLog::MODE_OFF;
+        }
 
         if ($mode === AiChatbotDecisionLog::MODE_OFF) {
             return [$legacyReply, $replyMessage];
@@ -892,7 +898,7 @@ class InboundMessageService
 
         // Fluxos stateful (menu/IXC/agendamento) continuam determinísticos em shadow,
         // mas podem ser enriquecidos por IA no modo active/sandbox.
-        if ($statefulHandled && ! in_array($mode, [AiChatbotDecisionLog::MODE_ACTIVE, AiChatbotDecisionLog::MODE_SANDBOX], true)) {
+        if ($statefulHandled && $mode !== AiChatbotDecisionLog::MODE_ACTIVE) {
             return [$legacyReply, $replyMessage];
         }
 

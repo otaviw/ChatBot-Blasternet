@@ -70,6 +70,7 @@ class ManualReplyAction
         if (! $limitCheck->allowed) {
             return $limitCheck->toBlockedResponse();
         }
+        $sendOutbound = (bool) ($validated['send_outbound'] ?? true);
 
         $contact = Contact::query()->firstOrCreate(
             [
@@ -93,7 +94,9 @@ class ManualReplyAction
             );
             $resolvedMetaNumberId = (int) $resolvedMetaNumber->id;
         } catch (MetaNumberResolutionException $exception) {
-            return ActionResponse::unprocessable($exception->errorCode(), ['error' => $exception->errorCode()]);
+            if ($sendOutbound && ! $this->hasLegacyWhatsAppCredentials($conversation)) {
+                return ActionResponse::unprocessable($exception->errorCode(), ['error' => $exception->errorCode()]);
+            }
         }
 
         $storedMedia = null;
@@ -138,7 +141,6 @@ class ManualReplyAction
             newData: $this->buildMessageAuditData($message, $conversation, 'manual')
         );
 
-        $sendOutbound = (bool) ($validated['send_outbound'] ?? true);
         $wasSent      = false;
 
         if ($sendOutbound) {
@@ -300,5 +302,18 @@ class ManualReplyAction
             'has_media'       => ! empty($message->media_key),
             'text_preview'    => $textPreview,
         ];
+    }
+
+    private function hasLegacyWhatsAppCredentials(Conversation $conversation): bool
+    {
+        $company = $conversation->company;
+        if (! $company) {
+            return false;
+        }
+
+        $phoneNumberId = trim((string) ($company->meta_phone_number_id ?? ''));
+        $accessToken = trim((string) ($company->meta_access_token ?? ''));
+
+        return $phoneNumberId !== '' && $accessToken !== '';
     }
 }

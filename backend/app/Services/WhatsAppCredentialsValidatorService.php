@@ -5,6 +5,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Support\LogSanitizer;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -49,7 +50,7 @@ class WhatsAppCredentialsValidatorService
             $errorMessage = $this->extractMetaError($errorBody, $response->status());
 
             Log::warning('WhatsApp credentials validation failed.', [
-                'phone_number_id' => $phoneNumberId,
+                'phone_number_id' => LogSanitizer::maskToken($phoneNumberId),
                 'http_status'     => $response->status(),
                 'meta_error'      => $errorMessage,
             ]);
@@ -58,14 +59,14 @@ class WhatsAppCredentialsValidatorService
 
         } catch (\Illuminate\Http\Client\ConnectionException $e) {
             Log::warning('WhatsApp credentials validation: connection timeout or refused.', [
-                'phone_number_id' => $phoneNumberId,
+                'phone_number_id' => LogSanitizer::maskToken($phoneNumberId),
                 'error'           => $e->getMessage(),
             ]);
 
             return $this->failure('Não foi possível conectar à API da Meta. Tente novamente em instantes.');
         } catch (\Throwable $e) {
             Log::error('WhatsApp credentials validation: unexpected error.', [
-                'phone_number_id' => $phoneNumberId,
+                'phone_number_id' => LogSanitizer::maskToken($phoneNumberId),
                 'error'           => $e->getMessage(),
                 'class'           => $e::class,
             ]);

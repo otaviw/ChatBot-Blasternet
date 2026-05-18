@@ -6,6 +6,7 @@ declare(strict_types=1);
 namespace App\Actions\Company\User;
 
 use App\Data\ActionResponse;
+use App\Mail\WelcomeUserMail;
 use App\Models\AppointmentStaffProfile;
 use App\Models\Area;
 use App\Models\User;
@@ -13,6 +14,7 @@ use App\Services\Company\CompanyUsageLimitsService;
 use App\Services\ProductMetricsService;
 use App\Support\ProductFunnels;
 use App\Support\UserPermissions;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 
 class CreateCompanyUserAction
@@ -52,6 +54,10 @@ class CreateCompanyUserAction
 
         $user->areas()->sync($areaIds);
         $this->syncAppointmentProfile($companyId, $user, $validated);
+
+        if ($isActive) {
+            Mail::to($user->email)->queue(new WelcomeUserMail($user, (string) $validated['password']));
+        }
 
         $this->productMetrics->track(
             ProductFunnels::CADASTRO,

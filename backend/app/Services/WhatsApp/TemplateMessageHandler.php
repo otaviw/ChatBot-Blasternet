@@ -7,7 +7,9 @@ namespace App\Services\WhatsApp;
 
 use App\Models\Company;
 use App\Services\WhatsApp\Concerns\WhatsAppApiHelpers;
+use App\Support\LogSanitizer;
 use App\Support\Enums\MessageType;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -66,28 +68,40 @@ class TemplateMessageHandler
         Log::info('WhatsApp API template request.', [
             'company_id'    => $company?->id,
             'template_name' => $templateName,
-            'to'            => $normalizedTo,
+            'to'            => LogSanitizer::maskPhone($normalizedTo),
         ]);
 
         $response = Http::withToken($accessToken)
             ->withHeaders(['Content-Type' => 'application/json'])
-            ->asJson()
-            ->post($url, $body);
+            ->asJson();
+        try {
+            $response = $response->post($url, $body);
+        } catch (ConnectionException $exception) {
+            $error = $this->normalizeMetaConnectionError($exception);
+            Log::warning('WhatsApp API falha de conexao ao enviar template.', [
+                'company_id' => $company?->id,
+                'template_name' => $templateName,
+                'to' => LogSanitizer::maskPhone($normalizedTo),
+                'error_code' => $error['code'],
+                'retryable' => $error['retryable'],
+            ]);
+
+            return $this->failedResult($error);
+        }
 
         $responseJson   = $this->responseJson($response);
         $graphMessageId = $this->normalizeGraphMessageId($response->json('messages.0.id'));
 
         if (! $response->successful()) {
+            $error = $this->normalizeMetaApiError($response, $responseJson);
             Log::warning('WhatsApp API erro ao enviar template.', [
                 'template_name' => $templateName,
                 'status'        => $response->status(),
-                'body'          => $responseJson,
+                'error'         => $error['code'],
+                'retryable'     => $error['retryable'],
             ]);
 
-            return $this->failedResult(
-                $response->json('error') ?? $responseJson ?? $response->body(),
-                $responseJson
-            );
+            return $this->failedResult($error, $responseJson);
         }
 
         return $this->successResult($graphMessageId, $responseJson);
@@ -217,17 +231,30 @@ class TemplateMessageHandler
         $baseUrl  = rtrim((string) config('whatsapp.api_url'), '/');
         $url      = "{$baseUrl}/{$wabaId}/message_templates";
 
-        $response = Http::withToken($accessToken)
-            ->get($url, [
-                'fields' => 'name,status,language,category,components',
-                'limit'  => 200,
+        try {
+            $response = Http::withToken($accessToken)
+                ->get($url, [
+                    'fields' => 'name,status,language,category,components',
+                    'limit'  => 200,
+                ]);
+        } catch (ConnectionException $exception) {
+            Log::warning('WhatsApp: falha de conexao ao buscar templates da Meta.', [
+                'waba_id' => $wabaId,
+                'error' => $exception->getMessage(),
             ]);
+
+            return [
+                'ok'        => false,
+                'templates' => [],
+                'error'     => 'connection_error',
+            ];
+        }
 
         if (! $response->successful()) {
             Log::warning('WhatsApp: falha ao buscar templates da Meta.', [
-                'waba_id' => $wabaId,
+                'waba_id' => LogSanitizer::maskToken($wabaId),
                 'status'  => $response->status(),
-                'body'    => $response->json(),
+                'error'   => $response->json('error.message') ?? $response->json('error.code'),
             ]);
 
             return [
@@ -272,14 +299,23 @@ class TemplateMessageHandler
         }
 
         $baseUrl  = rtrim((string) config('whatsapp.api_url'), '/');
-        $response = Http::withToken($accessToken)
-            ->get("{$baseUrl}/{$phoneNumberId}", [
-                'fields' => 'whatsapp_business_account',
+        try {
+            $response = Http::withToken($accessToken)
+                ->get("{$baseUrl}/{$phoneNumberId}", [
+                    'fields' => 'whatsapp_business_account',
+                ]);
+        } catch (ConnectionException $exception) {
+            Log::warning('WhatsApp: falha de conexao ao descobrir WABA ID via phone_number_id.', [
+                'phone_number_id' => LogSanitizer::maskToken($phoneNumberId),
+                'error' => $exception->getMessage(),
             ]);
+
+            return '';
+        }
 
         if (! $response->successful()) {
             Log::warning('WhatsApp: falha ao descobrir WABA ID via phone_number_id.', [
-                'phone_number_id' => $phoneNumberId,
+                'phone_number_id' => LogSanitizer::maskToken($phoneNumberId),
             ]);
 
             return '';
@@ -293,7 +329,7 @@ class TemplateMessageHandler
 
             Log::info('WhatsApp: WABA ID auto-descoberto e salvo.', [
                 'company_id' => $company->id,
-                'waba_id'    => $discoveredWabaId,
+                'waba_id'    => LogSanitizer::maskToken($discoveredWabaId),
             ]);
         }
 

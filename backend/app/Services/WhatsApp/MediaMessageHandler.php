@@ -7,7 +7,9 @@ namespace App\Services\WhatsApp;
 
 use App\Models\Company;
 use App\Services\WhatsApp\Concerns\WhatsAppApiHelpers;
+use App\Support\LogSanitizer;
 use App\Support\Enums\MessageType;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -31,14 +33,14 @@ class MediaMessageHandler
         }
 
         if ($normalizedUrl === '') {
-            Log::warning('WhatsApp envio de imagem ignorado: URL vazia.', ['to' => $toPhone]);
+            Log::warning('WhatsApp envio de imagem ignorado: URL vazia.', ['to' => LogSanitizer::maskPhone($toPhone)]);
 
             return $this->failedResult('imagem_url_vazia');
         }
         if (! $this->isValidMediaUrl($normalizedUrl)) {
             Log::warning('WhatsApp envio de imagem ignorado: URL inválida.', [
                 'company_id' => $company?->id,
-                'to' => $toPhone,
+                'to' => LogSanitizer::maskPhone($toPhone),
             ]);
 
             return $this->failedResult('imagem_url_invalida');
@@ -47,7 +49,7 @@ class MediaMessageHandler
         if ($normalizedTo === '') {
             Log::warning('WhatsApp envio de imagem ignorado: destinatario inválido.', [
                 'company_id'  => $company?->id,
-                'to_original' => $toPhone,
+                'to_original' => LogSanitizer::maskPhone($toPhone),
             ]);
 
             return $this->failedResult('destinatario_invalido');
@@ -56,10 +58,10 @@ class MediaMessageHandler
         if ($phoneNumberId === '' || $accessToken === '') {
             Log::info('WhatsApp [esqueleto]: envio de imagem simulado (sem token/number_id).', [
                 'company_id'      => $company?->id,
-                'phone_number_id' => $phoneNumberId !== '' ? $phoneNumberId : null,
-                'to'              => $normalizedTo,
+                'phone_number_id' => $phoneNumberId !== '' ? LogSanitizer::maskToken($phoneNumberId) : null,
+                'to'              => LogSanitizer::maskPhone($normalizedTo),
                 'image_url'       => $normalizedUrl,
-                'caption'         => $caption,
+                'caption_preview' => LogSanitizer::truncateText((string) $caption, 60),
             ]);
 
             return $this->successResult(null, ['simulated' => true]);
@@ -81,25 +83,36 @@ class MediaMessageHandler
 
         $this->logRequestDiagnostics($company, MessageType::IMAGE->value, $url, $phoneNumberId, $normalizedTo);
 
-        $response = Http::withToken($accessToken)
-            ->withHeaders(['Content-Type' => 'application/json'])
-            ->asJson()
-            ->post($url, $body);
+        try {
+            $response = Http::withToken($accessToken)
+                ->withHeaders(['Content-Type' => 'application/json'])
+                ->asJson()
+                ->post($url, $body);
+        } catch (ConnectionException $exception) {
+            $error = $this->normalizeMetaConnectionError($exception);
+            Log::warning('Send mídia falhou por conexão.', [
+                'company_id' => $company?->id,
+                'type' => $normalizedType,
+                'error' => $error['code'],
+                'retryable' => $error['retryable'],
+            ]);
+
+            return $this->failedResult($error);
+        }
 
         $this->logResponseDiagnostics(MessageType::IMAGE->value, $response);
         $responseJson   = $this->responseJson($response);
         $graphMessageId = $this->normalizeGraphMessageId($response->json('messages.0.id'));
 
         if (! $response->successful()) {
+            $error = $this->normalizeMetaApiError($response, $responseJson);
             Log::warning('WhatsApp API erro ao enviar imagem.', [
                 'status' => $response->status(),
-                'body'   => $responseJson,
+                'error' => $error['code'],
+                'retryable' => $error['retryable'],
             ]);
 
-            return $this->failedResult(
-                $response->json('error') ?? $responseJson ?? $response->body(),
-                $responseJson
-            );
+            return $this->failedResult($error, $responseJson);
         }
 
         return $this->successResult($graphMessageId, $responseJson);
@@ -119,16 +132,27 @@ class MediaMessageHandler
         $url = rtrim(config('whatsapp.api_url'), '/') . "/{$phoneNumberId}/media";
         $timeoutSeconds = max(5, (int) config('services.whatsapp.timeout', 20));
 
-        $response = Http::withToken($accessToken)
-            ->timeout($timeoutSeconds)
-            ->attach('file', $binaryData, $filename ?: 'file', ['Content-Type' => $mimeType])
-            ->post($url, [
-                'messaging_product' => 'whatsapp',
-                'type' => $mimeType,
+        try {
+            $response = Http::withToken($accessToken)
+                ->timeout($timeoutSeconds)
+                ->attach('file', $binaryData, $filename ?: 'file', ['Content-Type' => $mimeType])
+                ->post($url, [
+                    'messaging_product' => 'whatsapp',
+                    'type' => $mimeType,
+                ]);
+        } catch (ConnectionException $exception) {
+            $error = $this->normalizeMetaConnectionError($exception);
+            Log::warning('Upload mídia falhou por conexão.', [
+                'company_id' => $company?->id,
+                'error_code' => $error['code'],
             ]);
 
+            return null;
+        }
+
         if (! $response->successful()) {
-            Log::warning('Upload mídia falhou', ['status' => $response->status(), 'body' => $response->body()]);
+            $error = $this->normalizeMetaApiError($response, $this->responseJson($response));
+            Log::warning('Upload mídia falhou', ['status' => $response->status(), 'error' => $error['code']]);
 
             return null;
         }
@@ -183,19 +207,32 @@ class MediaMessageHandler
 
         $this->logRequestDiagnostics($company, $normalizedType, $url, $phoneNumberId, $normalizedTo);
 
-        $response = Http::withToken($accessToken)
-            ->withHeaders(['Content-Type' => 'application/json'])
-            ->asJson()
-            ->post($url, $body);
+        try {
+            $response = Http::withToken($accessToken)
+                ->withHeaders(['Content-Type' => 'application/json'])
+                ->asJson()
+                ->post($url, $body);
+        } catch (ConnectionException $exception) {
+            $error = $this->normalizeMetaConnectionError($exception);
+            Log::warning('WhatsApp API falha de conexao ao enviar imagem.', [
+                'company_id' => $company?->id,
+                'to' => LogSanitizer::maskPhone($normalizedTo),
+                'error_code' => $error['code'],
+                'retryable' => $error['retryable'],
+            ]);
+
+            return $this->failedResult($error);
+        }
 
         $this->logResponseDiagnostics($normalizedType, $response);
         $responseJson   = $this->responseJson($response);
         $graphMessageId = $this->normalizeGraphMessageId($response->json('messages.0.id') ?? null);
 
         if (! $response->successful()) {
-            Log::warning('Send mídia falhou', ['status' => $response->status(), 'body' => $responseJson]);
+            $error = $this->normalizeMetaApiError($response, $responseJson);
+            Log::warning('Send mídia falhou', ['status' => $response->status(), 'error' => $error['code'], 'retryable' => $error['retryable']]);
 
-            return $this->failedResult($response->json('error') ?? $responseJson, $responseJson);
+            return $this->failedResult($error, $responseJson);
         }
 
         Log::info('Send mídia sucesso', ['whatsapp_message_id' => $graphMessageId]);
@@ -313,7 +350,7 @@ class MediaMessageHandler
         $fileSize   = $fileExists ? (int) filesize($filePath) : 0;
 
         Log::info('sendMediaFile: verificando arquivo.', [
-            'path'       => $filePath,
+            'path'       => basename($filePath),
             'exists'     => $fileExists,
             'size_bytes' => $fileSize,
             'mime'       => $mimeType,
@@ -321,14 +358,14 @@ class MediaMessageHandler
         ]);
 
         if (! $fileExists || $fileSize === 0) {
-            Log::error('sendMediaFile: arquivo não encontrado ou vazio.', ['path' => $filePath]);
+            Log::error('sendMediaFile: arquivo não encontrado ou vazio.', ['path' => basename($filePath)]);
 
             return $this->failedResult('arquivo_nao_encontrado');
         }
         $maxBytes = $this->resolveMaxUploadBytes();
         if ($fileSize > $maxBytes) {
             Log::warning('sendMediaFile: arquivo excede limite de tamanho.', [
-                'path' => $filePath,
+                'path' => basename($filePath),
                 'size_bytes' => $fileSize,
                 'max_bytes' => $maxBytes,
             ]);
@@ -338,7 +375,7 @@ class MediaMessageHandler
 
         $fileBinary = file_get_contents($filePath);
         if ($fileBinary === false || $fileBinary === '') {
-            Log::error('sendMediaFile: leitura do arquivo falhou.', ['path' => $filePath]);
+            Log::error('sendMediaFile: leitura do arquivo falhou.', ['path' => basename($filePath)]);
 
             return $this->failedResult('arquivo_nao_lido');
         }

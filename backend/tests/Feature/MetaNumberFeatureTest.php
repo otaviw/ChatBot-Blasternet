@@ -121,6 +121,61 @@ class MetaNumberFeatureTest extends TestCase
         $send2->assertJsonPath('message.meta.resolved_meta_number_id', (int) $numberA->id);
     }
 
+    public function test_conversation_creation_rejects_nonexistent_meta_number_id_with_not_found(): void
+    {
+        $company = Company::create(['name' => 'Empresa Meta 404']);
+        $agent = User::create([
+            'name' => 'Agente Meta 404',
+            'email' => 'agente-meta-404@test.local',
+            'password' => 'secret123',
+            'role' => User::ROLE_AGENT,
+            'company_id' => $company->id,
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($agent)->postJson('/api/minha-conta/conversations', [
+            'customer_phone' => '5511912340001',
+            'customer_name' => 'Cliente Meta 404',
+            'meta_number_id' => 999999,
+        ]);
+
+        $response->assertStatus(404)
+            ->assertJsonPath('message', 'META_NUMBER_NOT_FOUND');
+    }
+
+    public function test_conversation_creation_rejects_inactive_meta_number_id(): void
+    {
+        $company = Company::create(['name' => 'Empresa Meta Inativo']);
+        $agent = User::create([
+            'name' => 'Agente Meta Inativo',
+            'email' => 'agente-meta-inativo@test.local',
+            'password' => 'secret123',
+            'role' => User::ROLE_AGENT,
+            'company_id' => $company->id,
+            'is_active' => true,
+        ]);
+
+        $inactive = CompanyMetaNumber::create([
+            'company_id' => $company->id,
+            'phone_number' => '5511993330001',
+            'display_name' => 'Numero Inativo',
+            'is_active' => false,
+            'is_primary' => false,
+            'created_by' => $agent->id,
+            'updated_by' => $agent->id,
+        ]);
+
+        $response = $this->actingAs($agent)->postJson('/api/minha-conta/conversations', [
+            'customer_phone' => '5511912340002',
+            'customer_name' => 'Cliente Meta Inativo',
+            'meta_number_id' => $inactive->id,
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonPath('message', 'META_NUMBER_INACTIVE')
+            ->assertJsonPath('errors.error', 'META_NUMBER_INACTIVE');
+    }
+
     public function test_removal_reassigns_contacts_in_bulk(): void
     {
         $reseller = Reseller::create(['name' => 'Revenda Remove', 'slug' => 'revenda-remove-test']);

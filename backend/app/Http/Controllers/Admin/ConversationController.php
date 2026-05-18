@@ -34,9 +34,14 @@ class ConversationController extends Controller
 
         $this->applyActorScopeToConversationQuery($query, $actorResellerId);
 
-        $companyId = $request->query('company_id');
-        if ($companyId) {
-            $query->where('company_id', (int) $companyId);
+        $companyId = (int) $request->query('company_id', 0);
+        if ($companyId > 0) {
+            if ($actorResellerId !== null && ! $this->companyBelongsToReseller($companyId, $actorResellerId)) {
+                return response()->json([
+                    'message' => 'Acesso negado para esta empresa.',
+                ], 403);
+            }
+            $query->where('company_id', $companyId);
         }
 
         $perPage = min(max((int) $request->query('per_page', 150), 1), 200);

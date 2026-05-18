@@ -60,7 +60,7 @@ function CompanyEditPage() {
 
     api
       .get(`/admin/empresas/${id}`)
-      .then((response) => {
+      .then(async (response) => {
         if (canceled) return;
         const company = response?.data?.company;
         if (!company?.id) {

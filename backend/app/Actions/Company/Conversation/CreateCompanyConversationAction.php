@@ -116,7 +116,7 @@ class CreateCompanyConversationAction
             try {
                 $this->companyMetaNumberService->assertBelongsToCompanyAndActive((int) $conversation->company_id, $selectedMetaNumberId);
             } catch (\RuntimeException $exception) {
-                return ActionResponse::unprocessable($exception->getMessage(), ['error' => $exception->getMessage()]);
+                return $this->metaNumberValidationErrorResponse($exception);
             }
             if ((int) ($contact->meta_number_id ?? 0) !== $selectedMetaNumberId) {
                 $beforeMetaNumberId = $contact->meta_number_id !== null ? (int) $contact->meta_number_id : null;
@@ -157,19 +157,20 @@ class CreateCompanyConversationAction
         $sendTemplate = (bool) ($validated['send_template'] ?? false);
         $message      = null;
         $templateSent = false;
-
-        try {
-            $resolvedMetaNumber = $this->sendNumberResolver->resolveForContact(
-                $contact,
-                true,
-                (int) $conversation->id,
-                null
-            );
-        } catch (MetaNumberResolutionException $exception) {
-            return ActionResponse::unprocessable($exception->errorCode(), ['error' => $exception->errorCode()]);
-        }
+        $resolvedMetaNumber = null;
 
         if ($sendTemplate) {
+            try {
+                $resolvedMetaNumber = $this->sendNumberResolver->resolveForContact(
+                    $contact,
+                    true,
+                    (int) $conversation->id,
+                    null
+                );
+            } catch (MetaNumberResolutionException $exception) {
+                return ActionResponse::unprocessable($exception->errorCode(), ['error' => $exception->errorCode()]);
+            }
+
             [$message, $templateSent] = $this->sendOpeningTemplate($conversation, $validated, $user, $resolvedMetaNumber->id);
         }
 
@@ -178,7 +179,7 @@ class CreateCompanyConversationAction
             'send_template'   => $sendTemplate,
             'template_sent'   => $templateSent,
             'contact_id' => (int) $contact->id,
-            'resolved_meta_number_id' => (int) $resolvedMetaNumber->id,
+            'resolved_meta_number_id' => $resolvedMetaNumber?->id !== null ? (int) $resolvedMetaNumber->id : null,
         ]);
 
         return ActionResponse::ok([
@@ -260,5 +261,15 @@ class CreateCompanyConversationAction
         $message->refresh();
 
         return [$message, $templateSent];
+    }
+
+    private function metaNumberValidationErrorResponse(\RuntimeException $exception): ActionResponse
+    {
+        return match ($exception->getMessage()) {
+            'META_NUMBER_NOT_FOUND' => ActionResponse::notFound('META_NUMBER_NOT_FOUND'),
+            'META_NUMBER_COMPANY_MISMATCH' => ActionResponse::unprocessable('META_NUMBER_COMPANY_MISMATCH', ['error' => 'META_NUMBER_COMPANY_MISMATCH']),
+            'META_NUMBER_INACTIVE' => ActionResponse::unprocessable('META_NUMBER_INACTIVE', ['error' => 'META_NUMBER_INACTIVE']),
+            default => ActionResponse::unprocessable($exception->getMessage(), ['error' => $exception->getMessage()]),
+        };
     }
 }

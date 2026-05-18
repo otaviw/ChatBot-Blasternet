@@ -24,12 +24,9 @@ use App\Services\MessageMediaStorageService;
 use App\Services\ProductMetricsService;
 use App\Services\WhatsApp\WhatsAppSendService;
 use App\Services\Ai\Safety\AiSafetyResult;
-use Illuminate\Config\Repository as ConfigRepository;
-use Illuminate\Container\Container;
-use Illuminate\Support\Facades\Facade;
 use Mockery;
 use Mockery\MockInterface;
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase;
 
 class InboundMessageServiceTest extends TestCase
 {
@@ -37,21 +34,10 @@ class InboundMessageServiceTest extends TestCase
     {
         parent::setUp();
 
-        $app = new Container();
-        $app->instance('config', new ConfigRepository([
+        config()->set([
             'ai.provider' => 'test',
             'ai.model' => 'test-model',
-        ]));
-        $app->instance('log', new class
-        {
-            public function warning(string $message, array $context = []): void
-            {
-                unset($message, $context);
-            }
-        });
-
-        Container::setInstance($app);
-        Facade::setFacadeApplication($app);
+        ]);
     }
 
     public function test_generate_chatbot_ai_reply_falls_back_to_null_on_error(): void
@@ -776,8 +762,6 @@ class InboundMessageServiceTest extends TestCase
 
     protected function tearDown(): void
     {
-        Container::setInstance(null);
-        Facade::setFacadeApplication(null);
         Mockery::close();
         parent::tearDown();
     }

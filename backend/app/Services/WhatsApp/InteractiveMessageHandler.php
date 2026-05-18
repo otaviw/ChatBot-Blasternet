@@ -7,7 +7,9 @@ namespace App\Services\WhatsApp;
 
 use App\Models\Company;
 use App\Services\WhatsApp\Concerns\WhatsAppApiHelpers;
+use App\Support\LogSanitizer;
 use App\Support\Enums\MessageType;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -38,8 +40,8 @@ class InteractiveMessageHandler
         if ($phoneNumberId === '' || $accessToken === '') {
             Log::info('WhatsApp [esqueleto]: envio de botões interativos simulado (sem token/number_id).', [
                 'company_id'      => $company?->id,
-                'phone_number_id' => $phoneNumberId !== '' ? $phoneNumberId : null,
-                'to'              => $normalizedTo,
+                'phone_number_id' => $phoneNumberId !== '' ? LogSanitizer::maskToken($phoneNumberId) : null,
+                'to'              => LogSanitizer::maskPhone($normalizedTo),
                 'body_text'       => $bodyText,
             ]);
 
@@ -81,25 +83,36 @@ class InteractiveMessageHandler
 
         $this->logRequestDiagnostics($company, 'interactive_buttons', $url, $phoneNumberId, $normalizedTo);
 
-        $response = Http::withToken($accessToken)
-            ->withHeaders(['Content-Type' => 'application/json'])
-            ->asJson()
-            ->post($url, $body);
+        try {
+            $response = Http::withToken($accessToken)
+                ->withHeaders(['Content-Type' => 'application/json'])
+                ->asJson()
+                ->post($url, $body);
+        } catch (ConnectionException $exception) {
+            $error = $this->normalizeMetaConnectionError($exception);
+            Log::warning('WhatsApp API falha de conexão ao enviar botões interativos.', [
+                'company_id' => $company?->id,
+                'to' => LogSanitizer::maskPhone($normalizedTo),
+                'error' => $error['code'],
+                'retryable' => $error['retryable'],
+            ]);
+
+            return $this->failedResult($error);
+        }
 
         $this->logResponseDiagnostics('interactive_buttons', $response);
         $responseJson   = $this->responseJson($response);
         $graphMessageId = $this->normalizeGraphMessageId($response->json('messages.0.id'));
 
         if (! $response->successful()) {
+            $error = $this->normalizeMetaApiError($response, $responseJson);
             Log::warning('WhatsApp API erro ao enviar botões interativos.', [
                 'status' => $response->status(),
-                'body'   => $responseJson,
+                'error' => $error['code'],
+                'retryable' => $error['retryable'],
             ]);
 
-            return $this->failedResult(
-                $response->json('error') ?? $responseJson ?? $response->body(),
-                $responseJson
-            );
+            return $this->failedResult($error, $responseJson);
         }
 
         return $this->successResult($graphMessageId, $responseJson);
@@ -128,8 +141,8 @@ class InteractiveMessageHandler
         if ($phoneNumberId === '' || $accessToken === '') {
             Log::info('WhatsApp [esqueleto]: envio de lista interativa simulado (sem token/number_id).', [
                 'company_id'      => $company?->id,
-                'phone_number_id' => $phoneNumberId !== '' ? $phoneNumberId : null,
-                'to'              => $normalizedTo,
+                'phone_number_id' => $phoneNumberId !== '' ? LogSanitizer::maskToken($phoneNumberId) : null,
+                'to'              => LogSanitizer::maskPhone($normalizedTo),
                 'body_text'       => $bodyText,
             ]);
 
@@ -182,25 +195,36 @@ class InteractiveMessageHandler
 
         $this->logRequestDiagnostics($company, 'interactive_list', $url, $phoneNumberId, $normalizedTo);
 
-        $response = Http::withToken($accessToken)
-            ->withHeaders(['Content-Type' => 'application/json'])
-            ->asJson()
-            ->post($url, $body);
+        try {
+            $response = Http::withToken($accessToken)
+                ->withHeaders(['Content-Type' => 'application/json'])
+                ->asJson()
+                ->post($url, $body);
+        } catch (ConnectionException $exception) {
+            $error = $this->normalizeMetaConnectionError($exception);
+            Log::warning('WhatsApp API falha de conexão ao enviar lista interativa.', [
+                'company_id' => $company?->id,
+                'to' => LogSanitizer::maskPhone($normalizedTo),
+                'error' => $error['code'],
+                'retryable' => $error['retryable'],
+            ]);
+
+            return $this->failedResult($error);
+        }
 
         $this->logResponseDiagnostics('interactive_list', $response);
         $responseJson   = $this->responseJson($response);
         $graphMessageId = $this->normalizeGraphMessageId($response->json('messages.0.id'));
 
         if (! $response->successful()) {
+            $error = $this->normalizeMetaApiError($response, $responseJson);
             Log::warning('WhatsApp API erro ao enviar lista interativa.', [
                 'status' => $response->status(),
-                'body'   => $responseJson,
+                'error' => $error['code'],
+                'retryable' => $error['retryable'],
             ]);
 
-            return $this->failedResult(
-                $response->json('error') ?? $responseJson ?? $response->body(),
-                $responseJson
-            );
+            return $this->failedResult($error, $responseJson);
         }
 
         return $this->successResult($graphMessageId, $responseJson);
