@@ -4,6 +4,7 @@ use App\Http\Controllers\SupportTicketAttachmentController;
 use App\Http\Controllers\SupportTicketController;
 use App\Http\Controllers\SupportTicketMessageAttachmentController;
 use App\Http\Controllers\SupportTicketMessageController;
+use App\Http\Controllers\ManualController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['web', 'auth'])->group(function () {
@@ -21,5 +22,8 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::get('/support/attachments/{attachment}/media', [SupportTicketAttachmentController::class, 'media'])
         ->middleware('throttle:inbox-read');
     Route::get('/support/ticket-chat/attachments/{attachment}/media', [SupportTicketMessageAttachmentController::class, 'media'])
+        ->middleware('throttle:inbox-read');
+
+    Route::get('/manuais', [ManualController::class, 'index'])
         ->middleware('throttle:inbox-read');
 });

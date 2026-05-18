@@ -1,0 +1,173 @@
+.manuals-page {
+  display: grid;
+  gap: 16px;
+}
+
+.manuals-page__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.manuals-page__filters {
+  display: flex;
+  gap: 8px;
+}
+
+.manuals-page__filters input {
+  min-width: 260px;
+}
+
+.manuals-page__content {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) 1fr;
+  gap: 12px;
+}
+
+.manuals-page__list {
+  padding: 8px;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  max-height: 72vh;
+  overflow: auto;
+}
+
+.manuals-page__item {
+  text-align: left;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface);
+  padding: 10px;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background-color 0.18s ease;
+  color: var(--ui-text);
+}
+
+.manuals-page__item:hover {
+  border-color: var(--ui-border-strong);
+  background: var(--ui-bg);
+}
+
+.manuals-page__item.active {
+  border-color: var(--ui-accent);
+  background: var(--ui-accent-muted);
+}
+
+.manuals-page__item span {
+  display: block;
+  margin-top: 6px;
+  color: var(--ui-text-muted);
+  font-size: 0.82rem;
+}
+
+.manuals-page__detail {
+  padding: 16px;
+  min-height: 380px;
+}
+
+.manuals-page__detail h2 {
+  margin: 0 0 8px;
+}
+
+.manuals-page__summary {
+  color: var(--ui-text-muted);
+  margin-bottom: 12px;
+  font-weight: 500;
+}
+
+.manuals-page__text p {
+  margin: 0 0 10px;
+  line-height: 1.5;
+}
+
+.manuals-page__images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.manuals-page__images img {
+  max-width: 260px;
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+}
+
+.manuals-page__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.manuals-page__modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  z-index: 70;
+}
+
+.manuals-page__form {
+  width: min(760px, 100%);
+  border-radius: 12px;
+  padding: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.manuals-page__group {
+  display: grid;
+  gap: 8px;
+}
+
+.manuals-page__group + .manuals-page__group {
+  margin-top: 8px;
+}
+
+.manuals-page__group-title {
+  margin: 0;
+  padding: 2px 4px;
+  color: var(--ui-text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.manuals-page__form h3 {
+  margin: 0 0 4px;
+}
+
+.manuals-page__form label {
+  display: grid;
+  gap: 4px;
+  color: var(--ui-text-muted);
+  font-size: 0.92rem;
+}
+
+.manuals-page__checkbox {
+  grid-template-columns: auto 1fr;
+  align-items: center;
+}
+
+.manuals-page__error {
+  color: #b91c1c;
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .manuals-page__content {
+    grid-template-columns: 1fr;
+  }
+
+  .manuals-page__filters {
+    flex-direction: column;
+  }
+
+  .manuals-page__filters input {
+    min-width: 100%;
+  }
+}

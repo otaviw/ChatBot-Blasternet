@@ -72,6 +72,7 @@ export const ADMIN_SUPPORT_LINKS = [
     module: NOTIFICATION_MODULE.SUPPORT,
   },
   { href: '/suporte', label: 'Novo chamado', icon: 'novoChamado', ariaLabel: 'Abrir nova solicitação de suporte' },
+  { href: '/manuais', label: 'Manuais', icon: 'politica', ariaLabel: 'Consultar manuais de telas e fluxos' },
 ];
 
 export const COMPANY_SUPPORT_LINKS = [
@@ -83,6 +84,7 @@ export const COMPANY_SUPPORT_LINKS = [
     ariaLabel: 'Acompanhar chamados de suporte',
     module: NOTIFICATION_MODULE.SUPPORT,
   },
+  { href: '/manuais', label: 'Manuais', icon: 'politica', ariaLabel: 'Consultar manuais de telas e fluxos' },
 ];
 
 export const POLICY_LINKS = [
@@ -247,4 +249,6 @@ export function buildCompanyMainLinks({ userRole, userPerms, canManageUsers, has
 
   return links;
 }
+
+
 

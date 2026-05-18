@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\CompanyController;
+use App\Http\Controllers\Admin\ManualController as AdminManualController;
 use App\Http\Controllers\Admin\CompanyMetaNumberController;
 use App\Http\Controllers\Admin\ConversationController as AdminConversationController;
 use App\Http\Controllers\Admin\ResellerController;
@@ -81,6 +82,13 @@ Route::middleware(['web', 'auth', 'admin'])->group(function () {
         Route::get('/suporte/solicitacoes/{ticket}/chat', [SupportTicketMessageController::class, 'listAdmin'])
             ->middleware(['system.admin', 'throttle:inbox-read']);
         Route::post('/suporte/solicitacoes/{ticket}/chat', [SupportTicketMessageController::class, 'storeAdmin'])
+            ->middleware(['system.admin', 'throttle:bot-write']);
+
+        Route::post('/manuais', [AdminManualController::class, 'store'])
+            ->middleware(['system.admin', 'throttle:bot-write']);
+        Route::put('/manuais/{manual}', [AdminManualController::class, 'update'])
+            ->middleware(['system.admin', 'throttle:bot-write']);
+        Route::delete('/manuais/{manual}', [AdminManualController::class, 'destroy'])
             ->middleware(['system.admin', 'throttle:bot-write']);
     });
 });

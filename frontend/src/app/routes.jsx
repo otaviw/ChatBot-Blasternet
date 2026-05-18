@@ -70,6 +70,7 @@ const CompanyTicketIndex = lazy(
   () => import('@/pages/company/CompanySupportTickets/CompanyTicketIndex.jsx')
 );
 const SupportRequestPage = lazy(() => import('@/pages/support/SupportRequest/SupportRequestPage.jsx'));
+const ManualsPage = lazy(() => import('@/pages/support/Manuals/ManualsPage.jsx'));
 const InternalChatPage = lazy(() => import('@/pages/shared/InternalChat/InternalChatPage.jsx'));
 const InternalAiChatPage = lazy(() => import('@/pages/shared/InternalAiChat/InternalAiChatPage.jsx'));
 
@@ -210,6 +211,7 @@ function AppRoutes() {
 
         {/* Rota publica autenticada para solicitacao de suporte geral */}
         <Route path="/suporte" element={<SupportRequestPage />} />
+        <Route path="/manuais" element={<ManualsPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Suspense>
