@@ -103,7 +103,7 @@ class ManualReplyAction
 
         $contentType = $this->resolveContentType($storedMedia, $uploadedFile?->getMimeType() ?? '');
 
-        $message = DB::transaction(function () use ($conversation, $contentType, $trimmedText, $storedMedia, $uploadedFile, $user): Message {
+        $message = DB::transaction(function () use ($conversation, $contentType, $trimmedText, $storedMedia, $uploadedFile, $user, $resolvedMetaNumberId): Message {
             $conversation->status = ConversationStatus::IN_PROGRESS;
             $conversation->save();
 

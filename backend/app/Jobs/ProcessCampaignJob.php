@@ -120,6 +120,8 @@ class ProcessCampaignJob implements ShouldQueue
                 return;
             }
 
+            $resolvedMetaNumber = null;
+            $enforceContactNumber = (bool) config('meta_numbers.enforce_campaign_contact_number', false);
             try {
                 $resolvedMetaNumber = $sendNumberResolver->resolveForContact(
                     $contact,
@@ -128,32 +130,42 @@ class ProcessCampaignJob implements ShouldQueue
                     (int) $campaign->id
                 );
             } catch (MetaNumberResolutionException $exception) {
-                $campaignContact->status = 'failed';
-                $campaignContact->error = $exception->errorCode();
-                $campaignContact->save();
+                if ($enforceContactNumber) {
+                    $campaignContact->status = 'failed';
+                    $campaignContact->error = $exception->errorCode();
+                    $campaignContact->save();
 
-                AuditService::log(
-                    AuditActions::CAMPAIGN_SEND_NUMBER_RESOLVED,
-                    'campaign_contact',
-                    $campaignContact->id,
-                    null,
-                    [
-                        'company_id' => (int) $campaign->company_id,
-                        'entity_type' => 'campaign_contact',
-                        'entity_id' => (int) $campaignContact->id,
-                        'after' => [
-                            'contact_id' => (int) $contact->id,
-                            'campaign_id' => (int) $campaign->id,
-                            'status' => 'failed',
-                            'error' => $exception->errorCode(),
-                            'resolved_meta_number_id' => null,
-                        ],
-                    ]
-                );
+                    AuditService::log(
+                        AuditActions::CAMPAIGN_SEND_NUMBER_RESOLVED,
+                        'campaign_contact',
+                        $campaignContact->id,
+                        null,
+                        [
+                            'company_id' => (int) $campaign->company_id,
+                            'entity_type' => 'campaign_contact',
+                            'entity_id' => (int) $campaignContact->id,
+                            'after' => [
+                                'contact_id' => (int) $contact->id,
+                                'campaign_id' => (int) $campaign->id,
+                                'status' => 'failed',
+                                'error' => $exception->errorCode(),
+                                'resolved_meta_number_id' => null,
+                            ],
+                        ]
+                    );
 
-                $this->applyCountersAfterProcessedContact($counters, 'failed');
-                $this->publishCampaignUpdated($campaign, $realtimePublisher, $counters);
-                return;
+                    $this->applyCountersAfterProcessedContact($counters, 'failed');
+                    $this->publishCampaignUpdated($campaign, $realtimePublisher, $counters);
+                    return;
+                }
+
+                Log::warning('meta_number.campaign_resolution_soft_fallback', [
+                    'campaign_id' => (int) $campaign->id,
+                    'campaign_contact_id' => (int) $campaignContact->id,
+                    'contact_id' => (int) $contact->id,
+                    'company_id' => (int) $campaign->company_id,
+                    'error_code' => $exception->errorCode(),
+                ]);
             }
 
             $result = match ($campaign->type) {
@@ -189,7 +201,7 @@ class ProcessCampaignJob implements ShouldQueue
                         'campaign_id' => (int) $campaign->id,
                         'status' => (string) $campaignContact->status,
                         'error' => $campaignContact->error,
-                        'resolved_meta_number_id' => (int) $resolvedMetaNumber->id,
+                        'resolved_meta_number_id' => $resolvedMetaNumber?->id,
                     ],
                 ]
             );

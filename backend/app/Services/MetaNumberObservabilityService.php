@@ -20,6 +20,10 @@ class MetaNumberObservabilityService
         ?int $metaNumberId,
         bool $usedFallback
     ): void {
+        if (! (bool) config('meta_numbers.monitoring_enabled', true)) {
+            return;
+        }
+
         $this->incrementCounter($companyId, 'send_total');
         if ($usedFallback) {
             $this->incrementCounter($companyId, 'send_fallback');
@@ -37,6 +41,10 @@ class MetaNumberObservabilityService
 
     public function logInvalidContactNumber(int $companyId, int $contactId, ?int $conversationId, ?int $campaignId): void
     {
+        if (! (bool) config('meta_numbers.monitoring_enabled', true)) {
+            return;
+        }
+
         $this->incrementCounter($companyId, 'contact_invalid_total');
         $this->incrementCounter($companyId, 'no_active_number_failures');
 
@@ -59,6 +67,10 @@ class MetaNumberObservabilityService
         int $affectedContacts,
         float $durationMs
     ): void {
+        if (! (bool) config('meta_numbers.monitoring_enabled', true)) {
+            return;
+        }
+
         Log::info('meta_number.reassignment_timing', [
             'company_id' => $companyId,
             'contact_id' => null,
@@ -74,6 +86,10 @@ class MetaNumberObservabilityService
 
     public function alertCompanyWithoutActiveNumber(int $companyId): void
     {
+        if (! (bool) config('meta_numbers.monitoring_enabled', true)) {
+            return;
+        }
+
         Log::warning('meta_number.company_without_active_numbers', [
             'company_id' => $companyId,
             'contact_id' => null,
@@ -134,4 +150,3 @@ class MetaNumberObservabilityService
         return "meta_number_obs:company:{$companyId}:{$metric}";
     }
 }
-

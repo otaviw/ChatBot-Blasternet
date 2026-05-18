@@ -105,7 +105,8 @@ class CreateCompanyConversationAction
             $selectedMetaNumberId = (int) $validated['selected_meta_number_id'];
         }
         $activeNumbers = $this->companyMetaNumberService->listActive((int) $conversation->company_id);
-        if ($selectedMetaNumberId === null && $activeNumbers->count() > 1 && $contact->meta_number_id === null) {
+        $requireSelection = (bool) config('meta_numbers.require_selection_on_new_conversation', false);
+        if ($requireSelection && $selectedMetaNumberId === null && $activeNumbers->count() > 1 && $contact->meta_number_id === null) {
             return ActionResponse::unprocessable('Selecione o número de envio para iniciar a conversa.', [
                 'selected_meta_number_id' => ['Selecione o número de envio para iniciar a conversa.'],
             ]);

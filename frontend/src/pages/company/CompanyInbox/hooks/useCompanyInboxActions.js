@@ -339,7 +339,7 @@ export default function useCompanyInboxActions({
         const response = await api.post('/minha-conta/conversas', {
           customer_phone: phone,
           customer_name: name || null,
-          sender_number_id: senderNumberId || null,
+          meta_number_id: senderNumberId || null,
           send_template: sendTemplate,
           template_name: templateName || 'iniciar_conversa',
           template_variables: templateVariables,

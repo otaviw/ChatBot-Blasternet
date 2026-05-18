@@ -23,7 +23,7 @@ import useCompanyInboxConversations from './hooks/useCompanyInboxConversations';
 import useCompanyInboxDetailMessages from './hooks/useCompanyInboxDetailMessages';
 import useCompanyInboxActions from './hooks/useCompanyInboxActions';
 import api from '@/services/api';
-import { getActiveCompanyNumbers } from '@/utils/companyPhoneNumbers';
+import { fetchCompanyMetaNumbers } from '@/services/metaNumbers';
 
 const CONV_PER_PAGE = 25;
 
@@ -40,7 +40,7 @@ function CompanyInboxPage() {
   });
   const typingTimersRef = useRef(new Map());
   const [typingConversationIds, setTypingConversationIds] = useState(new Set());
-  const [companyProfile, setCompanyProfile] = useState(null);
+  const [activeNumbers, setActiveNumbers] = useState([]);
 
   const { data, loading, error } = usePageData(
     `/minha-conta/conversas?page=1&per_page=${CONV_PER_PAGE}`
@@ -237,18 +237,24 @@ function CompanyInboxPage() {
     if (!data?.authenticated) return undefined;
     (async () => {
       try {
-        const response = await api.get('/minha-conta/empresa');
-        if (!canceled) setCompanyProfile(response?.data?.company ?? response?.data ?? null);
+        const items = await fetchCompanyMetaNumbers();
+        if (canceled) return;
+        setActiveNumbers(
+          (Array.isArray(items) ? items : []).map((item) => ({
+            id: String(item?.id ?? ''),
+            label: String(item?.display_name || item?.phone_number || item?.id || ''),
+            is_active: Boolean(item?.is_active ?? true),
+            is_primary: Boolean(item?.is_primary ?? false),
+          }))
+        );
       } catch (_error) {
-        if (!canceled) setCompanyProfile(null);
+        if (!canceled) setActiveNumbers([]);
       }
     })();
     return () => {
       canceled = true;
     };
   }, [data?.authenticated]);
-
-  const activeNumbers = useMemo(() => getActiveCompanyNumbers(companyProfile), [companyProfile]);
 
   useEffect(() => {
     setConversationSearchOpen(false);
@@ -286,9 +292,8 @@ function CompanyInboxPage() {
   );
 
   const contactDefaultNumberLabel = String(
-    detail?.contact_default_sender_number_label
-    ?? detail?.contact_default_sender_number
-    ?? detail?.contact_default_sender_number_id
+    activeNumbers.find((item) => String(item.id) === String(detail?.meta_number_id ?? ''))?.label
+    ?? detail?.meta_number_id
     ?? '-'
   );
 
@@ -309,7 +314,7 @@ function CompanyInboxPage() {
       await api.put(`/minha-conta/conversas/${detail.id}/contato`, {
         customer_name: contactName,
         customer_phone: contactPhone,
-        default_sender_number_id: senderId,
+        meta_number_id: senderId,
       });
       await refreshConversationDetail();
       await refreshConversations();

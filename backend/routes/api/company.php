@@ -143,6 +143,7 @@ Route::middleware(['web', 'auth', 'company.user'])->group(function () {
         Route::post('/contatos', [ContactController::class, 'store'])->middleware('throttle:bot-write');
         Route::post('/contatos/importar-csv', [ContactController::class, 'importCsv'])->middleware('throttle:bot-write');
         Route::patch('/contatos/{contactId}', [ContactController::class, 'update'])->middleware('throttle:bot-write');
+        Route::get('/meta-numbers', [ContactController::class, 'listMetaNumbers'])->middleware('throttle:inbox-read');
         Route::patch('/contatos/{contactId}/meta-number', [ContactController::class, 'updateMetaNumber'])->middleware('throttle:bot-write');
         Route::patch('/contacts/{contactId}/meta-number', [ContactController::class, 'updateMetaNumber'])->middleware('throttle:bot-write');
         Route::delete('/contatos/{contactId}', [ContactController::class, 'destroy'])->middleware('throttle:bot-write');

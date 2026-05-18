@@ -6,6 +6,12 @@ import useAuth from '@/hooks/useAuth';
 import useLogout from '@/hooks/useLogout';
 import api from '@/services/api';
 import { getScopedAuthPaths } from '@/utils/tenantRouting';
+import {
+  createCompanyMetaNumber,
+  fetchCompanyMetaNumbers,
+  removeCompanyMetaNumber,
+  setCompanyMetaNumberPrimary,
+} from '@/services/metaNumbers';
 
 function CompanyEditPage() {
   const { id = '' } = useParams();
@@ -17,6 +23,11 @@ function CompanyEditPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [metaNumbers, setMetaNumbers] = useState([]);
+  const [metaBusy, setMetaBusy] = useState(false);
+  const [metaError, setMetaError] = useState('');
+  const [newMetaPhone, setNewMetaPhone] = useState('');
+  const [newMetaName, setNewMetaName] = useState('');
   const [form, setForm] = useState({
     name: '',
     meta_phone_number_id: '',
@@ -69,6 +80,9 @@ function CompanyEditPage() {
           ai_enabled: Boolean(company.bot_setting?.ai_enabled),
           ai_internal_chat_enabled: Boolean(company.bot_setting?.ai_internal_chat_enabled),
         });
+
+        const metaItems = await fetchCompanyMetaNumbers(id);
+        setMetaNumbers(metaItems);
       })
       .catch((err) => {
         if (canceled) return;
@@ -125,6 +139,56 @@ function CompanyEditPage() {
       }
     } finally {
       setSaving(false);
+    }
+  };
+
+  const refreshMetaNumbers = async () => {
+    const items = await fetchCompanyMetaNumbers(id);
+    setMetaNumbers(items);
+  };
+
+  const handleCreateMetaNumber = async (event) => {
+    event.preventDefault();
+    setMetaBusy(true);
+    setMetaError('');
+    try {
+      await createCompanyMetaNumber(id, {
+        phone_number: newMetaPhone,
+        display_name: newMetaName || null,
+      });
+      setNewMetaPhone('');
+      setNewMetaName('');
+      await refreshMetaNumbers();
+    } catch (err) {
+      setMetaError(err?.response?.data?.message || 'Falha ao adicionar numero.');
+    } finally {
+      setMetaBusy(false);
+    }
+  };
+
+  const handleSetPrimary = async (numberId) => {
+    setMetaBusy(true);
+    setMetaError('');
+    try {
+      await setCompanyMetaNumberPrimary(id, numberId);
+      await refreshMetaNumbers();
+    } catch (err) {
+      setMetaError(err?.response?.data?.message || 'Falha ao definir principal.');
+    } finally {
+      setMetaBusy(false);
+    }
+  };
+
+  const handleDeactivate = async (numberId) => {
+    setMetaBusy(true);
+    setMetaError('');
+    try {
+      await removeCompanyMetaNumber(id, numberId, 'deactivate');
+      await refreshMetaNumbers();
+    } catch (err) {
+      setMetaError(err?.response?.data?.message || 'Falha ao remover numero.');
+    } finally {
+      setMetaBusy(false);
     }
   };
 
@@ -278,6 +342,66 @@ function CompanyEditPage() {
             </button>
           </div>
         </form>
+      </section>
+
+      <section className="app-panel mt-4">
+        <h2 className="text-base font-semibold mb-2">Numeros Meta da empresa</h2>
+        {metaError ? <p className="text-sm text-red-600 mb-2">{metaError}</p> : null}
+
+        <form onSubmit={handleCreateMetaNumber} className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
+          <input
+            type="text"
+            value={newMetaPhone}
+            onChange={(event) => setNewMetaPhone(event.target.value)}
+            className="app-input"
+            placeholder="Telefone (ex: 5511999999999)"
+            required
+          />
+          <input
+            type="text"
+            value={newMetaName}
+            onChange={(event) => setNewMetaName(event.target.value)}
+            className="app-input"
+            placeholder="Nome exibicao (opcional)"
+          />
+          <button type="submit" className="app-btn-primary" disabled={metaBusy}>
+            {metaBusy ? 'Salvando...' : 'Adicionar numero'}
+          </button>
+        </form>
+
+        <div className="space-y-2">
+          {metaNumbers.map((item) => (
+            <div key={item.id} className="border rounded p-2 flex items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-medium">{item.display_name || item.phone_number}</p>
+                <p className="text-xs text-gray-600">
+                  {item.phone_number} {item.is_primary ? '• Principal' : ''} {item.is_active ? '' : '• Inativo'}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                {!item.is_primary ? (
+                  <button
+                    type="button"
+                    className="app-btn-secondary"
+                    onClick={() => void handleSetPrimary(item.id)}
+                    disabled={metaBusy || !item.is_active}
+                  >
+                    Tornar principal
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="app-btn-secondary"
+                  onClick={() => void handleDeactivate(item.id)}
+                  disabled={metaBusy}
+                >
+                  Remover/Inativar
+                </button>
+              </div>
+            </div>
+          ))}
+          {metaNumbers.length === 0 ? <p className="text-sm text-gray-600">Nenhum numero cadastrado.</p> : null}
+        </div>
       </section>
     </Layout>
   );

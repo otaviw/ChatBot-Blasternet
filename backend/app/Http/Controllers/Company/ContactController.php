@@ -343,6 +343,20 @@ class ContactController extends Controller
         ]);
     }
 
+    public function listMetaNumbers(Request $request): JsonResponse
+    {
+        $companyId = $this->resolveCompanyId($request);
+        if ($companyId === null) {
+            return $this->errorResponse('Empresa nÃ£o identificada.', 'company_not_found', 403);
+        }
+
+        $items = $this->companyMetaNumberService->listActive((int) $companyId)
+            ->map(fn ($item) => $item->only(['id', 'company_id', 'phone_number', 'display_name', 'is_active', 'is_primary']))
+            ->values();
+
+        return response()->json(['items' => $items]);
+    }
+
     private function metaNumberErrorResponse(RuntimeException $exception): JsonResponse
     {
         return match ($exception->getMessage()) {
