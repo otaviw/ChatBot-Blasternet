@@ -1,7 +1,19 @@
 import api from '@/services/api';
 
-export async function listManuals() {
-  const response = await api.get('/manuais');
+export async function listManuals({ search = '', category = 'all' } = {}) {
+  const params = {};
+  const normalizedSearch = String(search ?? '').trim();
+  const normalizedCategory = String(category ?? '').trim();
+
+  if (normalizedSearch) {
+    params.q = normalizedSearch;
+  }
+
+  if (normalizedCategory && normalizedCategory !== 'all') {
+    params.category = normalizedCategory;
+  }
+
+  const response = await api.get('/manuais', { params });
   return response.data ?? { manuals: [], can_manage: false };
 }
 
@@ -18,4 +30,3 @@ export async function updateManual(manualId, payload) {
 export async function deleteManual(manualId) {
   await api.delete(`/admin/manuais/${manualId}`);
 }
-

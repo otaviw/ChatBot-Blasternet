@@ -51,6 +51,37 @@ function mapManualToForm(manual) {
   };
 }
 
+function normalizeSearchText(value) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function searchTerms(value) {
+  const stopWords = new Set(['a', 'as', 'o', 'os', 'e', 'de', 'da', 'das', 'do', 'dos', 'em', 'na', 'nas', 'no', 'nos']);
+
+  return normalizeSearchText(value)
+    .split(/\s+/)
+    .map((term) => term.trim())
+    .filter((term) => term && !stopWords.has(term));
+}
+
+function manualMatchesSearch(manual, terms) {
+  if (!terms.length) return true;
+
+  const haystack = normalizeSearchText([
+    manual?.title,
+    manual?.summary,
+    manual?.content,
+    manual?.target_key,
+  ].join(' '));
+
+  return terms.every((term) => haystack.includes(term));
+}
+
 export default function ManualsPage() {
   const { data: meData, loading: meLoading, error: meError } = usePageData('/me');
   const { logout } = useLogout();
@@ -66,15 +97,15 @@ export default function ManualsPage() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
 
-  const load = async () => {
+  const load = async ({ searchTerm = search, categoryValue = category } = {}) => {
     setLoading(true);
     setError('');
     try {
-      const payload = await listManuals();
+      const payload = await listManuals({ search: searchTerm, category: categoryValue });
       const list = Array.isArray(payload?.manuals) ? payload.manuals : [];
       setManuals(list);
       setCanManage(Boolean(payload?.can_manage));
-      setSelectedId((prev) => prev ?? list[0]?.id ?? null);
+      setSelectedId((prev) => (list.some((manual) => manual.id === prev) ? prev : list[0]?.id ?? null));
     } catch (err) {
       setError(err?.message || 'Nao foi possivel carregar os manuais.');
     } finally {
@@ -84,23 +115,19 @@ export default function ManualsPage() {
 
   useEffect(() => {
     if (meLoading || !meData?.authenticated) return;
-    load();
-  }, [meLoading, meData?.authenticated]);
+    const timeoutId = window.setTimeout(() => {
+      load({ searchTerm: search, categoryValue: category });
+    }, 250);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [meLoading, meData?.authenticated, search, category]);
 
   const filtered = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase();
+    const terms = searchTerms(search);
 
     return manuals.filter((manual) => {
       if (category !== 'all' && manual.category !== category) return false;
-      if (!normalizedSearch) return true;
-
-      const haystack = [
-        manual.title,
-        manual.summary,
-        manual.content,
-      ].join(' ').toLowerCase();
-
-      return haystack.includes(normalizedSearch);
+      return manualMatchesSearch(manual, terms);
     });
   }, [manuals, search, category]);
 

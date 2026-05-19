@@ -19,11 +19,18 @@ class ManualController extends Controller
             return response()->json(['message' => 'Não autenticado.'], 401);
         }
 
+        $search = trim((string) $request->query('q', ''));
+        $category = trim((string) $request->query('category', ''));
+
+        $terms = $this->searchTerms($search);
+
         $manuals = Manual::query()
             ->orderByRaw("CASE WHEN category = 'flow' THEN 0 ELSE 1 END")
             ->orderBy('title')
             ->get()
             ->filter(fn (Manual $manual): bool => $this->canViewManual($user, $manual))
+            ->filter(fn (Manual $manual): bool => $this->matchesCategory($manual, $category))
+            ->filter(fn (Manual $manual): bool => $this->matchesSearch($manual, $terms))
             ->values()
             ->map(fn (Manual $manual): array => [
                 'id' => (int) $manual->id,
@@ -43,6 +50,75 @@ class ManualController extends Controller
             'manuals' => $manuals,
             'can_manage' => $user->isSystemAdmin(),
         ]);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function searchTerms(string $search): array
+    {
+        $stopWords = ['a', 'as', 'o', 'os', 'e', 'de', 'da', 'das', 'do', 'dos', 'em', 'na', 'nas', 'no', 'nos'];
+        $normalized = $this->normalizeSearchText($search);
+        $parts = preg_split('/\s+/', $normalized) ?: [];
+        $terms = [];
+
+        foreach ($parts as $part) {
+            $term = trim($part);
+            if ($term === '' || in_array($term, $stopWords, true)) {
+                continue;
+            }
+
+            $terms[] = $term;
+        }
+
+        return $terms !== [] ? array_values(array_unique($terms)) : [];
+    }
+
+    private function matchesCategory(Manual $manual, string $category): bool
+    {
+        if (! in_array($category, ['screen', 'flow'], true)) {
+            return true;
+        }
+
+        return (string) $manual->category === $category;
+    }
+
+    /**
+     * @param list<string> $terms
+     */
+    private function matchesSearch(Manual $manual, array $terms): bool
+    {
+        if ($terms === []) {
+            return true;
+        }
+
+        $haystack = $this->normalizeSearchText(implode(' ', [
+            $manual->title,
+            $manual->summary,
+            $manual->content,
+            $manual->target_key,
+        ]));
+
+        foreach ($terms as $term) {
+            if (! str_contains($haystack, $term)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function normalizeSearchText(string $value): string
+    {
+        $normalized = mb_strtolower(trim($value));
+        $withoutAccents = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $normalized);
+        if (is_string($withoutAccents) && $withoutAccents !== '') {
+            $normalized = $withoutAccents;
+        }
+
+        $normalized = preg_replace('/[^a-z0-9]+/i', ' ', $normalized) ?? $normalized;
+
+        return trim(preg_replace('/\s+/', ' ', $normalized) ?? $normalized);
     }
 
     private function canViewManual(User $user, Manual $manual): bool
@@ -76,4 +152,3 @@ class ManualController extends Controller
         return true;
     }
 }
-
