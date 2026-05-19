@@ -34,11 +34,11 @@ class AdminUserManagementTest extends TestCase
             'reseller_id' => $reseller->id,
             'is_active' => true,
         ]);
-        $operator = User::create([
-            'name' => 'Operador 1',
-            'email' => 'operador-index1@test.local',
+        $companyAdmin = User::create([
+            'name' => 'Admin Empresa',
+            'email' => 'company-admin-users-index@test.local',
             'password' => 'secret123',
-            'role' => User::ROLE_AGENT,
+            'role' => User::ROLE_COMPANY_ADMIN,
             'company_id' => $company->id,
             'is_active' => true,
         ]);
@@ -49,12 +49,12 @@ class AdminUserManagementTest extends TestCase
         $response->assertJsonPath('authenticated', true);
 
         $userIds = collect($response->json('users'))->pluck('id');
-        $this->assertTrue($userIds->contains($admin->id));
         $this->assertTrue($userIds->contains($resellerAdmin->id));
-        $this->assertFalse($userIds->contains($operator->id));
+        $this->assertTrue($userIds->contains($companyAdmin->id));
+        $this->assertFalse($userIds->contains($admin->id));
 
         $response->assertJsonPath('users_summary.global.total', 2);
-        $this->assertSame([], $response->json('users_summary.companies'));
+        $this->assertNotEmpty($response->json('users_summary.companies'));
     }
 
     public function test_reseller_admin_can_create_company_user(): void
@@ -138,7 +138,7 @@ class AdminUserManagementTest extends TestCase
         ]);
     }
 
-    public function test_admin_can_create_system_admin_without_company(): void
+    public function test_system_admin_cannot_create_system_admin_via_admin_users_flow(): void
     {
         $admin = User::create([
             'name' => 'Admin',
@@ -157,14 +157,65 @@ class AdminUserManagementTest extends TestCase
             'is_active' => true,
         ]);
 
-        $response->assertStatus(201);
-        $response->assertJsonPath('ok', true);
+        $response->assertStatus(403);
+    }
 
-        $this->assertDatabaseHas('users', [
-            'email' => 'novo-superadmin@test.local',
+    public function test_system_admin_can_migrate_user_between_reseller_admin_and_company_admin_roles(): void
+    {
+        $reseller = Reseller::create([
+            'name' => 'Revenda Migracao',
+            'slug' => 'revenda-migracao',
+        ]);
+        $company = Company::create([
+            'name' => 'Empresa Migracao',
+            'reseller_id' => $reseller->id,
+        ]);
+        $systemAdmin = User::create([
+            'name' => 'Super Admin',
+            'email' => 'super-migracao@test.local',
+            'password' => 'secret123',
             'role' => User::ROLE_SYSTEM_ADMIN,
+            'is_active' => true,
+        ]);
+        $target = User::create([
+            'name' => 'Usuario Alvo',
+            'email' => 'alvo-migracao@test.local',
+            'password' => 'secret123',
+            'role' => User::ROLE_RESELLER_ADMIN,
+            'reseller_id' => $reseller->id,
+            'is_active' => true,
+        ]);
+
+        $toCompanyResponse = $this->actingAs($systemAdmin)->putJson("/api/admin/users/{$target->id}", [
+            'name' => 'Usuario Alvo',
+            'email' => 'alvo-migracao@test.local',
+            'role' => User::ROLE_COMPANY_ADMIN,
+            'company_id' => $company->id,
+            'is_active' => true,
+        ]);
+
+        $toCompanyResponse->assertOk();
+        $this->assertDatabaseHas('users', [
+            'id' => $target->id,
+            'role' => User::ROLE_COMPANY_ADMIN,
+            'company_id' => $company->id,
+            'reseller_id' => null,
+        ]);
+
+        $toResellerResponse = $this->actingAs($systemAdmin)->putJson("/api/admin/users/{$target->id}", [
+            'name' => 'Usuario Alvo',
+            'email' => 'alvo-migracao@test.local',
+            'role' => User::ROLE_RESELLER_ADMIN,
+            'reseller_id' => $reseller->id,
+            'is_active' => true,
+        ]);
+
+        $toResellerResponse->assertOk();
+        $this->assertDatabaseHas('users', [
+            'id' => $target->id,
+            'role' => User::ROLE_RESELLER_ADMIN,
             'company_id' => null,
-            'is_active' => 1,
+            'reseller_id' => $reseller->id,
         ]);
     }
 

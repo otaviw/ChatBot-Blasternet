@@ -54,8 +54,8 @@ class AdminUserManagementSupportService
     public function isRoleManagedBySystemAdmin(string $normalizedRole): bool
     {
         return in_array($normalizedRole, [
-            User::ROLE_SYSTEM_ADMIN,
             User::ROLE_RESELLER_ADMIN,
+            User::ROLE_COMPANY_ADMIN,
         ], true);
     }
 

@@ -33,8 +33,8 @@ class ListAdminUsersAction
         $this->support->applyActorScopeToUsersQuery($usersQuery, $actorResellerId);
         if ($actorIsSystemAdmin) {
             $usersQuery->whereIn('role', [
-                User::ROLE_SYSTEM_ADMIN,
                 User::ROLE_RESELLER_ADMIN,
+                User::ROLE_COMPANY_ADMIN,
             ]);
         }
         $users = $usersQuery->get(['id', 'name', 'email', 'role', 'company_id', 'reseller_id', 'is_active', 'can_use_ai', 'disabled_at', 'created_at']);
@@ -45,8 +45,8 @@ class ListAdminUsersAction
         $this->support->applyActorScopeToUsersQuery($summaryQuery, $actorResellerId);
         if ($actorIsSystemAdmin) {
             $summaryQuery->whereIn('role', [
-                User::ROLE_SYSTEM_ADMIN,
                 User::ROLE_RESELLER_ADMIN,
+                User::ROLE_COMPANY_ADMIN,
             ]);
         }
         $summaryRows = $summaryQuery->get();

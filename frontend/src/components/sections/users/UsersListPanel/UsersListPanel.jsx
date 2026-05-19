@@ -26,6 +26,9 @@ function UsersListPanel({ users, roleLabel, onEdit, onDelete, showCompany = fals
               {showCompany && user.company?.name ? (
                 <p className="text-xs text-[#64748b]">Empresa: {user.company.name}</p>
               ) : null}
+              {showCompany && user.reseller?.name ? (
+                <p className="text-xs text-[#64748b]">Revenda: {user.reseller.name}</p>
+              ) : null}
               <p className="text-xs text-[#64748b]">
                 Areas:{' '}
                 {Array.isArray(user.areas) && user.areas.length ? user.areas.join(', ') : '-'}

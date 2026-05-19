@@ -33,7 +33,7 @@ class DestroyAdminUserAction
         }
 
         if ($actorIsSystemAdmin && ! $this->support->isRoleManagedBySystemAdmin(User::normalizeRole($user->role))) {
-            return ActionResponse::forbidden('Superadmin pode excluir apenas superadmins e admins de revenda.');
+            return ActionResponse::forbidden('Superadmin pode excluir apenas admins de revenda e admins de empresa.');
         }
 
         $companyId = $user->company_id ? (int) $user->company_id : null;

@@ -153,7 +153,7 @@ export default function UsersPage({ scope = "company" }) {
     ? isSuperAdminManagingGlobalUsers
       ? [
           { value: "reseller_admin", label: "Admin revenda" },
-          { value: "system_admin", label: "Superadmin" },
+          { value: "company_admin", label: "Admin da empresa" },
         ]
       : [
           { value: "agent", label: "Agente" },
@@ -169,7 +169,7 @@ export default function UsersPage({ scope = "company" }) {
     if (!isSuperAdminManagingGlobalUsers) return;
 
     setCreateForm((prev) => {
-      if (prev.role === "system_admin" || prev.role === "reseller_admin") {
+      if (prev.role === "company_admin" || prev.role === "reseller_admin") {
         return prev;
       }
       return { ...prev, role: "reseller_admin", company_id: "", areas: [] };
@@ -177,7 +177,7 @@ export default function UsersPage({ scope = "company" }) {
 
     setEditForm((prev) => {
       if (!prev) return prev;
-      if (prev.role === "system_admin" || prev.role === "reseller_admin") {
+      if (prev.role === "company_admin" || prev.role === "reseller_admin") {
         return prev;
       }
       return { ...prev, role: "reseller_admin", company_id: "", areas: [] };

@@ -33,7 +33,7 @@ class StoreAdminUserAction
 
         $normalizedRole = User::normalizeRole((string) $validated['role']);
         if ($actorIsSystemAdmin && ! $this->support->isRoleManagedBySystemAdmin($normalizedRole)) {
-            return ActionResponse::forbidden('Superadmin pode gerenciar apenas superadmins e admins de revenda.');
+            return ActionResponse::forbidden('Superadmin pode gerenciar apenas admins de revenda e admins de empresa.');
         }
 
         $tenantScope = $this->support->resolveTenantScopeForRole(

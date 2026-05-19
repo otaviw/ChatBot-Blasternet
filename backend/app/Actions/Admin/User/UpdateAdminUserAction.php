@@ -27,7 +27,7 @@ class UpdateAdminUserAction
         $actorResellerId = $this->support->resolveActorResellerId($request);
 
         if ($actorIsSystemAdmin && ! $this->support->isRoleManagedBySystemAdmin(User::normalizeRole($user->role))) {
-            return ActionResponse::forbidden('Superadmin pode editar apenas superadmins e admins de revenda.');
+            return ActionResponse::forbidden('Superadmin pode editar apenas admins de revenda e admins de empresa.');
         }
 
         if ($actorResellerId !== null && ! $this->support->userBelongsToResellerScope($user, $actorResellerId)) {
@@ -36,7 +36,7 @@ class UpdateAdminUserAction
 
         $normalizedRole = User::normalizeRole((string) $validated['role']);
         if ($actorIsSystemAdmin && ! $this->support->isRoleManagedBySystemAdmin($normalizedRole)) {
-            return ActionResponse::forbidden('Superadmin pode gerenciar apenas superadmins e admins de revenda.');
+            return ActionResponse::forbidden('Superadmin pode gerenciar apenas admins de revenda e admins de empresa.');
         }
 
         $tenantScope = $this->support->resolveTenantScopeForRole(
