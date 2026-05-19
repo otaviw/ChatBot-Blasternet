@@ -162,6 +162,41 @@ function SettingsTab({
           </label>
 
           <label className="block text-sm md:col-span-2">
+            Access Token (Meta)
+            <input
+              type="password"
+              value={companyForm.meta_access_token}
+              onChange={(e) => {
+                setCompanyForm((p) => ({ ...p, meta_access_token: e.target.value }));
+                setTestState('idle');
+              }}
+              className="app-input"
+              placeholder="Preencher apenas para atualizar"
+            />
+          </label>
+
+          <label className="block text-sm">
+            App Secret (Meta)
+            <input
+              type="password"
+              value={companyForm.meta_app_secret}
+              onChange={(e) => setCompanyForm((p) => ({ ...p, meta_app_secret: e.target.value }))}
+              className="app-input"
+              placeholder="Preencher apenas para atualizar"
+            />
+          </label>
+
+          <label className="block text-sm">
+            Verify Token (Webhook)
+            <input
+              type="text"
+              value={companyForm.meta_verify_token}
+              onChange={(e) => setCompanyForm((p) => ({ ...p, meta_verify_token: e.target.value }))}
+              className="app-input"
+            />
+          </label>
+
+          <label className="block text-sm md:col-span-2">
             URL base IXC
             <input
               type="url"

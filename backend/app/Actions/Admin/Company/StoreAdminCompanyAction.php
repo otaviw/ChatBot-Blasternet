@@ -47,6 +47,9 @@ class StoreAdminCompanyAction
         $company = Company::create([
             'name'                 => $validated['name'],
             'meta_phone_number_id' => $validated['meta_phone_number_id'] ?? null,
+            'meta_access_token'    => $validated['meta_access_token'] ?? null,
+            'meta_app_secret'      => $validated['meta_app_secret'] ?? null,
+            'meta_verify_token'    => $validated['meta_verify_token'] ?? null,
             'meta_waba_id'         => $validated['meta_waba_id'] ?? null,
             'ixc_base_url'         => $validated['ixc_base_url'] ?? null,
             'ixc_api_token'        => $validated['ixc_api_token'] ?? null,

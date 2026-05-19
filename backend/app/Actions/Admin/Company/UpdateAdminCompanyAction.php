@@ -31,10 +31,14 @@ class UpdateAdminCompanyAction
             'name' => $company->name,
             'meta_phone_number_id' => $company->meta_phone_number_id,
             'has_meta_credentials' => $company->hasMetaCredentials(),
+            'has_meta_app_secret' => trim((string) ($company->meta_app_secret ?? '')) !== '',
+            'has_meta_verify_token' => trim((string) ($company->meta_verify_token ?? '')) !== '',
         ];
 
         $newPhoneId = $validated['meta_phone_number_id'] ?? null;
         $newToken   = array_key_exists('meta_access_token', $validated) ? ($validated['meta_access_token'] ?: null) : null;
+        $newAppSecret = array_key_exists('meta_app_secret', $validated) ? ($validated['meta_app_secret'] ?: null) : null;
+        $newVerifyToken = array_key_exists('meta_verify_token', $validated) ? ($validated['meta_verify_token'] ?: null) : null;
         $newIxcBaseUrl = array_key_exists('ixc_base_url', $validated) ? ($validated['ixc_base_url'] ?: null) : $company->ixc_base_url;
         $newIxcToken = array_key_exists('ixc_api_token', $validated) ? ($validated['ixc_api_token'] ?: null) : $company->ixc_api_token;
         $newIxcSelfSigned = (bool) ($validated['ixc_self_signed'] ?? $company->ixc_self_signed ?? config('ixc.allow_self_signed_default', false));
@@ -77,6 +81,12 @@ class UpdateAdminCompanyAction
         $company->meta_waba_id = $validated['meta_waba_id'] ?? null;
         if ($newToken !== null) {
             $company->meta_access_token = $newToken;
+        }
+        if ($newAppSecret !== null) {
+            $company->meta_app_secret = $newAppSecret;
+        }
+        if ($newVerifyToken !== null) {
+            $company->meta_verify_token = $newVerifyToken;
         }
         $company->ixc_base_url = $newIxcBaseUrl;
         if (array_key_exists('ixc_api_token', $validated)) {
@@ -121,6 +131,8 @@ class UpdateAdminCompanyAction
                     'name' => $company->name,
                     'meta_phone_number_id' => $company->meta_phone_number_id,
                     'has_meta_credentials' => $company->hasMetaCredentials(),
+                    'has_meta_app_secret' => trim((string) ($company->meta_app_secret ?? '')) !== '',
+                    'has_meta_verify_token' => trim((string) ($company->meta_verify_token ?? '')) !== '',
                 ],
             ]
         );

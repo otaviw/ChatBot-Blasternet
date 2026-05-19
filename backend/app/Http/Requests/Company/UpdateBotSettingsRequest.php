@@ -21,6 +21,8 @@ class UpdateBotSettingsRequest extends FormRequest
         return [
             'meta_phone_number_id'          => ['sometimes', 'nullable', 'string', 'max:255'],
             'meta_access_token'             => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'meta_app_secret'               => ['sometimes', 'nullable', 'string', 'max:255'],
+            'meta_verify_token'             => ['sometimes', 'nullable', 'string', 'max:255'],
             'is_active'                     => ['required', 'boolean'],
             'timezone'                      => ['required', 'string', Rule::in(timezone_identifiers_list())],
             'welcome_message'               => ['nullable', 'string', 'max:2000'],

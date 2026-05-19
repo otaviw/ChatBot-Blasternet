@@ -22,6 +22,8 @@ class Company extends Model
         'meta_phone_number_id',
         'meta_waba_id',
         'meta_access_token',
+        'meta_app_secret',
+        'meta_verify_token',
         'ixc_base_url',
         'ixc_api_token',
         'ixc_self_signed',
@@ -33,6 +35,8 @@ class Company extends Model
 
     protected $hidden = [
         'meta_access_token',
+        'meta_app_secret',
+        'meta_verify_token',
         'ixc_api_token',
         'meta_phone_number_id_hash',
     ];
@@ -47,6 +51,8 @@ class Company extends Model
         'meta_access_token' => 'encrypted',
         'meta_phone_number_id' => 'encrypted',
         'meta_waba_id' => 'encrypted',
+        'meta_app_secret' => 'encrypted',
+        'meta_verify_token' => 'encrypted',
         'ixc_api_token' => 'encrypted',
         'ixc_self_signed' => 'boolean',
         'ixc_enabled' => 'boolean',

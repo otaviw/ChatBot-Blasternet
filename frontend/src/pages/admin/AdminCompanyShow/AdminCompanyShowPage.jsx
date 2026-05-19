@@ -30,6 +30,9 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
   const [companyForm, setCompanyForm] = useState({
     name: '',
     meta_phone_number_id: '',
+    meta_access_token: '',
+    meta_app_secret: '',
+    meta_verify_token: '',
     meta_waba_id: '',
     ixc_base_url: '',
     ixc_api_token: '',
@@ -100,6 +103,9 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
     setCompanyForm({
       name: data.company.name ?? '',
       meta_phone_number_id: data.company.meta_phone_number_id ?? '',
+      meta_access_token: '',
+      meta_app_secret: '',
+      meta_verify_token: '',
       meta_waba_id: data.company.meta_waba_id ?? '',
       ixc_base_url: data.company.ixc_base_url ?? '',
       ixc_api_token: '',
@@ -167,9 +173,13 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
     setTestState('loading');
     setTestResult(null);
     try {
-      const response = await api.post(`/admin/empresas/${companyId}/validar-whatsapp`, {
+      const payload = {
         phone_number_id: companyForm.meta_phone_number_id || undefined,
-      });
+      };
+      if (String(companyForm.meta_access_token ?? '').trim() !== '') {
+        payload.access_token = String(companyForm.meta_access_token).trim();
+      }
+      const response = await api.post(`/admin/empresas/${companyId}/validar-whatsapp`, payload);
       setTestState('ok');
       setTestResult(response.data);
     } catch (err) {
@@ -187,6 +197,9 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
       const payload = {
         name: companyForm.name,
         meta_phone_number_id: companyForm.meta_phone_number_id || null,
+        meta_access_token: String(companyForm.meta_access_token ?? '').trim() || null,
+        meta_app_secret: String(companyForm.meta_app_secret ?? '').trim() || null,
+        meta_verify_token: String(companyForm.meta_verify_token ?? '').trim() || null,
         meta_waba_id: companyForm.meta_waba_id || null,
         ixc_base_url: companyForm.ixc_base_url || null,
         ixc_self_signed: Boolean(companyForm.ixc_self_signed),
@@ -208,6 +221,9 @@ function AdminCompanyShowPage({ companyId: companyIdProp }) {
         setCompanyForm({
           name: updatedCompany.name ?? '',
           meta_phone_number_id: updatedCompany.meta_phone_number_id ?? '',
+          meta_access_token: '',
+          meta_app_secret: '',
+          meta_verify_token: '',
           meta_waba_id: updatedCompany.meta_waba_id ?? '',
           ixc_base_url: updatedCompany.ixc_base_url ?? '',
           ixc_api_token: '',

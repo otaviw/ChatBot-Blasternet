@@ -31,6 +31,9 @@ function CompanyEditPage() {
   const [form, setForm] = useState({
     name: '',
     meta_phone_number_id: '',
+    meta_access_token: '',
+    meta_app_secret: '',
+    meta_verify_token: '',
     meta_waba_id: '',
     ixc_base_url: '',
     ixc_api_token: '',
@@ -71,6 +74,9 @@ function CompanyEditPage() {
         setForm({
           name: String(company.name ?? ''),
           meta_phone_number_id: String(company.meta_phone_number_id ?? ''),
+          meta_access_token: '',
+          meta_app_secret: '',
+          meta_verify_token: '',
           meta_waba_id: String(company.meta_waba_id ?? ''),
           ixc_base_url: String(company.ixc_base_url ?? ''),
           ixc_api_token: '',
@@ -115,6 +121,9 @@ function CompanyEditPage() {
       const payload = {
         name: String(form.name ?? '').trim(),
         meta_phone_number_id: String(form.meta_phone_number_id ?? '').trim() || null,
+        meta_access_token: String(form.meta_access_token ?? '').trim() || null,
+        meta_app_secret: String(form.meta_app_secret ?? '').trim() || null,
+        meta_verify_token: String(form.meta_verify_token ?? '').trim() || null,
         meta_waba_id: String(form.meta_waba_id ?? '').trim() || null,
         ixc_base_url: String(form.ixc_base_url ?? '').trim() || null,
         ixc_self_signed: Boolean(form.ixc_self_signed),
@@ -251,6 +260,38 @@ function CompanyEditPage() {
               type="text"
               value={form.meta_phone_number_id}
               onChange={(event) => setForm((prev) => ({ ...prev, meta_phone_number_id: event.target.value }))}
+              className="app-input"
+            />
+          </label>
+
+          <label className="block text-sm">
+            Access Token (Meta)
+            <input
+              type="password"
+              value={form.meta_access_token}
+              onChange={(event) => setForm((prev) => ({ ...prev, meta_access_token: event.target.value }))}
+              className="app-input"
+              placeholder="Preencher apenas para atualizar"
+            />
+          </label>
+
+          <label className="block text-sm">
+            App Secret (Meta)
+            <input
+              type="password"
+              value={form.meta_app_secret}
+              onChange={(event) => setForm((prev) => ({ ...prev, meta_app_secret: event.target.value }))}
+              className="app-input"
+              placeholder="Preencher apenas para atualizar"
+            />
+          </label>
+
+          <label className="block text-sm">
+            Verify Token (Webhook)
+            <input
+              type="text"
+              value={form.meta_verify_token}
+              onChange={(event) => setForm((prev) => ({ ...prev, meta_verify_token: event.target.value }))}
               className="app-input"
             />
           </label>

@@ -29,6 +29,8 @@ class UpdateCompanyRequest extends FormRequest
                 $this->uniquePhoneNumberIdRule(),
             ],
             'meta_access_token'             => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'meta_app_secret'               => ['sometimes', 'nullable', 'string', 'max:255'],
+            'meta_verify_token'             => ['sometimes', 'nullable', 'string', 'max:255'],
             'meta_waba_id'                  => ['nullable', 'string', 'max:255'],
             'ixc_base_url'                  => ['nullable', 'url', 'max:500'],
             'ixc_api_token'                 => ['sometimes', 'nullable', 'string', 'max:4000'],

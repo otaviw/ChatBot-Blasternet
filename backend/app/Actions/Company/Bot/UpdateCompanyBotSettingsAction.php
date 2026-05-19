@@ -93,8 +93,10 @@ class UpdateCompanyBotSettingsAction
         $credentialsChanged = false;
         $hasPhone = array_key_exists('meta_phone_number_id', $validated);
         $hasToken = array_key_exists('meta_access_token', $validated);
+        $hasAppSecret = array_key_exists('meta_app_secret', $validated);
+        $hasVerifyToken = array_key_exists('meta_verify_token', $validated);
 
-        if (! $hasPhone && ! $hasToken) {
+        if (! $hasPhone && ! $hasToken && ! $hasAppSecret && ! $hasVerifyToken) {
             return null;
         }
 
@@ -104,6 +106,12 @@ class UpdateCompanyBotSettingsAction
 
         $newToken = $hasToken && $validated['meta_access_token'] !== null
             ? trim((string) $validated['meta_access_token'])
+            : null;
+        $newAppSecret = $hasAppSecret && $validated['meta_app_secret'] !== null
+            ? trim((string) $validated['meta_app_secret'])
+            : null;
+        $newVerifyToken = $hasVerifyToken && $validated['meta_verify_token'] !== null
+            ? trim((string) $validated['meta_verify_token'])
             : null;
 
         $phoneChanged = $newPhoneId !== null && $newPhoneId !== '' && $newPhoneId !== (string) ($company->meta_phone_number_id ?? '');
@@ -124,6 +132,12 @@ class UpdateCompanyBotSettingsAction
         }
         if ($newToken !== null && $newToken !== '') {
             $company->meta_access_token = $newToken;
+        }
+        if ($newAppSecret !== null && $newAppSecret !== '') {
+            $company->meta_app_secret = $newAppSecret;
+        }
+        if ($newVerifyToken !== null && $newVerifyToken !== '') {
+            $company->meta_verify_token = $newVerifyToken;
         }
         if ($company->isDirty()) {
             $credentialsChanged = true;

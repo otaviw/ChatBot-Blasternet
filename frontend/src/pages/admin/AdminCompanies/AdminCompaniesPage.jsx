@@ -46,6 +46,9 @@ function AdminCompaniesPage() {
   const [newCompany, setNewCompany] = useState({
     name: '',
     meta_phone_number_id: '',
+    meta_access_token: '',
+    meta_app_secret: '',
+    meta_verify_token: '',
     ixc_base_url: '',
     ixc_api_token: '',
     ixc_self_signed: false,
@@ -224,6 +227,15 @@ function AdminCompaniesPage() {
         ai_enabled: Boolean(newCompany.ai_enabled),
         ai_internal_chat_enabled: Boolean(newCompany.ai_internal_chat_enabled),
       };
+      if (String(newCompany.meta_access_token ?? '').trim() !== '') {
+        payload.meta_access_token = String(newCompany.meta_access_token).trim();
+      }
+      if (String(newCompany.meta_app_secret ?? '').trim() !== '') {
+        payload.meta_app_secret = String(newCompany.meta_app_secret).trim();
+      }
+      if (String(newCompany.meta_verify_token ?? '').trim() !== '') {
+        payload.meta_verify_token = String(newCompany.meta_verify_token).trim();
+      }
       if (String(newCompany.ixc_api_token ?? '').trim() !== '') {
         payload.ixc_api_token = String(newCompany.ixc_api_token).trim();
       }
@@ -233,6 +245,9 @@ function AdminCompaniesPage() {
       setNewCompany({
         name: '',
         meta_phone_number_id: '',
+        meta_access_token: '',
+        meta_app_secret: '',
+        meta_verify_token: '',
         ixc_base_url: '',
         ixc_api_token: '',
         ixc_self_signed: false,
@@ -445,6 +460,36 @@ function AdminCompaniesPage() {
             />
           </label>
 
+          <label className="block text-sm">
+            Access Token (Meta)
+            <input
+              type="password"
+              value={newCompany.meta_access_token}
+              onChange={(e) => setNewCompany((p) => ({ ...p, meta_access_token: e.target.value }))}
+              className="app-input"
+            />
+          </label>
+
+          <label className="block text-sm">
+            App Secret (Meta)
+            <input
+              type="password"
+              value={newCompany.meta_app_secret}
+              onChange={(e) => setNewCompany((p) => ({ ...p, meta_app_secret: e.target.value }))}
+              className="app-input"
+            />
+          </label>
+
+          <label className="block text-sm">
+            Verify Token (Webhook)
+            <input
+              type="text"
+              value={newCompany.meta_verify_token}
+              onChange={(e) => setNewCompany((p) => ({ ...p, meta_verify_token: e.target.value }))}
+              className="app-input"
+            />
+          </label>
+
           <label className="flex items-center gap-2 text-sm md:col-span-2">
             <input
               type="checkbox"
@@ -539,4 +584,3 @@ function AdminCompaniesPage() {
 }
 
 export default AdminCompaniesPage;
-
