@@ -146,8 +146,11 @@ class ApiExceptionHandler
             return 'Erro interno do servidor.';
         }
 
+        if ($e instanceof ValidationException) {
+            return static::firstValidationMessage($e) ?: 'Os dados enviados sao invalidos.';
+        }
+
         return match (true) {
-            $e instanceof ValidationException => 'Os dados enviados sao invalidos.',
             $e instanceof AuthenticationException => 'Nao autenticado. Faca login para continuar.',
             $e instanceof AuthorizationException => 'Sem permissao para realizar esta acao.',
             $e instanceof ModelNotFoundException,
@@ -159,6 +162,21 @@ class ApiExceptionHandler
             $e instanceof HttpException => (string) ($e->getMessage() ?: 'Erro HTTP.'),
             default => 'Erro desconhecido.',
         };
+    }
+
+    private static function firstValidationMessage(ValidationException $e): string
+    {
+        foreach ($e->errors() as $messages) {
+            foreach ((array) $messages as $message) {
+                $normalized = trim((string) $message);
+
+                if ($normalized !== '') {
+                    return $normalized;
+                }
+            }
+        }
+
+        return '';
     }
 
     /**

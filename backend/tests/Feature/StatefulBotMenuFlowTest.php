@@ -716,6 +716,127 @@ class StatefulBotMenuFlowTest extends TestCase
         $this->assertNotNull($fixture['service']);
     }
 
+    public function test_first_message_natural_text_routes_before_showing_plain_menu(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-20 14:00:00', 'America/Sao_Paulo'));
+
+        $statefulMenuFlow = [
+            'commands' => ['#', 'menu'],
+            'initial' => ['flow' => 'main', 'step' => 'menu'],
+            'steps' => [
+                'main.menu' => [
+                    'type' => 'numeric_menu',
+                    'reply_text' => "Oi. Como posso ajudar?\n1 - Financeiro\n2 - Vendas\n3 - Suporte tecnico\n4 - Falar com atendente\n5 - Marcar agendamento",
+                    'options' => [
+                        '1' => [
+                            'label' => 'Financeiro',
+                            'action' => ['kind' => 'go_to', 'flow' => 'finance', 'step' => 'menu'],
+                        ],
+                        '5' => [
+                            'label' => 'Marcar agendamento',
+                            'action' => ['kind' => 'appointments_start', 'target_area_name' => 'Atendimento'],
+                        ],
+                    ],
+                ],
+                'finance.menu' => [
+                    'type' => 'numeric_menu',
+                    'reply_text' => "Escolha uma das opções para seguir atendimento.\n1 - Segunda via boleto",
+                    'options' => [
+                        '1' => [
+                            'label' => 'Segunda via boleto',
+                            'action' => ['kind' => 'handoff', 'target_area_name' => 'Financeiro', 'reply_text' => 'Vou te encaminhar para o Financeiro.'],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $company = $this->createCompanyWithAlwaysOnBot('Empresa Primeira Natural', [
+            'stateful_menu_flow' => $statefulMenuFlow,
+        ]);
+        $this->attachAppointmentAvailability($company, 'first-natural');
+        Area::create(['company_id' => $company->id, 'name' => 'Financeiro']);
+        Area::create(['company_id' => $company->id, 'name' => 'Atendimento']);
+
+        $user = $this->createCompanyUser($company, 'first-natural@test.local');
+
+        $boleto = $this->simulateInbound($user, $company, '5511777700040', 'quero boleto');
+        $boleto->assertOk();
+        $this->assertStringContainsString('Segunda via boleto', (string) $boleto->json('reply'));
+        $this->assertStringNotContainsString("5 - Marcar agendamento", (string) $boleto->json('reply'));
+
+        $typoAppointment = $this->simulateInbound($user, $company, '5511777700041', 'egndamento');
+        $typoAppointment->assertOk();
+        $this->assertStringContainsString('Qual dia', (string) $typoAppointment->json('reply'));
+    }
+
+    public function test_active_appointment_flow_can_switch_back_to_finance_and_menu_with_natural_text(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-20 08:00:00', 'America/Sao_Paulo'));
+
+        $statefulMenuFlow = [
+            'commands' => ['#', 'menu'],
+            'initial' => ['flow' => 'main', 'step' => 'menu'],
+            'steps' => [
+                'main.menu' => [
+                    'type' => 'numeric_menu',
+                    'reply_text' => "Oi. Como posso ajudar?\n1 - Financeiro\n5 - Marcar agendamento",
+                    'options' => [
+                        '1' => [
+                            'label' => 'Financeiro',
+                            'action' => ['kind' => 'go_to', 'flow' => 'finance', 'step' => 'menu'],
+                        ],
+                        '5' => [
+                            'label' => 'Marcar agendamento',
+                            'action' => ['kind' => 'appointments_start', 'target_area_name' => 'Atendimento'],
+                        ],
+                    ],
+                ],
+                'finance.menu' => [
+                    'type' => 'numeric_menu',
+                    'reply_text' => "Escolha uma das opções para seguir atendimento.\n1 - Segunda via boleto",
+                    'options' => [
+                        '1' => [
+                            'label' => 'Segunda via boleto',
+                            'action' => ['kind' => 'handoff', 'target_area_name' => 'Financeiro', 'reply_text' => 'Vou te encaminhar para o Financeiro.'],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $company = $this->createCompanyWithAlwaysOnBot('Empresa Troca Financeiro', [
+            'stateful_menu_flow' => $statefulMenuFlow,
+        ]);
+        $fixture = $this->attachAppointmentAvailability($company, 'switch-finance');
+        AppointmentWorkingHour::create([
+            'company_id' => $company->id,
+            'staff_profile_id' => $fixture['staffProfile']->id,
+            'day_of_week' => 2,
+            'start_time' => '13:00:00',
+            'end_time' => '16:00:00',
+            'is_active' => true,
+        ]);
+        Area::create(['company_id' => $company->id, 'name' => 'Financeiro']);
+        Area::create(['company_id' => $company->id, 'name' => 'Atendimento']);
+
+        $user = $this->createCompanyUser($company, 'switch-finance@test.local');
+
+        $this->simulateInbound($user, $company, '5511777700050', 'agendamento')->assertOk();
+        $this->simulateInbound($user, $company, '5511777700050', 'terca a tarde')->assertOk();
+
+        $finance = $this->simulateInbound($user, $company, '5511777700050', 'quero voltar pro financeiro');
+        $finance->assertOk();
+        $this->assertStringContainsString('Segunda via boleto', (string) $finance->json('reply'));
+
+        $menu = $this->simulateInbound($user, $company, '5511777700051', 'agendamento');
+        $menu->assertOk();
+        $this->simulateInbound($user, $company, '5511777700051', 'terca a tarde')->assertOk();
+        $back = $this->simulateInbound($user, $company, '5511777700051', 'quero voltar para o menu');
+        $back->assertOk();
+        $back->assertJsonPath('reply', "Oi. Como posso ajudar?\n1 - Financeiro\n5 - Marcar agendamento");
+    }
+
     public function test_natural_start_commands_reset_to_main_menu_from_subflow(): void
     {
         $company = $this->createCompanyWithAlwaysOnBot('Empresa Inicio');

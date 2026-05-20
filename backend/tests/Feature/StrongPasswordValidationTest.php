@@ -58,6 +58,39 @@ class StrongPasswordValidationTest extends TestCase
         $response->assertCreated()->assertJsonPath('ok', true);
     }
 
+    public function test_company_user_update_rejects_weak_password_and_returns_reason(): void
+    {
+        $company = Company::create(['name' => 'Empresa Password Update']);
+        $companyAdmin = User::create([
+            'name' => 'Company Admin Update',
+            'email' => 'company-admin-update-password@test.local',
+            'password' => 'Secret123',
+            'role' => User::ROLE_COMPANY_ADMIN,
+            'company_id' => $company->id,
+            'is_active' => true,
+        ]);
+        $agent = User::create([
+            'name' => 'Agent Update',
+            'email' => 'agent-update-password@test.local',
+            'password' => 'StrongPass9',
+            'role' => User::ROLE_AGENT,
+            'company_id' => $company->id,
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($companyAdmin)->putJson("/api/minha-conta/users/{$agent->id}", [
+            'name' => $agent->name,
+            'email' => $agent->email,
+            'password' => 'somenteletras',
+            'role' => User::ROLE_AGENT,
+            'is_active' => true,
+        ]);
+
+        $response->assertStatus(422);
+        $this->assertArrayHasKey('password', (array) $response->json('errors'));
+        $response->assertJsonPath('message', $response->json('errors.password.0'));
+    }
+
     public function test_reset_password_rejects_password_without_number(): void
     {
         $user = User::create([

@@ -403,7 +403,7 @@ class GeneralMenuFlowHandler
                 || $this->containsAny($haystack, ['nota fiscal', 'fiscal']);
         }
 
-        if ($this->containsAny($inputLookup, ['agendamento', 'agendar', 'agenda', 'horario', 'marcar'])) {
+        if ($this->containsAny($inputLookup, ['agendamento', 'agendar', 'agenda', 'egndamento', 'agendmento', 'agendemento', 'horario', 'marcar'])) {
             return $kind === 'appointments_start'
                 || $this->containsAny($haystack, ['agendamento', 'agenda', 'horario']);
         }

@@ -45,7 +45,19 @@ class StatefulBotService
         $flow = is_string($conversation->bot_flow) ? trim($conversation->bot_flow) : '';
         $step = is_string($conversation->bot_step) ? trim($conversation->bot_step) : '';
         if ($flow === '' || $step === '') {
+            $initialRoute = $this->tryRouteNaturalMenuInput($company, $conversation, $definition, $normalizedText);
+            if ($initialRoute !== null) {
+                return $initialRoute;
+            }
+
             return $this->generalMenuHandler->buildInitialMenuResponse($definition);
+        }
+
+        if (in_array($flow, [BotFlow::APPOINTMENTS->value, BotFlow::CANCEL_APPOINTMENT->value, BotFlow::IXC_INVOICES->value], true)) {
+            $menuRoute = $this->tryRouteNaturalMenuInput($company, $conversation, $definition, $normalizedText);
+            if ($menuRoute !== null) {
+                return $menuRoute;
+            }
         }
 
         if ($flow === BotFlow::APPOINTMENTS->value) {
@@ -192,6 +204,9 @@ class StatefulBotService
             || str_contains($normalized, 'voltar para o inicio')
             || str_contains($normalized, 'voltar pro inicio')
             || str_contains($normalized, 'voltar ao inicio')
+            || str_contains($normalized, 'voltar para o menu')
+            || str_contains($normalized, 'voltar pro menu')
+            || str_contains($normalized, 'voltar ao menu')
             || str_contains($normalized, 'menu principal')
             || str_contains($normalized, 'comecar de novo')
             || str_contains($normalized, 'começar de novo');
@@ -208,6 +223,73 @@ class StatefulBotService
         $n = mb_strtolower(trim(strtr($text, $accents)));
 
         return in_array($n, ['cancelar', 'cancelar agendamento', 'cancela', 'cancela agendamento'], true);
+    }
+
+    /**
+     * @param  array<string, mixed>  $definition
+     * @return array<string, mixed>|null
+     */
+    private function tryRouteNaturalMenuInput(
+        ?Company $company,
+        Conversation $conversation,
+        array $definition,
+        string $inputText
+    ): ?array {
+        if (! $this->looksLikeNaturalMenuRoute($inputText)) {
+            return null;
+        }
+
+        $initial = is_array($definition['initial'] ?? null) ? $definition['initial'] : [];
+        $flow = trim((string) ($initial['flow'] ?? ''));
+        $step = trim((string) ($initial['step'] ?? ''));
+        if ($flow === '' || $step === '') {
+            return null;
+        }
+
+        $result = $this->generalMenuHandler->handleStep($company, $conversation, $definition, $flow, $step, $inputText);
+        if (! (bool) ($result['handled'] ?? false)) {
+            return null;
+        }
+
+        $reply = $this->normalizeLookupText((string) ($result['reply_text'] ?? ''));
+        if ($reply === '' || str_contains($reply, 'opcao invalida') || str_contains($reply, 'opção inválida')) {
+            return null;
+        }
+
+        return $result;
+    }
+
+    private function looksLikeNaturalMenuRoute(string $inputText): bool
+    {
+        $normalized = $this->normalizeLookupText($inputText);
+        if ($normalized === '' || preg_match('/^\d+$/', $normalized) === 1) {
+            return false;
+        }
+
+        return $this->containsAny($normalized, [
+            'financeiro',
+            'boleto',
+            'fatura',
+            'segunda via',
+            'pagamento',
+            'nota fiscal',
+            'fiscal',
+            'agendamento',
+            'agendar',
+            'agenda',
+            'egndamento',
+            'agendmento',
+            'horario',
+            'marcar',
+            'suporte',
+            'internet',
+            'conexao',
+            'wifi',
+            'vendas',
+            'comprar',
+            'contratar',
+            'plano',
+        ]);
     }
 
     /**
@@ -340,6 +422,7 @@ class StatefulBotService
             return $kind === 'appointments_start'
                 || str_contains($haystack, 'agendamento')
                 || str_contains($haystack, 'agenda')
+                || str_contains($haystack, 'horario')
                 ? 100
                 : 0;
         }
