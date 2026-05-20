@@ -84,12 +84,59 @@ class StatefulBotService
     ): ?array {
         $definition = $this->registry->definitionForCompany($company);
         $context = $this->currentMenuContext($conversation, $definition);
-        if ($context === null) {
+
+        if (! $this->isDirectHandoffIntent($intent) && $this->isSpecificFinancialRequest($intent, $messageText)) {
+            $globalMatch = $this->findMenuMatchForIntent($definition, $intent, $messageText);
+            if ($globalMatch !== null) {
+                return $this->generalMenuHandler->handleStep(
+                    $company,
+                    $conversation,
+                    $definition,
+                    $globalMatch['flow'],
+                    $globalMatch['step'],
+                    $globalMatch['option_key'],
+                    ['ai_message_text' => $messageText]
+                );
+            }
+        }
+
+        if ($context !== null) {
+            $optionKey = $this->resolveOptionKeyForIntent($context['step_definition'], $intent, $messageText);
+            if ($optionKey !== null) {
+                return $this->generalMenuHandler->handleStep(
+                    $company,
+                    $conversation,
+                    $definition,
+                    $context['flow'],
+                    $context['step'],
+                    $optionKey,
+                    ['ai_message_text' => $messageText]
+                );
+            }
+        }
+
+        if ($this->isDirectHandoffIntent($intent)) {
             return null;
         }
 
-        $optionKey = $this->resolveOptionKeyForIntent($context['step_definition'], $intent);
-        if ($optionKey === null) {
+        $initialContext = $this->initialMenuContext($definition);
+        if ($initialContext !== null) {
+            $optionKey = $this->resolveOptionKeyForIntent($initialContext['step_definition'], $intent, $messageText);
+            if ($optionKey !== null) {
+                return $this->generalMenuHandler->handleStep(
+                    $company,
+                    $conversation,
+                    $definition,
+                    $initialContext['flow'],
+                    $initialContext['step'],
+                    $optionKey,
+                    ['ai_message_text' => $messageText]
+                );
+            }
+        }
+
+        $globalMatch = $this->findMenuMatchForIntent($definition, $intent, $messageText);
+        if ($globalMatch === null) {
             return null;
         }
 
@@ -97,9 +144,9 @@ class StatefulBotService
             $company,
             $conversation,
             $definition,
-            $context['flow'],
-            $context['step'],
-            $optionKey,
+            $globalMatch['flow'],
+            $globalMatch['step'],
+            $globalMatch['option_key'],
             ['ai_message_text' => $messageText]
         );
     }
@@ -183,14 +230,47 @@ class StatefulBotService
     }
 
     /**
+     * @param  array<string, mixed>  $definition
+     * @return array{flow:string,step:string,step_definition:array<string,mixed>}|null
+     */
+    private function initialMenuContext(array $definition): ?array
+    {
+        $initial = is_array($definition['initial'] ?? null) ? $definition['initial'] : [];
+        $flow = trim((string) ($initial['flow'] ?? ''));
+        $step = trim((string) ($initial['step'] ?? ''));
+
+        if ($flow === '' || $step === '') {
+            return null;
+        }
+
+        $stateKey = "{$flow}.{$step}";
+        $stepDefinition = is_array($definition['steps'][$stateKey] ?? null)
+            ? $definition['steps'][$stateKey]
+            : null;
+
+        if (! is_array($stepDefinition) || ($stepDefinition['type'] ?? null) !== 'numeric_menu') {
+            return null;
+        }
+
+        return [
+            'flow' => $flow,
+            'step' => $step,
+            'step_definition' => $stepDefinition,
+        ];
+    }
+
+    /**
      * @param  array<string, mixed>  $stepDefinition
      */
-    private function resolveOptionKeyForIntent(array $stepDefinition, string $intent): ?string
+    private function resolveOptionKeyForIntent(array $stepDefinition, string $intent, string $messageText = ''): ?string
     {
         $options = is_array($stepDefinition['options'] ?? null) ? $stepDefinition['options'] : [];
         if ($options === []) {
             return null;
         }
+
+        $bestKey = null;
+        $bestScore = 0;
 
         foreach ($options as $optionKey => $optionDefinition) {
             if (! is_array($optionDefinition)) {
@@ -199,13 +279,15 @@ class StatefulBotService
 
             $action = is_array($optionDefinition['action'] ?? null) ? $optionDefinition['action'] : [];
             $label = (string) ($optionDefinition['label'] ?? '');
+            $score = $this->optionIntentScore($intent, $label, $action, $messageText);
 
-            if ($this->optionMatchesIntent($intent, $label, $action)) {
-                return (string) $optionKey;
+            if ($score > $bestScore) {
+                $bestScore = $score;
+                $bestKey = (string) $optionKey;
             }
         }
 
-        return null;
+        return $bestScore > 0 ? $bestKey : null;
     }
 
     /**
@@ -213,10 +295,19 @@ class StatefulBotService
      */
     private function optionMatchesIntent(string $intent, string $label, array $action): bool
     {
+        return $this->optionIntentScore($intent, $label, $action, '') > 0;
+    }
+
+    /**
+     * @param  array<string, mixed>  $action
+     */
+    private function optionIntentScore(string $intent, string $label, array $action, string $messageText): int
+    {
         $normalizedIntent = mb_strtolower(trim($intent));
         $kind = mb_strtolower(trim((string) ($action['kind'] ?? '')));
         $targetArea = (string) ($action['target_area_name'] ?? '');
         $haystack = $this->normalizeLookupText($label.' '.$targetArea.' '.$kind);
+        $message = $this->normalizeLookupText($messageText);
 
         if ($normalizedIntent === 'falar_com_atendente') {
             return $kind === 'handoff'
@@ -224,34 +315,132 @@ class StatefulBotService
                     str_contains($haystack, 'atendente')
                     || str_contains($haystack, 'atendimento')
                     || str_contains($haystack, 'humano')
-                );
+                )
+                ? 100
+                : 0;
         }
 
         if (in_array($normalizedIntent, ['agendamento', 'remarcar_agendamento'], true)) {
             return $kind === 'appointments_start'
                 || str_contains($haystack, 'agendamento')
-                || str_contains($haystack, 'agenda');
+                || str_contains($haystack, 'agenda')
+                ? 100
+                : 0;
         }
 
         if ($normalizedIntent === 'cancelar_agendamento') {
             return $kind === 'appointments_cancel'
                 || str_contains($haystack, 'cancelar agendamento')
-                || str_contains($haystack, 'cancelamento');
+                || str_contains($haystack, 'cancelamento')
+                ? 100
+                : 0;
         }
 
         if ($normalizedIntent === 'financeiro') {
-            return in_array($kind, ['ixc_invoices_start', 'ixc_fiscal_notes_start'], true)
-                || str_contains($haystack, 'financeiro')
-                || str_contains($haystack, 'boleto')
-                || str_contains($haystack, 'fiscal')
-                || str_contains($haystack, 'nota');
+            $asksInvoice = $this->containsAny($message, ['boleto', 'fatura', 'segunda via', 'pagamento']);
+            $asksFiscalNote = $this->containsAny($message, ['nota fiscal', 'nf', 'fiscal']);
+
+            if ($asksInvoice && ($kind === 'ixc_invoices_start' || $this->containsAny($haystack, ['boleto', 'fatura', 'segunda via']))) {
+                return 120;
+            }
+
+            if ($asksFiscalNote && ($kind === 'ixc_fiscal_notes_start' || $this->containsAny($haystack, ['nota fiscal', 'fiscal']))) {
+                return 120;
+            }
+
+            if (in_array($kind, ['ixc_invoices_start', 'ixc_fiscal_notes_start'], true)) {
+                return 90;
+            }
+
+            if ($this->containsAny($haystack, ['financeiro', 'boleto', 'fatura', 'fiscal', 'nota'])) {
+                return 70;
+            }
+
+            return 0;
         }
 
         if ($normalizedIntent === 'suporte_tecnico') {
             return str_contains($haystack, 'suporte')
                 || str_contains($haystack, 'internet')
                 || str_contains($haystack, 'conex')
-                || str_contains($haystack, 'tecnico');
+                || str_contains($haystack, 'tecnico')
+                ? 100
+                : 0;
+        }
+
+        return 0;
+    }
+
+    private function isDirectHandoffIntent(string $intent): bool
+    {
+        return mb_strtolower(trim($intent)) === 'falar_com_atendente';
+    }
+
+    private function isSpecificFinancialRequest(string $intent, string $messageText): bool
+    {
+        if (mb_strtolower(trim($intent)) !== 'financeiro') {
+            return false;
+        }
+
+        return $this->containsAny(
+            $this->normalizeLookupText($messageText),
+            ['boleto', 'fatura', 'segunda via', 'pagamento', 'nota fiscal', 'nf', 'fiscal']
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $definition
+     * @return array{flow:string,step:string,option_key:string}|null
+     */
+    private function findMenuMatchForIntent(array $definition, string $intent, string $messageText): ?array
+    {
+        $steps = is_array($definition['steps'] ?? null) ? $definition['steps'] : [];
+        $bestMatch = null;
+        $bestScore = 0;
+
+        foreach ($steps as $stateKey => $stepDefinition) {
+            if (! is_string($stateKey) || ! str_contains($stateKey, '.') || ! is_array($stepDefinition)) {
+                continue;
+            }
+
+            if (($stepDefinition['type'] ?? null) !== 'numeric_menu') {
+                continue;
+            }
+
+            [$flow, $step] = explode('.', $stateKey, 2);
+            $options = is_array($stepDefinition['options'] ?? null) ? $stepDefinition['options'] : [];
+            foreach ($options as $optionKey => $optionDefinition) {
+                if (! is_array($optionDefinition)) {
+                    continue;
+                }
+
+                $action = is_array($optionDefinition['action'] ?? null) ? $optionDefinition['action'] : [];
+                $label = (string) ($optionDefinition['label'] ?? '');
+                $score = $this->optionIntentScore($intent, $label, $action, $messageText);
+
+                if ($score > $bestScore) {
+                    $bestScore = $score;
+                    $bestMatch = [
+                        'flow' => $flow,
+                        'step' => $step,
+                        'option_key' => (string) $optionKey,
+                    ];
+                }
+            }
+        }
+
+        return $bestScore > 0 ? $bestMatch : null;
+    }
+
+    /**
+     * @param  array<int, string>  $needles
+     */
+    private function containsAny(string $text, array $needles): bool
+    {
+        foreach ($needles as $needle) {
+            if ($needle !== '' && str_contains($text, $needle)) {
+                return true;
+            }
         }
 
         return false;

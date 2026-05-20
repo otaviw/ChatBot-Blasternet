@@ -73,6 +73,55 @@ class InboundMessageServiceTest extends TestCase
         $this->assertNull($result);
     }
 
+    public function test_first_auto_reply_gets_default_welcome_when_company_welcome_is_blank(): void
+    {
+        $service = $this->makeService(
+            chatbotAiIntentClassifier: $this->makeMock(ChatbotAiIntentClassifier::class),
+            chatbotAiSuggestion: $this->makeMock(ConversationAiSuggestionService::class),
+            chatbotAiDecisionLogger: $this->makeMock(ChatbotAiDecisionLoggerService::class),
+        );
+
+        $company = new Company(['name' => 'Empresa Teste']);
+        $company->id = 10;
+        $company->setRelation('botSetting', new CompanyBotSetting([
+            'company_id' => 10,
+            'welcome_message' => '',
+        ]));
+
+        $method = new \ReflectionMethod($service, 'prependWelcomeToFirstAutoReply');
+        $method->setAccessible(true);
+
+        $result = $method->invoke($service, $company, 'Perfeito. Para consultar boletos em aberto, informe o CPF/CNPJ.');
+
+        $this->assertSame(
+            "Oi. Como posso ajudar?\n\nPerfeito. Para consultar boletos em aberto, informe o CPF/CNPJ.",
+            $result
+        );
+    }
+
+    public function test_first_auto_reply_does_not_duplicate_existing_greeting(): void
+    {
+        $service = $this->makeService(
+            chatbotAiIntentClassifier: $this->makeMock(ChatbotAiIntentClassifier::class),
+            chatbotAiSuggestion: $this->makeMock(ConversationAiSuggestionService::class),
+            chatbotAiDecisionLogger: $this->makeMock(ChatbotAiDecisionLoggerService::class),
+        );
+
+        $company = new Company(['name' => 'Empresa Teste']);
+        $company->id = 10;
+        $company->setRelation('botSetting', new CompanyBotSetting([
+            'company_id' => 10,
+            'welcome_message' => '',
+        ]));
+
+        $method = new \ReflectionMethod($service, 'prependWelcomeToFirstAutoReply');
+        $method->setAccessible(true);
+
+        $result = $method->invoke($service, $company, 'Oi. Como posso ajudar?');
+
+        $this->assertSame('Oi. Como posso ajudar?', $result);
+    }
+
     public function test_sandbox_off_keeps_legacy_reply(): void
     {
         $chatbotAiSuggestion = Mockery::mock(ConversationAiSuggestionService::class);

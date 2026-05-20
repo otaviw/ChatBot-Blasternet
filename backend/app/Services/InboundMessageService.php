@@ -1529,10 +1529,19 @@ class InboundMessageService
 
         $welcome = trim((string) ($company?->botSetting?->welcome_message ?? ''));
         if ($welcome === '') {
-            return $reply;
+            $welcome = 'Oi. Como posso ajudar?';
         }
 
-        if (str_starts_with($this->normalizeReplyPrefix($normalizedReply), $this->normalizeReplyPrefix($welcome))) {
+        $replyPrefix = $this->normalizeReplyPrefix($normalizedReply);
+        if (
+            str_starts_with($replyPrefix, $this->normalizeReplyPrefix($welcome))
+            || str_starts_with($replyPrefix, 'oi ')
+            || str_starts_with($replyPrefix, 'oi.')
+            || str_starts_with($replyPrefix, 'ola ')
+            || str_starts_with($replyPrefix, 'ola!')
+            || str_starts_with($replyPrefix, 'olá ')
+            || str_starts_with($replyPrefix, 'olá!')
+        ) {
             return $reply;
         }
 

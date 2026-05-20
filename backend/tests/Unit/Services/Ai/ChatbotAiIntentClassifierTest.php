@@ -74,6 +74,19 @@ class ChatbotAiIntentClassifierTest extends TestCase
         $this->assertSame('local_heuristic_falar_com_atendente', $result['reason']);
     }
 
+    public function test_preciso_falar_com_financeiro_returns_financeiro_without_provider(): void
+    {
+        [$resolver, $provider] = $this->resolverAndProvider();
+        $provider->shouldNotReceive('reply');
+
+        $classifier = new ChatbotAiIntentClassifier($resolver);
+        $result = $classifier->classify($this->conversation(), $this->settings(), 'ola preciso falar com o financeiro');
+
+        $this->assertSame('financeiro', $result['intent']);
+        $this->assertGreaterThan(0.8, $result['confidence']);
+        $this->assertSame('local_heuristic_financeiro', $result['reason']);
+    }
+
     public function test_provider_is_still_used_when_local_heuristic_does_not_match(): void
     {
         [$resolver, $provider] = $this->resolverAndProvider();

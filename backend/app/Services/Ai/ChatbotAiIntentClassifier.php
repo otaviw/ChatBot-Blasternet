@@ -215,7 +215,7 @@ class ChatbotAiIntentClassifier
             );
         }
 
-        if ($this->containsAny($normalized, ['boleto', 'fatura', 'pagamento', 'segunda via', 'nota fiscal', 'cobranca'])) {
+        if ($this->containsAny($normalized, ['financeiro', 'boleto', 'fatura', 'pagamento', 'segunda via', 'nota fiscal', 'cobranca', 'cobrança'])) {
             return $this->localClassification('financeiro', 0.88, 'local_heuristic_financeiro');
         }
 
