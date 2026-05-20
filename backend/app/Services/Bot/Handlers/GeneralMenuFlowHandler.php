@@ -91,6 +91,21 @@ class GeneralMenuFlowHandler
         );
 
         $resolvedKey = $this->resolveOptionKey($stepDefinition, $normalizedText);
+        if ($resolvedKey === null) {
+            $globalMatch = $this->resolveOptionFromDefinition($definition, $flow, $step, $normalizedText);
+            if ($globalMatch !== null) {
+                return $this->handleNumericMenuStep(
+                    $company,
+                    $conversation,
+                    $definition,
+                    $globalMatch['flow'],
+                    $globalMatch['step'],
+                    $globalMatch['option_key'],
+                    $globalMatch['step_definition'],
+                    $extraContext
+                );
+            }
+        }
 
         if ($resolvedKey === null) {
             $invalidOptionText = trim((string) ($stepDefinition['invalid_option_text'] ?? ''));
@@ -270,6 +285,7 @@ class GeneralMenuFlowHandler
     {
         $rawOptions = is_array($step['options'] ?? null) ? $step['options'] : [];
         $inputSlug  = $this->slugifyLabel($input);
+        $inputLookup = $this->normalizeLookupText($input);
 
         foreach ($rawOptions as $key => $optionDef) {
             if ((string) $key === $input) {
@@ -304,8 +320,143 @@ class GeneralMenuFlowHandler
             ) {
                 return (string) $key;
             }
+
+            $action = is_array($optionDef['action'] ?? null) ? $optionDef['action'] : [];
+            if ($this->optionMatchesNaturalInput((string) ($optionDef['label'] ?? ''), $action, $inputLookup)) {
+                return (string) $key;
+            }
         }
 
         return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $definition
+     * @return array{flow:string,step:string,option_key:string,step_definition:array<string,mixed>}|null
+     */
+    private function resolveOptionFromDefinition(array $definition, string $currentFlow, string $currentStep, string $input): ?array
+    {
+        $inputLookup = $this->normalizeLookupText($input);
+        if ($inputLookup === '' || $this->isAttendantNaturalInput($inputLookup)) {
+            return null;
+        }
+
+        $steps = is_array($definition['steps'] ?? null) ? $definition['steps'] : [];
+        foreach ($steps as $stateKey => $stepDefinition) {
+            if (! is_string($stateKey) || ! str_contains($stateKey, '.') || ! is_array($stepDefinition)) {
+                continue;
+            }
+
+            if (($stepDefinition['type'] ?? null) !== 'numeric_menu') {
+                continue;
+            }
+
+            [$flow, $step] = explode('.', $stateKey, 2);
+            if ($flow === $currentFlow && $step === $currentStep) {
+                continue;
+            }
+
+            $options = is_array($stepDefinition['options'] ?? null) ? $stepDefinition['options'] : [];
+            foreach ($options as $optionKey => $optionDef) {
+                if (! is_array($optionDef)) {
+                    continue;
+                }
+
+                $action = is_array($optionDef['action'] ?? null) ? $optionDef['action'] : [];
+                if (($action['kind'] ?? null) === 'handoff') {
+                    continue;
+                }
+
+                if ($this->optionMatchesNaturalInput((string) ($optionDef['label'] ?? ''), $action, $inputLookup)) {
+                    return [
+                        'flow' => $flow,
+                        'step' => $step,
+                        'option_key' => (string) $optionKey,
+                        'step_definition' => $stepDefinition,
+                    ];
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $action
+     */
+    private function optionMatchesNaturalInput(string $label, array $action, string $inputLookup): bool
+    {
+        if ($inputLookup === '') {
+            return false;
+        }
+
+        $kind = mb_strtolower(trim((string) ($action['kind'] ?? '')));
+        $haystack = $this->normalizeLookupText($label.' '.(string) ($action['target_area_name'] ?? '').' '.$kind);
+
+        if ($this->containsAny($inputLookup, ['boleto', 'fatura', 'segunda via', 'pagamento', 'financeiro'])) {
+            return in_array($kind, ['ixc_invoices_start', 'ixc_fiscal_notes_start'], true)
+                || $this->containsAny($haystack, ['financeiro', 'boleto', 'fatura', 'segunda via']);
+        }
+
+        if ($this->containsAny($inputLookup, ['nota fiscal', 'nf', 'fiscal'])) {
+            return $kind === 'ixc_fiscal_notes_start'
+                || $this->containsAny($haystack, ['nota fiscal', 'fiscal']);
+        }
+
+        if ($this->containsAny($inputLookup, ['agendamento', 'agendar', 'agenda', 'horario', 'marcar'])) {
+            return $kind === 'appointments_start'
+                || $this->containsAny($haystack, ['agendamento', 'agenda', 'horario']);
+        }
+
+        if ($this->containsAny($inputLookup, ['suporte', 'internet', 'conexao', 'conexão', 'wifi'])) {
+            return $this->containsAny($haystack, ['suporte', 'internet', 'conex', 'tecnico']);
+        }
+
+        if ($this->containsAny($inputLookup, ['vendas', 'comprar', 'contratar', 'plano'])) {
+            return $this->containsAny($haystack, ['vendas', 'comercial', 'contratar', 'plano']);
+        }
+
+        return false;
+    }
+
+    private function normalizeLookupText(string $value): string
+    {
+        $normalized = mb_strtolower(trim(strtr($value, [
+            'á' => 'a', 'à' => 'a', 'â' => 'a', 'ã' => 'a', 'ä' => 'a',
+            'é' => 'e', 'è' => 'e', 'ê' => 'e', 'ë' => 'e',
+            'í' => 'i', 'ì' => 'i', 'î' => 'i', 'ï' => 'i',
+            'ó' => 'o', 'ò' => 'o', 'ô' => 'o', 'õ' => 'o', 'ö' => 'o',
+            'ú' => 'u', 'ù' => 'u', 'û' => 'u', 'ü' => 'u',
+            'ç' => 'c', 'ñ' => 'n',
+            'Ã¡' => 'a', 'Ã ' => 'a', 'Ã¢' => 'a', 'Ã£' => 'a', 'Ã¤' => 'a',
+            'Ã©' => 'e', 'Ã¨' => 'e', 'Ãª' => 'e', 'Ã«' => 'e',
+            'Ã­' => 'i', 'Ã¬' => 'i', 'Ã®' => 'i', 'Ã¯' => 'i',
+            'Ã³' => 'o', 'Ã²' => 'o', 'Ã´' => 'o', 'Ãµ' => 'o', 'Ã¶' => 'o',
+            'Ãº' => 'u', 'Ã¹' => 'u', 'Ã»' => 'u', 'Ã¼' => 'u',
+            'Ã§' => 'c', 'Ã±' => 'n',
+        ])));
+
+        $normalized = preg_replace('/[^a-z0-9]+/', ' ', $normalized) ?? $normalized;
+
+        return trim((string) preg_replace('/\s+/', ' ', $normalized));
+    }
+
+    /**
+     * @param  array<int, string>  $needles
+     */
+    private function containsAny(string $text, array $needles): bool
+    {
+        foreach ($needles as $needle) {
+            if ($needle !== '' && str_contains($text, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function isAttendantNaturalInput(string $inputLookup): bool
+    {
+        return $this->containsAny($inputLookup, ['atendente', 'humano', 'pessoa', 'operador']);
     }
 }

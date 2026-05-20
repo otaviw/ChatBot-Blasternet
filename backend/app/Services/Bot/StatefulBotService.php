@@ -172,13 +172,29 @@ class StatefulBotService
      */
     private function isMenuCommand(string $inputText, array $commands): bool
     {
-        $compact = preg_replace('/\s+/', '', mb_strtolower($inputText)) ?? '';
+        $normalized = $this->normalizeLookupText($inputText);
+        $compact = preg_replace('/\s+/', '', $normalized) ?? '';
 
         if ($compact === '') {
             return false;
         }
 
-        return in_array($compact, $commands, true);
+        $normalizedCommands = array_map(
+            fn (string $command): string => preg_replace('/\s+/', '', $this->normalizeLookupText($command)) ?? '',
+            $commands
+        );
+
+        if (in_array($compact, array_filter($normalizedCommands), true)) {
+            return true;
+        }
+
+        return in_array($compact, ['#', 'menu', 'inicio', 'iniciar', 'comecar', 'começar'], true)
+            || str_contains($normalized, 'voltar para o inicio')
+            || str_contains($normalized, 'voltar pro inicio')
+            || str_contains($normalized, 'voltar ao inicio')
+            || str_contains($normalized, 'menu principal')
+            || str_contains($normalized, 'comecar de novo')
+            || str_contains($normalized, 'começar de novo');
     }
 
     private function isCancelCommand(string $text): bool

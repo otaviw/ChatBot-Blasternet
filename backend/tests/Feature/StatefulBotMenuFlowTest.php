@@ -635,6 +635,159 @@ class StatefulBotMenuFlowTest extends TestCase
         $this->assertSame('Suporte', $conversation->assigned_area);
     }
 
+    public function test_natural_text_from_menu_routes_to_configured_options_without_numeric_input(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-20 14:00:00', 'America/Sao_Paulo'));
+
+        $statefulMenuFlow = [
+            'commands' => ['#', 'menu'],
+            'initial' => ['flow' => 'main', 'step' => 'menu'],
+            'steps' => [
+                'main.menu' => [
+                    'type' => 'numeric_menu',
+                    'reply_text' => "Oi. Como posso ajudar?\n1 - Financeiro\n2 - Vendas\n3 - Suporte tecnico\n4 - Falar com atendente\n5 - Marcar agendamento",
+                    'options' => [
+                        '1' => [
+                            'label' => 'Financeiro',
+                            'action' => ['kind' => 'go_to', 'flow' => 'finance', 'step' => 'menu'],
+                        ],
+                        '2' => [
+                            'label' => 'Vendas',
+                            'action' => ['kind' => 'handoff', 'target_area_name' => 'Vendas', 'reply_text' => 'Vou te encaminhar para Vendas.'],
+                        ],
+                        '3' => [
+                            'label' => 'Suporte tecnico',
+                            'action' => ['kind' => 'handoff', 'target_area_name' => 'Suporte', 'reply_text' => 'Vou te encaminhar para Suporte.'],
+                        ],
+                        '4' => [
+                            'label' => 'Falar com atendente',
+                            'action' => ['kind' => 'handoff', 'target_area_name' => 'Atendimento', 'reply_text' => 'Vou te encaminhar para Atendimento.'],
+                        ],
+                        '5' => [
+                            'label' => 'Marcar agendamento',
+                            'action' => ['kind' => 'appointments_start', 'target_area_name' => 'Atendimento'],
+                        ],
+                    ],
+                ],
+                'finance.menu' => [
+                    'type' => 'numeric_menu',
+                    'reply_text' => "Escolha uma das opções para seguir atendimento.\n1 - Segunda via boleto\n2 - Nota fiscal\n3 - Falar com financeiro",
+                    'options' => [
+                        '1' => [
+                            'label' => 'Segunda via boleto',
+                            'action' => ['kind' => 'handoff', 'target_area_name' => 'Financeiro', 'reply_text' => 'Vou te encaminhar para o Financeiro.'],
+                        ],
+                        '2' => [
+                            'label' => 'Nota fiscal',
+                            'action' => ['kind' => 'handoff', 'target_area_name' => 'Financeiro', 'reply_text' => 'Vou te encaminhar para o Financeiro.'],
+                        ],
+                        '3' => [
+                            'label' => 'Falar com financeiro',
+                            'action' => ['kind' => 'handoff', 'target_area_name' => 'Financeiro', 'reply_text' => 'Vou te encaminhar para o Financeiro.'],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $company = $this->createCompanyWithAlwaysOnBot('Empresa Texto Natural', [
+            'stateful_menu_flow' => $statefulMenuFlow,
+        ]);
+        $fixture = $this->attachAppointmentAvailability($company, 'natural-menu');
+        Area::create(['company_id' => $company->id, 'name' => 'Financeiro']);
+        Area::create(['company_id' => $company->id, 'name' => 'Atendimento']);
+
+        $user = $this->createCompanyUser($company, 'natural-menu@test.local');
+
+        $this->simulateInbound($user, $company, '5511777700010', 'menu')->assertOk();
+        $boleto = $this->simulateInbound($user, $company, '5511777700010', 'quero pegar boleto');
+        $boleto->assertOk();
+        $this->assertStringNotContainsString('Opção inválida', (string) $boleto->json('reply'));
+        $this->assertStringContainsString('Segunda via boleto', (string) $boleto->json('reply'));
+
+        $this->simulateInbound($user, $company, '5511777700011', 'menu')->assertOk();
+        $agenda = $this->simulateInbound($user, $company, '5511777700011', 'agendar horario pra domingo');
+        $agenda->assertOk();
+        $this->assertStringNotContainsString('Opção inválida', (string) $agenda->json('reply'));
+
+        $conversation = Conversation::findOrFail((int) $agenda->json('conversation.id'));
+        $this->assertSame('appointments', $conversation->bot_flow);
+
+        $this->assertNotNull($fixture['service']);
+    }
+
+    public function test_natural_start_commands_reset_to_main_menu_from_subflow(): void
+    {
+        $company = $this->createCompanyWithAlwaysOnBot('Empresa Inicio');
+        $user = $this->createCompanyUser($company, 'inicio@test.local');
+
+        $this->simulateInbound($user, $company, '5511777700020', 'menu')->assertOk();
+        $this->simulateInbound($user, $company, '5511777700020', '1')->assertOk();
+
+        $response = $this->simulateInbound($user, $company, '5511777700020', 'quero voltar pro inicio');
+        $response->assertOk();
+        $response->assertJsonPath('reply', $this->mainMenuText('Oi. Como posso ajudar?'));
+
+        $conversation = Conversation::findOrFail((int) $response->json('conversation.id'));
+        $this->assertSame('main', $conversation->bot_flow);
+        $this->assertSame('menu', $conversation->bot_step);
+    }
+
+    public function test_appointment_slot_step_accepts_period_and_new_date_text(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-20 08:00:00', 'America/Sao_Paulo'));
+
+        $fixture = $this->createAppointmentFlowFixture('slot-period-date');
+        $company = $fixture['company'];
+        $user = $fixture['user'];
+        $staffProfile = $fixture['staffProfile'];
+
+        AppointmentWorkingHour::create([
+            'company_id' => $company->id,
+            'staff_profile_id' => $staffProfile->id,
+            'day_of_week' => 2,
+            'start_time' => '09:00:00',
+            'end_time' => '11:00:00',
+            'is_active' => true,
+        ]);
+        AppointmentWorkingHour::create([
+            'company_id' => $company->id,
+            'staff_profile_id' => $staffProfile->id,
+            'day_of_week' => 2,
+            'start_time' => '13:00:00',
+            'end_time' => '16:00:00',
+            'is_active' => true,
+        ]);
+        AppointmentWorkingHour::create([
+            'company_id' => $company->id,
+            'staff_profile_id' => $staffProfile->id,
+            'day_of_week' => 4,
+            'start_time' => '14:00:00',
+            'end_time' => '16:00:00',
+            'is_active' => true,
+        ]);
+
+        $this->simulateInbound($user, $company, '5511777700030', 'menu')->assertOk();
+        $this->simulateInbound($user, $company, '5511777700030', '4')->assertOk();
+        $this->simulateInbound($user, $company, '5511777700030', 'terça')->assertOk();
+
+        $period = $this->simulateInbound($user, $company, '5511777700030', 'a tarde');
+        $period->assertOk();
+        $this->assertStringNotContainsString('Opcao invalida', (string) $period->json('reply'));
+        $this->assertStringContainsString('13:', (string) $period->json('reply'));
+        $this->assertStringNotContainsString('09:', (string) $period->json('reply'));
+
+        $newDate = $this->simulateInbound($user, $company, '5511777700030', 'quero dia 04/06');
+        $newDate->assertOk();
+        $this->assertStringNotContainsString('Vou te encaminhar para um atendente', (string) $newDate->json('reply'));
+        $this->assertStringContainsString('04/06', (string) $newDate->json('reply'));
+
+        $conversation = Conversation::findOrFail((int) $newDate->json('conversation.id'));
+        $this->assertSame('appointments', $conversation->bot_flow);
+        $this->assertSame('slot_select', $conversation->bot_step);
+        $this->assertSame('2026-06-04', (string) ($conversation->bot_context['appointment']['selected_date'] ?? ''));
+    }
+
     /**
      * @return array{company: Company, user: User, service: AppointmentService, staffProfile: AppointmentStaffProfile}
      */
@@ -698,6 +851,59 @@ class StatefulBotMenuFlowTest extends TestCase
             'service' => $service,
             'staffProfile' => $staffProfile,
         ];
+    }
+
+    /**
+     * @return array{service: AppointmentService, staffProfile: AppointmentStaffProfile}
+     */
+    private function attachAppointmentAvailability(Company $company, string $suffix): array
+    {
+        AppointmentSetting::create([
+            'company_id' => $company->id,
+            'timezone' => 'America/Sao_Paulo',
+            'slot_interval_minutes' => 30,
+            'booking_min_notice_minutes' => 0,
+            'booking_max_advance_days' => 30,
+            'cancellation_min_notice_minutes' => 120,
+            'reschedule_min_notice_minutes' => 120,
+            'allow_customer_choose_staff' => false,
+        ]);
+        $service = AppointmentService::create([
+            'company_id' => $company->id,
+            'name' => 'Consulta',
+            'duration_minutes' => 30,
+            'buffer_before_minutes' => 0,
+            'buffer_after_minutes' => 0,
+            'max_bookings_per_slot' => 1,
+            'is_active' => true,
+        ]);
+        $staffUser = User::create([
+            'name' => 'Atendente Natural',
+            'email' => "staff-natural-{$suffix}@test.local",
+            'password' => 'secret123',
+            'role' => User::ROLE_AGENT,
+            'company_id' => $company->id,
+            'is_active' => true,
+        ]);
+        $staffProfile = AppointmentStaffProfile::create([
+            'company_id' => $company->id,
+            'user_id' => $staffUser->id,
+            'display_name' => 'Atendente Natural',
+            'is_bookable' => true,
+            'slot_interval_minutes' => 30,
+            'booking_min_notice_minutes' => 0,
+            'booking_max_advance_days' => 30,
+        ]);
+        AppointmentWorkingHour::create([
+            'company_id' => $company->id,
+            'staff_profile_id' => $staffProfile->id,
+            'day_of_week' => 0,
+            'start_time' => '09:00:00',
+            'end_time' => '11:00:00',
+            'is_active' => true,
+        ]);
+
+        return ['service' => $service, 'staffProfile' => $staffProfile];
     }
 
     /**

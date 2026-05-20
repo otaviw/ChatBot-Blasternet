@@ -489,13 +489,71 @@ class AppointmentFlowHandler
             return $this->replyWithAppointmentSlotMenu($company, $context);
         }
 
+        $settings = $this->appointmentSettings($company);
+        $timezone = (string) ($settings?->timezone ?: 'America/Sao_Paulo');
+
+        $requestedPeriod = $this->parseRequestedSlotPeriod($normalizedText);
+        if ($requestedPeriod !== null) {
+            $context = $this->resetAssistAttempt($context);
+            $context = $this->applyRequestedSlotPeriod($context, $requestedPeriod);
+            $context['slot_page'] = 0;
+            $selectedDateForPeriod = trim((string) ($context['selected_date'] ?? ''));
+            if ($selectedDateForPeriod !== '') {
+                $rawSlotsForPeriod = $this->appointmentSlotsForDate($company, $context, $selectedDateForPeriod);
+                $hasPeriodSlot = false;
+                foreach ($rawSlotsForPeriod as $slotForPeriod) {
+                    if (is_array($slotForPeriod) && $this->slotMatchesPeriod($slotForPeriod, $requestedPeriod, $timezone)) {
+                        $hasPeriodSlot = true;
+                        break;
+                    }
+                }
+
+                if (! $hasPeriodSlot) {
+                    $context = $this->trackInvalidAttempt($context, 'slot_select');
+                }
+            }
+
+            return $this->replyWithAppointmentSlotMenu(
+                $company,
+                $context,
+                false,
+                'Certo, vou filtrar os horarios ' . $this->slotPeriodFallbackPhrase($requestedPeriod) . '.'
+            );
+        }
+
+        $parsedDay = $this->parseFlexibleDayInput($normalizedText, $timezone);
+        if ($parsedDay !== null) {
+            $maxDays = (int) ($settings?->booking_max_advance_days ?? 30);
+            $fromDate = $parsedDay['type'] === 'weekday'
+                ? CarbonImmutable::now($timezone)->startOfDay()->toDateString()
+                : $parsedDay['date'];
+            $selectedDateForInput = $this->nextOccurrenceOfDay($parsedDay['day_of_week'], $fromDate, $timezone);
+            $maxDate = CarbonImmutable::now($timezone)->addDays($maxDays)->toDateString();
+
+            if ($selectedDateForInput > $maxDate) {
+                return $this->replyWithAppointmentSlotMenu(
+                    $company,
+                    $this->trackInvalidAttempt($context, 'slot_select'),
+                    false,
+                    "Nao e possivel agendar alem de {$maxDays} dias. Escolha um dia mais proximo."
+                );
+            }
+
+            $context = $this->resetAssistAttempt($context);
+            $context['selected_date'] = $selectedDateForInput;
+            $context['last_day_key'] = $parsedDay['key'];
+            $context['last_day_date'] = $selectedDateForInput;
+            $context['slot_page'] = 0;
+            $context = $this->applyRequestedSlotPeriod($context, $this->parseRequestedSlotPeriod($normalizedText));
+
+            return $this->replyWithAppointmentSlotMenu($company, $context);
+        }
+
         $selectedDate = trim((string) ($context['selected_date'] ?? ''));
         if ($selectedDate === '') {
             return $this->replyWithAppointmentDayMenu($company, $context);
         }
 
-        $settings = $this->appointmentSettings($company);
-        $timezone = (string) ($settings?->timezone ?: 'America/Sao_Paulo');
         $slots = $this->appointmentSelectableSlotsForDate($company, $context, $selectedDate, $timezone);
         if ($slots === []) {
             return $this->replyWithAppointmentDayMenu($company, $context);
@@ -1151,7 +1209,8 @@ class AppointmentFlowHandler
         }
 
         if (
-            preg_match('/(^| )(de |da |pela |a )?tarde($| )/', $normalized) === 1
+            $normalized === 'tarde'
+            || preg_match('/(^| )(de|da|pela|a) tarde($| )/', $normalized) === 1
             || str_contains($normalized, 'vespertino')
         ) {
             return 'afternoon';
