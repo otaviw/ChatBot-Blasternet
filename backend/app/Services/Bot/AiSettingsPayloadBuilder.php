@@ -96,6 +96,31 @@ class AiSettingsPayloadBuilder
             }
         }
 
+        return $this->normalizeChatbotModeState($payload);
+    }
+
+    /**
+     * Compatibilidade com telas antigas: ligar "IA assistiva no bot" nao pode
+     * persistir um modo efetivamente desligado.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function normalizeChatbotModeState(array $payload): array
+    {
+        if (array_key_exists('ai_chatbot_enabled', $payload) && ! $payload['ai_chatbot_enabled']) {
+            $payload['ai_chatbot_mode'] = 'disabled';
+
+            return $payload;
+        }
+
+        if (
+            ($payload['ai_chatbot_enabled'] ?? false) === true
+            && (! isset($payload['ai_chatbot_mode']) || $payload['ai_chatbot_mode'] === null || $payload['ai_chatbot_mode'] === 'disabled')
+        ) {
+            $payload['ai_chatbot_mode'] = 'always';
+        }
+
         return $payload;
     }
 

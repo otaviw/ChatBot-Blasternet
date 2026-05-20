@@ -32,7 +32,8 @@ class GeneralMenuFlowHandler
         array $definition,
         string $flow,
         string $step,
-        string $normalizedText
+        string $normalizedText,
+        array $extraContext = []
     ): array {
         $stateKey       = $this->stateKey($flow, $step);
         $stepDefinition = is_array($definition['steps'][$stateKey] ?? null)
@@ -47,7 +48,7 @@ class GeneralMenuFlowHandler
 
         if ($stepType === 'numeric_menu') {
             return $this->handleNumericMenuStep(
-                $company, $conversation, $definition, $flow, $step, $normalizedText, $stepDefinition
+                $company, $conversation, $definition, $flow, $step, $normalizedText, $stepDefinition, $extraContext
             );
         }
 
@@ -73,7 +74,8 @@ class GeneralMenuFlowHandler
         string $flow,
         string $step,
         string $normalizedText,
-        array $stepDefinition
+        array $stepDefinition,
+        array $extraContext = []
     ): array {
         $rawOptions  = is_array($stepDefinition['options'] ?? null) ? $stepDefinition['options'] : [];
         $optionsByKey = [];
@@ -117,7 +119,10 @@ class GeneralMenuFlowHandler
             $conversation,
             $definition,
             $action,
-            ['selected_option' => $resolvedKey]
+            array_merge($extraContext, [
+                'selected_option' => $resolvedKey,
+                'input_text' => $normalizedText,
+            ])
         );
     }
 
@@ -220,7 +225,13 @@ class GeneralMenuFlowHandler
         }
 
         if ($kind === 'appointments_start') {
-            return $this->appointmentHandler->start($company, $conversation, $action);
+            $appointmentAction = $action;
+            $initialMessage = trim((string) ($extraContext['ai_message_text'] ?? $extraContext['input_text'] ?? ''));
+            if ($initialMessage !== '') {
+                $appointmentAction['initial_message_text'] = $initialMessage;
+            }
+
+            return $this->appointmentHandler->start($company, $conversation, $appointmentAction);
         }
 
         if ($kind === 'appointments_cancel') {
@@ -258,6 +269,7 @@ class GeneralMenuFlowHandler
     private function resolveOptionKey(array $step, string $input): ?string
     {
         $rawOptions = is_array($step['options'] ?? null) ? $step['options'] : [];
+        $inputSlug  = $this->slugifyLabel($input);
 
         foreach ($rawOptions as $key => $optionDef) {
             if ((string) $key === $input) {
@@ -273,7 +285,23 @@ class GeneralMenuFlowHandler
             $effectiveId = $storedId !== ''
                 ? $storedId
                 : $this->slugifyLabel((string) ($optionDef['label'] ?? ''));
-            if ($effectiveId !== '' && $effectiveId === $input) {
+            if ($effectiveId !== '' && ($effectiveId === $input || $effectiveId === $inputSlug)) {
+                return (string) $key;
+            }
+
+            $labelSlug = $this->slugifyLabel((string) ($optionDef['label'] ?? ''));
+            if ($labelSlug !== '' && $labelSlug === $inputSlug) {
+                return (string) $key;
+            }
+
+            if (
+                $labelSlug !== ''
+                && $inputSlug !== ''
+                && (
+                    (mb_strlen($labelSlug) >= 3 && str_contains($inputSlug, $labelSlug))
+                    || (mb_strlen($inputSlug) >= 3 && str_contains($labelSlug, $inputSlug))
+                )
+            ) {
                 return (string) $key;
             }
         }

@@ -11,6 +11,7 @@ use App\Services\Ai\Providers\CircuitBreakerAiProvider;
 use App\Services\Ai\Providers\FailoverAiProvider;
 use App\Services\Ai\Providers\NullAiProvider;
 use App\Services\Ai\Providers\OllamaAiProvider;
+use App\Services\Ai\Providers\OpenRouterAiProvider;
 use App\Services\Ai\Providers\TestAiProvider;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Support\Facades\Log;
@@ -23,6 +24,7 @@ class AiProviderResolver
     private const DEFAULT_PROVIDER_CLASSES = [
         'anthropic' => AnthropicAiProvider::class,
         'ollama' => OllamaAiProvider::class,
+        'openrouter' => OpenRouterAiProvider::class,
         'test' => TestAiProvider::class,
         'null' => NullAiProvider::class,
     ];

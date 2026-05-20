@@ -361,16 +361,47 @@ class InboundMessageServiceTest extends TestCase
         $this->assertSame('Resposta assistida da IA', $reply);
     }
 
-    public function test_sandbox_on_stateful_interactive_skips_ai_and_keeps_legacy_text(): void
+    public function test_sandbox_on_stateful_interactive_can_apply_ai_and_preserve_message_shape(): void
     {
         $chatbotAiSuggestion = Mockery::mock(ConversationAiSuggestionService::class);
-        $chatbotAiSuggestion->shouldNotReceive('generateSuggestion');
+        $chatbotAiSuggestion
+            ->shouldReceive('generateSuggestion')
+            ->once()
+            ->andReturn([
+                'suggestion' => 'Resposta assistida da IA',
+                'confidence_score' => 0.9,
+                'used_rag' => false,
+                'rag_chunks' => [],
+            ]);
 
         $intentClassifier = Mockery::mock(ChatbotAiIntentClassifier::class);
-        $intentClassifier->shouldNotReceive('classify');
+        $intentClassifier
+            ->shouldReceive('classify')
+            ->once()
+            ->andReturn([
+                'intent' => 'duvida_geral',
+                'confidence' => 0.91,
+                'extracted_data' => [],
+                'suggested_reply' => null,
+                'should_transfer_to_human' => false,
+                'reason' => 'provider_classification',
+            ]);
 
         $decisionLogger = Mockery::mock(ChatbotAiDecisionLoggerService::class);
-        $decisionLogger->shouldNotReceive('logDecision');
+        $decisionLogger
+            ->shouldReceive('logDecision')
+            ->once()
+            ->with(Mockery::on(function (array $payload): bool {
+                $comparison = is_array($payload['gate_result']['reply_comparison'] ?? null)
+                    ? $payload['gate_result']['reply_comparison']
+                    : [];
+
+                return ($payload['mode'] ?? null) === 'sandbox'
+                    && ($payload['action'] ?? null) === 'suggest_reply'
+                    && ($comparison['ai_applied'] ?? null) === true
+                    && ($comparison['legacy_reply'] ?? null) === 'Texto legado do menu'
+                    && ($comparison['final_reply'] ?? null) === 'Resposta assistida da IA';
+            }));
 
         $service = $this->makeService(
             chatbotAiIntentClassifier: $intentClassifier,
@@ -404,10 +435,10 @@ class InboundMessageServiceTest extends TestCase
             statefulHandled: true
         );
 
-        $this->assertSame('Texto legado do menu', $reply);
+        $this->assertSame('Resposta assistida da IA', $reply);
         $this->assertIsArray($replyMessage);
         $this->assertSame('interactive_buttons', $replyMessage['type'] ?? null);
-        $this->assertSame('Texto legado do menu', $replyMessage['body_text'] ?? null);
+        $this->assertSame('Resposta assistida da IA', $replyMessage['body_text'] ?? null);
         $this->assertSame($originalMessage['buttons'], $replyMessage['buttons'] ?? null);
         $this->assertSame($originalMessage['header_text'], $replyMessage['header_text'] ?? null);
         $this->assertSame($originalMessage['footer_text'], $replyMessage['footer_text'] ?? null);
@@ -607,6 +638,194 @@ class InboundMessageServiceTest extends TestCase
         $this->assertNotSame('', trim($reply));
     }
 
+    public function test_active_ai_routes_known_intent_to_stateful_menu_action(): void
+    {
+        $chatbotAiSuggestion = Mockery::mock(ConversationAiSuggestionService::class);
+        $chatbotAiSuggestion->shouldNotReceive('generateSuggestion');
+
+        $intentClassifier = Mockery::mock(ChatbotAiIntentClassifier::class);
+        $intentClassifier
+            ->shouldReceive('classify')
+            ->once()
+            ->andReturn([
+                'intent' => 'agendamento',
+                'confidence' => 0.95,
+                'extracted_data' => [],
+                'suggested_reply' => null,
+                'should_transfer_to_human' => false,
+                'reason' => 'provider_classification',
+            ]);
+
+        $statefulBot = Mockery::mock(StatefulBotService::class);
+        $statefulBot
+            ->shouldReceive('handleAiResolvedMenuAction')
+            ->once()
+            ->with(Mockery::type(Company::class), Mockery::type(Conversation::class), 'agendamento', 'quero agendar')
+            ->andReturn([
+                'handled' => true,
+                'reply_text' => 'Qual dia voce prefere?',
+                'reply_message' => null,
+                'should_handoff' => false,
+            ]);
+
+        $decision = Mockery::mock(ChatbotAiDecisionService::class);
+        $decision->shouldReceive('shouldUseAi')->once()->andReturnTrue();
+
+        $decisionLogger = Mockery::mock(ChatbotAiDecisionLoggerService::class);
+        $decisionLogger
+            ->shouldReceive('logDecision')
+            ->once()
+            ->with(Mockery::on(function (array $payload): bool {
+                $comparison = is_array($payload['gate_result']['reply_comparison'] ?? null)
+                    ? $payload['gate_result']['reply_comparison']
+                    : [];
+
+                return ($payload['mode'] ?? null) === 'active'
+                    && ($payload['intent'] ?? null) === 'agendamento'
+                    && ($payload['action'] ?? null) === ChatbotAiPolicyService::ACTION_ROUTE_TO_APPOINTMENT_FLOW
+                    && ($comparison['final_reply'] ?? null) === 'Qual dia voce prefere?';
+            }));
+
+        $service = $this->makeService(
+            chatbotAiIntentClassifier: $intentClassifier,
+            chatbotAiSuggestion: $chatbotAiSuggestion,
+            chatbotAiDecisionLogger: $decisionLogger,
+            chatbotAiDecision: $decision,
+            statefulBot: $statefulBot,
+        );
+
+        $result = $this->invokeAiAssistiveDecision(
+            $service,
+            legacyReply: 'Menu legado',
+            company: $this->makeCompany(shadowEnabled: false, sandboxEnabled: false),
+            gateResult: ['allowed' => true],
+            messageText: 'quero agendar'
+        );
+
+        $this->assertSame('Qual dia voce prefere?', $result['reply']);
+        $this->assertIsArray($result['stateful_result']);
+        $this->assertFalse((bool) $result['force_human_handoff']);
+    }
+
+    public function test_active_ai_does_not_handoff_attendant_request_without_direct_menu_option(): void
+    {
+        $chatbotAiSuggestion = Mockery::mock(ConversationAiSuggestionService::class);
+        $chatbotAiSuggestion->shouldNotReceive('generateSuggestion');
+
+        $intentClassifier = Mockery::mock(ChatbotAiIntentClassifier::class);
+        $intentClassifier
+            ->shouldReceive('classify')
+            ->once()
+            ->andReturn([
+                'intent' => 'falar_com_atendente',
+                'confidence' => 0.95,
+                'extracted_data' => [],
+                'suggested_reply' => null,
+                'should_transfer_to_human' => false,
+                'reason' => 'provider_classification',
+            ]);
+
+        $statefulBot = Mockery::mock(StatefulBotService::class);
+        $statefulBot
+            ->shouldReceive('handleAiResolvedMenuAction')
+            ->once()
+            ->andReturnNull();
+        $statefulBot
+            ->shouldReceive('hasDirectAttendantHandoffOption')
+            ->once()
+            ->andReturnFalse();
+
+        $decision = Mockery::mock(ChatbotAiDecisionService::class);
+        $decision->shouldReceive('shouldUseAi')->once()->andReturnTrue();
+
+        $decisionLogger = Mockery::mock(ChatbotAiDecisionLoggerService::class);
+        $decisionLogger->shouldReceive('logDecision')->once()->with(Mockery::type('array'));
+
+        $service = $this->makeService(
+            chatbotAiIntentClassifier: $intentClassifier,
+            chatbotAiSuggestion: $chatbotAiSuggestion,
+            chatbotAiDecisionLogger: $decisionLogger,
+            chatbotAiDecision: $decision,
+            statefulBot: $statefulBot,
+        );
+
+        $result = $this->invokeAiAssistiveDecision(
+            $service,
+            legacyReply: 'Menu legado',
+            company: $this->makeCompany(
+                shadowEnabled: false,
+                sandboxEnabled: false,
+                autoReplyEnabled: false
+            ),
+            gateResult: ['allowed' => true],
+            messageText: 'quero falar com atendente'
+        );
+
+        $this->assertSame('Menu legado', $result['reply']);
+        $this->assertFalse((bool) $result['force_human_handoff']);
+        $this->assertNull($result['stateful_result']);
+    }
+
+    public function test_active_ai_routes_attendant_request_when_direct_menu_option_exists(): void
+    {
+        $chatbotAiSuggestion = Mockery::mock(ConversationAiSuggestionService::class);
+        $chatbotAiSuggestion->shouldNotReceive('generateSuggestion');
+
+        $intentClassifier = Mockery::mock(ChatbotAiIntentClassifier::class);
+        $intentClassifier
+            ->shouldReceive('classify')
+            ->once()
+            ->andReturn([
+                'intent' => 'falar_com_atendente',
+                'confidence' => 0.95,
+                'extracted_data' => [],
+                'suggested_reply' => null,
+                'should_transfer_to_human' => false,
+                'reason' => 'provider_classification',
+            ]);
+
+        $statefulBot = Mockery::mock(StatefulBotService::class);
+        $statefulBot
+            ->shouldReceive('handleAiResolvedMenuAction')
+            ->once()
+            ->andReturn([
+                'handled' => true,
+                'reply_text' => 'Certo. Vou te encaminhar para um atendente.',
+                'reply_message' => null,
+                'should_handoff' => true,
+                'set_handling_mode' => 'human',
+                'set_assigned_type' => 'area',
+                'set_assigned_id' => 44,
+                'set_current_area_id' => 44,
+            ]);
+
+        $decision = Mockery::mock(ChatbotAiDecisionService::class);
+        $decision->shouldReceive('shouldUseAi')->once()->andReturnTrue();
+
+        $decisionLogger = Mockery::mock(ChatbotAiDecisionLoggerService::class);
+        $decisionLogger->shouldReceive('logDecision')->once()->with(Mockery::type('array'));
+
+        $service = $this->makeService(
+            chatbotAiIntentClassifier: $intentClassifier,
+            chatbotAiSuggestion: $chatbotAiSuggestion,
+            chatbotAiDecisionLogger: $decisionLogger,
+            chatbotAiDecision: $decision,
+            statefulBot: $statefulBot,
+        );
+
+        $result = $this->invokeAiAssistiveDecision(
+            $service,
+            legacyReply: 'Menu legado',
+            company: $this->makeCompany(shadowEnabled: false, sandboxEnabled: false),
+            gateResult: ['allowed' => true],
+            messageText: 'quero falar com atendente'
+        );
+
+        $this->assertSame('Certo. Vou te encaminhar para um atendente.', $result['reply']);
+        $this->assertIsArray($result['stateful_result']);
+        $this->assertFalse((bool) $result['force_human_handoff']);
+    }
+
     public function test_logger_error_does_not_break_bot_flow(): void
     {
         $chatbotAiSuggestion = Mockery::mock(ConversationAiSuggestionService::class);
@@ -650,7 +869,8 @@ class InboundMessageServiceTest extends TestCase
     private function makeCompany(
         bool $shadowEnabled,
         bool $sandboxEnabled = false,
-        ?array $testNumbers = null
+        ?array $testNumbers = null,
+        bool $autoReplyEnabled = true
     ): Company {
         $company = new Company(['name' => 'Empresa Teste']);
         $company->id = 10;
@@ -663,7 +883,8 @@ class InboundMessageServiceTest extends TestCase
             'ai_chatbot_test_numbers' => $testNumbers,
             'ai_chatbot_confidence_threshold' => 0.75,
             'ai_chatbot_handoff_repeat_limit' => 2,
-            'ai_chatbot_auto_reply_enabled' => true,
+            'ai_chatbot_auto_reply_enabled' => $autoReplyEnabled,
+            'ai_chatbot_mode' => ChatbotAiDecisionService::MODE_ALWAYS,
         ]));
 
         return $company;
@@ -725,6 +946,8 @@ class InboundMessageServiceTest extends TestCase
         ConversationAiSuggestionService $chatbotAiSuggestion,
         ChatbotAiDecisionLoggerService $chatbotAiDecisionLogger,
         ?AiSafetyPipelineService $safetyPipeline = null,
+        ?ChatbotAiDecisionService $chatbotAiDecision = null,
+        ?StatefulBotService $statefulBot = null,
     ): InboundMessageService {
         $productMetrics = $this->makeMock(ProductMetricsService::class);
         $productMetrics->shouldIgnoreMissing();
@@ -738,12 +961,12 @@ class InboundMessageServiceTest extends TestCase
         return new InboundMessageService(
             $this->makeMock(BotReplyService::class),
             $this->makeMock(WhatsAppSendService::class),
-            $this->makeMock(StatefulBotService::class),
+            $statefulBot ?? $this->makeMock(StatefulBotService::class),
             $this->makeMock(MessageMediaStorageService::class),
             $this->makeMock(MessageDeliveryStatusService::class),
             $this->makeMock(ConversationBootstrapService::class),
             $this->makeMock(ConversationStateService::class),
-            $this->makeMock(ChatbotAiDecisionService::class),
+            $chatbotAiDecision ?? $this->makeMock(ChatbotAiDecisionService::class),
             $this->makeMock(ChatbotAiGuardService::class),
             $chatbotAiIntentClassifier,
             new ChatbotAiPolicyService(),

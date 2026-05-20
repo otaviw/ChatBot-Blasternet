@@ -98,7 +98,15 @@ function AiManagementRoute({ children }) {
   const { user, loading } = useAuth();
   const { dashboardPath } = useScopedAuthPaths();
   if (loading) return null;
-  if (user?.role !== 'system_admin') return <Navigate to={dashboardPath} replace />;
+  if (!user?.can_manage_ai) return <Navigate to={dashboardPath} replace />;
+  return children;
+}
+
+function AiInternalChatRoute({ children }) {
+  const { user, loading } = useAuth();
+  const { dashboardPath } = useScopedAuthPaths();
+  if (loading) return null;
+  if (!user?.can_access_internal_ai_chat && !user?.can_use_ai) return <Navigate to={dashboardPath} replace />;
   return children;
 }
 
@@ -185,8 +193,8 @@ function AppRoutes() {
         {/* Rotas de company account com permissao explicita via PermissionRoute */}
         <Route path="/minha-conta/conversas" element={<PermissionRoute permission={PERM.PAGE_INBOX}><PageBoundary label="Inbox"><CompanyInboxPage /></PageBoundary></PermissionRoute>} />
         <Route path="/minha-conta/chat-interno" element={<PermissionRoute permission={PERM.PAGE_INTERNAL_CHAT}><PageBoundary label="Chat Interno"><InternalChatPage /></PageBoundary></PermissionRoute>} />
-        {/* Rotas de IA: atualmente restritas a system_admin (SuperAdminRoute/AiManagementRoute) */}
-        <Route path="/minha-conta/chat-ia" element={<SuperAdminRoute><PageBoundary label="Chat IA"><InternalAiChatPage /></PageBoundary></SuperAdminRoute>} />
+        {/* Rotas de IA: liberadas conforme flags can_manage_ai/can_access_internal_ai_chat do /me */}
+        <Route path="/minha-conta/chat-ia" element={<AiInternalChatRoute><PageBoundary label="Chat IA"><InternalAiChatPage /></PageBoundary></AiInternalChatRoute>} />
         <Route path="/minha-conta/ia/analytics" element={<AiManagementRoute><CompanyAiAnalyticsPage /></AiManagementRoute>} />
         <Route path="/minha-conta/ia/auditoria" element={<AiManagementRoute><CompanyAiAuditPage /></AiManagementRoute>} />
         <Route path="/minha-conta/auditoria" element={<PermissionRoute permission={PERM.PAGE_AUDIT}><CompanyAuditPage /></PermissionRoute>} />

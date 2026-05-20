@@ -133,6 +133,37 @@ class OllamaAiProviderTest extends TestCase
             ));
     }
 
+    public function test_reply_caps_timeout_below_php_execution_limit(): void
+    {
+        $previousMaxExecutionTime = ini_get('max_execution_time');
+
+        try {
+            ini_set('max_execution_time', '30');
+
+            config()->set('ai.providers.ollama.base_url', 'http://127.0.0.1:11434');
+            config()->set('ai.providers.ollama.chat_path', '/api/chat');
+
+            Http::fake(function () {
+                throw new \RuntimeException('cURL error 28: Operation timed out after 120000 milliseconds');
+            });
+
+            $provider = $this->app->make(OllamaAiProvider::class);
+            $result = $provider->reply([
+                ['role' => 'user', 'content' => 'Mensagem de teste'],
+            ], [
+                'model' => 'gemma3:4b',
+                'request_timeout_ms' => 120000,
+            ]);
+
+            $this->assertSame('ollama_timeout', $result['error'] ?? null);
+            $this->assertSame(20, $result['meta']['timeout_seconds'] ?? null);
+        } finally {
+            if ($previousMaxExecutionTime !== false) {
+                ini_set('max_execution_time', (string) $previousMaxExecutionTime);
+            }
+        }
+    }
+
     public function test_connection_refused_uses_generic_error_code_not_timeout(): void
     {
         config()->set('ai.providers.ollama.base_url', 'http://127.0.0.1:11434');

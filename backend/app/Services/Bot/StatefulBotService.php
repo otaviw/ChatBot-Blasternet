@@ -72,6 +72,55 @@ class StatefulBotService
     }
 
     /**
+     * Tenta converter uma intencao classificada pela IA em uma opcao real do menu atual.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function handleAiResolvedMenuAction(
+        ?Company $company,
+        Conversation $conversation,
+        string $intent,
+        string $messageText
+    ): ?array {
+        $definition = $this->registry->definitionForCompany($company);
+        $context = $this->currentMenuContext($conversation, $definition);
+        if ($context === null) {
+            return null;
+        }
+
+        $optionKey = $this->resolveOptionKeyForIntent($context['step_definition'], $intent);
+        if ($optionKey === null) {
+            return null;
+        }
+
+        return $this->generalMenuHandler->handleStep(
+            $company,
+            $conversation,
+            $definition,
+            $context['flow'],
+            $context['step'],
+            $optionKey,
+            ['ai_message_text' => $messageText]
+        );
+    }
+
+    public function hasDirectAttendantHandoffOption(
+        ?Company $company,
+        Conversation $conversation
+    ): bool {
+        $definition = $this->registry->definitionForCompany($company);
+        $context = $this->currentMenuContext($conversation, $definition);
+        if ($context === null) {
+            return false;
+        }
+
+        return $this->resolveOptionKeyForIntent(
+            $context['step_definition'],
+            'falar_com_atendente'
+        ) !== null;
+    }
+
+    /**
      * @param  array<int, string>  $commands
      */
     private function isMenuCommand(string $inputText, array $commands): bool
@@ -96,5 +145,130 @@ class StatefulBotService
         $n = mb_strtolower(trim(strtr($text, $accents)));
 
         return in_array($n, ['cancelar', 'cancelar agendamento', 'cancela', 'cancela agendamento'], true);
+    }
+
+    /**
+     * @param  array<string, mixed>  $definition
+     * @return array{flow:string,step:string,step_definition:array<string,mixed>}|null
+     */
+    private function currentMenuContext(Conversation $conversation, array $definition): ?array
+    {
+        $flow = is_string($conversation->bot_flow) ? trim($conversation->bot_flow) : '';
+        $step = is_string($conversation->bot_step) ? trim($conversation->bot_step) : '';
+
+        if ($flow === '' || $step === '') {
+            $initial = is_array($definition['initial'] ?? null) ? $definition['initial'] : [];
+            $flow = trim((string) ($initial['flow'] ?? ''));
+            $step = trim((string) ($initial['step'] ?? ''));
+        }
+
+        if ($flow === '' || $step === '') {
+            return null;
+        }
+
+        $stateKey = "{$flow}.{$step}";
+        $stepDefinition = is_array($definition['steps'][$stateKey] ?? null)
+            ? $definition['steps'][$stateKey]
+            : null;
+
+        if (! is_array($stepDefinition) || ($stepDefinition['type'] ?? null) !== 'numeric_menu') {
+            return null;
+        }
+
+        return [
+            'flow' => $flow,
+            'step' => $step,
+            'step_definition' => $stepDefinition,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $stepDefinition
+     */
+    private function resolveOptionKeyForIntent(array $stepDefinition, string $intent): ?string
+    {
+        $options = is_array($stepDefinition['options'] ?? null) ? $stepDefinition['options'] : [];
+        if ($options === []) {
+            return null;
+        }
+
+        foreach ($options as $optionKey => $optionDefinition) {
+            if (! is_array($optionDefinition)) {
+                continue;
+            }
+
+            $action = is_array($optionDefinition['action'] ?? null) ? $optionDefinition['action'] : [];
+            $label = (string) ($optionDefinition['label'] ?? '');
+
+            if ($this->optionMatchesIntent($intent, $label, $action)) {
+                return (string) $optionKey;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $action
+     */
+    private function optionMatchesIntent(string $intent, string $label, array $action): bool
+    {
+        $normalizedIntent = mb_strtolower(trim($intent));
+        $kind = mb_strtolower(trim((string) ($action['kind'] ?? '')));
+        $targetArea = (string) ($action['target_area_name'] ?? '');
+        $haystack = $this->normalizeLookupText($label.' '.$targetArea.' '.$kind);
+
+        if ($normalizedIntent === 'falar_com_atendente') {
+            return $kind === 'handoff'
+                && (
+                    str_contains($haystack, 'atendente')
+                    || str_contains($haystack, 'atendimento')
+                    || str_contains($haystack, 'humano')
+                );
+        }
+
+        if (in_array($normalizedIntent, ['agendamento', 'remarcar_agendamento'], true)) {
+            return $kind === 'appointments_start'
+                || str_contains($haystack, 'agendamento')
+                || str_contains($haystack, 'agenda');
+        }
+
+        if ($normalizedIntent === 'cancelar_agendamento') {
+            return $kind === 'appointments_cancel'
+                || str_contains($haystack, 'cancelar agendamento')
+                || str_contains($haystack, 'cancelamento');
+        }
+
+        if ($normalizedIntent === 'financeiro') {
+            return in_array($kind, ['ixc_invoices_start', 'ixc_fiscal_notes_start'], true)
+                || str_contains($haystack, 'financeiro')
+                || str_contains($haystack, 'boleto')
+                || str_contains($haystack, 'fiscal')
+                || str_contains($haystack, 'nota');
+        }
+
+        if ($normalizedIntent === 'suporte_tecnico') {
+            return str_contains($haystack, 'suporte')
+                || str_contains($haystack, 'internet')
+                || str_contains($haystack, 'conex')
+                || str_contains($haystack, 'tecnico');
+        }
+
+        return false;
+    }
+
+    private function normalizeLookupText(string $value): string
+    {
+        $normalized = mb_strtolower(trim($value));
+        $normalized = strtr($normalized, [
+            'á' => 'a', 'à' => 'a', 'â' => 'a', 'ã' => 'a',
+            'é' => 'e', 'ê' => 'e',
+            'í' => 'i',
+            'ó' => 'o', 'ô' => 'o', 'õ' => 'o',
+            'ú' => 'u',
+            'ç' => 'c',
+        ]);
+
+        return preg_replace('/\s+/', ' ', $normalized) ?? $normalized;
     }
 }

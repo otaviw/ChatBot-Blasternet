@@ -17,17 +17,28 @@ class AiChatbotDecisionLog extends Model
     public const MODE_SHADOW = 'shadow';
     public const MODE_ACTIVE = 'active';
 
+    public const CHANNEL_WHATSAPP = 'whatsapp';
+
+    public const HANDOFF_TYPE_MENU = 'menu';
+    public const HANDOFF_TYPE_INCAPACITY = 'incapacity';
+
     protected $fillable = [
         'company_id',
         'conversation_id',
         'message_id',
         'user_id',
+        'channel',
+        'flow',
+        'step',
         'mode',
         'gate_result',
         'intent',
         'confidence',
         'action',
         'handoff_reason',
+        'handoff_area_id',
+        'handoff_area_name',
+        'handoff_type',
         'used_knowledge',
         'knowledge_refs',
         'latency_ms',
@@ -42,6 +53,7 @@ class AiChatbotDecisionLog extends Model
         'conversation_id' => 'integer',
         'message_id' => 'integer',
         'user_id' => 'integer',
+        'handoff_area_id' => 'integer',
         'gate_result' => 'array',
         'confidence' => 'float',
         'used_knowledge' => 'boolean',
@@ -68,5 +80,10 @@ class AiChatbotDecisionLog extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function handoffArea(): BelongsTo
+    {
+        return $this->belongsTo(Area::class, 'handoff_area_id');
     }
 }

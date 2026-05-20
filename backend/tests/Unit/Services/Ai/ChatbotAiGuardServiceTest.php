@@ -79,6 +79,7 @@ class ChatbotAiGuardServiceTest extends TestCase
         $company->reseller_id = 20;
         $company->setRelation('botSetting', new CompanyBotSetting([
             'company_id' => 10,
+            'ai_enabled' => $aiEnabled,
             'ai_chatbot_enabled' => $aiEnabled,
             'ai_chatbot_shadow_mode' => false,
             'ai_chatbot_sandbox_enabled' => false,

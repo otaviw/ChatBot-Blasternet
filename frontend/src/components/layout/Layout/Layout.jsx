@@ -75,9 +75,19 @@ function Layout({ children, role, companyName, onLogout, fullWidth }) {
       userRole: userData?.role ?? null,
       userPerms: userData?.permissions ?? null,
       canManageUsers,
+      canManageAi: Boolean(userData?.can_manage_ai),
+      canUseInternalAi: Boolean(userData?.can_access_internal_ai_chat || userData?.can_use_ai),
       hasIxcIntegration: Boolean(userData?.has_ixc_integration),
     })
-  ), [canManageUsers, userData?.has_ixc_integration, userData?.permissions, userData?.role]);
+  ), [
+    canManageUsers,
+    userData?.can_access_internal_ai_chat,
+    userData?.can_manage_ai,
+    userData?.can_use_ai,
+    userData?.has_ixc_integration,
+    userData?.permissions,
+    userData?.role,
+  ]);
 
   const isResellerAdmin = role === 'admin' && userData?.role === 'reseller_admin';
   const isSystemAdmin = role === 'admin' && userData?.role === 'system_admin';

@@ -376,7 +376,19 @@ class OllamaAiProvider implements AiProvider, AiStreamingProvider
             return 30;
         }
 
-        return max(1, (int) ceil($timeoutMs / 1000));
+        return $this->capTimeoutToExecutionLimit(max(1, (int) ceil($timeoutMs / 1000)));
+    }
+
+    private function capTimeoutToExecutionLimit(int $timeoutSeconds): int
+    {
+        $maxExecutionSeconds = $this->normalizeOptionalInt(ini_get('max_execution_time'));
+        if ($maxExecutionSeconds === null || $maxExecutionSeconds <= 0) {
+            return $timeoutSeconds;
+        }
+
+        $safeTimeoutSeconds = max(1, $maxExecutionSeconds - 10);
+
+        return min($timeoutSeconds, $safeTimeoutSeconds);
     }
 
     private function normalizeOptionalFloat(mixed $value): ?float

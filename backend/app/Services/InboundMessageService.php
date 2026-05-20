@@ -7,6 +7,7 @@ namespace App\Services;
 
 use App\Models\AiChatbotDecisionLog;
 use App\Models\AiUsageLog;
+use App\Models\Area;
 use App\Models\Company;
 use App\Models\Conversation;
 use App\Models\Message;
@@ -22,6 +23,8 @@ use App\Services\Ai\ConversationAiSuggestionService;
 use App\Services\Ai\Safety\AiSafetyResult;
 use App\Services\Bot\StatefulBotService;
 use App\Services\WhatsApp\WhatsAppSendService;
+use App\Support\ConversationAssignedType;
+use App\Support\ConversationHandlingMode;
 use App\Support\ConversationStatus;
 use App\Support\MessageDeliveryStatus;
 use App\Support\PhoneNumberNormalizer;
@@ -178,7 +181,7 @@ class InboundMessageService
             }
         }
 
-        [$reply, $replyMessage] = $this->applyAiAssistiveDecision(
+        $aiAssistiveDecision = $this->applyAiAssistiveDecision(
             $reply,
             $replyMessage,
             $statefulHandled,
@@ -190,6 +193,33 @@ class InboundMessageService
             $normalizedText,
             $inMeta
         );
+        $reply = (string) ($aiAssistiveDecision['reply'] ?? $reply);
+        $replyMessage = $aiAssistiveDecision['reply_message'] ?? $replyMessage;
+        $forceHumanHandoff = (bool) ($aiAssistiveDecision['force_human_handoff'] ?? false);
+        $aiStatefulResult = is_array($aiAssistiveDecision['stateful_result'] ?? null)
+            ? $aiAssistiveDecision['stateful_result']
+            : null;
+
+        if ($aiStatefulResult !== null) {
+            $statefulHandled = (bool) ($aiStatefulResult['handled'] ?? false);
+            $statefulResult = $aiStatefulResult;
+            $reply = trim((string) ($statefulResult['reply_text'] ?? $reply));
+            $replyMessage = $statefulResult['reply_message'] ?? $replyMessage;
+        } elseif ($forceHumanHandoff) {
+            $statefulHandled = true;
+            $statefulResult = $this->buildAiHandoffStatefulResult(
+                $company,
+                $conversation,
+                (string) ($aiAssistiveDecision['intent'] ?? ''),
+                $normalizedText,
+                (string) ($aiAssistiveDecision['handoff_area'] ?? '')
+            );
+        }
+
+        if ($isFirstInboundMessage) {
+            $reply = $this->prependWelcomeToFirstAutoReply($company, $reply);
+            $replyMessage = $this->applyReplyTextToReplyMessage($replyMessage, $reply);
+        }
 
         [$outMessage, $updatedConversation] = DB::transaction(function () use (
             $conversation,
@@ -848,7 +878,14 @@ class InboundMessageService
      * @param  array<string, mixed>|null  $gateResult
      * @param  array<string, mixed>|string|null  $replyMessage
      * @param  array<string, mixed>  $inMeta
-     * @return array{0: string, 1: array<string, mixed>|string|null}
+     * @return array{
+     *   reply: string,
+     *   reply_message: array<string, mixed>|string|null,
+     *   force_human_handoff: bool,
+     *   stateful_result?: array<string, mixed>|null,
+     *   intent?: string,
+     *   handoff_area?: string|null
+     * }
      */
     private function applyAiAssistiveDecision(
         string $legacyReply,
@@ -863,17 +900,17 @@ class InboundMessageService
         array $inMeta
     ): array {
         if ($company === null || ! is_array($gateResult)) {
-            return [$legacyReply, $replyMessage];
+            return $this->assistiveDecisionResult($legacyReply, $replyMessage, false);
         }
 
         $settings = $company->botSetting;
         if (! $settings) {
-            return [$legacyReply, $replyMessage];
+            return $this->assistiveDecisionResult($legacyReply, $replyMessage, false);
         }
 
         $allowed = (bool) ($gateResult['allowed'] ?? false);
         if (! $allowed) {
-            return [$legacyReply, $replyMessage];
+            return $this->assistiveDecisionResult($legacyReply, $replyMessage, false);
         }
 
         $shadowEnabled = (bool) ($settings->ai_chatbot_shadow_mode ?? false);
@@ -893,17 +930,19 @@ class InboundMessageService
         }
 
         if ($mode === AiChatbotDecisionLog::MODE_OFF) {
-            return [$legacyReply, $replyMessage];
+            return $this->assistiveDecisionResult($legacyReply, $replyMessage, false);
         }
 
         // Fluxos stateful (menu/IXC/agendamento) continuam determinísticos em shadow,
         // mas podem ser enriquecidos por IA no modo active/sandbox.
-        if ($statefulHandled && $mode !== AiChatbotDecisionLog::MODE_ACTIVE) {
-            return [$legacyReply, $replyMessage];
+        if ($statefulHandled && ! in_array($mode, [AiChatbotDecisionLog::MODE_ACTIVE, AiChatbotDecisionLog::MODE_SANDBOX], true)) {
+            return $this->assistiveDecisionResult($legacyReply, $replyMessage, false);
         }
 
         $provider = trim((string) ($settings->ai_provider ?? config('ai.provider', '')));
         $model = trim((string) ($settings->ai_model ?? config('ai.model', '')));
+        $decisionFlow = $this->normalizeAiDecisionDimension($conversation->bot_flow ?? null, 'main');
+        $decisionStep = $this->normalizeAiDecisionDimension($conversation->bot_step ?? null, 'menu');
         $startedNs = hrtime(true);
         $safeMessageText = $normalizedText;
 
@@ -917,6 +956,9 @@ class InboundMessageService
                 'conversation_id' => (int) $conversation->id,
                 'message_id' => (int) $inMessage->id,
                 'user_id' => null,
+                'channel' => AiChatbotDecisionLog::CHANNEL_WHATSAPP,
+                'flow' => $decisionFlow,
+                'step' => $decisionStep,
                 'mode' => $mode,
                 'gate_result' => $this->mergeReplyComparison(
                     $this->mergeSafetyResult($gateResult, new AiSafetyResult(true, $normalizedText, 'safety_pipeline_exception', 'safety_pipeline', [])),
@@ -940,7 +982,7 @@ class InboundMessageService
                 'error' => 'safety_pipeline_exception',
             ]);
 
-            return [$legacyReply, $replyMessage];
+            return $this->assistiveDecisionResult($legacyReply, $replyMessage, false);
         }
 
         if ($safety->blocked) {
@@ -951,6 +993,9 @@ class InboundMessageService
                 'conversation_id' => (int) $conversation->id,
                 'message_id' => (int) $inMessage->id,
                 'user_id' => null,
+                'channel' => AiChatbotDecisionLog::CHANNEL_WHATSAPP,
+                'flow' => $decisionFlow,
+                'step' => $decisionStep,
                 'mode' => $mode,
                 'gate_result' => $this->mergeReplyComparison(
                     $this->mergeSafetyResult($gateResult, $safety),
@@ -974,7 +1019,7 @@ class InboundMessageService
                 'error' => 'safety_blocked',
             ]);
 
-            return [$legacyReply, $replyMessage];
+            return $this->assistiveDecisionResult($legacyReply, $replyMessage, false);
         }
 
         $safeMessageText = $safety->sanitizedInput;
@@ -1010,6 +1055,31 @@ class InboundMessageService
             $aiReply = null;
             $aiApplied = false;
             $error = null;
+            $statefulResult = null;
+
+            if (in_array($mode, [AiChatbotDecisionLog::MODE_ACTIVE, AiChatbotDecisionLog::MODE_SANDBOX], true)) {
+                try {
+                    $statefulResult = $this->statefulBot->handleAiResolvedMenuAction(
+                        $company,
+                        $conversation,
+                        $intent,
+                        $safeMessageText
+                    );
+                } catch (Throwable) {
+                    $statefulResult = null;
+                }
+
+                if (is_array($statefulResult) && (bool) ($statefulResult['handled'] ?? false)) {
+                    $finalReply = trim((string) ($statefulResult['reply_text'] ?? $legacyReply));
+                    $finalReplyMessage = $statefulResult['reply_message'] ?? null;
+                    $action = (bool) ($statefulResult['should_handoff'] ?? false)
+                        ? ChatbotAiPolicyService::ACTION_HANDOFF
+                        : $action;
+                    $aiApplied = true;
+                } else {
+                    $statefulResult = null;
+                }
+            }
 
             $canApplyAiSuggestion = false;
             if ($mode === AiChatbotDecisionLog::MODE_SANDBOX && $action === ChatbotAiPolicyService::ACTION_SUGGEST_REPLY) {
@@ -1018,12 +1088,15 @@ class InboundMessageService
 
             if (
                 $mode === AiChatbotDecisionLog::MODE_ACTIVE
+                && $action === ChatbotAiPolicyService::ACTION_SUGGEST_REPLY
                 && $action !== ChatbotAiPolicyService::ACTION_HANDOFF
+                && $statefulResult === null
+                && ! (bool) ($policyDecision['should_transfer_to_human'] ?? false)
             ) {
                 $canApplyAiSuggestion = true;
             }
 
-            if ($canApplyAiSuggestion) {
+            if ($canApplyAiSuggestion && $statefulResult === null) {
                 $suggestionPayload = $this->generateChatbotAiSuggestionPayload($company, $conversation);
                 $aiReply = isset($suggestionPayload['reply']) ? trim((string) $suggestionPayload['reply']) : null;
 
@@ -1054,6 +1127,58 @@ class InboundMessageService
             }
 
             $latencyMs = max(0, (int) floor((hrtime(true) - $startedNs) / 1_000_000));
+            $providerFromSuggestion = is_string($suggestionPayload['raw']['provider'] ?? null)
+                ? trim((string) $suggestionPayload['raw']['provider'])
+                : '';
+            $modelFromSuggestion = is_string($suggestionPayload['raw']['model'] ?? null)
+                ? trim((string) $suggestionPayload['raw']['model'])
+                : '';
+            $tokensUsed = $this->extractAssistiveTokensUsed($suggestionPayload['raw'] ?? null);
+
+            $forceHumanHandoff = $this->shouldForceAiHandoff(
+                $action,
+                $intent,
+                $policyDecision,
+                $statefulResult !== null,
+                $company,
+                $conversation
+            );
+
+            $statefulHandoff = is_array($statefulResult)
+                && (bool) ($statefulResult['should_handoff'] ?? false);
+            $statefulHandoffTarget = is_array($statefulResult['handoff_target'] ?? null)
+                ? $statefulResult['handoff_target']
+                : [];
+            $statefulHandoffArea = trim((string) ($statefulHandoffTarget['name'] ?? ''));
+            $statefulHandoffAreaId = is_numeric($statefulHandoffTarget['id'] ?? null)
+                ? (int) $statefulHandoffTarget['id']
+                : null;
+
+            $handoffArea = $statefulHandoff && $statefulHandoffArea !== ''
+                ? $statefulHandoffArea
+                : ($forceHumanHandoff
+                ? $this->resolveAiHandoffArea($company, $conversation, $intent, $safeMessageText)
+                : null);
+            if ($forceHumanHandoff && trim($finalReply) === trim($legacyReply)) {
+                $finalReply = $this->buildAiHandoffMessage($handoffArea);
+                $finalReplyMessage = null;
+            }
+
+            $handoffAreaModel = $handoffArea !== null
+                ? $this->findCompanyAreaByName($company, $conversation, $handoffArea)
+                : null;
+            $handoffAreaId = $statefulHandoffAreaId ?: ($handoffAreaModel?->id ? (int) $handoffAreaModel->id : null);
+            $handoffReason = isset($policyDecision['handoff_reason']) && is_string($policyDecision['handoff_reason'])
+                ? $policyDecision['handoff_reason']
+                : null;
+            $handoffType = $this->resolveAiHandoffType(
+                $action,
+                $intent,
+                $handoffReason,
+                $forceHumanHandoff,
+                $statefulHandoff
+            );
+
             $normalizedGateResult = $this->mergeReplyComparison(
                 $gateResult,
                 $legacyReply,
@@ -1063,27 +1188,24 @@ class InboundMessageService
                 $statefulHandled,
                 $sandboxNumberAllowed,
             );
-            $providerFromSuggestion = is_string($suggestionPayload['raw']['provider'] ?? null)
-                ? trim((string) $suggestionPayload['raw']['provider'])
-                : '';
-            $modelFromSuggestion = is_string($suggestionPayload['raw']['model'] ?? null)
-                ? trim((string) $suggestionPayload['raw']['model'])
-                : '';
-            $tokensUsed = $this->extractAssistiveTokensUsed($suggestionPayload['raw'] ?? null);
 
             $this->chatbotAiDecisionLogger->logDecision([
                 'company_id' => (int) $company->id,
                 'conversation_id' => (int) $conversation->id,
                 'message_id' => (int) $inMessage->id,
                 'user_id' => null,
+                'channel' => AiChatbotDecisionLog::CHANNEL_WHATSAPP,
+                'flow' => $decisionFlow,
+                'step' => $decisionStep,
                 'mode' => $mode,
                 'gate_result' => $normalizedGateResult,
                 'intent' => $intent,
                 'confidence' => $confidence,
                 'action' => $action,
-                'handoff_reason' => isset($policyDecision['handoff_reason']) && is_string($policyDecision['handoff_reason'])
-                    ? $policyDecision['handoff_reason']
-                    : null,
+                'handoff_reason' => $handoffReason,
+                'handoff_area_id' => $handoffAreaId,
+                'handoff_area_name' => $handoffArea,
+                'handoff_type' => $handoffType,
                 'used_knowledge' => (bool) ($suggestionPayload['raw']['used_rag'] ?? false),
                 'knowledge_refs' => $this->normalizeShadowKnowledgeRefs($suggestionPayload['raw']['rag_chunks'] ?? null),
                 'latency_ms' => $latencyMs,
@@ -1097,7 +1219,14 @@ class InboundMessageService
                 'error' => $error ?? ((str_starts_with($reason, 'provider_') || $reason === 'policy_exception') ? $reason : null),
             ]);
 
-            return [$finalReply, $finalReplyMessage];
+            return $this->assistiveDecisionResult(
+                $finalReply,
+                $finalReplyMessage,
+                $forceHumanHandoff,
+                $statefulResult,
+                $intent,
+                $handoffArea
+            );
         } catch (Throwable $exception) {
             $latencyMs = max(0, (int) floor((hrtime(true) - $startedNs) / 1_000_000));
 
@@ -1107,6 +1236,9 @@ class InboundMessageService
                     'conversation_id' => (int) $conversation->id,
                     'message_id' => (int) $inMessage->id,
                     'user_id' => null,
+                    'channel' => AiChatbotDecisionLog::CHANNEL_WHATSAPP,
+                    'flow' => $decisionFlow,
+                    'step' => $decisionStep,
                     'mode' => $mode,
                     'gate_result' => $this->mergeReplyComparison(
                         $gateResult,
@@ -1137,8 +1269,228 @@ class InboundMessageService
                 ]);
             }
 
-            return [$legacyReply, $replyMessage];
+            return $this->assistiveDecisionResult($legacyReply, $replyMessage, false);
         }
+    }
+
+    /**
+     * @param  array<string, mixed>|string|null  $replyMessage
+     * @return array{
+     *   reply: string,
+     *   reply_message: array<string, mixed>|string|null,
+     *   force_human_handoff: bool,
+     *   stateful_result?: array<string, mixed>|null,
+     *   intent?: string,
+     *   handoff_area?: string|null
+     * }
+     */
+    private function assistiveDecisionResult(
+        string $reply,
+        array|string|null $replyMessage,
+        bool $forceHumanHandoff,
+        ?array $statefulResult = null,
+        ?string $intent = null,
+        ?string $handoffArea = null
+    ): array
+    {
+        return [
+            $reply,
+            $replyMessage,
+            'reply' => $reply,
+            'reply_message' => $replyMessage,
+            'force_human_handoff' => $forceHumanHandoff,
+            'stateful_result' => $statefulResult,
+            'intent' => $intent,
+            'handoff_area' => $handoffArea,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $policyDecision
+     */
+    private function shouldForceAiHandoff(
+        string $action,
+        string $intent,
+        array $policyDecision,
+        bool $menuActionMatched,
+        Company $company,
+        Conversation $conversation
+    ): bool {
+        if ($menuActionMatched) {
+            return false;
+        }
+
+        $normalizedIntent = mb_strtolower(trim($intent));
+        if ($normalizedIntent === 'falar_com_atendente') {
+            try {
+                return $this->statefulBot->hasDirectAttendantHandoffOption($company, $conversation);
+            } catch (Throwable) {
+                return false;
+            }
+        }
+
+        if ($action === ChatbotAiPolicyService::ACTION_HANDOFF) {
+            return true;
+        }
+
+        if ((bool) ($policyDecision['should_transfer_to_human'] ?? false)) {
+            return true;
+        }
+
+        if ($action === ChatbotAiPolicyService::ACTION_ROUTE_TO_APPOINTMENT_FLOW) {
+            return true;
+        }
+
+        return $action === ChatbotAiPolicyService::ACTION_EXTRACT_ONLY
+            && in_array($normalizedIntent, ['suporte_tecnico', 'financeiro'], true);
+    }
+
+    private function resolveAiHandoffType(
+        string $action,
+        string $intent,
+        ?string $handoffReason,
+        bool $forceHumanHandoff,
+        bool $statefulHandoff
+    ): ?string {
+        if ($statefulHandoff) {
+            return AiChatbotDecisionLog::HANDOFF_TYPE_MENU;
+        }
+
+        $normalizedIntent = mb_strtolower(trim($intent));
+        if ($normalizedIntent === 'falar_com_atendente') {
+            return $forceHumanHandoff ? AiChatbotDecisionLog::HANDOFF_TYPE_MENU : null;
+        }
+
+        if ($forceHumanHandoff || $action === ChatbotAiPolicyService::ACTION_HANDOFF || $handoffReason !== null) {
+            return AiChatbotDecisionLog::HANDOFF_TYPE_INCAPACITY;
+        }
+
+        return null;
+    }
+
+    private function normalizeAiDecisionDimension(mixed $value, string $fallback): string
+    {
+        $normalized = trim((string) $value);
+        if ($normalized === '') {
+            return $fallback;
+        }
+
+        return mb_substr($normalized, 0, 120);
+    }
+
+    private function buildAiHandoffMessage(?string $areaName): string
+    {
+        $area = trim((string) $areaName);
+        if ($area === '') {
+            return 'Nao consegui resolver isso com o autoatendimento desta empresa. Vou te encaminhar para um atendente.';
+        }
+
+        return "Nao consegui resolver isso com o autoatendimento desta empresa. Vou te encaminhar para {$area}.";
+    }
+
+    private function buildAiHandoffStatefulResult(
+        ?Company $company,
+        Conversation $conversation,
+        string $intent,
+        string $messageText,
+        string $preferredArea
+    ): array {
+        $areaName = trim($preferredArea);
+        if ($areaName === '') {
+            $areaName = $this->resolveAiHandoffArea($company, $conversation, $intent, $messageText) ?? 'Atendimento';
+        }
+
+        $area = $this->findCompanyAreaByName($company, $conversation, $areaName);
+
+        return [
+            'handled' => true,
+            'not_handled' => false,
+            'reply_text' => $this->buildAiHandoffMessage($areaName),
+            'should_handoff' => true,
+            'handoff_target' => [
+                'type' => 'area',
+                'id' => $area?->id ? (int) $area->id : null,
+                'name' => $area?->name ? (string) $area->name : $areaName,
+            ],
+            'new_state' => null,
+            'clear_state' => true,
+            'set_handling_mode' => ConversationHandlingMode::HUMAN,
+            'set_assigned_type' => $area instanceof Area ? ConversationAssignedType::AREA : ConversationAssignedType::UNASSIGNED,
+            'set_assigned_id' => $area?->id ? (int) $area->id : null,
+            'set_current_area_id' => $area?->id ? (int) $area->id : null,
+        ];
+    }
+
+    private function resolveAiHandoffArea(?Company $company, Conversation $conversation, string $intent, string $messageText): ?string
+    {
+        $companyId = (int) ($company?->id ?: $conversation->company_id);
+        $normalizedIntent = mb_strtolower(trim($intent));
+        $preferredNames = match ($normalizedIntent) {
+            'financeiro' => ['Financeiro', 'Cobranca', 'Atendimento'],
+            'suporte_tecnico' => ['Suporte', 'Suporte Tecnico', 'Atendimento'],
+            'agendamento', 'remarcar_agendamento', 'cancelar_agendamento' => ['Atendimento', 'Agenda', 'Agendamento'],
+            default => ['Atendimento'],
+        };
+
+        if ($companyId > 0) {
+            $areas = Area::query()
+                ->where('company_id', $companyId)
+                ->get(['id', 'name']);
+
+            foreach ($preferredNames as $preferredName) {
+                $match = $areas->first(
+                    fn (Area $area): bool => $this->normalizeAiLookupText((string) $area->name)
+                        === $this->normalizeAiLookupText($preferredName)
+                );
+                if ($match instanceof Area) {
+                    return (string) $match->name;
+                }
+            }
+
+            $message = $this->normalizeAiLookupText($messageText);
+            $match = $areas->first(function (Area $area) use ($message): bool {
+                $areaName = $this->normalizeAiLookupText((string) $area->name);
+
+                return $areaName !== '' && str_contains($message, $areaName);
+            });
+
+            if ($match instanceof Area) {
+                return (string) $match->name;
+            }
+        }
+
+        return $preferredNames[0] ?? 'Atendimento';
+    }
+
+    private function findCompanyAreaByName(?Company $company, Conversation $conversation, string $areaName): ?Area
+    {
+        $companyId = (int) ($company?->id ?: $conversation->company_id);
+        $normalizedAreaName = $this->normalizeAiLookupText($areaName);
+        if ($companyId <= 0 || $normalizedAreaName === '') {
+            return null;
+        }
+
+        return Area::query()
+            ->where('company_id', $companyId)
+            ->get(['id', 'name'])
+            ->first(
+                fn (Area $area): bool => $this->normalizeAiLookupText((string) $area->name) === $normalizedAreaName
+            );
+    }
+
+    private function normalizeAiLookupText(string $value): string
+    {
+        $normalized = mb_strtolower(trim($value));
+        $normalized = strtr($normalized, [
+            'á' => 'a', 'à' => 'a', 'â' => 'a', 'ã' => 'a',
+            'é' => 'e', 'ê' => 'e',
+            'í' => 'i',
+            'ó' => 'o', 'ô' => 'o', 'õ' => 'o',
+            'ú' => 'u',
+            'ç' => 'c',
+        ]);
+
+        return preg_replace('/\s+/', ' ', $normalized) ?? $normalized;
     }
 
     /**
@@ -1166,6 +1518,58 @@ class InboundMessageService
         }
 
         return false;
+    }
+
+    private function prependWelcomeToFirstAutoReply(?Company $company, string $reply): string
+    {
+        $normalizedReply = trim($reply);
+        if ($normalizedReply === '') {
+            return $reply;
+        }
+
+        $welcome = trim((string) ($company?->botSetting?->welcome_message ?? ''));
+        if ($welcome === '') {
+            return $reply;
+        }
+
+        if (str_starts_with($this->normalizeReplyPrefix($normalizedReply), $this->normalizeReplyPrefix($welcome))) {
+            return $reply;
+        }
+
+        return "{$welcome}\n\n{$reply}";
+    }
+
+    /**
+     * @param  array<string, mixed>|string|null  $replyMessage
+     * @return array<string, mixed>|string|null
+     */
+    private function applyReplyTextToReplyMessage(array|string|null $replyMessage, string $reply): array|string|null
+    {
+        if (! is_array($replyMessage)) {
+            return is_string($replyMessage) ? $reply : $replyMessage;
+        }
+
+        $updated = $replyMessage;
+        $msgType = trim((string) ($updated['type'] ?? ''));
+
+        if ($msgType === 'interactive_buttons' || $msgType === 'interactive_list') {
+            $updated['body_text'] = $reply;
+
+            return $updated;
+        }
+
+        if ($msgType === 'text') {
+            $updated['text'] = $reply;
+        }
+
+        return $updated;
+    }
+
+    private function normalizeReplyPrefix(string $value): string
+    {
+        $normalized = mb_strtolower(trim($value));
+
+        return preg_replace('/\s+/', ' ', $normalized) ?? $normalized;
     }
 
     /**

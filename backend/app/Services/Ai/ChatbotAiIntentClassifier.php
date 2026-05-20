@@ -64,6 +64,16 @@ class ChatbotAiIntentClassifier
             ];
         }
 
+        $localClassification = $this->classifyWithLocalHeuristics($text);
+        if ($localClassification !== null) {
+            return $localClassification;
+        }
+
+        $activeFlowClassification = $this->classifyActiveFlowInputWithoutProvider($conversation, $text);
+        if ($activeFlowClassification !== null) {
+            return $activeFlowClassification;
+        }
+
         $providerName = $this->resolveProviderName($settings);
         $provider = $this->providerResolver->resolve($providerName);
         $modelName = $this->resolveModelName($settings);
@@ -140,6 +150,176 @@ class ChatbotAiIntentClassifier
         }
 
         return (bool) preg_match('/^\d+$/', $compact);
+    }
+
+    /**
+     * High-precision local classifier for intents that map directly to menu actions.
+     *
+     * @return array{
+     *   intent:string,
+     *   confidence:float,
+     *   extracted_data:array<string, mixed>,
+     *   suggested_reply:?string,
+     *   should_transfer_to_human:bool,
+     *   reason:string
+     * }|null
+     */
+    private function classifyWithLocalHeuristics(string $text): ?array
+    {
+        $normalized = $this->normalizeLookupText($text);
+        if ($normalized === '') {
+            return null;
+        }
+
+        if ($this->containsAny($normalized, ['cancelar agendamento', 'cancelar horario', 'desmarcar agendamento'])) {
+            return $this->localClassification('cancelar_agendamento', 0.92, 'local_heuristic_cancelar_agendamento');
+        }
+
+        if ($this->containsAny($normalized, ['remarcar agendamento', 'remarcar horario', 'mudar agendamento'])) {
+            return $this->localClassification('remarcar_agendamento', 0.92, 'local_heuristic_remarcar_agendamento');
+        }
+
+        if (
+            $this->containsAny($normalized, ['agendamento', 'agendar', 'agenda'])
+            || (str_contains($normalized, 'marcar') && $this->containsAny($normalized, ['horario', 'hora', 'visita', 'amanh']))
+            || (
+                $this->containsAny($normalized, ['horario', 'horarios', 'disponibilidade', 'disponivel'])
+                && $this->containsAny($normalized, [
+                    'amanh',
+                    'hoje',
+                    'segunda',
+                    'terca',
+                    'quarta',
+                    'quinta',
+                    'sexta',
+                    'sabado',
+                    'domingo',
+                    'manha',
+                    'tarde',
+                    'noite',
+                ])
+            )
+        ) {
+            return $this->localClassification('agendamento', 0.92, 'local_heuristic_agendamento');
+        }
+
+        if (
+            $this->containsAny($normalized, ['atendente', 'humano', 'operador'])
+            || preg_match('/\\b(falar|conversar)\\b.*\\b(pessoa|alguem)\\b/', $normalized) === 1
+        ) {
+            return $this->localClassification(
+                'falar_com_atendente',
+                0.94,
+                'local_heuristic_falar_com_atendente',
+                true
+            );
+        }
+
+        if ($this->containsAny($normalized, ['boleto', 'fatura', 'pagamento', 'segunda via', 'nota fiscal', 'cobranca'])) {
+            return $this->localClassification('financeiro', 0.88, 'local_heuristic_financeiro');
+        }
+
+        if ($this->containsAny($normalized, ['suporte tecnico', 'sem conexao', 'sem internet', 'internet lenta', 'wifi', 'roteador'])) {
+            return $this->localClassification('suporte_tecnico', 0.88, 'local_heuristic_suporte_tecnico');
+        }
+
+        return null;
+    }
+
+    /**
+     * Stateful flows already validated the customer input before AI assistance runs.
+     * If there is no clear cross-flow intent, keep the official flow response and
+     * avoid a slow provider call inside the synchronous webhook/simulator request.
+     *
+     * @return array{
+     *   intent:string,
+     *   confidence:float,
+     *   extracted_data:array<string, mixed>,
+     *   suggested_reply:?string,
+     *   should_transfer_to_human:bool,
+     *   reason:string
+     * }|null
+     */
+    private function classifyActiveFlowInputWithoutProvider(Conversation $conversation, string $text): ?array
+    {
+        $flow = trim((string) ($conversation->bot_flow ?? ''));
+        $step = trim((string) ($conversation->bot_step ?? ''));
+
+        if ($flow === '' && $step === '') {
+            return null;
+        }
+
+        if ($flow === 'main' && ($step === '' || $step === 'menu')) {
+            return null;
+        }
+
+        return [
+            'intent' => 'menu',
+            'confidence' => 1.0,
+            'extracted_data' => [
+                'raw_input' => $text,
+                'flow' => $flow,
+                'step' => $step,
+            ],
+            'suggested_reply' => null,
+            'should_transfer_to_human' => false,
+            'reason' => 'active_flow_input_without_ai_provider',
+        ];
+    }
+
+    /**
+     * @param  array<int, string>  $needles
+     */
+    private function containsAny(string $text, array $needles): bool
+    {
+        foreach ($needles as $needle) {
+            if ($needle !== '' && str_contains($text, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @return array{
+     *   intent:string,
+     *   confidence:float,
+     *   extracted_data:array<string, mixed>,
+     *   suggested_reply:?string,
+     *   should_transfer_to_human:bool,
+     *   reason:string
+     * }
+     */
+    private function localClassification(
+        string $intent,
+        float $confidence,
+        string $reason,
+        bool $shouldTransferToHuman = false
+    ): array {
+        return [
+            'intent' => $intent,
+            'confidence' => $confidence,
+            'extracted_data' => [],
+            'suggested_reply' => null,
+            'should_transfer_to_human' => $shouldTransferToHuman,
+            'reason' => $reason,
+        ];
+    }
+
+    private function normalizeLookupText(string $value): string
+    {
+        $normalized = mb_strtolower(trim($value));
+        $normalized = strtr($normalized, [
+            'á' => 'a', 'à' => 'a', 'â' => 'a', 'ã' => 'a',
+            'é' => 'e', 'ê' => 'e',
+            'í' => 'i',
+            'ó' => 'o', 'ô' => 'o', 'õ' => 'o',
+            'ú' => 'u',
+            'ç' => 'c',
+        ]);
+
+        return preg_replace('/\s+/', ' ', $normalized) ?? $normalized;
     }
 
     /**

@@ -21,6 +21,8 @@ class AppointmentFlowHandler
 {
     use BotHandlerHelpers;
 
+    private const MAX_ASSIST_ATTEMPTS = 3;
+
     public function __construct(
         private BotFlowRegistry $registry,
         private AppointmentAvailabilityService $appointmentAvailability,
@@ -58,8 +60,23 @@ class AppointmentFlowHandler
         $staffProfiles    = $this->activeAppointmentStaff($companyEntity);
         $allowChooseStaff = (bool) ($settings?->allow_customer_choose_staff ?? true);
         $hasMoreThanOne   = count($staffProfiles) > 1;
+        $timezone         = (string) ($settings?->timezone ?: 'America/Sao_Paulo');
+        $initialMessage   = trim((string) ($action['initial_message_text'] ?? ''));
+        $initialHasDay    = $initialMessage !== ''
+            && $this->parseFlexibleDayInput($initialMessage, $timezone) !== null;
 
         $context['has_staff_choice'] = $allowChooseStaff && $hasMoreThanOne;
+
+        if ($initialHasDay) {
+            if (! $allowChooseStaff || ! $hasMoreThanOne) {
+                $this->setSingleStaffContext($context, $staffProfiles);
+            } else {
+                $context['staff_profile_id'] = null;
+                $context['staff_name']       = null;
+            }
+
+            return $this->handleAppointmentDaySelection($companyEntity, $conversation, $initialMessage, $context);
+        }
 
         if (! $allowChooseStaff || ! $hasMoreThanOne) {
             $this->setSingleStaffContext($context, $staffProfiles);
@@ -93,7 +110,7 @@ class AppointmentFlowHandler
         $companyEntity = $this->resolveCompany($company, $conversation);
         $context       = $this->appointmentContext($conversation);
 
-        if ($normalizedText === '9') {
+        if ($normalizedText === '9' || ($this->appointmentStepAllowsTextHandoff($step) && $this->isAttendantRequest($normalizedText))) {
             $targetAreaName = trim((string) ($context['target_area_name'] ?? BotFlowRegistry::AREA_ATTENDANCE));
 
             return $this->handoffResult(
@@ -158,8 +175,14 @@ class AppointmentFlowHandler
             );
         }
 
-        $serviceOptions = $this->messageBuilder->enumerateServices($services);
-        if (! isset($serviceOptions[$normalizedText])) {
+        $serviceOptions     = $this->messageBuilder->enumerateServices($services);
+        $resolvedServiceKey = $this->resolveNamedOptionKey($normalizedText, $serviceOptions);
+        if ($resolvedServiceKey === null) {
+            $context = $this->trackInvalidAttempt($context, 'service_select');
+            if ($this->shouldHandoffAfterAssistAttempts($context)) {
+                return $this->handoffAfterAssistLimit($company, $conversation, $context);
+            }
+
             $serviceText = $this->messageBuilder->appointmentServiceMenuText($serviceOptions, true);
 
             return $this->botStateResult(
@@ -173,7 +196,8 @@ class AppointmentFlowHandler
             );
         }
 
-        $selectedService         = $serviceOptions[$normalizedText];
+        $context                 = $this->resetAssistAttempt($context);
+        $selectedService         = $serviceOptions[$resolvedServiceKey];
         $context['service_id']   = (int) $selectedService['id'];
         $context['service_name'] = (string) $selectedService['name'];
         unset($context['selected_date'], $context['slot_page'], $context['slot_starts_at'], $context['slot_ends_at']);
@@ -218,7 +242,8 @@ class AppointmentFlowHandler
             ? $context['staff_options']
             : $this->messageBuilder->enumerateStaff($this->activeAppointmentStaff($company));
 
-        if ($normalizedText === '8') {
+        if ($normalizedText === '8' || $this->isAnyStaffInput($normalizedText)) {
+            $context = $this->resetAssistAttempt($context);
             $context['staff_profile_id'] = null;
             $context['staff_name']       = null;
             unset($context['last_day_key'], $context['last_day_date'], $context['selected_date'], $context['slot_page']);
@@ -226,7 +251,23 @@ class AppointmentFlowHandler
             return $this->replyWithAppointmentDayMenu($company, $context);
         }
 
-        if (! isset($staffOptions[$normalizedText])) {
+        $resolvedStaffKey = $this->resolveNamedOptionKey($normalizedText, $staffOptions);
+        if ($resolvedStaffKey === null) {
+            $timezone = (string) ($this->appointmentSettings($company)?->timezone ?: 'America/Sao_Paulo');
+            if ($this->parseFlexibleDayInput($normalizedText, $timezone) !== null) {
+                $context = $this->resetAssistAttempt($context);
+                $context['staff_profile_id'] = null;
+                $context['staff_name']       = null;
+                unset($context['last_day_key'], $context['last_day_date'], $context['selected_date'], $context['slot_page']);
+
+                return $this->handleAppointmentDaySelection($company, $conversation, $normalizedText, $context);
+            }
+
+            $context = $this->trackInvalidAttempt($context, 'staff_select');
+            if ($this->shouldHandoffAfterAssistAttempts($context)) {
+                return $this->handoffAfterAssistLimit($company, $conversation, $context);
+            }
+
             $staffText = $this->messageBuilder->appointmentStaffMenuText($staffOptions, true);
 
             return $this->botStateResult(
@@ -240,7 +281,8 @@ class AppointmentFlowHandler
             );
         }
 
-        $selectedStaff               = $staffOptions[$normalizedText];
+        $context                     = $this->resetAssistAttempt($context);
+        $selectedStaff               = $staffOptions[$resolvedStaffKey];
         $context['staff_profile_id'] = (int) $selectedStaff['id'];
         $context['staff_name']       = (string) $selectedStaff['name'];
         unset($context['last_day_key'], $context['last_day_date'], $context['selected_date'], $context['slot_page']);
@@ -303,6 +345,7 @@ class AppointmentFlowHandler
                     'context' => ['appointment' => $context],
                 ], $this->messageBuilder->buildAppointmentDayListMessage($context, $noSlotMsg));
             }
+            $context = $this->resetAssistAttempt($context);
             $context['selected_date'] = $selectedDate;
             $context['slot_page']     = 0;
 
@@ -313,8 +356,16 @@ class AppointmentFlowHandler
             return $this->replyWithNearestSlots($company, $context);
         }
 
-        $parsed = $this->parseDayInput($normalizedText, $timezone);
+        $preferredTime = $this->parseTimeInput($normalizedText);
+        $requestedPeriod = $this->parseRequestedSlotPeriod($normalizedText);
+        $context = $this->applyRequestedSlotPeriod($context, $requestedPeriod);
+        $parsed        = $this->parseFlexibleDayInput($normalizedText, $timezone);
         if ($parsed === null) {
+            $context = $this->trackInvalidAttempt($context, 'day_select');
+            if ($this->shouldHandoffAfterAssistAttempts($context)) {
+                return $this->handoffAfterAssistLimit($company, $conversation, $context);
+            }
+
             return $this->replyWithAppointmentDayMenu($company, $context, true, '');
         }
 
@@ -325,6 +376,11 @@ class AppointmentFlowHandler
         $maxDate      = CarbonImmutable::now($timezone)->addDays($maxDays)->toDateString();
 
         if ($selectedDate > $maxDate) {
+            $context = $this->trackInvalidAttempt($context, 'day_select');
+            if ($this->shouldHandoffAfterAssistAttempts($context)) {
+                return $this->handoffAfterAssistLimit($company, $conversation, $context);
+            }
+
             $maxDaysText = "Não é possível agendar além de {$maxDays} dias. Escolha um dia mais próximo.\n\n" .
                 $this->messageBuilder->appointmentDayPromptText($context);
 
@@ -339,6 +395,7 @@ class AppointmentFlowHandler
             );
         }
 
+        $context = $this->resetAssistAttempt($context);
         $context['last_day_key']  = $parsed['key'];
         $context['last_day_date'] = $selectedDate;
 
@@ -363,7 +420,26 @@ class AppointmentFlowHandler
         $context['selected_date'] = $selectedDate;
         $context['slot_page']     = 0;
 
-        return $this->replyWithAppointmentSlotMenu($company, $context);
+        if ($preferredTime !== null) {
+            $selectedSlot = $this->findSlotByTime($slots, $preferredTime, $timezone);
+            if ($selectedSlot !== null) {
+                return $this->continueWithSelectedAppointmentSlot($context, $selectedSlot);
+            }
+
+            return $this->replyWithAppointmentSlotMenu(
+                $company,
+                $context,
+                false,
+                "Entendi o dia, mas nao encontrei horario disponivel as {$preferredTime}. Escolha um dos horarios abaixo."
+            );
+        }
+
+        return $this->replyWithAppointmentSlotMenu(
+            $company,
+            $context,
+            false,
+            $this->buildAppointmentSlotIntro($parsed, $requestedPeriod)
+        );
     }
 
     /**
@@ -389,6 +465,7 @@ class AppointmentFlowHandler
                 $nextWeek = CarbonImmutable::parse($selectedDate, $timezone)->addWeek()->toDateString();
                 $maxDate  = CarbonImmutable::now($timezone)->addDays($maxDays)->toDateString();
                 if ($nextWeek <= $maxDate) {
+                    $context = $this->resetAssistAttempt($context);
                     $context['selected_date'] = $nextWeek;
                     $context['last_day_date'] = $nextWeek;
                     $context['slot_page']     = 0;
@@ -397,10 +474,16 @@ class AppointmentFlowHandler
                 }
             }
 
+            $context = $this->trackInvalidAttempt($context, 'slot_select');
+            if ($this->shouldHandoffAfterAssistAttempts($context)) {
+                return $this->handoffAfterAssistLimit($company, $conversation, $context);
+            }
+
             return $this->replyWithAppointmentSlotMenu($company, $context, true);
         }
 
         if ($normalizedText === '8') {
+            $context = $this->resetAssistAttempt($context);
             $context['slot_page'] = (int) ($context['slot_page'] ?? 0) + 1;
 
             return $this->replyWithAppointmentSlotMenu($company, $context);
@@ -411,7 +494,9 @@ class AppointmentFlowHandler
             return $this->replyWithAppointmentDayMenu($company, $context);
         }
 
-        $slots = $this->appointmentSlotsForDate($company, $context, $selectedDate);
+        $settings = $this->appointmentSettings($company);
+        $timezone = (string) ($settings?->timezone ?: 'America/Sao_Paulo');
+        $slots = $this->appointmentSelectableSlotsForDate($company, $context, $selectedDate, $timezone);
         if ($slots === []) {
             return $this->replyWithAppointmentDayMenu($company, $context);
         }
@@ -424,24 +509,37 @@ class AppointmentFlowHandler
             $slotOptions[(string) ($index + 1)] = $slot;
         }
 
-        if (! isset($slotOptions[$normalizedText])) {
+        $selectedSlot = $slotOptions[$normalizedText] ?? null;
+        if ($selectedSlot === null) {
+            $preferredTime = $this->parseTimeInput($normalizedText);
+            if ($preferredTime !== null) {
+                $selectedSlot = $this->findSlotByTime($slots, $preferredTime, $timezone);
+                if ($selectedSlot === null) {
+                    $context = $this->trackInvalidAttempt($context, 'slot_select');
+                    if ($this->shouldHandoffAfterAssistAttempts($context)) {
+                        return $this->handoffAfterAssistLimit($company, $conversation, $context);
+                    }
+
+                    return $this->replyWithAppointmentSlotMenu(
+                        $company,
+                        $context,
+                        false,
+                        "Nao encontrei horario disponivel as {$preferredTime}. Escolha um numero da lista."
+                    );
+                }
+            }
+        }
+
+        if ($selectedSlot === null) {
+            $context = $this->trackInvalidAttempt($context, 'slot_select');
+            if ($this->shouldHandoffAfterAssistAttempts($context)) {
+                return $this->handoffAfterAssistLimit($company, $conversation, $context);
+            }
+
             return $this->replyWithAppointmentSlotMenu($company, $context, true);
         }
 
-        $selectedSlot                = $slotOptions[$normalizedText];
-        $context['slot_starts_at']   = (string) ($selectedSlot['starts_at_local'] ?? $selectedSlot['starts_at'] ?? '');
-        $context['slot_ends_at']     = (string) ($selectedSlot['ends_at_local'] ?? $selectedSlot['ends_at'] ?? '');
-        $context['staff_profile_id'] = (int) ($selectedSlot['staff_profile_id'] ?? ($context['staff_profile_id'] ?? 0));
-        $context['staff_name']       = (string) ($selectedSlot['staff_name'] ?? ($context['staff_name'] ?? ''));
-
-        return $this->botStateResult(
-            "Para enviarmos a confirmação por e-mail, informe seu endereço de e-mail ou responda *pular* para continuar sem.",
-            [
-                'flow'    => BotFlow::APPOINTMENTS->value,
-                'step'    => 'collect_email',
-                'context' => ['appointment' => $context],
-            ]
-        );
+        return $this->continueWithSelectedAppointmentSlot($context, $selectedSlot);
     }
 
     /**
@@ -468,8 +566,21 @@ class AppointmentFlowHandler
             $slotOptions[(string) ($index + 1)] = $slot;
         }
 
-        if (! isset($slotOptions[$normalizedText])) {
-            $timezone         = (string) ($this->appointmentSettings($company)?->timezone ?: 'America/Sao_Paulo');
+        $timezone     = (string) ($this->appointmentSettings($company)?->timezone ?: 'America/Sao_Paulo');
+        $selectedSlot = $slotOptions[$normalizedText] ?? null;
+        if ($selectedSlot === null) {
+            $preferredTime = $this->parseTimeInput($normalizedText);
+            if ($preferredTime !== null) {
+                $selectedSlot = $this->findSlotByTime($slots, $preferredTime, $timezone);
+            }
+        }
+
+        if ($selectedSlot === null) {
+            $context = $this->trackInvalidAttempt($context, 'nearest_select');
+            if ($this->shouldHandoffAfterAssistAttempts($context)) {
+                return $this->handoffAfterAssistLimit($company, $conversation, $context);
+            }
+
             $hasStaffChoice   = (bool) ($context['has_staff_choice'] ?? false);
             $nearestInvalidText = "Opção inválida. Escolha um número da lista... ou \"menu\" para voltar ao menu principal.\n\n" .
                 $this->messageBuilder->appointmentNearestSlotsText($slots, $timezone, $hasStaffChoice);
@@ -485,21 +596,7 @@ class AppointmentFlowHandler
             );
         }
 
-        $selectedSlot                = $slotOptions[$normalizedText];
-        $context['selected_date']    = (string) ($selectedSlot['date'] ?? '');
-        $context['slot_starts_at']   = (string) ($selectedSlot['starts_at_local'] ?? $selectedSlot['starts_at'] ?? '');
-        $context['slot_ends_at']     = (string) ($selectedSlot['ends_at_local'] ?? $selectedSlot['ends_at'] ?? '');
-        $context['staff_profile_id'] = (int) ($selectedSlot['staff_profile_id'] ?? ($context['staff_profile_id'] ?? 0));
-        $context['staff_name']       = (string) ($selectedSlot['staff_name'] ?? ($context['staff_name'] ?? ''));
-
-        return $this->botStateResult(
-            "Para enviarmos a confirmação por e-mail, informe seu endereço de e-mail ou responda *pular* para continuar sem.",
-            [
-                'flow'    => BotFlow::APPOINTMENTS->value,
-                'step'    => 'collect_email',
-                'context' => ['appointment' => $context],
-            ]
-        );
+        return $this->continueWithSelectedAppointmentSlot($context, $selectedSlot);
     }
 
     /**
@@ -514,11 +611,17 @@ class AppointmentFlowHandler
     ): array {
         $timezone = $this->appointmentSettings($company)?->timezone ?: 'America/Sao_Paulo';
 
-        if (mb_strtolower(trim($normalizedText)) !== 'pular' && filter_var($normalizedText, FILTER_VALIDATE_EMAIL)) {
-            $context['customer_email'] = trim($normalizedText);
-        } elseif (mb_strtolower(trim($normalizedText)) !== 'pular') {
+        $email = $this->extractEmailInput($normalizedText);
+        if ($email !== null) {
+            $context['customer_email'] = $email;
+        } elseif (! $this->isSkipEmailInput($normalizedText)) {
+            $context = $this->trackInvalidAttempt($context, 'collect_email');
+            if ($this->shouldHandoffAfterAssistAttempts($context)) {
+                return $this->handoffAfterAssistLimit($company, $conversation, $context);
+            }
+
             return $this->botStateResult(
-                "E-mail inválido. Por favor, informe um e-mail válido ou responda *pular* para continuar sem.",
+                "E-mail invalido. Informe um e-mail valido ou responda *pular* para continuar sem.",
                 [
                     'flow'    => BotFlow::APPOINTMENTS->value,
                     'step'    => 'collect_email',
@@ -527,6 +630,7 @@ class AppointmentFlowHandler
             );
         }
 
+        $context     = $this->resetAssistAttempt($context);
         $confirmText = $this->messageBuilder->appointmentConfirmText($context, $timezone);
 
         return $this->botStateResult(
@@ -551,14 +655,21 @@ class AppointmentFlowHandler
         array $context
     ): array {
         $companyEntity = $this->resolveCompany($company, $conversation);
-        if ($normalizedText === '2') {
+        $confirmationChoice = $this->resolveConfirmationChoice($normalizedText);
+        if ($confirmationChoice === 'reschedule') {
+            $context = $this->resetAssistAttempt($context);
             return $this->replyWithAppointmentSlotMenu($companyEntity, $context);
         }
 
         $timezone = $this->appointmentSettings($companyEntity)?->timezone ?: 'America/Sao_Paulo';
 
-        if ($normalizedText !== '1') {
-            $confirmText = "Opção inválida. Responda com 1, 2 ou 9... ou \"menu\" para voltar ao menu principal.\n\n" .
+        if ($confirmationChoice !== 'confirm') {
+            $context = $this->trackInvalidAttempt($context, 'confirm');
+            if ($this->shouldHandoffAfterAssistAttempts($context)) {
+                return $this->handoffAfterAssistLimit($companyEntity, $conversation, $context);
+            }
+
+            $confirmText = "Opcao invalida. Responda com 1 para confirmar, 2 para escolher outro horario ou 9 para falar com atendente.\n\n" .
                 $this->messageBuilder->appointmentConfirmText($context, $timezone);
 
             return $this->botStateResult(
@@ -572,14 +683,15 @@ class AppointmentFlowHandler
             );
         }
 
-        return $this->botStateResult(
-            'Perfeito. Agora me informe o nome do cliente que vai ser atendido no agendamento.',
-            [
-                'flow'    => BotFlow::APPOINTMENTS->value,
-                'step'    => 'collect_customer_name',
-                'context' => ['appointment' => $context],
-            ]
-        );
+        $context = $this->resetAssistAttempt($context);
+        if (trim((string) ($context['customer_name'] ?? '')) === '') {
+            $conversationName = trim((string) ($conversation->customer_name ?? ''));
+            if ($conversationName !== '') {
+                $context['customer_name'] = $conversationName;
+            }
+        }
+
+        return $this->confirmAppointment($companyEntity, $conversation, $context);
     }
 
     /**
@@ -596,6 +708,11 @@ class AppointmentFlowHandler
         $customerName  = trim($normalizedText);
 
         if (mb_strlen($customerName) < 2) {
+            $context = $this->trackInvalidAttempt($context, 'collect_customer_name');
+            if ($this->shouldHandoffAfterAssistAttempts($context)) {
+                return $this->handoffAfterAssistLimit($companyEntity, $conversation, $context);
+            }
+
             return $this->botStateResult(
                 'Nome inválido. Informe o nome do cliente para concluir o agendamento.',
                 [
@@ -607,7 +724,20 @@ class AppointmentFlowHandler
         }
 
         $context['customer_name'] = $customerName;
+        $context = $this->resetAssistAttempt($context);
 
+        return $this->confirmAppointment($companyEntity, $conversation, $context);
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     * @return array<string, mixed>
+     */
+    private function confirmAppointment(
+        ?Company $companyEntity,
+        Conversation $conversation,
+        array $context
+    ): array {
         if (! $companyEntity?->id) {
             return $this->handoffResult(
                 $companyEntity,
@@ -708,16 +838,25 @@ class AppointmentFlowHandler
     private function replyWithAppointmentSlotMenu(
         ?Company $company,
         array $context,
-        bool $invalidOption = false
+        bool $invalidOption = false,
+        string $extraMessage = ''
     ): array {
         $selectedDate = trim((string) ($context['selected_date'] ?? ''));
         if ($selectedDate === '') {
             return $this->replyWithAppointmentDayMenu($company, $context);
         }
 
-        $slots = $this->appointmentSlotsForDate($company, $context, $selectedDate);
-        if ($slots === []) {
+        $timezone = (string) ($this->appointmentSettings($company)?->timezone ?: 'America/Sao_Paulo');
+        $rawSlots = $this->appointmentSlotsForDate($company, $context, $selectedDate);
+        if ($rawSlots === []) {
             return $this->replyWithAppointmentDayMenu($company, $context);
+        }
+
+        [$slots, $context, $periodFallbackMessage] = $this->filterSlotsForCurrentPeriod($rawSlots, $context, $timezone);
+        if ($periodFallbackMessage !== '') {
+            $extraMessage = $extraMessage !== ''
+                ? "{$extraMessage}\n\n{$periodFallbackMessage}"
+                : $periodFallbackMessage;
         }
 
         $page   = max(0, (int) ($context['slot_page'] ?? 0));
@@ -729,11 +868,17 @@ class AppointmentFlowHandler
 
         $context['slot_page'] = $page;
         $pageSlots            = array_slice($slots, $offset, 6);
-        $prefix               = $invalidOption ? "Opção inválida. Escolha um número da lista... ou \"menu\" para voltar ao menu principal.\n\n" : '';
-        $timezone             = $this->appointmentSettings($company)?->timezone ?: 'America/Sao_Paulo';
+        $parts                = [];
+        if ($invalidOption) {
+            $parts[] = "Opcao invalida. Escolha um numero da lista... ou \"menu\" para voltar ao menu principal.";
+        }
+        if ($extraMessage !== '') {
+            $parts[] = $extraMessage;
+        }
         $hasStaffChoice       = (bool) ($context['has_staff_choice'] ?? false);
         $hasMore              = ($offset + 6) < count($slots);
-        $slotMenuText         = $prefix . $this->messageBuilder->appointmentSlotMenuText($selectedDate, $pageSlots, $hasMore, $timezone, $hasStaffChoice);
+        $parts[]              = $this->messageBuilder->appointmentSlotMenuText($selectedDate, $pageSlots, $hasMore, $timezone, $hasStaffChoice);
+        $slotMenuText         = implode("\n\n", $parts);
 
         return $this->botStateResult(
             $slotMenuText,
@@ -773,6 +918,601 @@ class AppointmentFlowHandler
             ],
             $this->messageBuilder->buildAppointmentNearestSlotsListMessage($slots, $timezone, $nearestText)
         );
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     * @param  array<string, mixed>  $selectedSlot
+     * @return array<string, mixed>
+     */
+    private function continueWithSelectedAppointmentSlot(array $context, array $selectedSlot): array
+    {
+        $context = $this->resetAssistAttempt($context);
+
+        $selectedDate = trim((string) ($selectedSlot['date'] ?? ''));
+        if ($selectedDate === '') {
+            $selectedDate = trim((string) ($context['selected_date'] ?? ''));
+        }
+        if ($selectedDate === '') {
+            $selectedDate = $this->slotStartDate($selectedSlot, 'America/Sao_Paulo') ?? '';
+        }
+
+        if ($selectedDate !== '') {
+            $context['selected_date'] = $selectedDate;
+        }
+
+        $context['slot_starts_at']   = (string) ($selectedSlot['starts_at_local'] ?? $selectedSlot['starts_at'] ?? '');
+        $context['slot_ends_at']     = (string) ($selectedSlot['ends_at_local'] ?? $selectedSlot['ends_at'] ?? '');
+        $context['staff_profile_id'] = (int) ($selectedSlot['staff_profile_id'] ?? ($context['staff_profile_id'] ?? 0));
+        $context['staff_name']       = (string) ($selectedSlot['staff_name'] ?? ($context['staff_name'] ?? ''));
+        unset($context['nearest_slots']);
+
+        return $this->botStateResult(
+            "Para enviarmos a confirmação por e-mail, informe seu endereço de e-mail ou responda *pular* para continuar sem.",
+            [
+                'flow'    => BotFlow::APPOINTMENTS->value,
+                'step'    => 'collect_email',
+                'context' => ['appointment' => $context],
+            ]
+        );
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $slots
+     * @return array<string, mixed>|null
+     */
+    private function findSlotByTime(array $slots, string $preferredTime, string $timezone): ?array
+    {
+        foreach ($slots as $slot) {
+            if (! is_array($slot)) {
+                continue;
+            }
+
+            if ($this->slotStartTime($slot, $timezone) === $preferredTime) {
+                return $slot;
+            }
+        }
+
+        return null;
+    }
+
+    /** @param array<string, mixed> $slot */
+    private function slotStartTime(array $slot, string $timezone): ?string
+    {
+        $candidate = trim((string) ($slot['starts_at_local'] ?? $slot['starts_at'] ?? ''));
+        if ($candidate === '') {
+            return null;
+        }
+
+        try {
+            return CarbonImmutable::parse($candidate, $timezone)->setTimezone($timezone)->format('H:i');
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /** @param array<string, mixed> $slot */
+    private function slotStartDate(array $slot, string $timezone): ?string
+    {
+        $candidate = trim((string) ($slot['starts_at_local'] ?? $slot['starts_at'] ?? ''));
+        if ($candidate === '') {
+            return null;
+        }
+
+        try {
+            return CarbonImmutable::parse($candidate, $timezone)->setTimezone($timezone)->toDateString();
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * @param  array<string, array{id:int,name:string}>  $options
+     */
+    private function resolveNamedOptionKey(string $input, array $options): ?string
+    {
+        $trimmed = trim($input);
+        if ($trimmed === '') {
+            return null;
+        }
+
+        foreach ($options as $key => $option) {
+            if ((string) $key === $trimmed) {
+                return (string) $key;
+            }
+        }
+
+        $inputSlug   = $this->slugifyLabel($trimmed);
+        $inputLookup = $this->normalizeLookupText($trimmed);
+
+        foreach ($options as $key => $option) {
+            $name = trim((string) ($option['name'] ?? ''));
+            if ($name === '') {
+                continue;
+            }
+
+            $optionSlug = $this->slugifyLabel($name);
+            if ($optionSlug !== '' && $optionSlug === $inputSlug) {
+                return (string) $key;
+            }
+
+            $optionLookup = $this->normalizeLookupText($name);
+            if ($optionLookup === '') {
+                continue;
+            }
+
+            if (
+                $optionLookup === $inputLookup
+                || (mb_strlen($optionLookup) >= 3 && str_contains($inputLookup, $optionLookup))
+                || (mb_strlen($inputLookup) >= 3 && str_contains($optionLookup, $inputLookup))
+            ) {
+                return (string) $key;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array{type:string,day_of_week:int,date:string,key:string}|null
+     */
+    private function parseFlexibleDayInput(string $text, string $timezone): ?array
+    {
+        $withoutTime = trim($this->removeTimeFromInput($text));
+        $direct      = $this->parseDayInput($withoutTime, $timezone);
+        if ($direct !== null) {
+            return $direct;
+        }
+
+        if (preg_match('/\b(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)\b/u', $withoutTime, $matches)) {
+            return $this->parseDayInput((string) $matches[1], $timezone);
+        }
+
+        $lookup = $this->normalizeLookupText($withoutTime);
+        if ($lookup === '') {
+            return null;
+        }
+
+        $aliases = [
+            'segunda feira' => 'segunda',
+            'terca feira' => 'terca',
+            'quarta feira' => 'quarta',
+            'quinta feira' => 'quinta',
+            'sexta feira' => 'sexta',
+            'domingo' => 'domingo',
+            'segunda' => 'segunda',
+            'terca' => 'terca',
+            'quarta' => 'quarta',
+            'quinta' => 'quinta',
+            'sexta' => 'sexta',
+            'sabado' => 'sabado',
+            'amanha' => 'amanha',
+            'hoje' => 'hoje',
+            'dom' => 'dom',
+            'seg' => 'seg',
+            'ter' => 'ter',
+            'qua' => 'qua',
+            'qui' => 'qui',
+            'sex' => 'sex',
+            'sab' => 'sab',
+        ];
+
+        foreach ($aliases as $alias => $canonical) {
+            if (preg_match('/(^| )' . preg_quote($alias, '/') . '($| )/', $lookup) === 1) {
+                return $this->parseDayInput($canonical, $timezone);
+            }
+        }
+
+        return null;
+    }
+
+    private function parseTimeInput(string $text): ?string
+    {
+        $normalized = $this->normalizeText($text);
+        if (
+            preg_match(
+                '/\b([01]?\d|2[0-3])\s*(?:horas?|hrs?|h|:)\s*([0-5]\d)?\b/u',
+                $normalized,
+                $matches
+            ) !== 1
+        ) {
+            return null;
+        }
+
+        $hour   = (int) $matches[1];
+        $minute = isset($matches[2]) && $matches[2] !== '' ? (int) $matches[2] : 0;
+
+        return sprintf('%02d:%02d', $hour, $minute);
+    }
+
+    private function removeTimeFromInput(string $text): string
+    {
+        $withoutTime = preg_replace(
+            '/\b([01]?\d|2[0-3])\s*(?:horas?|hrs?|h|:)\s*([0-5]\d)?\b/iu',
+            ' ',
+            $text
+        ) ?? $text;
+
+        return trim((string) preg_replace('/\s+/', ' ', $withoutTime));
+    }
+
+    private function parseRequestedSlotPeriod(string $text): ?string
+    {
+        $normalized = $this->normalizeLookupText($text);
+        if ($normalized === '') {
+            return null;
+        }
+
+        if (
+            preg_match('/(^| )(de |da |pela |a )?manha($| )/', $normalized) === 1
+            || str_contains($normalized, 'matutino')
+        ) {
+            return 'morning';
+        }
+
+        if (
+            preg_match('/(^| )(de |da |pela |a )?tarde($| )/', $normalized) === 1
+            || str_contains($normalized, 'vespertino')
+        ) {
+            return 'afternoon';
+        }
+
+        if (
+            preg_match('/(^| )(de |da |pela |a )?noite($| )/', $normalized) === 1
+            || str_contains($normalized, 'noturno')
+        ) {
+            return 'night';
+        }
+
+        return null;
+    }
+
+    /** @param array<string, mixed> $context */
+    private function applyRequestedSlotPeriod(array $context, ?string $period): array
+    {
+        if ($period === null) {
+            unset($context['slot_period'], $context['slot_period_label']);
+
+            return $context;
+        }
+
+        $context['slot_period'] = $period;
+        $context['slot_period_label'] = $this->slotPeriodPhrase($period);
+
+        return $context;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $slots
+     * @param array<string, mixed> $context
+     * @return array{0: array<int, array<string, mixed>>, 1: array<string, mixed>, 2: string}
+     */
+    private function filterSlotsForCurrentPeriod(array $slots, array $context, string $timezone): array
+    {
+        $period = $this->currentSlotPeriod($context);
+        if ($period === null) {
+            return [$slots, $context, ''];
+        }
+
+        $filtered = array_values(array_filter(
+            $slots,
+            fn (array $slot): bool => $this->slotMatchesPeriod($slot, $period, $timezone)
+        ));
+
+        if ($filtered !== []) {
+            return [$filtered, $context, ''];
+        }
+
+        unset($context['slot_period'], $context['slot_period_label']);
+
+        return [
+            $slots,
+            $context,
+            'Nao encontrei horarios ' . $this->slotPeriodFallbackPhrase($period) .
+                '. Vou mostrar todos os horarios disponiveis para esse dia.',
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     * @return array<int, array<string, mixed>>
+     */
+    private function appointmentSelectableSlotsForDate(
+        ?Company $company,
+        array $context,
+        string $date,
+        string $timezone
+    ): array {
+        $slots = $this->appointmentSlotsForDate($company, $context, $date);
+        [$filtered] = $this->filterSlotsForCurrentPeriod($slots, $context, $timezone);
+
+        return $filtered;
+    }
+
+    /** @param array<string, mixed> $slot */
+    private function slotMatchesPeriod(array $slot, string $period, string $timezone): bool
+    {
+        $time = $this->slotStartTime($slot, $timezone);
+        if ($time === null) {
+            return false;
+        }
+
+        [$hour, $minute] = array_map('intval', explode(':', $time));
+        $minutes = ($hour * 60) + $minute;
+
+        return match ($period) {
+            'morning' => $minutes < 12 * 60,
+            'afternoon' => $minutes >= 12 * 60 && $minutes < 18 * 60,
+            'night' => $minutes >= 18 * 60,
+            default => true,
+        };
+    }
+
+    /** @param array<string, mixed> $context */
+    private function currentSlotPeriod(array $context): ?string
+    {
+        $period = trim((string) ($context['slot_period'] ?? ''));
+
+        return in_array($period, ['morning', 'afternoon', 'night'], true) ? $period : null;
+    }
+
+    private function slotPeriodPhrase(string $period): string
+    {
+        return match ($period) {
+            'morning' => 'de manha',
+            'afternoon' => 'a tarde',
+            'night' => 'a noite',
+            default => '',
+        };
+    }
+
+    private function slotPeriodFallbackPhrase(string $period): string
+    {
+        return match ($period) {
+            'morning' => 'no periodo da manha',
+            'afternoon' => 'no periodo da tarde',
+            'night' => 'no periodo da noite',
+            default => 'nesse periodo',
+        };
+    }
+
+    /**
+     * @param array{type:string,day_of_week:int,date:string,key:string} $parsed
+     */
+    private function buildAppointmentSlotIntro(array $parsed, ?string $period): string
+    {
+        $dayReference = $this->appointmentDayReferenceText($parsed);
+        $periodText = $period !== null ? ' ' . $this->slotPeriodPhrase($period) : '';
+
+        return "Vou te passar os horarios {$dayReference}{$periodText} disponiveis:";
+    }
+
+    /**
+     * @param array{type:string,day_of_week:int,date:string,key:string} $parsed
+     */
+    private function appointmentDayReferenceText(array $parsed): string
+    {
+        $key = trim((string) ($parsed['key'] ?? ''));
+        if ($key === 'hoje') {
+            return 'de hoje';
+        }
+
+        if ($key === 'amanha') {
+            return 'de amanha';
+        }
+
+        $date = trim((string) ($parsed['date'] ?? ''));
+        if ($date !== '') {
+            try {
+                return 'de ' . CarbonImmutable::parse($date)->format('d/m');
+            } catch (\Throwable) {
+                // Fall through to the key-based label.
+            }
+        }
+
+        return $key !== '' ? 'de ' . str_replace('-', ' ', $key) : 'desse dia';
+    }
+
+    private function extractEmailInput(string $input): ?string
+    {
+        $trimmed = trim($input);
+        if ($trimmed !== '' && filter_var($trimmed, FILTER_VALIDATE_EMAIL)) {
+            return $trimmed;
+        }
+
+        if (preg_match('/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/i', $input, $matches) !== 1) {
+            return null;
+        }
+
+        $email = (string) $matches[0];
+
+        return filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : null;
+    }
+
+    private function isSkipEmailInput(string $input): bool
+    {
+        $normalized = $this->normalizeLookupText($input);
+
+        return in_array($normalized, ['pular', 'skip', 'nao', 'n', 'sem email'], true)
+            || str_contains($normalized, 'sem email')
+            || str_contains($normalized, 'nao tenho email')
+            || str_contains($normalized, 'nao possuo email')
+            || str_contains($normalized, 'continuar sem');
+    }
+
+    private function resolveConfirmationChoice(string $input): ?string
+    {
+        $normalized = $this->normalizeLookupText($input);
+        if (in_array($normalized, ['2', 'nao', 'n', 'outro horario', 'trocar horario', 'escolher outro horario'], true)) {
+            return 'reschedule';
+        }
+
+        if (
+            str_contains($normalized, 'outro horario')
+            || str_contains($normalized, 'trocar')
+            || str_contains($normalized, 'escolher outro')
+            || str_contains($normalized, 'mudar horario')
+            || str_contains($normalized, 'remarcar')
+            || preg_match('/(^| )(nao|n)($| )/', $normalized) === 1
+        ) {
+            return 'reschedule';
+        }
+
+        if (in_array($normalized, [
+            '1',
+            'sim',
+            's',
+            'confirmar',
+            'confirmo',
+            'ok',
+            'certo',
+            'isso',
+            'isso mesmo',
+            'perfeito',
+            'correto',
+            'fechado',
+            'combinado',
+            'pode ser',
+            'ta certo',
+            'esta certo',
+            'tudo certo',
+            'pode confirmar',
+        ], true)) {
+            return 'confirm';
+        }
+
+        if (str_contains($normalized, 'confirm') || preg_match('/(^| )(sim|ok)($| )/', $normalized) === 1) {
+            return 'confirm';
+        }
+
+        foreach ([
+            'isso mesmo',
+            'pode confirmar',
+            'pode finalizar',
+            'ta certo',
+            'esta certo',
+            'tudo certo',
+            'esta correto',
+            'correto',
+            'perfeito',
+            'fechado',
+            'combinado',
+            'pode ser',
+        ] as $confirmationPhrase) {
+            if (str_contains($normalized, $confirmationPhrase)) {
+                return 'confirm';
+            }
+        }
+
+        if (preg_match('/(^| )(certo|isso|perfeito|correto|fechado|combinado)($| )/', $normalized) === 1) {
+            return 'confirm';
+        }
+
+        return null;
+    }
+
+    private function isAnyStaffInput(string $input): bool
+    {
+        $normalized = $this->normalizeLookupText($input);
+
+        return $normalized === '8'
+            || str_contains($normalized, 'qualquer')
+            || str_contains($normalized, 'tanto faz')
+            || str_contains($normalized, 'disponivel');
+    }
+
+    private function appointmentStepAllowsTextHandoff(string $step): bool
+    {
+        return in_array($step, ['service_select', 'staff_select', 'day_select', 'slot_select', 'nearest_select', 'confirm'], true);
+    }
+
+    private function isAttendantRequest(string $input): bool
+    {
+        $normalized = $this->normalizeLookupText($input);
+
+        return str_contains($normalized, 'falar com atendente')
+            || str_contains($normalized, 'quero atendente')
+            || str_contains($normalized, 'chamar atendente')
+            || str_contains($normalized, 'atendimento humano')
+            || str_contains($normalized, 'falar com humano')
+            || str_contains($normalized, 'pessoa real');
+    }
+
+    /** @param array<string, mixed> $context */
+    private function trackInvalidAttempt(array $context, string $step): array
+    {
+        $current = is_array($context['assist_attempt'] ?? null) ? $context['assist_attempt'] : [];
+        $count   = (string) ($current['step'] ?? '') === $step
+            ? max(0, (int) ($current['count'] ?? 0)) + 1
+            : 1;
+
+        $context['assist_attempt'] = [
+            'step' => $step,
+            'count' => $count,
+        ];
+
+        return $context;
+    }
+
+    /** @param array<string, mixed> $context */
+    private function resetAssistAttempt(array $context): array
+    {
+        unset($context['assist_attempt']);
+
+        return $context;
+    }
+
+    /** @param array<string, mixed> $context */
+    private function shouldHandoffAfterAssistAttempts(array $context): bool
+    {
+        $attempt = is_array($context['assist_attempt'] ?? null) ? $context['assist_attempt'] : [];
+
+        return max(0, (int) ($attempt['count'] ?? 0)) >= self::MAX_ASSIST_ATTEMPTS;
+    }
+
+    /** @param array<string, mixed> $context */
+    private function handoffAfterAssistLimit(?Company $company, Conversation $conversation, array $context): array
+    {
+        $targetAreaName = trim((string) ($context['target_area_name'] ?? BotFlowRegistry::AREA_ATTENDANCE));
+        if ($targetAreaName === '') {
+            $targetAreaName = BotFlowRegistry::AREA_ATTENDANCE;
+        }
+
+        return $this->handoffResult(
+            $company,
+            $conversation,
+            'Não consegui concluir pelo atendimento automático. Vou te encaminhar para um atendente.',
+            $targetAreaName
+        );
+    }
+
+    private function normalizeText(string $value): string
+    {
+        $normalized = strtr(mb_strtolower(trim($value)), $this->accentMap());
+
+        return preg_replace('/\s+/', ' ', $normalized) ?? $normalized;
+    }
+
+    private function normalizeLookupText(string $value): string
+    {
+        $normalized = preg_replace('/[^a-z0-9]+/', ' ', $this->normalizeText($value)) ?? '';
+
+        return trim((string) preg_replace('/\s+/', ' ', $normalized));
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function accentMap(): array
+    {
+        return [
+            'á' => 'a', 'à' => 'a', 'â' => 'a', 'ã' => 'a', 'ä' => 'a',
+            'é' => 'e', 'è' => 'e', 'ê' => 'e', 'ë' => 'e',
+            'í' => 'i', 'ì' => 'i', 'î' => 'i', 'ï' => 'i',
+            'ó' => 'o', 'ò' => 'o', 'ô' => 'o', 'õ' => 'o', 'ö' => 'o',
+            'ú' => 'u', 'ù' => 'u', 'û' => 'u', 'ü' => 'u',
+            'ç' => 'c', 'ñ' => 'n',
+        ];
     }
 
 

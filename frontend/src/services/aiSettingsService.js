@@ -30,11 +30,64 @@ const DEFAULT_SETTINGS = {
   ai_language: 'pt-BR',
   ai_formality: 'media',
   ai_system_prompt: '',
+  ai_chatbot_enabled: false,
+  ai_chatbot_shadow_mode: false,
+  ai_chatbot_sandbox_enabled: false,
+  ai_chatbot_test_numbers: [],
+  ai_chatbot_confidence_threshold: 0.75,
+  ai_chatbot_handoff_repeat_limit: 2,
+  ai_chatbot_auto_reply_enabled: false,
+  ai_chatbot_mode: 'disabled',
+  ai_chatbot_rules: [],
+  ai_max_context_messages: null,
+  ai_temperature: null,
+  ai_max_response_tokens: null,
+  ai_provider: null,
+  ai_model: null,
 };
 
 const toPositiveInt = (value) => {
   const parsed = Number.parseInt(String(value ?? ''), 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+};
+
+const toFiniteNumberOrNull = (value) => {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const toIntegerOrNull = (value) => {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  const parsed = Number.parseInt(String(value), 10);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const normalizeStringList = (value) => {
+  const source = Array.isArray(value)
+    ? value
+    : typeof value === 'string'
+      ? value.split(/\r?\n|,/)
+      : [];
+
+  return source
+    .map((item) => String(item ?? '').trim())
+    .filter(Boolean);
+};
+
+const normalizeOptionalString = (value) => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  const normalized = String(value).trim();
+  return normalized === '' ? null : normalized;
 };
 
 const normalizeBusinessHours = (value) => {
@@ -86,6 +139,30 @@ export const normalizeAiSettings = (raw) => {
     ai_language: String(source.ai_language ?? DEFAULT_SETTINGS.ai_language),
     ai_formality: String(source.ai_formality ?? DEFAULT_SETTINGS.ai_formality),
     ai_system_prompt: String(source.ai_system_prompt ?? DEFAULT_SETTINGS.ai_system_prompt),
+    ai_chatbot_enabled: Boolean(source.ai_chatbot_enabled ?? DEFAULT_SETTINGS.ai_chatbot_enabled),
+    ai_chatbot_shadow_mode: Boolean(
+      source.ai_chatbot_shadow_mode ?? DEFAULT_SETTINGS.ai_chatbot_shadow_mode
+    ),
+    ai_chatbot_sandbox_enabled: Boolean(
+      source.ai_chatbot_sandbox_enabled ?? DEFAULT_SETTINGS.ai_chatbot_sandbox_enabled
+    ),
+    ai_chatbot_test_numbers: normalizeStringList(source.ai_chatbot_test_numbers),
+    ai_chatbot_confidence_threshold:
+      toFiniteNumberOrNull(source.ai_chatbot_confidence_threshold)
+      ?? DEFAULT_SETTINGS.ai_chatbot_confidence_threshold,
+    ai_chatbot_handoff_repeat_limit:
+      toIntegerOrNull(source.ai_chatbot_handoff_repeat_limit)
+      ?? DEFAULT_SETTINGS.ai_chatbot_handoff_repeat_limit,
+    ai_chatbot_auto_reply_enabled: Boolean(
+      source.ai_chatbot_auto_reply_enabled ?? DEFAULT_SETTINGS.ai_chatbot_auto_reply_enabled
+    ),
+    ai_chatbot_mode: String(source.ai_chatbot_mode ?? DEFAULT_SETTINGS.ai_chatbot_mode),
+    ai_chatbot_rules: normalizeStringList(source.ai_chatbot_rules),
+    ai_max_context_messages: toIntegerOrNull(source.ai_max_context_messages),
+    ai_temperature: toFiniteNumberOrNull(source.ai_temperature),
+    ai_max_response_tokens: toIntegerOrNull(source.ai_max_response_tokens),
+    ai_provider: normalizeOptionalString(source.ai_provider),
+    ai_model: normalizeOptionalString(source.ai_model),
   };
 };
 

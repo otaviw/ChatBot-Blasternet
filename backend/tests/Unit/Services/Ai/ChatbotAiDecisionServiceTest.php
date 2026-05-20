@@ -42,7 +42,7 @@ class ChatbotAiDecisionServiceTest extends TestCase
         $this->assertTrue($service->shouldUseAi($company));
     }
 
-    public function test_should_use_ai_returns_false_for_fallback_mode(): void
+    public function test_should_use_ai_returns_true_for_fallback_mode(): void
     {
         $company = Company::create(['name' => 'Empresa Decision Fallback']);
         CompanyBotSetting::create([
@@ -54,10 +54,10 @@ class ChatbotAiDecisionServiceTest extends TestCase
 
         $service = $this->app->make(ChatbotAiDecisionService::class);
 
-        $this->assertFalse($service->shouldUseAi($company));
+        $this->assertTrue($service->shouldUseAi($company));
     }
 
-    public function test_should_use_ai_returns_false_for_outside_business_hours_mode(): void
+    public function test_should_use_ai_returns_true_for_outside_business_hours_mode_when_now_is_outside_schedule(): void
     {
         $company = Company::create(['name' => 'Empresa Decision Outside']);
         CompanyBotSetting::create([
@@ -65,11 +65,21 @@ class ChatbotAiDecisionServiceTest extends TestCase
             'ai_enabled' => true,
             'ai_chatbot_enabled' => true,
             'ai_chatbot_mode' => ChatbotAiDecisionService::MODE_OUTSIDE_BUSINESS_HOURS,
+            'timezone' => 'America/Sao_Paulo',
+            'business_hours' => [
+                'monday' => ['enabled' => false, 'start' => null, 'end' => null],
+                'tuesday' => ['enabled' => false, 'start' => null, 'end' => null],
+                'wednesday' => ['enabled' => false, 'start' => null, 'end' => null],
+                'thursday' => ['enabled' => false, 'start' => null, 'end' => null],
+                'friday' => ['enabled' => false, 'start' => null, 'end' => null],
+                'saturday' => ['enabled' => false, 'start' => null, 'end' => null],
+                'sunday' => ['enabled' => false, 'start' => null, 'end' => null],
+            ],
         ]);
 
         $service = $this->app->make(ChatbotAiDecisionService::class);
 
-        $this->assertFalse($service->shouldUseAi($company));
+        $this->assertTrue($service->shouldUseAi($company));
     }
 
     public function test_get_mode_returns_disabled_when_no_settings_exist(): void

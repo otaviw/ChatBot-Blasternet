@@ -96,7 +96,14 @@ export const POLICY_LINKS = [
   },
 ];
 
-export function buildCompanyMainLinks({ userRole, userPerms, canManageUsers, hasIxcIntegration }) {
+export function buildCompanyMainLinks({
+  userRole,
+  userPerms,
+  canManageUsers,
+  canManageAi = false,
+  canUseInternalAi = false,
+  hasIxcIntegration,
+}) {
   const perm = (key) => hasPermission(userPerms, userRole, key);
   const links = [
     { href: '/dashboard', label: 'Início', icon: 'dashboard', ariaLabel: 'Ir para o painel inicial' },
@@ -194,14 +201,17 @@ export function buildCompanyMainLinks({ userRole, userPerms, canManageUsers, has
     });
   }
 
-  if (userRole === 'system_admin') {
+  if (canUseInternalAi) {
+    links.push({
+      href: '/minha-conta/chat-ia',
+      label: 'Assistente',
+      icon: 'chatIa',
+      ariaLabel: 'Chat com assistente de IA',
+    });
+  }
+
+  if (canManageAi) {
     links.push(
-      {
-        href: '/minha-conta/chat-ia',
-        label: 'Assistente',
-        icon: 'chatIa',
-        ariaLabel: 'Chat com assistente de IA',
-      },
       {
         href: '/minha-conta/ia/configuracoes',
         label: 'Configurações de IA',
@@ -228,7 +238,6 @@ export function buildCompanyMainLinks({ userRole, userPerms, canManageUsers, has
       },
     );
   }
-
   if (canManageUsers) {
     links.push({
       href: '/minha-conta/usuarios',

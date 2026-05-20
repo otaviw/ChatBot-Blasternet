@@ -77,7 +77,21 @@ export default function useBotSettingsEditor({
   }, [applySettings, realtimeCompanyId, reloadSettings]);
 
   const updateMessageField = useCallback((key, value) => {
-    setSettings((prev) => ({ ...prev, [key]: value }));
+    setSettings((prev) => {
+      const next = { ...prev, [key]: value };
+
+      if (key === 'ai_chatbot_enabled') {
+        if (value && (!prev.ai_chatbot_mode || prev.ai_chatbot_mode === 'disabled')) {
+          next.ai_chatbot_mode = 'always';
+        }
+
+        if (!value) {
+          next.ai_chatbot_mode = 'disabled';
+        }
+      }
+
+      return next;
+    });
   }, []);
 
   const updateDay = useCallback((day, patch) => {

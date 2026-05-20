@@ -36,7 +36,8 @@ class ChatbotAiGuardService
     {
         $settings = $this->resolveSettings($company);
         $globalEnabled = $this->resolveGlobalFeatureFlag();
-        $companyAiEnabled = (bool) ($settings?->ai_chatbot_enabled ?? false);
+        $companyAiEnabled = (bool) ($settings?->ai_enabled ?? false)
+            && (bool) ($settings?->ai_chatbot_enabled ?? false);
         $resellerAuthorized = $this->permissionService->isCompanyAllowed(
             (int) ($company->reseller_id ?? 0),
             (int) ($company->id ?? 0),

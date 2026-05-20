@@ -2,6 +2,7 @@
 
 use App\Services\Ai\Providers\NullAiProvider;
 use App\Services\Ai\Providers\OllamaAiProvider;
+use App\Services\Ai\Providers\OpenRouterAiProvider;
 use App\Services\Ai\Providers\AnthropicAiProvider;
 use App\Services\Ai\Providers\TestAiProvider;
 
@@ -47,6 +48,11 @@ return [
 
     'chatbot_feature_enabled' => (bool) env('AI_CHATBOT_FEATURE_ENABLED', false),
 
+    'analytics' => [
+        'estimated_cost_per_1k_tokens' => (float) env('AI_ESTIMATED_COST_PER_1K_TOKENS', 0),
+        'currency' => env('AI_ESTIMATED_COST_CURRENCY', 'USD'),
+    ],
+
     'circuit_breaker' => [
         'enabled' => (bool) env('AI_CIRCUIT_BREAKER_ENABLED', true),
         'failure_threshold' => (int) env('AI_CIRCUIT_BREAKER_FAILURE_THRESHOLD', 5),
@@ -65,6 +71,7 @@ return [
     'provider_classes' => [
         'anthropic' => AnthropicAiProvider::class,
         'ollama' => OllamaAiProvider::class,
+        'openrouter' => OpenRouterAiProvider::class,
         'test' => TestAiProvider::class,
         'null' => NullAiProvider::class,
     ],
@@ -137,6 +144,15 @@ return [
         'ollama' => [
             'base_url' => env('AI_OLLAMA_BASE_URL', 'http://127.0.0.1:11434'),
             'chat_path' => env('AI_OLLAMA_CHAT_PATH', '/api/chat'),
+        ],
+
+        'openrouter' => [
+            'api_key' => env('OPENROUTER_API_KEY', ''),
+            'model' => env('OPENROUTER_MODEL', 'openrouter/free'),
+            'base_url' => env('AI_OPENROUTER_BASE_URL', 'https://openrouter.ai'),
+            'chat_path' => env('AI_OPENROUTER_CHAT_PATH', '/api/v1/chat/completions'),
+            'app_name' => env('AI_OPENROUTER_APP_NAME', env('APP_NAME', 'ChatBot-Blasternet')),
+            'site_url' => env('AI_OPENROUTER_SITE_URL', env('APP_URL', '')),
         ],
 
         'test' => [

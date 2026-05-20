@@ -22,7 +22,7 @@ class AiCompanyKnowledgeController extends Controller
         private readonly AiAccessService $aiAccess
     ) {}
 
-    private function resolveCompanyId(Request $request, $actor): int
+    private function resolveKnowledgeCompanyId(Request $request, $actor): int
     {
         if ($actor->isSystemAdmin()) {
             return (int) $request->integer('company_id', 0);
@@ -52,7 +52,7 @@ class AiCompanyKnowledgeController extends Controller
             ? Company::orderBy('name')->get(['id', 'name'])
             : null;
 
-        $companyId = $this->resolveCompanyId($request, $actor);
+        $companyId = $this->resolveKnowledgeCompanyId($request, $actor);
 
         if ($companyId <= 0) {
             return response()->json([

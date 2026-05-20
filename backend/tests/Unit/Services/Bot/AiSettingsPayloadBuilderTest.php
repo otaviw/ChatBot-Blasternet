@@ -107,4 +107,40 @@ class AiSettingsPayloadBuilderTest extends TestCase
             'ai_chatbot_confidence_threshold' => 0.75,
         ], $payload);
     }
+
+    public function test_from_validated_defaults_chatbot_mode_when_chatbot_is_enabled_without_mode(): void
+    {
+        $builder = new AiSettingsPayloadBuilder();
+
+        $payload = $builder->fromValidated([
+            'ai_chatbot_enabled' => true,
+            'ai_chatbot_mode' => 'disabled',
+        ], [
+            'ai_chatbot_enabled',
+            'ai_chatbot_mode',
+        ]);
+
+        $this->assertSame([
+            'ai_chatbot_enabled' => true,
+            'ai_chatbot_mode' => 'always',
+        ], $payload);
+    }
+
+    public function test_from_validated_disables_chatbot_mode_when_chatbot_is_disabled(): void
+    {
+        $builder = new AiSettingsPayloadBuilder();
+
+        $payload = $builder->fromValidated([
+            'ai_chatbot_enabled' => false,
+            'ai_chatbot_mode' => 'always',
+        ], [
+            'ai_chatbot_enabled',
+            'ai_chatbot_mode',
+        ]);
+
+        $this->assertSame([
+            'ai_chatbot_enabled' => false,
+            'ai_chatbot_mode' => 'disabled',
+        ], $payload);
+    }
 }

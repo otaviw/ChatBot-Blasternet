@@ -7,6 +7,7 @@ namespace App\Services\Ai;
 
 use App\Models\Company;
 use App\Models\CompanyBotSetting;
+use Carbon\Carbon;
 
 class ChatbotAiDecisionService
 {
@@ -39,8 +40,8 @@ class ChatbotAiDecisionService
         return match ($this->normalizeMode((string) $settings->ai_chatbot_mode)) {
             self::MODE_ALWAYS => true,
             self::MODE_DISABLED => false,
-            self::MODE_FALLBACK => false,
-            self::MODE_OUTSIDE_BUSINESS_HOURS => false,
+            self::MODE_FALLBACK => true,
+            self::MODE_OUTSIDE_BUSINESS_HOURS => ! $this->isWithinBusinessHours($settings),
             default => false,
         };
     }
@@ -78,6 +79,45 @@ class ChatbotAiDecisionService
         return in_array($normalized, self::ALLOWED_MODES, true)
             ? $normalized
             : self::MODE_DISABLED;
+    }
+
+    private function isWithinBusinessHours(CompanyBotSetting $settings): bool
+    {
+        $timezone = trim((string) ($settings->timezone ?? 'America/Sao_Paulo'));
+        if ($timezone === '') {
+            $timezone = 'America/Sao_Paulo';
+        }
+
+        $hours = is_array($settings->business_hours) ? $settings->business_hours : [];
+        $now = Carbon::now($timezone);
+        $dayMap = [
+            'Monday' => 'monday',
+            'Tuesday' => 'tuesday',
+            'Wednesday' => 'wednesday',
+            'Thursday' => 'thursday',
+            'Friday' => 'friday',
+            'Saturday' => 'saturday',
+            'Sunday' => 'sunday',
+        ];
+        $dayKey = $dayMap[$now->format('l')] ?? null;
+        if ($dayKey === null) {
+            return false;
+        }
+
+        $dayConfig = is_array($hours[$dayKey] ?? null) ? $hours[$dayKey] : null;
+        if (! is_array($dayConfig) || ! (bool) ($dayConfig['enabled'] ?? false)) {
+            return false;
+        }
+
+        $start = is_string($dayConfig['start'] ?? null) ? trim((string) $dayConfig['start']) : '';
+        $end = is_string($dayConfig['end'] ?? null) ? trim((string) $dayConfig['end']) : '';
+        if ($start === '' || $end === '') {
+            return false;
+        }
+
+        $current = $now->format('H:i');
+
+        return $current >= $start && $current <= $end;
     }
 }
 

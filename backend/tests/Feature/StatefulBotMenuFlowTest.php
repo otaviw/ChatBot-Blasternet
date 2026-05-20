@@ -11,7 +11,11 @@ use App\Models\Appointment;
 use App\Models\Company;
 use App\Models\CompanyBotSetting;
 use App\Models\Conversation;
+use App\Models\Reseller;
+use App\Models\ResellerAiCompanyPermission;
 use App\Models\User;
+use App\Services\Ai\ChatbotAiIntentClassifier;
+use App\Services\Ai\ChatbotAiDecisionService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -232,7 +236,7 @@ class StatefulBotMenuFlowTest extends TestCase
 
         $start = $this->simulateInbound($user, $company, '5511911110007', 'inicio');
         $start->assertOk();
-        $start->assertJsonPath('reply', "Menu principal\n1 - Financeiro\n2 - Suporte");
+        $start->assertJsonPath('reply', "Oi. Como posso ajudar?\n\nMenu principal\n1 - Financeiro\n2 - Suporte");
 
         $toFinanceMenu = $this->simulateInbound($user, $company, '5511911110007', '1');
         $toFinanceMenu->assertOk();
@@ -342,10 +346,6 @@ class StatefulBotMenuFlowTest extends TestCase
 
         $confirmed = $this->simulateInbound($user, $company, '551187654321', '1');
         $confirmed->assertOk();
-        $this->assertStringContainsString('informe o nome do cliente', (string) $confirmed->json('reply'));
-
-        $confirmed = $this->simulateInbound($user, $company, '551187654321', 'Maria Oliveira');
-        $confirmed->assertOk();
         $this->assertStringContainsString('Agendamento confirmado', (string) $confirmed->json('reply'));
 
         $appointment = Appointment::query()->where('company_id', $company->id)->first();
@@ -353,7 +353,7 @@ class StatefulBotMenuFlowTest extends TestCase
         $this->assertSame((int) $service->id, (int) $appointment->service_id);
         $this->assertSame((int) $staffProfile->id, (int) $appointment->staff_profile_id);
         $this->assertSame('5511987654321', (string) $appointment->customer_phone);
-        $this->assertSame('Maria Oliveira', (string) $appointment->customer_name);
+        $this->assertNull($appointment->customer_name);
         $this->assertNull($appointment->customer_email);
     }
 
@@ -399,6 +399,305 @@ class StatefulBotMenuFlowTest extends TestCase
         $this->assertSame('human', $conversation->handling_mode);
         $this->assertSame('area', $conversation->assigned_type);
         $this->assertSame('Atendimento', $conversation->assigned_area);
+    }
+
+    public function test_appointment_flow_accepts_day_and_time_in_same_message(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-18 08:00:00', 'America/Sao_Paulo'));
+
+        $fixture = $this->createAppointmentFlowFixture('copilot-direct');
+        $company = $fixture['company'];
+        $user = $fixture['user'];
+        $service = $fixture['service'];
+        $staffProfile = $fixture['staffProfile'];
+
+        $this->simulateInbound($user, $company, '5511888810001', '#')->assertOk();
+        $this->simulateInbound($user, $company, '5511888810001', '4')->assertOk();
+
+        $emailStep = $this->simulateInbound($user, $company, '5511888810001', 'segunda 09:00');
+        $emailStep->assertOk();
+        $this->assertStringContainsString('e-mail', (string) $emailStep->json('reply'));
+
+        $conversation = Conversation::findOrFail((int) $emailStep->json('conversation.id'));
+        $this->assertSame('appointments', $conversation->bot_flow);
+        $this->assertSame('collect_email', $conversation->bot_step);
+        $this->assertStringContainsString('09:00', (string) ($conversation->bot_context['appointment']['slot_starts_at'] ?? ''));
+
+        $confirmStep = $this->simulateInbound($user, $company, '5511888810001', 'sem email');
+        $confirmStep->assertOk();
+        $this->assertStringContainsString('Confirma o agendamento?', (string) $confirmStep->json('reply'));
+
+        $done = $this->simulateInbound($user, $company, '5511888810001', 'isso mesmo, muito obrigado');
+        $done->assertOk();
+        $this->assertStringContainsString('Agendamento confirmado', (string) $done->json('reply'));
+
+        $appointment = Appointment::query()->where('company_id', $company->id)->first();
+        $this->assertNotNull($appointment);
+        $this->assertSame((int) $service->id, (int) $appointment->service_id);
+        $this->assertSame((int) $staffProfile->id, (int) $appointment->staff_profile_id);
+        $this->assertNull($appointment->customer_name);
+    }
+
+    public function test_ai_first_message_with_appointment_day_period_goes_direct_to_filtered_slots_with_welcome(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-18 08:00:00', 'America/Sao_Paulo'));
+        config()->set([
+            'ai.chatbot_feature_enabled' => true,
+            'ai.provider' => 'test',
+            'ai.model' => 'test-model',
+        ]);
+
+        $fixture = $this->createAppointmentFlowFixture('ai-direct-period');
+        $company = $fixture['company'];
+        $user = $fixture['user'];
+        $staffProfile = $fixture['staffProfile'];
+
+        $reseller = Reseller::create(['name' => 'Reseller Agenda IA', 'slug' => 'reseller-agenda-ia']);
+        $company->reseller_id = (int) $reseller->id;
+        $company->save();
+        ResellerAiCompanyPermission::create([
+            'reseller_id' => (int) $reseller->id,
+            'company_id' => (int) $company->id,
+            'ai_chatbot_allowed' => true,
+            'allowed_at' => now(),
+        ]);
+        $company->botSetting()->update([
+            'ai_enabled' => true,
+            'ai_chatbot_enabled' => true,
+            'ai_chatbot_mode' => ChatbotAiDecisionService::MODE_ALWAYS,
+            'ai_chatbot_confidence_threshold' => 0.75,
+            'ai_chatbot_auto_reply_enabled' => true,
+        ]);
+
+        AppointmentWorkingHour::create([
+            'company_id' => $company->id,
+            'staff_profile_id' => $staffProfile->id,
+            'day_of_week' => 2,
+            'start_time' => '13:00:00',
+            'end_time' => '16:00:00',
+            'is_active' => true,
+        ]);
+
+        $response = $this->simulateInbound(
+            $user,
+            $company,
+            '5511888810101',
+            'oi, queria ver os horarios de amanha a tarde'
+        );
+
+        $response->assertOk();
+        $reply = (string) $response->json('reply');
+        $this->assertStringStartsWith('Oi. Como posso ajudar?', $reply);
+        $this->assertStringContainsString('Vou te passar os horarios de amanha a tarde disponiveis:', $reply);
+        $this->assertStringContainsString('Hor', $reply);
+        $this->assertStringContainsString('13:', $reply);
+        $this->assertStringNotContainsString('09:', $reply);
+
+        $conversation = Conversation::findOrFail((int) $response->json('conversation.id'));
+        $this->assertSame('appointments', $conversation->bot_flow);
+        $this->assertSame('slot_select', $conversation->bot_step);
+        $this->assertSame('2026-05-19', (string) ($conversation->bot_context['appointment']['selected_date'] ?? ''));
+        $this->assertSame('afternoon', (string) ($conversation->bot_context['appointment']['slot_period'] ?? ''));
+    }
+
+    public function test_appointment_flow_accepts_time_text_and_handoffs_after_repeated_invalid_slots(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-18 08:00:00', 'America/Sao_Paulo'));
+
+        $fixture = $this->createAppointmentFlowFixture('copilot-slot');
+        $company = $fixture['company'];
+        $user = $fixture['user'];
+
+        $this->simulateInbound($user, $company, '5511888810002', '#')->assertOk();
+        $this->simulateInbound($user, $company, '5511888810002', '4')->assertOk();
+        $this->simulateInbound($user, $company, '5511888810002', 'segunda')->assertOk();
+
+        $emailStep = $this->simulateInbound($user, $company, '5511888810002', 'quero 09h');
+        $emailStep->assertOk();
+        $this->assertStringContainsString('e-mail', (string) $emailStep->json('reply'));
+
+        $this->simulateInbound($user, $company, '5511888810003', '#')->assertOk();
+        $this->simulateInbound($user, $company, '5511888810003', '4')->assertOk();
+        $this->simulateInbound($user, $company, '5511888810003', 'segunda')->assertOk();
+        $this->simulateInbound($user, $company, '5511888810003', 'de noite')->assertOk();
+        $this->simulateInbound($user, $company, '5511888810003', 'mais tarde')->assertOk();
+
+        $handoff = $this->simulateInbound($user, $company, '5511888810003', 'qualquer coisa');
+        $handoff->assertOk();
+        $this->assertStringContainsString('encaminhar para um atendente', (string) $handoff->json('reply'));
+
+        $conversation = Conversation::findOrFail((int) $handoff->json('conversation.id'));
+        $this->assertSame('human', $conversation->handling_mode);
+        $this->assertSame('Atendimento', $conversation->assigned_area);
+    }
+
+    public function test_numeric_menu_accepts_option_label_text(): void
+    {
+        $company = $this->createCompanyWithAlwaysOnBot('Empresa Menu Texto');
+        Area::create([
+            'company_id' => $company->id,
+            'name' => 'Suporte',
+        ]);
+        $user = $this->createCompanyUser($company, 'menu-texto@test.local');
+
+        $this->simulateInbound($user, $company, '5511888810004', '#')->assertOk();
+
+        $supportMenu = $this->simulateInbound($user, $company, '5511888810004', 'Suporte técnico');
+        $supportMenu->assertOk();
+        $this->assertStringContainsString('Qual o problema?', (string) $supportMenu->json('reply'));
+
+        $handoff = $this->simulateInbound($user, $company, '5511888810004', 'internet lenta');
+        $handoff->assertOk();
+        $this->assertStringContainsString('internet lenta', (string) $handoff->json('reply'));
+
+        $conversation = Conversation::findOrFail((int) $handoff->json('conversation.id'));
+        $this->assertSame('human', $conversation->handling_mode);
+        $this->assertSame('Suporte', $conversation->assigned_area);
+    }
+
+    public function test_ai_transfers_out_of_scope_intent_to_closest_area(): void
+    {
+        config()->set([
+            'ai.chatbot_feature_enabled' => true,
+            'ai.provider' => 'test',
+            'ai.model' => 'test-model',
+        ]);
+
+        $statefulMenuFlow = [
+            'commands' => ['#', 'menu'],
+            'initial' => ['flow' => 'main', 'step' => 'menu'],
+            'steps' => [
+                'main.menu' => [
+                    'type' => 'numeric_menu',
+                    'reply_text' => "Menu principal\n1 - Financeiro",
+                    'options' => [
+                        '1' => [
+                            'label' => 'Financeiro',
+                            'action' => [
+                                'kind' => 'handoff',
+                                'target_area_name' => 'Financeiro',
+                                'reply_text' => 'Vou te encaminhar para o Financeiro.',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $reseller = Reseller::create(['name' => 'Reseller IA', 'slug' => 'reseller-ia']);
+        $company = $this->createCompanyWithAlwaysOnBot('Empresa IA Fora Escopo', [
+            'stateful_menu_flow' => $statefulMenuFlow,
+            'ai_enabled' => true,
+            'ai_chatbot_enabled' => true,
+            'ai_chatbot_mode' => ChatbotAiDecisionService::MODE_ALWAYS,
+            'ai_chatbot_confidence_threshold' => 0.75,
+            'ai_chatbot_auto_reply_enabled' => false,
+        ]);
+        $company->reseller_id = (int) $reseller->id;
+        $company->save();
+
+        Area::create(['company_id' => $company->id, 'name' => 'Suporte']);
+        ResellerAiCompanyPermission::create([
+            'reseller_id' => (int) $reseller->id,
+            'company_id' => (int) $company->id,
+            'ai_chatbot_allowed' => true,
+            'allowed_at' => now(),
+        ]);
+
+        $this->mock(ChatbotAiIntentClassifier::class, function ($mock): void {
+            $mock->shouldReceive('classify')
+                ->once()
+                ->andReturn([
+                    'intent' => 'suporte_tecnico',
+                    'confidence' => 0.95,
+                    'extracted_data' => [],
+                    'suggested_reply' => null,
+                    'should_transfer_to_human' => true,
+                    'reason' => 'outside_company_scope',
+                ]);
+        });
+
+        $user = $this->createCompanyUser($company, 'ai-out-of-scope@test.local');
+        $response = $this->simulateInbound($user, $company, '5511911110010', 'minha internet caiu');
+
+        $response->assertOk();
+        $response->assertJsonPath('reply', "Oi. Como posso ajudar?\n\nNao consegui resolver isso com o autoatendimento desta empresa. Vou te encaminhar para Suporte.");
+
+        $conversation = Conversation::findOrFail((int) $response->json('conversation.id'));
+        $supportArea = Area::query()
+            ->where('company_id', $company->id)
+            ->where('name', 'Suporte')
+            ->firstOrFail();
+
+        $this->assertSame('human', $conversation->handling_mode);
+        $this->assertSame('area', $conversation->assigned_type);
+        $this->assertSame((int) $supportArea->id, (int) $conversation->assigned_id);
+        $this->assertSame('Suporte', $conversation->assigned_area);
+    }
+
+    /**
+     * @return array{company: Company, user: User, service: AppointmentService, staffProfile: AppointmentStaffProfile}
+     */
+    private function createAppointmentFlowFixture(string $suffix): array
+    {
+        $company = $this->createCompanyWithAlwaysOnBot("Empresa Agenda {$suffix}");
+        Area::create([
+            'company_id' => $company->id,
+            'name' => 'Atendimento',
+        ]);
+        AppointmentSetting::create([
+            'company_id' => $company->id,
+            'timezone' => 'America/Sao_Paulo',
+            'slot_interval_minutes' => 30,
+            'booking_min_notice_minutes' => 0,
+            'booking_max_advance_days' => 30,
+            'cancellation_min_notice_minutes' => 120,
+            'reschedule_min_notice_minutes' => 120,
+            'allow_customer_choose_staff' => true,
+        ]);
+        $service = AppointmentService::create([
+            'company_id' => $company->id,
+            'name' => 'Consulta',
+            'duration_minutes' => 30,
+            'buffer_before_minutes' => 0,
+            'buffer_after_minutes' => 0,
+            'max_bookings_per_slot' => 1,
+            'is_active' => true,
+        ]);
+        $staffUser = User::create([
+            'name' => 'Atendente Agenda',
+            'email' => "staff-agenda-{$suffix}@test.local",
+            'password' => 'secret123',
+            'role' => User::ROLE_AGENT,
+            'company_id' => $company->id,
+            'is_active' => true,
+        ]);
+        $staffProfile = AppointmentStaffProfile::create([
+            'company_id' => $company->id,
+            'user_id' => $staffUser->id,
+            'display_name' => 'Atendente Agenda',
+            'is_bookable' => true,
+            'slot_interval_minutes' => 30,
+            'booking_min_notice_minutes' => 0,
+            'booking_max_advance_days' => 30,
+        ]);
+        AppointmentWorkingHour::create([
+            'company_id' => $company->id,
+            'staff_profile_id' => $staffProfile->id,
+            'day_of_week' => 1,
+            'start_time' => '09:00:00',
+            'end_time' => '11:00:00',
+            'is_active' => true,
+        ]);
+
+        $user = $this->createCompanyUser($company, "agenda-{$suffix}@test.local");
+
+        return [
+            'company' => $company,
+            'user' => $user,
+            'service' => $service,
+            'staffProfile' => $staffProfile,
+        ];
     }
 
     /**
