@@ -19,10 +19,12 @@ const dashboardPayload = {
   is_admin: false,
   selected_company_id: 10,
   range: { from: '2026-05-01', to: '2026-05-19' },
-  filters: { channel: 'all', area_id: null, flow: null },
+  filters: { channel: 'all', area_id: null, flow: null, provider: null, feature: null },
   filter_options: {
     areas: [{ id: 3, name: 'Suporte' }],
     flows: ['main', 'ixc_invoice'],
+    providers: ['openrouter'],
+    features: ['chatbot', 'internal_chat'],
   },
   export_urls: {
     json: '/api/minha-conta/ia/analytics?export=json',
@@ -40,6 +42,7 @@ const dashboardPayload = {
     handoff_count: 2,
     handoff_incapacity_count: 1,
     total_tokens: 1500,
+    provider_tokens: 1200,
     chatbot_decision_tokens: 300,
     estimated_cost: 0.015,
     estimated_cost_currency: 'USD',
@@ -56,6 +59,8 @@ const dashboardPayload = {
       provider_requests: 12,
       chatbot_decisions: 9,
       tokens: 1500,
+      provider_tokens: 1200,
+      decision_tokens: 300,
       handoffs: 2,
       failures: 1,
     },
@@ -97,6 +102,7 @@ describe('CompanyAiAnalyticsPage', () => {
       data: dashboardPayload,
       loading: false,
       error: null,
+      refetch: vi.fn(),
     });
   });
 
@@ -128,13 +134,15 @@ describe('CompanyAiAnalyticsPage', () => {
     expect(links).toContain('Export JSON');
   });
 
-  it('inclui filtros de canal, area e fluxo na URL carregada', async () => {
+  it('inclui filtros de canal, area, fluxo, provider e feature na URL carregada', async () => {
     mounted = mount(<CompanyAiAnalyticsPage />);
 
     const selects = mounted.container.querySelectorAll('select');
     const channelSelect = selects[0];
     const areaSelect = selects[1];
     const flowSelect = selects[2];
+    const providerSelect = selects[3];
+    const featureSelect = selects[4];
 
     await act(async () => {
       channelSelect.value = 'whatsapp';
@@ -151,10 +159,43 @@ describe('CompanyAiAnalyticsPage', () => {
       flowSelect.dispatchEvent(new Event('change', { bubbles: true }));
     });
 
+    await act(async () => {
+      providerSelect.value = 'openrouter';
+      providerSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    await act(async () => {
+      featureSelect.value = 'chatbot';
+      featureSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
     const lastUrl = mockUsePageData.mock.calls.at(-1)?.[0] ?? '';
     expect(lastUrl).toContain('/minha-conta/ia/analytics');
     expect(lastUrl).toContain('channel=whatsapp');
     expect(lastUrl).toContain('area_id=3');
     expect(lastUrl).toContain('flow=ixc_invoice');
+    expect(lastUrl).toContain('provider=openrouter');
+    expect(lastUrl).toContain('feature=chatbot');
+  });
+
+  it('aciona recarregamento manual do dashboard', async () => {
+    const refetch = vi.fn();
+    mockUsePageData.mockReturnValue({
+      data: dashboardPayload,
+      loading: false,
+      error: null,
+      refetch,
+    });
+
+    mounted = mount(<CompanyAiAnalyticsPage />);
+
+    const refreshButton = [...mounted.container.querySelectorAll('button')]
+      .find((button) => button.textContent === 'Atualizar');
+
+    await act(async () => {
+      refreshButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(refetch).toHaveBeenCalledTimes(1);
   });
 });

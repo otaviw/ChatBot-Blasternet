@@ -114,7 +114,9 @@ class AiAnalyticsController extends Controller
         $usageSummary = $this->usageSummary(clone $usageBase);
         $decisionSummary = $this->decisionSummary(clone $decisionBase);
 
-        $totalTokens = (int) $usageSummary['total_tokens'];
+        $providerTokens = (int) $usageSummary['total_tokens'];
+        $chatbotDecisionTokens = (int) $decisionSummary['total_tokens'];
+        $totalTokens = $providerTokens + $chatbotDecisionTokens;
         $estimatedCostPer1k = (float) config('ai.analytics.estimated_cost_per_1k_tokens', 0);
         $estimatedCost = round(($totalTokens / 1000) * $estimatedCostPer1k, 4);
 
@@ -159,7 +161,8 @@ class AiAnalyticsController extends Controller
                 'avg_response_time_ms' => $usageSummary['avg_response_time_ms'],
                 'avg_decision_latency_ms' => $decisionSummary['avg_latency_ms'],
                 'total_tokens' => $totalTokens,
-                'chatbot_decision_tokens' => (int) $decisionSummary['total_tokens'],
+                'provider_tokens' => $providerTokens,
+                'chatbot_decision_tokens' => $chatbotDecisionTokens,
                 'estimated_cost' => $estimatedCost,
                 'estimated_cost_currency' => (string) config('ai.analytics.currency', 'USD'),
                 'estimated_cost_per_1k_tokens' => $estimatedCostPer1k,
@@ -170,6 +173,7 @@ class AiAnalyticsController extends Controller
                 'handoff_menu_count' => (int) $decisionSummary['handoff_menu_count'],
                 'handoff_incapacity_count' => (int) $decisionSummary['handoff_incapacity_count'],
                 'avg_confidence' => $decisionSummary['avg_confidence'],
+                'last_event_at' => $this->lastEventAt(clone $usageBase, clone $decisionBase),
             ],
             'daily' => $daily,
             'daily_messages' => array_map(fn (array $row): array => [
@@ -177,8 +181,8 @@ class AiAnalyticsController extends Controller
                 'label' => $row['label'],
                 'count' => $row['provider_requests'],
             ], $daily),
-            'by_feature' => $this->byFeature(clone $usageBase),
-            'by_provider' => $this->byProvider(clone $usageBase),
+            'by_feature' => $this->byFeature(clone $usageBase, clone $decisionBase),
+            'by_provider' => $this->byProvider(clone $usageBase, clone $decisionBase),
             'by_error_type' => $this->byErrorType(clone $usageBase),
             'usage_by_user' => $this->usageByUser($companyId, $allCompanies, $dateFrom, $dateTo),
             'tools_usage' => $this->toolsUsage($companyId, $allCompanies, $dateFrom, $dateTo),
@@ -388,7 +392,7 @@ class AiAnalyticsController extends Controller
             ->selectRaw(implode(', ', [
                 'DATE(created_at) as day',
                 'COUNT(*) as provider_requests',
-                'SUM(COALESCE(tokens_used, 0)) as tokens',
+                'SUM(COALESCE(tokens_used, 0)) as provider_tokens',
                 "SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) as provider_errors",
             ]))
             ->groupBy('day')
@@ -399,6 +403,7 @@ class AiAnalyticsController extends Controller
             ->selectRaw(implode(', ', [
                 'DATE(created_at) as day',
                 'COUNT(*) as chatbot_decisions',
+                'SUM(COALESCE(tokens_used, 0)) as decision_tokens',
                 "SUM(CASE WHEN COALESCE(handoff_type, '') <> '' OR action = 'handoff' THEN 1 ELSE 0 END) as handoffs",
                 "SUM(CASE WHEN error IS NOT NULL AND TRIM(error) <> '' THEN 1 ELSE 0 END) as decision_failures",
             ]))
@@ -411,13 +416,17 @@ class AiAnalyticsController extends Controller
             $key = $date->format('Y-m-d');
             $usage = $usageRows->get($key);
             $decision = $decisionRows->get($key);
+            $providerTokens = $usage ? (int) $usage->provider_tokens : 0;
+            $decisionTokens = $decision ? (int) $decision->decision_tokens : 0;
 
             $items[] = [
                 'date' => $key,
                 'label' => $date->format('d/m'),
                 'provider_requests' => $usage ? (int) $usage->provider_requests : 0,
                 'chatbot_decisions' => $decision ? (int) $decision->chatbot_decisions : 0,
-                'tokens' => $usage ? (int) $usage->tokens : 0,
+                'tokens' => $providerTokens + $decisionTokens,
+                'provider_tokens' => $providerTokens,
+                'decision_tokens' => $decisionTokens,
                 'handoffs' => $decision ? (int) $decision->handoffs : 0,
                 'failures' => ($usage ? (int) $usage->provider_errors : 0) + ($decision ? (int) $decision->decision_failures : 0),
             ];
@@ -427,12 +436,15 @@ class AiAnalyticsController extends Controller
     }
 
     /**
-     * @param  Builder<AiUsageLog>  $query
+     * @param  Builder<AiUsageLog>  $usageQuery
+     * @param  Builder<AiChatbotDecisionLog>  $decisionQuery
      * @return list<array<string, mixed>>
      */
-    private function byFeature(Builder $query): array
+    private function byFeature(Builder $usageQuery, Builder $decisionQuery): array
     {
-        return $query
+        $buckets = [];
+
+        $usageQuery
             ->selectRaw(implode(', ', [
                 'COALESCE(feature, type) as feature',
                 'COUNT(*) as total',
@@ -441,26 +453,53 @@ class AiAnalyticsController extends Controller
                 'SUM(COALESCE(tokens_used, 0)) as tokens',
             ]))
             ->groupByRaw('COALESCE(feature, type)')
-            ->orderByDesc('total')
             ->get()
-            ->map(fn ($row): array => [
-                'feature' => (string) $row->feature,
-                'total' => (int) $row->total,
-                'error' => (int) $row->error,
-                'avg_ms' => $row->avg_ms !== null ? (int) round((float) $row->avg_ms) : null,
-                'tokens' => (int) $row->tokens,
-            ])
-            ->values()
-            ->all();
+            ->each(function ($row) use (&$buckets): void {
+                $this->mergeMetricBucket(
+                    buckets: $buckets,
+                    labelKey: 'feature',
+                    label: (string) ($row->feature ?: AiUsageLog::FEATURE_CHATBOT),
+                    total: (int) $row->total,
+                    error: (int) $row->error,
+                    avgMs: $row->avg_ms !== null ? (int) round((float) $row->avg_ms) : null,
+                    tokens: (int) $row->tokens,
+                );
+            });
+
+        $decisionRow = $decisionQuery
+            ->selectRaw(implode(', ', [
+                'COUNT(*) as total',
+                "SUM(CASE WHEN error IS NOT NULL AND TRIM(error) <> '' THEN 1 ELSE 0 END) as error",
+                'AVG(latency_ms) as avg_ms',
+                'SUM(COALESCE(tokens_used, 0)) as tokens',
+            ]))
+            ->first();
+
+        if ((int) ($decisionRow->total ?? 0) > 0) {
+            $this->mergeMetricBucket(
+                buckets: $buckets,
+                labelKey: 'feature',
+                label: AiUsageLog::FEATURE_CHATBOT,
+                total: (int) $decisionRow->total,
+                error: (int) $decisionRow->error,
+                avgMs: $decisionRow->avg_ms !== null ? (int) round((float) $decisionRow->avg_ms) : null,
+                tokens: (int) $decisionRow->tokens,
+            );
+        }
+
+        return $this->finalizeMetricBuckets($buckets);
     }
 
     /**
-     * @param  Builder<AiUsageLog>  $query
+     * @param  Builder<AiUsageLog>  $usageQuery
+     * @param  Builder<AiChatbotDecisionLog>  $decisionQuery
      * @return list<array<string, mixed>>
      */
-    private function byProvider(Builder $query): array
+    private function byProvider(Builder $usageQuery, Builder $decisionQuery): array
     {
-        return $query
+        $buckets = [];
+
+        $usageQuery
             ->whereNotNull('provider')
             ->selectRaw(implode(', ', [
                 'provider',
@@ -470,17 +509,103 @@ class AiAnalyticsController extends Controller
                 'SUM(COALESCE(tokens_used, 0)) as tokens',
             ]))
             ->groupBy('provider')
-            ->orderByDesc('total')
             ->get()
-            ->map(fn ($row): array => [
-                'provider' => (string) $row->provider,
-                'total' => (int) $row->total,
-                'error' => (int) $row->error,
-                'avg_ms' => $row->avg_ms !== null ? (int) round((float) $row->avg_ms) : null,
-                'tokens' => (int) $row->tokens,
-            ])
-            ->values()
-            ->all();
+            ->each(function ($row) use (&$buckets): void {
+                $this->mergeMetricBucket(
+                    buckets: $buckets,
+                    labelKey: 'provider',
+                    label: (string) $row->provider,
+                    total: (int) $row->total,
+                    error: (int) $row->error,
+                    avgMs: $row->avg_ms !== null ? (int) round((float) $row->avg_ms) : null,
+                    tokens: (int) $row->tokens,
+                );
+            });
+
+        $decisionQuery
+            ->whereNotNull('provider')
+            ->selectRaw(implode(', ', [
+                'provider',
+                'COUNT(*) as total',
+                "SUM(CASE WHEN error IS NOT NULL AND TRIM(error) <> '' THEN 1 ELSE 0 END) as error",
+                'AVG(latency_ms) as avg_ms',
+                'SUM(COALESCE(tokens_used, 0)) as tokens',
+            ]))
+            ->groupBy('provider')
+            ->get()
+            ->each(function ($row) use (&$buckets): void {
+                $this->mergeMetricBucket(
+                    buckets: $buckets,
+                    labelKey: 'provider',
+                    label: (string) $row->provider,
+                    total: (int) $row->total,
+                    error: (int) $row->error,
+                    avgMs: $row->avg_ms !== null ? (int) round((float) $row->avg_ms) : null,
+                    tokens: (int) $row->tokens,
+                );
+            });
+
+        return $this->finalizeMetricBuckets($buckets);
+    }
+
+    /**
+     * @param  array<string, array<string, mixed>>  $buckets
+     */
+    private function mergeMetricBucket(
+        array &$buckets,
+        string $labelKey,
+        string $label,
+        int $total,
+        int $error,
+        ?int $avgMs,
+        int $tokens
+    ): void {
+        if ($label === '' || $total <= 0) {
+            return;
+        }
+
+        if (! isset($buckets[$label])) {
+            $buckets[$label] = [
+                $labelKey => $label,
+                'total' => 0,
+                'error' => 0,
+                'avg_ms' => null,
+                'tokens' => 0,
+                '_weighted_ms' => 0,
+                '_weighted_count' => 0,
+            ];
+        }
+
+        $buckets[$label]['total'] = (int) $buckets[$label]['total'] + $total;
+        $buckets[$label]['error'] = (int) $buckets[$label]['error'] + $error;
+        $buckets[$label]['tokens'] = (int) $buckets[$label]['tokens'] + $tokens;
+
+        if ($avgMs !== null) {
+            $buckets[$label]['_weighted_ms'] = (int) $buckets[$label]['_weighted_ms'] + ($avgMs * $total);
+            $buckets[$label]['_weighted_count'] = (int) $buckets[$label]['_weighted_count'] + $total;
+        }
+    }
+
+    /**
+     * @param  array<string, array<string, mixed>>  $buckets
+     * @return list<array<string, mixed>>
+     */
+    private function finalizeMetricBuckets(array $buckets): array
+    {
+        $items = array_map(function (array $bucket): array {
+            $weightedCount = (int) ($bucket['_weighted_count'] ?? 0);
+            $bucket['avg_ms'] = $weightedCount > 0
+                ? (int) round(((int) $bucket['_weighted_ms']) / $weightedCount)
+                : null;
+
+            unset($bucket['_weighted_ms'], $bucket['_weighted_count']);
+
+            return $bucket;
+        }, array_values($buckets));
+
+        usort($items, fn (array $a, array $b): int => ((int) $b['total']) <=> ((int) $a['total']));
+
+        return $items;
     }
 
     /**
@@ -705,6 +830,19 @@ class AiAnalyticsController extends Controller
         return (int) $query->distinct('user_id')->count('user_id');
     }
 
+    private function lastEventAt(Builder $usageQuery, Builder $decisionQuery): ?string
+    {
+        $usageLast = $usageQuery->max('created_at');
+        $decisionLast = $decisionQuery->max('created_at');
+
+        $dates = array_filter([$usageLast, $decisionLast]);
+        if ($dates === []) {
+            return null;
+        }
+
+        return Carbon::parse(max($dates))->toIso8601String();
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -720,6 +858,34 @@ class AiAnalyticsController extends Controller
             ->whereNotNull('flow')
             ->whereRaw("TRIM(flow) <> ''");
         $this->applyCompanyScope($flowsQuery, $companyId, $allCompanies);
+
+        $usageProvidersQuery = AiUsageLog::query()
+            ->whereBetween('created_at', [$dateFrom, $dateTo])
+            ->whereNotNull('provider')
+            ->whereRaw("TRIM(provider) <> ''");
+        $this->applyCompanyScope($usageProvidersQuery, $companyId, $allCompanies);
+
+        $decisionProvidersQuery = AiChatbotDecisionLog::query()
+            ->whereBetween('created_at', [$dateFrom, $dateTo])
+            ->whereNotNull('provider')
+            ->whereRaw("TRIM(provider) <> ''");
+        $this->applyCompanyScope($decisionProvidersQuery, $companyId, $allCompanies);
+
+        $providers = $usageProvidersQuery
+            ->select('provider')
+            ->distinct()
+            ->pluck('provider')
+            ->merge(
+                $decisionProvidersQuery
+                    ->select('provider')
+                    ->distinct()
+                    ->pluck('provider')
+            )
+            ->map(fn ($provider): string => (string) $provider)
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
 
         return [
             'channels' => [
@@ -747,6 +913,7 @@ class AiAnalyticsController extends Controller
                 ->values()
                 ->all(),
             'features' => AiUsageLog::ALLOWED_FEATURES,
+            'providers' => $providers,
         ];
     }
 

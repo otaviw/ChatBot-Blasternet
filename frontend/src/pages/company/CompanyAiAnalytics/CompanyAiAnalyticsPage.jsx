@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Layout from '@/components/layout/Layout/Layout.jsx';
 import Card from '@/components/ui/Card/Card.jsx';
 import PageLoading from '@/components/ui/PageLoading/PageLoading.jsx';
@@ -58,6 +58,18 @@ function formatMoney(value, currency = 'USD') {
     currency,
     minimumFractionDigits: 4,
     maximumFractionDigits: 4,
+  });
+}
+
+function formatDateTime(value) {
+  if (!value) return '-';
+
+  return new Date(value).toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 }
 
@@ -211,6 +223,9 @@ function CompanyAiAnalyticsPage() {
   const [channel, setChannel] = useState('all');
   const [areaId, setAreaId] = useState('all');
   const [flow, setFlow] = useState('all');
+  const [provider, setProvider] = useState('all');
+  const [feature, setFeature] = useState('all');
+  const [lastRefreshAt, setLastRefreshAt] = useState(null);
 
   const { user } = useAuth();
   const { logout } = useLogout();
@@ -228,10 +243,12 @@ function CompanyAiAnalyticsPage() {
     channel,
     area_id: areaId,
     flow,
-  }), [areaId, channel, companyParam, dateFrom, dateTo, flow]);
+    provider,
+    feature,
+  }), [areaId, channel, companyParam, dateFrom, dateTo, feature, flow, provider]);
 
   const dashboardUrl = `/minha-conta/ia/analytics${query}`;
-  const { data, loading, error } = usePageData(dashboardUrl);
+  const { data, loading, error, refetch } = usePageData(dashboardUrl);
 
   const layoutRole = isAdmin ? 'admin' : 'company';
   const summary = data?.summary ?? {};
@@ -245,6 +262,14 @@ function CompanyAiAnalyticsPage() {
   const byFeature = Array.isArray(data?.by_feature) ? data.by_feature : [];
   const areas = Array.isArray(options.areas) ? options.areas : [];
   const flows = Array.isArray(options.flows) ? options.flows : [];
+  const providers = Array.isArray(options.providers) ? options.providers : [];
+  const features = Array.isArray(options.features) ? options.features : [];
+
+  useEffect(() => {
+    if (data?.authenticated) {
+      setLastRefreshAt(new Date());
+    }
+  }, [data]);
 
   const csvUrl = data?.export_urls?.csv ?? `${dashboardUrl}${dashboardUrl.includes('?') ? '&' : '?'}export=csv`;
   const jsonUrl = data?.export_urls?.json ?? `${dashboardUrl}${dashboardUrl.includes('?') ? '&' : '?'}export=json`;
@@ -286,6 +311,13 @@ function CompanyAiAnalyticsPage() {
             >
               Export JSON
             </a>
+            <button
+              type="button"
+              onClick={() => refetch?.()}
+              className="rounded-lg border border-[var(--ui-border)] px-3 py-2 text-sm font-medium text-[var(--ui-text)] hover:bg-[var(--ui-surface-elevated)]"
+            >
+              Atualizar
+            </button>
             <a
               href={csvUrl}
               className="rounded-lg bg-[var(--ui-accent)] px-3 py-2 text-sm font-medium text-white hover:opacity-90"
@@ -321,6 +353,20 @@ function CompanyAiAnalyticsPage() {
             ))}
           </FilterSelect>
 
+          <FilterSelect label="Provider" value={provider} onChange={setProvider}>
+            <option value="all">Todos os providers</option>
+            {providers.map((item) => (
+              <option key={item} value={item}>{item}</option>
+            ))}
+          </FilterSelect>
+
+          <FilterSelect label="Feature" value={feature} onChange={setFeature}>
+            <option value="all">Todas as features</option>
+            {features.map((item) => (
+              <option key={item} value={item}>{FEATURE_LABELS[item] ?? item}</option>
+            ))}
+          </FilterSelect>
+
           <button
             type="button"
             onClick={() => {
@@ -329,6 +375,8 @@ function CompanyAiAnalyticsPage() {
               setChannel('all');
               setAreaId('all');
               setFlow('all');
+              setProvider('all');
+              setFeature('all');
             }}
             className="rounded-lg border border-[var(--ui-border)] px-3 py-2 text-sm text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-elevated)]"
           >
@@ -338,6 +386,7 @@ function CompanyAiAnalyticsPage() {
 
         <p className="mt-3 text-xs text-[var(--ui-text-subtle)]">
           Periodo carregado: {data.range?.from} ate {data.range?.to}. Canal: {CHANNEL_LABELS[data.filters?.channel] ?? 'Todos'}.
+          {' '}Ultimo evento: {formatDateTime(summary.last_event_at)}. Tela atualizada: {formatDateTime(lastRefreshAt)}.
         </p>
       </Card>
 
@@ -367,7 +416,7 @@ function CompanyAiAnalyticsPage() {
         <SummaryCard
           title="Tokens"
           value={formatNum(summary.total_tokens)}
-          sub={`Chatbot logado: ${formatNum(summary.chatbot_decision_tokens)}`}
+          sub={`Provider: ${formatNum(summary.provider_tokens)} | Bot IA: ${formatNum(summary.chatbot_decision_tokens)}`}
         />
         <SummaryCard
           title="Custo estimado"

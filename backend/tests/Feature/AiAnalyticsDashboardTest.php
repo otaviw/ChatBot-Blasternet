@@ -121,7 +121,9 @@ class AiAnalyticsDashboardTest extends TestCase
         $response->assertJsonPath('authenticated', true);
         $response->assertJsonPath('summary.provider_requests', 2);
         $response->assertJsonPath('summary.chatbot_decisions', 1);
-        $response->assertJsonPath('summary.total_tokens', 300);
+        $response->assertJsonPath('summary.provider_tokens', 300);
+        $response->assertJsonPath('summary.chatbot_decision_tokens', 40);
+        $response->assertJsonPath('summary.total_tokens', 340);
         $response->assertJsonPath('selected_company_id', $companyA->id);
 
         $intents = collect($response->json('top_intents'));
