@@ -274,6 +274,14 @@
   line-height: 1.4;
 }
 
+.dashboard-page-badges {
+  display: inline-flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .dashboard-page-link em {
   flex: 0 0 auto;
   border: 1px solid rgba(245, 158, 11, 0.45);
@@ -285,6 +293,14 @@
   font-style: normal;
   font-weight: 800;
   white-space: nowrap;
+}
+
+.dashboard-page-link .dashboard-page-notification {
+  min-width: 28px;
+  border-color: var(--ui-accent);
+  background: var(--ui-accent);
+  color: #ffffff;
+  text-align: center;
 }
 
 .dashboard-empty,
@@ -341,6 +357,7 @@
     flex-direction: column;
   }
 
+  .dashboard-page-badges,
   .dashboard-page-link em {
     white-space: normal;
   }

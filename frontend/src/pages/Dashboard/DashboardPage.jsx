@@ -1,7 +1,8 @@
 import './DashboardPage.css';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '@/components/layout/Layout/Layout.jsx';
+import { NOTIFICATION_MODULE } from '@/constants/notifications';
 import {
   ADMIN_MAIN_LINKS,
   ADMIN_SUPPORT_LINKS,
@@ -10,6 +11,7 @@ import {
 } from '@/components/layout/Layout/layoutLinks';
 import usePageData from '@/hooks/usePageData';
 import useLogout from '@/hooks/useLogout';
+import notificationService from '@/services/notificationService';
 import Card from '@/components/ui/Card/Card.jsx';
 import SkeletonCard from '@/components/ui/SkeletonCard/SkeletonCard.jsx';
 import SkeletonText from '@/components/ui/SkeletonText/SkeletonText.jsx';
@@ -93,6 +95,15 @@ const DESCRIPTION_BY_HREF = {
   '/minha-conta/suporte/solicitacoes': 'Acompanhamento dos seus chamados.',
 };
 
+const NOTIFICATION_MODULE_BY_HREF = {
+  '/admin/conversas': NOTIFICATION_MODULE.INBOX,
+  '/minha-conta/conversas': NOTIFICATION_MODULE.INBOX,
+  '/admin/chat-interno': NOTIFICATION_MODULE.INTERNAL_CHAT,
+  '/minha-conta/chat-interno': NOTIFICATION_MODULE.INTERNAL_CHAT,
+  '/admin/suporte': NOTIFICATION_MODULE.SUPPORT,
+  '/minha-conta/suporte/solicitacoes': NOTIFICATION_MODULE.SUPPORT,
+};
+
 function formatDateTime(value) {
   if (!value) return 'Ainda não registrado';
   const date = new Date(value);
@@ -162,36 +173,22 @@ function buildCompanyLinks(data) {
   return uniqueLinks([...flattenLinks(main), ...COMPANY_SUPPORT_LINKS]);
 }
 
-function missingConfigurationFor(item, data) {
-  const config = data?.company?.configuration ?? {};
-  const rules = {
-    '/minha-conta/conversas': !config.has_meta_credentials,
-    '/minha-conta/campanhas': !config.has_meta_credentials,
-    '/minha-conta/bot': !config.has_meta_credentials,
-    '/minha-conta/ixc/clientes': !config.has_ixc_integration,
-    '/minha-conta/agendamentos': !config.has_appointment_setup,
-  };
+function notificationCountForPage(item, unreadByModule) {
+  const module = item.module ?? NOTIFICATION_MODULE_BY_HREF[item.href] ?? null;
+  if (!module) return 0;
 
-  if (!rules[item.href]) return null;
-
-  const detail = item.href === '/minha-conta/ixc/clientes'
-    ? 'Integração IXC pendente'
-    : item.href === '/minha-conta/agendamentos'
-      ? 'Agenda não configurada'
-      : 'WhatsApp não configurado';
-
-  return { label: 'Faltando configurar', detail };
+  return Math.max(0, Number(unreadByModule?.[module] ?? 0) || 0);
 }
 
-function normalizePageItem(item, data) {
-  const status = data?.role === 'company' ? missingConfigurationFor(item, data) : null;
+function normalizePageItem(item, data, unreadByModule) {
+  const notificationCount = notificationCountForPage(item, unreadByModule);
 
   return {
     href: item.href,
     label: item.label,
-    description: DESCRIPTION_BY_HREF[item.href] ?? item.ariaLabel ?? 'Página disponível para o seu perfil.',
+    description: DESCRIPTION_BY_HREF[item.href] ?? item.ariaLabel ?? 'Pagina disponivel para o seu perfil.',
     category: CATEGORY_BY_HREF[item.href] ?? 'operation',
-    status,
+    notificationCount,
   };
 }
 
@@ -226,6 +223,7 @@ function DashboardPage() {
   const { data, loading, error } = usePageData('/dashboard');
   const { logout } = useLogout();
   const [query, setQuery] = useState('');
+  const [unreadByModule, setUnreadByModule] = useState({});
 
   const role = data?.role === 'admin' ? 'admin' : 'company';
   const companyName = data?.company?.name ?? data?.companyName ?? data?.user?.company_name ?? 'Empresa';
@@ -236,8 +234,32 @@ function DashboardPage() {
   const pages = useMemo(() => {
     if (!data?.authenticated) return [];
     const source = data.role === 'admin' ? buildAdminLinks(data) : buildCompanyLinks(data);
-    return source.map((item) => normalizePageItem(item, data));
-  }, [data]);
+    return source.map((item) => normalizePageItem(item, data, unreadByModule));
+  }, [data, unreadByModule]);
+
+  useEffect(() => {
+    if (!data?.authenticated) {
+      setUnreadByModule({});
+      return undefined;
+    }
+
+    let canceled = false;
+    notificationService.unreadCounts()
+      .then((response) => {
+        if (!canceled) {
+          setUnreadByModule(response?.unread_by_module ?? {});
+        }
+      })
+      .catch(() => {
+        if (!canceled) {
+          setUnreadByModule({});
+        }
+      });
+
+    return () => {
+      canceled = true;
+    };
+  }, [data?.authenticated]);
 
   const filteredPages = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -361,9 +383,16 @@ function DashboardPage() {
                           <strong>{page.label}</strong>
                           <small>{page.description}</small>
                         </span>
-                        {page.status ? (
-                          <em title={page.status.detail}>{page.status.label}</em>
-                        ) : null}
+                        <span className="dashboard-page-badges">
+                          {page.notificationCount > 0 ? (
+                            <em
+                              className="dashboard-page-notification"
+                              title={`${page.notificationCount} notificação(ões) não lida(s)`}
+                            >
+                              {page.notificationCount > 99 ? '99+' : page.notificationCount}
+                            </em>
+                          ) : null}
+                        </span>
                       </Link>
                     ))}
                   </div>

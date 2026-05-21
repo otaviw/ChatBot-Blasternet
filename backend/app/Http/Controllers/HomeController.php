@@ -227,4 +227,5 @@ class HomeController extends Controller
             && DB::table('appointment_services')->where('company_id', $companyId)->where('is_active', true)->exists()
             && DB::table('appointment_staff_profiles')->where('company_id', $companyId)->where('is_bookable', true)->exists();
     }
+
 }
