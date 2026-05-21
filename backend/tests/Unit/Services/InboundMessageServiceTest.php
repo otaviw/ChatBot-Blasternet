@@ -94,7 +94,71 @@ class InboundMessageServiceTest extends TestCase
         $result = $method->invoke($service, $company, 'Perfeito. Para consultar boletos em aberto, informe o CPF/CNPJ.');
 
         $this->assertSame(
-            "Oi. Como posso ajudar?\n\nPerfeito. Para consultar boletos em aberto, informe o CPF/CNPJ.",
+            "Olá, tudo bem? Já entendi que você precisa de ajuda com o financeiro. Vou te orientar por aqui.\n\nPerfeito. Para consultar boletos em aberto, informe o CPF/CNPJ.",
+            $result
+        );
+    }
+
+    public function test_first_auto_reply_uses_contextual_appointment_welcome(): void
+    {
+        $service = $this->makeService(
+            chatbotAiIntentClassifier: $this->makeMock(ChatbotAiIntentClassifier::class),
+            chatbotAiSuggestion: $this->makeMock(ConversationAiSuggestionService::class),
+            chatbotAiDecisionLogger: $this->makeMock(ChatbotAiDecisionLoggerService::class),
+        );
+
+        $company = new Company(['name' => 'Empresa Teste']);
+        $company->id = 10;
+        $company->setRelation('botSetting', new CompanyBotSetting([
+            'company_id' => 10,
+            'welcome_message' => 'Oi. Como posso ajudar?',
+        ]));
+
+        $method = new \ReflectionMethod($service, 'prependWelcomeToFirstAutoReply');
+        $method->setAccessible(true);
+
+        $result = $method->invoke(
+            $service,
+            $company,
+            'Atendente: Desenvolvedor',
+            'quero agendamento',
+            'agendamento'
+        );
+
+        $this->assertSame(
+            "Olá, tudo bem? Vou te ajudar com o agendamento.\n\nAtendente: Desenvolvedor",
+            $result
+        );
+    }
+
+    public function test_first_auto_reply_removes_duplicated_leading_line(): void
+    {
+        $service = $this->makeService(
+            chatbotAiIntentClassifier: $this->makeMock(ChatbotAiIntentClassifier::class),
+            chatbotAiSuggestion: $this->makeMock(ConversationAiSuggestionService::class),
+            chatbotAiDecisionLogger: $this->makeMock(ChatbotAiDecisionLoggerService::class),
+        );
+
+        $company = new Company(['name' => 'Empresa Teste']);
+        $company->id = 10;
+        $company->setRelation('botSetting', new CompanyBotSetting([
+            'company_id' => 10,
+            'welcome_message' => '',
+        ]));
+
+        $method = new \ReflectionMethod($service, 'prependWelcomeToFirstAutoReply');
+        $method->setAccessible(true);
+
+        $result = $method->invoke(
+            $service,
+            $company,
+            "Escolha uma das opções para seguir atendimento.\nEscolha uma das opções para seguir atendimento.\nBoleto",
+            'oi quero boleto',
+            'financeiro'
+        );
+
+        $this->assertSame(
+            "Olá, tudo bem? Já entendi que você precisa de ajuda com o financeiro. Vou te orientar por aqui.\n\nEscolha uma das opções para seguir atendimento.\nBoleto",
             $result
         );
     }

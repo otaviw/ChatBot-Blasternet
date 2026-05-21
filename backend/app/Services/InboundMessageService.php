@@ -217,7 +217,12 @@ class InboundMessageService
         }
 
         if ($isFirstInboundMessage) {
-            $reply = $this->prependWelcomeToFirstAutoReply($company, $reply);
+            $reply = $this->prependWelcomeToFirstAutoReply(
+                $company,
+                $reply,
+                $normalizedText,
+                (string) ($aiAssistiveDecision['intent'] ?? '')
+            );
             $replyMessage = $this->applyReplyTextToReplyMessage($replyMessage, $reply);
         }
 
@@ -1520,14 +1525,19 @@ class InboundMessageService
         return false;
     }
 
-    private function prependWelcomeToFirstAutoReply(?Company $company, string $reply): string
+    private function prependWelcomeToFirstAutoReply(
+        ?Company $company,
+        string $reply,
+        string $inboundText = '',
+        string $intent = ''
+    ): string
     {
-        $normalizedReply = trim($reply);
+        $normalizedReply = $this->removeDuplicatedLeadingLine(trim($reply));
         if ($normalizedReply === '') {
             return $reply;
         }
 
-        $welcome = trim((string) ($company?->botSetting?->welcome_message ?? ''));
+        $welcome = $this->firstReplyContextualWelcome($company, $normalizedReply, $inboundText, $intent);
         if ($welcome === '') {
             $welcome = 'Oi. Como posso ajudar?';
         }
@@ -1542,10 +1552,78 @@ class InboundMessageService
             || str_starts_with($replyPrefix, 'olá ')
             || str_starts_with($replyPrefix, 'olá!')
         ) {
+            return $normalizedReply;
+        }
+
+        return "{$welcome}\n\n{$normalizedReply}";
+    }
+
+    private function firstReplyContextualWelcome(
+        ?Company $company,
+        string $reply,
+        string $inboundText,
+        string $intent
+    ): string {
+        $lookup = $this->normalizeReplyPrefix($inboundText.' '.$reply.' '.$intent);
+
+        if (
+            str_contains($lookup, 'boleto')
+            || str_contains($lookup, 'fatura')
+            || str_contains($lookup, 'segunda via')
+            || str_contains($lookup, 'financeiro')
+        ) {
+            return 'Olá, tudo bem? Já entendi que você precisa de ajuda com o financeiro. Vou te orientar por aqui.';
+        }
+
+        if (str_contains($lookup, 'nota fiscal') || str_contains($lookup, 'fiscal')) {
+            return 'Olá, tudo bem? Já entendi que você precisa de nota fiscal. Vou te orientar por aqui.';
+        }
+
+        if (
+            str_contains($lookup, 'agendamento')
+            || str_contains($lookup, 'agendar')
+            || str_contains($lookup, 'horario')
+            || str_contains($lookup, 'horário')
+        ) {
+            return 'Olá, tudo bem? Vou te ajudar com o agendamento.';
+        }
+
+        if (
+            str_contains($lookup, 'suporte')
+            || str_contains($lookup, 'internet')
+            || str_contains($lookup, 'conexao')
+            || str_contains($lookup, 'conexão')
+        ) {
+            return 'Olá, tudo bem? Vou te ajudar com o suporte.';
+        }
+
+        if (str_contains($lookup, 'vendas') || str_contains($lookup, 'comercial')) {
+            return 'Olá, tudo bem? Vou te ajudar com o atendimento comercial.';
+        }
+
+        return trim((string) ($company?->botSetting?->welcome_message ?? ''));
+    }
+
+    private function removeDuplicatedLeadingLine(string $reply): string
+    {
+        $lines = preg_split('/\R/', $reply);
+        if (! is_array($lines) || count($lines) < 2) {
             return $reply;
         }
 
-        return "{$welcome}\n\n{$reply}";
+        $first = trim((string) ($lines[0] ?? ''));
+        $second = trim((string) ($lines[1] ?? ''));
+        if ($first === '' || $second === '') {
+            return $reply;
+        }
+
+        if ($this->normalizeReplyPrefix($first) !== $this->normalizeReplyPrefix($second)) {
+            return $reply;
+        }
+
+        array_shift($lines);
+
+        return implode("\n", $lines);
     }
 
     /**
