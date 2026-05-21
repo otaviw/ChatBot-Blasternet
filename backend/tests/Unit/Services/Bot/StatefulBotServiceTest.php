@@ -17,6 +17,27 @@ use Tests\TestCase;
 
 class StatefulBotServiceTest extends TestCase
 {
+    public function test_natural_language_menu_commands_return_to_initial_menu(): void
+    {
+        $registry = Mockery::mock(BotFlowRegistry::class);
+        $appointmentHandler = Mockery::mock(AppointmentFlowHandler::class);
+        $ixcInvoiceHandler = Mockery::mock(IxcInvoiceFlowHandler::class);
+        $ixcFiscalNoteHandler = Mockery::mock(IxcFiscalNoteFlowHandler::class);
+        $service = $this->makeService($registry, $appointmentHandler, $ixcInvoiceHandler, $ixcFiscalNoteHandler);
+
+        $method = new \ReflectionMethod(StatefulBotService::class, 'isMenuCommand');
+        $method->setAccessible(true);
+
+        foreach ([
+            'preciso ir par ao menu',
+            'quero voltar pro inicio',
+            'me leva para o menu',
+            'tela inicial',
+        ] as $input) {
+            $this->assertTrue((bool) $method->invoke($service, $input, ['#', 'menu']), $input);
+        }
+    }
+
     public function test_ai_resolved_service_intent_can_switch_from_active_flow_to_initial_menu_option(): void
     {
         $company = new Company(['name' => 'Empresa Teste']);

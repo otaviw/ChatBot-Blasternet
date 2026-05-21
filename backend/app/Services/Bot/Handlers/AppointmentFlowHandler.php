@@ -419,6 +419,7 @@ class AppointmentFlowHandler
 
         $context['selected_date'] = $selectedDate;
         $context['slot_page']     = 0;
+        unset($context['slot_after_time']);
 
         if ($preferredTime !== null) {
             $selectedSlot = $this->findSlotByTime($slots, $preferredTime, $timezone);
@@ -426,11 +427,25 @@ class AppointmentFlowHandler
                 return $this->continueWithSelectedAppointmentSlot($context, $selectedSlot);
             }
 
+            $context = $this->applySlotAfterTime($context, $preferredTime);
+
             return $this->replyWithAppointmentSlotMenu(
                 $company,
                 $context,
                 false,
-                "Entendi o dia, mas nao encontrei horario disponivel as {$preferredTime}. Escolha um dos horarios abaixo."
+                "Entendi o dia, mas nao encontrei horario disponivel as {$preferredTime}. Vou mostrar os proximos horarios desse dia."
+            );
+        }
+
+        $afterTime = $this->parseSlotAfterTimeInput($normalizedText);
+        if ($afterTime !== null) {
+            $context = $this->applySlotAfterTime($context, $afterTime);
+
+            return $this->replyWithAppointmentSlotMenu(
+                $company,
+                $context,
+                false,
+                "Vou te mostrar os horarios a partir de {$afterTime}."
             );
         }
 
@@ -453,6 +468,8 @@ class AppointmentFlowHandler
         array $context
     ): array {
         if ($normalizedText === '0') {
+            unset($context['slot_after_time']);
+
             return $this->replyWithAppointmentDayMenu($company, $context);
         }
 
@@ -491,6 +508,35 @@ class AppointmentFlowHandler
 
         $settings = $this->appointmentSettings($company);
         $timezone = (string) ($settings?->timezone ?: 'America/Sao_Paulo');
+
+        if ($this->isLaterSlotsRequest($normalizedText)) {
+            $selectedDateForLater = trim((string) ($context['selected_date'] ?? ''));
+            if ($selectedDateForLater !== '') {
+                $context = $this->resetAssistAttempt($context);
+                $context['slot_page'] = (int) ($context['slot_page'] ?? 0) + 1;
+
+                return $this->replyWithAppointmentSlotMenu(
+                    $company,
+                    $context,
+                    false,
+                    'Certo, vou mostrar horarios mais tarde.'
+                );
+            }
+        }
+
+        $afterTime = $this->parseSlotAfterTimeInput($normalizedText);
+        if ($afterTime !== null) {
+            $context = $this->resetAssistAttempt($context);
+            $context = $this->applySlotAfterTime($context, $afterTime);
+            $context['slot_page'] = 0;
+
+            return $this->replyWithAppointmentSlotMenu(
+                $company,
+                $context,
+                false,
+                "Certo, vou procurar horarios a partir de {$afterTime}."
+            );
+        }
 
         $requestedPeriod = $this->parseRequestedSlotPeriod($normalizedText);
         if ($requestedPeriod !== null) {
@@ -544,7 +590,12 @@ class AppointmentFlowHandler
             $context['last_day_key'] = $parsedDay['key'];
             $context['last_day_date'] = $selectedDateForInput;
             $context['slot_page'] = 0;
+            unset($context['slot_after_time']);
             $context = $this->applyRequestedSlotPeriod($context, $this->parseRequestedSlotPeriod($normalizedText));
+            $afterTime = $this->parseSlotAfterTimeInput($normalizedText);
+            if ($afterTime !== null) {
+                $context = $this->applySlotAfterTime($context, $afterTime);
+            }
 
             return $this->replyWithAppointmentSlotMenu($company, $context);
         }
@@ -1167,9 +1218,33 @@ class AppointmentFlowHandler
     private function parseTimeInput(string $text): ?string
     {
         $normalized = $this->normalizeText($text);
+
+        $patterns = [
+            '/\b(?:as|às|a|para|pelas)\s+([01]?\d|2[0-3])(?:\s*(?:horas?|hrs?|h)|:([0-5]\d))?\b/u',
+            '/\b([01]?\d|2[0-3])\s*(?:horas?|hrs?|h)\s*([0-5]\d)?\b/u',
+            '/\b([01]?\d|2[0-3]):([0-5]\d)\b/u',
+        ];
+
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $normalized, $matches) !== 1) {
+                continue;
+            }
+
+            $hour   = (int) $matches[1];
+            $minute = isset($matches[2]) && $matches[2] !== '' ? (int) $matches[2] : 0;
+
+            return sprintf('%02d:%02d', $hour, $minute);
+        }
+
+        return null;
+    }
+
+    private function parseSlotAfterTimeInput(string $text): ?string
+    {
+        $normalized = $this->normalizeText($text);
         if (
             preg_match(
-                '/\b([01]?\d|2[0-3])\s*(?:horas?|hrs?|h|:)\s*([0-5]\d)?\b/u',
+                '/\b(?:depois|apos|a partir|mais tarde)\s+(?:das|da|de|as|a)?\s*([01]?\d|2[0-3])(?:\s*(?:horas?|hrs?|h)|:([0-5]\d))?\b/u',
                 $normalized,
                 $matches
             ) !== 1
@@ -1177,7 +1252,7 @@ class AppointmentFlowHandler
             return null;
         }
 
-        $hour   = (int) $matches[1];
+        $hour = (int) $matches[1];
         $minute = isset($matches[2]) && $matches[2] !== '' ? (int) $matches[2] : 0;
 
         return sprintf('%02d:%02d', $hour, $minute);
@@ -1186,7 +1261,7 @@ class AppointmentFlowHandler
     private function removeTimeFromInput(string $text): string
     {
         $withoutTime = preg_replace(
-            '/\b([01]?\d|2[0-3])\s*(?:horas?|hrs?|h|:)\s*([0-5]\d)?\b/iu',
+            '/\b(?:as|a|para|pelas|depois|apos|a partir)?\s*([01]?\d|2[0-3])\s*(?:horas?|hrs?|h|:)\s*([0-5]\d)?\b/iu',
             ' ',
             $text
         ) ?? $text;
@@ -1209,6 +1284,15 @@ class AppointmentFlowHandler
         }
 
         if (
+            str_contains($normalized, 'fim da tarde')
+            || str_contains($normalized, 'final da tarde')
+            || str_contains($normalized, 'mais pro fim da tarde')
+            || str_contains($normalized, 'mais para o fim da tarde')
+        ) {
+            return 'late_afternoon';
+        }
+
+        if (
             $normalized === 'tarde'
             || preg_match('/(^| )(de|da|pela|a) tarde($| )/', $normalized) === 1
             || str_contains($normalized, 'vespertino')
@@ -1226,6 +1310,23 @@ class AppointmentFlowHandler
         return null;
     }
 
+    private function isLaterSlotsRequest(string $text): bool
+    {
+        $normalized = $this->normalizeLookupText($text);
+        if ($normalized === '') {
+            return false;
+        }
+
+        return in_array($normalized, ['mais tarde', 'mais pra tarde', 'mais para tarde', 'mais que isso'], true)
+            || str_contains($normalized, 'horario mais tarde')
+            || str_contains($normalized, 'horarios mais tarde')
+            || str_contains($normalized, 'mais tarde que isso')
+            || str_contains($normalized, 'tem mais tarde')
+            || str_contains($normalized, 'ver mais tarde')
+            || str_contains($normalized, 'mostrar mais tarde')
+            || str_contains($normalized, 'quero mais tarde');
+    }
+
     /** @param array<string, mixed> $context */
     private function applyRequestedSlotPeriod(array $context, ?string $period): array
     {
@@ -1237,6 +1338,16 @@ class AppointmentFlowHandler
 
         $context['slot_period'] = $period;
         $context['slot_period_label'] = $this->slotPeriodPhrase($period);
+        unset($context['slot_after_time']);
+
+        return $context;
+    }
+
+    /** @param array<string, mixed> $context */
+    private function applySlotAfterTime(array $context, string $time): array
+    {
+        $context['slot_after_time'] = $time;
+        unset($context['slot_period'], $context['slot_period_label']);
 
         return $context;
     }
@@ -1248,28 +1359,41 @@ class AppointmentFlowHandler
      */
     private function filterSlotsForCurrentPeriod(array $slots, array $context, string $timezone): array
     {
+        $filtered = $slots;
+        $fallbackMessages = [];
         $period = $this->currentSlotPeriod($context);
-        if ($period === null) {
-            return [$slots, $context, ''];
+
+        if ($period !== null) {
+            $periodFiltered = array_values(array_filter(
+                $filtered,
+                fn (array $slot): bool => $this->slotMatchesPeriod($slot, $period, $timezone)
+            ));
+
+            if ($periodFiltered !== []) {
+                $filtered = $periodFiltered;
+            } else {
+                unset($context['slot_period'], $context['slot_period_label']);
+                $fallbackMessages[] = 'Nao encontrei horarios ' . $this->slotPeriodFallbackPhrase($period) .
+                    '. Vou mostrar todos os horarios disponiveis para esse dia.';
+            }
         }
 
-        $filtered = array_values(array_filter(
-            $slots,
-            fn (array $slot): bool => $this->slotMatchesPeriod($slot, $period, $timezone)
-        ));
+        $afterTime = trim((string) ($context['slot_after_time'] ?? ''));
+        if ($afterTime !== '') {
+            $timeFiltered = array_values(array_filter(
+                $filtered,
+                fn (array $slot): bool => $this->slotStartsAtOrAfter($slot, $afterTime, $timezone)
+            ));
 
-        if ($filtered !== []) {
-            return [$filtered, $context, ''];
+            if ($timeFiltered !== []) {
+                $filtered = $timeFiltered;
+            } else {
+                unset($context['slot_after_time']);
+                $fallbackMessages[] = "Nao encontrei horarios a partir de {$afterTime}. Vou mostrar todos os horarios disponiveis para esse dia.";
+            }
         }
 
-        unset($context['slot_period'], $context['slot_period_label']);
-
-        return [
-            $slots,
-            $context,
-            'Nao encontrei horarios ' . $this->slotPeriodFallbackPhrase($period) .
-                '. Vou mostrar todos os horarios disponiveis para esse dia.',
-        ];
+        return [$filtered, $context, implode("\n\n", $fallbackMessages)];
     }
 
     /**
@@ -1302,9 +1426,21 @@ class AppointmentFlowHandler
         return match ($period) {
             'morning' => $minutes < 12 * 60,
             'afternoon' => $minutes >= 12 * 60 && $minutes < 18 * 60,
+            'late_afternoon' => $minutes >= 15 * 60 && $minutes < 18 * 60,
             'night' => $minutes >= 18 * 60,
             default => true,
         };
+    }
+
+    /** @param array<string, mixed> $slot */
+    private function slotStartsAtOrAfter(array $slot, string $time, string $timezone): bool
+    {
+        $slotTime = $this->slotStartTime($slot, $timezone);
+        if ($slotTime === null) {
+            return false;
+        }
+
+        return $slotTime >= $time;
     }
 
     /** @param array<string, mixed> $context */
@@ -1312,7 +1448,7 @@ class AppointmentFlowHandler
     {
         $period = trim((string) ($context['slot_period'] ?? ''));
 
-        return in_array($period, ['morning', 'afternoon', 'night'], true) ? $period : null;
+        return in_array($period, ['morning', 'afternoon', 'late_afternoon', 'night'], true) ? $period : null;
     }
 
     private function slotPeriodPhrase(string $period): string
@@ -1320,6 +1456,7 @@ class AppointmentFlowHandler
         return match ($period) {
             'morning' => 'de manha',
             'afternoon' => 'a tarde',
+            'late_afternoon' => 'no fim da tarde',
             'night' => 'a noite',
             default => '',
         };
@@ -1330,6 +1467,7 @@ class AppointmentFlowHandler
         return match ($period) {
             'morning' => 'no periodo da manha',
             'afternoon' => 'no periodo da tarde',
+            'late_afternoon' => 'no fim da tarde',
             'night' => 'no periodo da noite',
             default => 'nesse periodo',
         };
