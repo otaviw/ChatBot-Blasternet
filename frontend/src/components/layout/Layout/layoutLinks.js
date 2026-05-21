@@ -106,7 +106,7 @@ export function buildCompanyMainLinks({
 }) {
   const perm = (key) => hasPermission(userPerms, userRole, key);
   const links = [
-    { href: '/dashboard', label: 'Inicio', icon: 'dashboard', ariaLabel: 'Ir para o painel inicial' },
+    { href: '/dashboard', label: 'Início', icon: 'dashboard', ariaLabel: 'Ir para o painel inicial' },
   ];
   const atendimento = [];
   const relacionamento = [];
@@ -139,7 +139,7 @@ export function buildCompanyMainLinks({
       href: '/minha-conta/agendamentos',
       label: 'Agendamentos',
       icon: 'agendamentos',
-      ariaLabel: 'Gestao de agenda e horarios dos atendentes',
+      ariaLabel: 'Gestão de agenda e horários dos atendentes',
     });
   }
 
@@ -148,16 +148,16 @@ export function buildCompanyMainLinks({
       href: '/minha-conta/contatos',
       label: 'Contatos',
       icon: 'contatos',
-      ariaLabel: 'Gestao de contatos da empresa',
+      ariaLabel: 'Gestão de contatos da empresa',
     });
   }
 
   if (perm(PERM.PAGE_QUICK_REPLIES)) {
     relacionamento.push({
       href: '/minha-conta/respostas-rapidas',
-      label: 'Respostas rapidas',
+      label: 'Respostas rápidas',
       icon: 'respostas',
-      ariaLabel: 'Mensagens prontas para resposta rapida',
+      ariaLabel: 'Mensagens prontas para resposta rápida',
     });
   }
 
@@ -175,7 +175,7 @@ export function buildCompanyMainLinks({
       href: '/minha-conta/campanhas',
       label: 'Campanhas',
       icon: 'campanhas',
-      ariaLabel: 'Gestao de campanhas de envio',
+      ariaLabel: 'Gestão de campanhas de envio',
     });
   }
 
@@ -184,7 +184,7 @@ export function buildCompanyMainLinks({
       href: '/minha-conta/bot',
       label: 'Bot',
       icon: 'bot',
-      ariaLabel: 'Configuracoes do bot e atendimento',
+      ariaLabel: 'Configurações do bot e atendimento',
     });
   }
 
@@ -201,9 +201,9 @@ export function buildCompanyMainLinks({
     botIa.push(
       {
         href: '/minha-conta/ia/configuracoes',
-        label: 'Configuracoes de IA',
+        label: 'Configurações de IA',
         icon: 'bot',
-        ariaLabel: 'Configuracoes de inteligencia artificial',
+        ariaLabel: 'Configurações de inteligência artificial',
       },
       {
         href: '/minha-conta/ia/analytics',
@@ -215,7 +215,7 @@ export function buildCompanyMainLinks({
         href: '/minha-conta/ia/auditoria',
         label: 'Auditoria IA',
         icon: 'chatIa',
-        ariaLabel: 'Auditoria de acoes da IA',
+        ariaLabel: 'Auditoria de ações da IA',
       },
       {
         href: '/minha-conta/base-conhecimento',
@@ -231,16 +231,16 @@ export function buildCompanyMainLinks({
       href: '/minha-conta/ixc/clientes',
       label: 'Clientes IXC',
       icon: 'contatos',
-      ariaLabel: 'Consultar clientes da integracao IXC',
+      ariaLabel: 'Consultar clientes da integração IXC',
     });
   }
 
   if (canManageUsers) {
     empresa.push({
       href: '/minha-conta/usuarios',
-      label: 'Usuarios',
+      label: 'Usuários',
       icon: 'usuarios',
-      ariaLabel: 'Usuarios da empresa',
+      ariaLabel: 'Usuários da empresa',
     });
   }
 
@@ -249,7 +249,7 @@ export function buildCompanyMainLinks({
       href: '/minha-conta/empresa',
       label: 'Minha empresa',
       icon: 'empresas',
-      ariaLabel: 'Configurar dados da minha empresa e integracoes',
+      ariaLabel: 'Configurar dados da minha empresa e integrações',
     });
   }
 
@@ -268,11 +268,11 @@ export function buildCompanyMainLinks({
     }
   };
 
-  pushGroup('company-service', 'Atendimento', 'inbox', 'Atendimento e operacao das conversas', atendimento);
-  pushGroup('company-relationship', 'Relacionamento', 'contatos', 'Contatos, campanhas e organizacao do atendimento', relacionamento);
-  pushGroup('company-bot-ai', 'Bot e IA', 'bot', 'Automacao, bot e inteligencia artificial', botIa);
-  pushGroup('company-integrations', 'Integracoes', 'empresas', 'Integracoes e sistemas externos', integracoes);
-  pushGroup('company-admin', 'Empresa', 'empresas', 'Configuracoes da empresa, usuarios e auditoria', empresa);
+  pushGroup('company-service', 'Atendimento', 'inbox', 'Atendimento e operação das conversas', atendimento);
+  pushGroup('company-relationship', 'Relacionamento', 'contatos', 'Contatos, campanhas e organização do atendimento', relacionamento);
+  pushGroup('company-bot-ai', 'Bot e IA', 'bot', 'Automação, bot e inteligência artificial', botIa);
+  pushGroup('company-integrations', 'Integrações', 'empresas', 'Integrações e sistemas externos', integracoes);
+  pushGroup('company-admin', 'Empresa', 'empresas', 'Configurações da empresa, usuários e auditoria', empresa);
 
   return links;
 }

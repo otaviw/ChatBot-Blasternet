@@ -176,6 +176,7 @@ const iconKey = (label) => {
   Relacionamento: 'contatos',
   'Bot e IA': 'bot',
   Integracoes: 'empresas',
+  Integrações: 'empresas',
   Empresa: 'empresas',
   };
   return map[normalizedLabel] || 'dashboard';
