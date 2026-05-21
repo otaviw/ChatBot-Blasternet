@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Layout from '@/components/layout/Layout/Layout.jsx';
 import PageLoading from '@/components/ui/PageLoading/PageLoading.jsx';
 import useLogout from '@/hooks/useLogout';
@@ -97,7 +97,7 @@ export default function ManualsPage() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
 
-  const load = async ({ searchTerm = search, categoryValue = category } = {}) => {
+  const load = useCallback(async ({ searchTerm = search, categoryValue = category } = {}) => {
     setLoading(true);
     setError('');
     try {
@@ -111,7 +111,7 @@ export default function ManualsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [category, search]);
 
   useEffect(() => {
     if (meLoading || !meData?.authenticated) return;
@@ -120,7 +120,7 @@ export default function ManualsPage() {
     }, 250);
 
     return () => window.clearTimeout(timeoutId);
-  }, [meLoading, meData?.authenticated, search, category]);
+  }, [meLoading, meData?.authenticated, search, category, load]);
 
   const filtered = useMemo(() => {
     const terms = searchTerms(search);
