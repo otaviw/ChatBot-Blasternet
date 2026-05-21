@@ -1188,8 +1188,15 @@ class InboundMessageService
                 }
 
                 if (is_array($statefulResult) && (bool) ($statefulResult['handled'] ?? false)) {
-                    $finalReply = trim((string) ($statefulResult['reply_text'] ?? $legacyReply));
-                    $finalReplyMessage = $statefulResult['reply_message'] ?? null;
+                    $finalReply = $this->prependAiFlowIntro(
+                        trim((string) ($statefulResult['reply_text'] ?? $legacyReply)),
+                        $intent,
+                        $safeMessageText
+                    );
+                    $finalReplyMessage = $this->applyReplyTextToReplyMessage(
+                        $statefulResult['reply_message'] ?? null,
+                        $finalReply
+                    );
                     $action = (bool) ($statefulResult['should_handoff'] ?? false)
                         ? ChatbotAiPolicyService::ACTION_HANDOFF
                         : $action;
@@ -1709,6 +1716,7 @@ class InboundMessageService
             || str_starts_with($replyPrefix, 'oi.')
             || str_starts_with($replyPrefix, 'ola ')
             || str_starts_with($replyPrefix, 'ola!')
+            || str_starts_with($replyPrefix, 'claro,')
             || str_starts_with($replyPrefix, 'olá ')
             || str_starts_with($replyPrefix, 'olá!')
         ) {
@@ -1784,6 +1792,49 @@ class InboundMessageService
         array_shift($lines);
 
         return implode("\n", $lines);
+    }
+
+    private function prependAiFlowIntro(string $reply, string $intent, string $messageText): string
+    {
+        $normalizedReply = $this->removeDuplicatedLeadingLine(trim($reply));
+        if ($normalizedReply === '') {
+            return $reply;
+        }
+
+        $replyPrefix = $this->normalizeReplyPrefix($normalizedReply);
+        if (
+            ! str_contains($replyPrefix, 'escolha uma das op')
+            || str_starts_with($replyPrefix, 'claro,')
+            || str_starts_with($replyPrefix, 'oi ')
+            || str_starts_with($replyPrefix, 'ola ')
+        ) {
+            return $normalizedReply;
+        }
+
+        $lookup = $this->normalizeReplyPrefix($intent.' '.$messageText);
+        $intro = match (true) {
+            str_contains($lookup, 'boleto'),
+            str_contains($lookup, 'fatura'),
+            str_contains($lookup, 'segunda via') => 'Claro, aqui segue o fluxo para você conseguir o seu boleto.',
+            str_contains($lookup, 'nota fiscal'),
+            str_contains($lookup, 'fiscal') => 'Claro, aqui segue o fluxo para você consultar sua nota fiscal.',
+            str_contains($lookup, 'financeiro'),
+            str_contains($lookup, 'cobranca'),
+            str_contains($lookup, 'cobrança') => 'Claro, aqui segue o fluxo do financeiro para te ajudar.',
+            str_contains($lookup, 'agendamento'),
+            str_contains($lookup, 'agendar'),
+            str_contains($lookup, 'horario'),
+            str_contains($lookup, 'horário') => 'Claro, vou te encaminhar para o fluxo de agendamento.',
+            str_contains($lookup, 'suporte'),
+            str_contains($lookup, 'internet'),
+            str_contains($lookup, 'conexao'),
+            str_contains($lookup, 'conexão') => 'Claro, vou te encaminhar para o suporte.',
+            str_contains($lookup, 'vendas'),
+            str_contains($lookup, 'comercial') => 'Claro, vou te encaminhar para o atendimento comercial.',
+            default => 'Claro, vou te direcionar pelo fluxo correto.',
+        };
+
+        return "{$intro}\n\n{$normalizedReply}";
     }
 
     /**

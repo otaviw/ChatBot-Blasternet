@@ -187,6 +187,55 @@ class InboundMessageServiceTest extends TestCase
         $this->assertSame('Oi. Como posso ajudar?', $result);
     }
 
+    public function test_ai_flow_intro_prefixes_generic_financial_flow_reply(): void
+    {
+        $service = $this->makeService(
+            chatbotAiIntentClassifier: $this->makeMock(ChatbotAiIntentClassifier::class),
+            chatbotAiSuggestion: $this->makeMock(ConversationAiSuggestionService::class),
+            chatbotAiDecisionLogger: $this->makeMock(ChatbotAiDecisionLoggerService::class),
+        );
+
+        $method = new \ReflectionMethod($service, 'prependAiFlowIntro');
+        $method->setAccessible(true);
+
+        $result = $method->invoke(
+            $service,
+            'Escolha uma das opções para seguir atendimento.',
+            'financeiro',
+            'preciso pegar o boleto da minha empresa cpf 14994989931'
+        );
+
+        $this->assertSame(
+            "Claro, aqui segue o fluxo para você conseguir o seu boleto.\n\nEscolha uma das opções para seguir atendimento.",
+            $result
+        );
+    }
+
+    public function test_first_auto_reply_does_not_duplicate_ai_flow_intro(): void
+    {
+        $service = $this->makeService(
+            chatbotAiIntentClassifier: $this->makeMock(ChatbotAiIntentClassifier::class),
+            chatbotAiSuggestion: $this->makeMock(ConversationAiSuggestionService::class),
+            chatbotAiDecisionLogger: $this->makeMock(ChatbotAiDecisionLoggerService::class),
+        );
+
+        $company = new Company(['name' => 'Empresa Teste']);
+        $company->id = 10;
+        $company->setRelation('botSetting', new CompanyBotSetting([
+            'company_id' => 10,
+            'welcome_message' => '',
+        ]));
+
+        $reply = "Claro, aqui segue o fluxo para você conseguir o seu boleto.\n\nEscolha uma das opções para seguir atendimento.";
+
+        $method = new \ReflectionMethod($service, 'prependWelcomeToFirstAutoReply');
+        $method->setAccessible(true);
+
+        $result = $method->invoke($service, $company, $reply, 'quero boleto', 'financeiro');
+
+        $this->assertSame($reply, $result);
+    }
+
     public function test_sandbox_off_keeps_legacy_reply(): void
     {
         $chatbotAiSuggestion = Mockery::mock(ConversationAiSuggestionService::class);
