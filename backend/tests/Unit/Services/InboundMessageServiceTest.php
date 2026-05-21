@@ -7,6 +7,7 @@ use App\Models\CompanyBotSetting;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Services\Ai\AiMetricsService;
+use App\Services\Ai\AiAuditService;
 use App\Services\Ai\AiSafetyPipelineService;
 use App\Services\Ai\ChatbotAiDecisionLoggerService;
 use App\Services\Ai\ChatbotAiDecisionService;
@@ -1064,6 +1065,8 @@ class InboundMessageServiceTest extends TestCase
     ): InboundMessageService {
         $productMetrics = $this->makeMock(ProductMetricsService::class);
         $productMetrics->shouldIgnoreMissing();
+        $aiAudit = $this->makeMock(AiAuditService::class);
+        $aiAudit->shouldIgnoreMissing();
         $safety = $safetyPipeline ?? $this->makeMock(AiSafetyPipelineService::class);
         if ($safetyPipeline === null) {
             $safety
@@ -1085,6 +1088,7 @@ class InboundMessageServiceTest extends TestCase
             new ChatbotAiPolicyService(),
             $chatbotAiDecisionLogger,
             $chatbotAiSuggestion,
+            $aiAudit,
             $this->makeMock(AiMetricsService::class),
             $safety,
             $productMetrics,

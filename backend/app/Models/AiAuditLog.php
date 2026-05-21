@@ -30,7 +30,13 @@ class AiAuditLog extends Model
         'company_id',
         'user_id',
         'conversation_id',
+        'inbox_conversation_id',
+        'message_id',
+        'decision_log_id',
         'action',
+        'source',
+        'contact_phone_hash',
+        'contact_name',
         'metadata',
         'created_at',
     ];
@@ -39,6 +45,9 @@ class AiAuditLog extends Model
         'company_id' => 'integer',
         'user_id' => 'integer',
         'conversation_id' => 'integer',
+        'inbox_conversation_id' => 'integer',
+        'message_id' => 'integer',
+        'decision_log_id' => 'integer',
         'metadata' => 'array',
         'created_at' => 'datetime',
     ];
@@ -56,6 +65,21 @@ class AiAuditLog extends Model
     public function conversation(): BelongsTo
     {
         return $this->belongsTo(AiConversation::class, 'conversation_id');
+    }
+
+    public function inboxConversation(): BelongsTo
+    {
+        return $this->belongsTo(Conversation::class, 'inbox_conversation_id');
+    }
+
+    public function message(): BelongsTo
+    {
+        return $this->belongsTo(Message::class);
+    }
+
+    public function decisionLog(): BelongsTo
+    {
+        return $this->belongsTo(AiChatbotDecisionLog::class, 'decision_log_id');
     }
 }
 

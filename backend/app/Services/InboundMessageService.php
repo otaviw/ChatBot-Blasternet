@@ -12,6 +12,7 @@ use App\Models\Company;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Services\Ai\AiMetricsService;
+use App\Services\Ai\AiAuditService;
 use App\Services\Ai\AiSafetyPipelineService;
 use App\Services\Ai\ChatbotAiDecisionLoggerService;
 use App\Services\Ai\ChatbotAiGuardService;
@@ -55,6 +56,7 @@ class InboundMessageService
         private ChatbotAiPolicyService $chatbotAiPolicy,
         private ChatbotAiDecisionLoggerService $chatbotAiDecisionLogger,
         private ConversationAiSuggestionService $chatbotAiSuggestion,
+        private AiAuditService $aiAudit,
         private AiMetricsService $aiMetrics,
         private AiSafetyPipelineService $safetyPipeline,
         private ProductMetricsService $productMetrics
@@ -304,6 +306,22 @@ class InboundMessageService
             $this->deliveryStatus->applySendResult($outMessage, $sendResult, 'bot_auto_reply');
             $outMessage->refresh();
         }
+
+        $this->auditChatbotAutoReply(
+            $company,
+            $updatedConversation,
+            $inMessage,
+            $outMessage,
+            $normalizedFrom,
+            $normalizedContactName,
+            $normalizedText,
+            $reply,
+            $wasSent,
+            $sendOutbound,
+            $statefulHandled,
+            $aiAssistiveDecision,
+            $gateResult
+        );
 
         $extraOutMessages = $this->processStatefulExtraOutboundMessages(
             $updatedConversation,
@@ -601,6 +619,72 @@ class InboundMessageService
         return $created;
     }
 
+    /**
+     * @param  array<string, mixed>  $aiDecision
+     * @param  array<string, mixed>|null  $gateResult
+     */
+    private function auditChatbotAutoReply(
+        ?Company $company,
+        Conversation $conversation,
+        Message $inMessage,
+        Message $outMessage,
+        string $normalizedFrom,
+        ?string $contactName,
+        string $inboundText,
+        string $replyText,
+        bool $wasSent,
+        bool $sendOutbound,
+        bool $statefulHandled,
+        array $aiDecision,
+        ?array $gateResult
+    ): void {
+        if ($company === null || (int) $company->id <= 0) {
+            return;
+        }
+
+        $aiMode = trim((string) ($aiDecision['mode'] ?? ''));
+        if ($aiMode === '' || $aiMode === AiChatbotDecisionLog::MODE_OFF) {
+            return;
+        }
+
+        $metadata = [
+            'source' => 'chatbot_whatsapp',
+            'channel' => AiChatbotDecisionLog::CHANNEL_WHATSAPP,
+            'inbox_conversation_id' => (int) $conversation->id,
+            'message_id' => (int) $outMessage->id,
+            'inbound_message_id' => (int) $inMessage->id,
+            'decision_log_id' => is_numeric($aiDecision['decision_log_id'] ?? null)
+                ? (int) $aiDecision['decision_log_id']
+                : null,
+            'contact_phone_hash' => $this->contactPhoneHash($normalizedFrom),
+            'contact_name' => $contactName ?: ($conversation->customer_name ?: null),
+            'customer_phone_hash' => $this->contactPhoneHash($normalizedFrom),
+            'customer_name' => $contactName ?: ($conversation->customer_name ?: null),
+            'user_message' => $inboundText,
+            'assistant_response' => $replyText,
+            'status' => $wasSent || ! $sendOutbound ? 'ok' : 'error',
+            'send_outbound' => $sendOutbound,
+            'was_sent' => $wasSent,
+            'stateful_handled' => $statefulHandled,
+            'bot_flow' => $conversation->bot_flow,
+            'bot_step' => $conversation->bot_step,
+            'ai_mode' => $aiMode,
+            'intent' => $aiDecision['intent'] ?? null,
+            'action' => $aiDecision['action'] ?? null,
+            'confidence' => $aiDecision['confidence'] ?? null,
+            'handoff_area' => $aiDecision['handoff_area'] ?? null,
+            'error' => $aiDecision['error'] ?? null,
+            'gate_result' => $gateResult,
+        ];
+
+        $this->aiAudit->logMessageSent(
+            (int) $company->id,
+            null,
+            null,
+            $metadata
+        );
+    }
+
     private function normalizePhone(string $phone): string
     {
         return PhoneNumberNormalizer::normalizeBrazil($phone);
@@ -646,6 +730,11 @@ class InboundMessageService
     private static function maskPhone(string $phone): string
     {
         return substr(hash('sha256', $phone), 0, 12);
+    }
+
+    private function contactPhoneHash(string $phone): string
+    {
+        return hash('sha256', $phone);
     }
 
     /**
@@ -905,12 +994,36 @@ class InboundMessageService
         array $inMeta
     ): array {
         if ($company === null || ! is_array($gateResult)) {
-            return $this->assistiveDecisionResult($legacyReply, $replyMessage, false);
+            return $this->assistiveDecisionResult(
+                $legacyReply,
+                $replyMessage,
+                false,
+                null,
+                'fallback',
+                null,
+                $this->safeDecisionLogId($decisionLog),
+                $mode,
+                ChatbotAiPolicyService::ACTION_FALLBACK_LEGACY,
+                0.0,
+                'safety_pipeline_exception'
+            );
         }
 
         $settings = $company->botSetting;
         if (! $settings) {
-            return $this->assistiveDecisionResult($legacyReply, $replyMessage, false);
+            return $this->assistiveDecisionResult(
+                $legacyReply,
+                $replyMessage,
+                false,
+                null,
+                'fallback',
+                null,
+                $this->safeDecisionLogId($decisionLog),
+                $mode,
+                ChatbotAiPolicyService::ACTION_FALLBACK_LEGACY,
+                0.0,
+                'safety_blocked'
+            );
         }
 
         $allowed = (bool) ($gateResult['allowed'] ?? false);
@@ -956,7 +1069,7 @@ class InboundMessageService
         } catch (Throwable $exception) {
             $latencyMs = max(0, (int) floor((hrtime(true) - $startedNs) / 1_000_000));
 
-            $this->chatbotAiDecisionLogger->logDecision([
+            $decisionLog = $this->chatbotAiDecisionLogger->logDecision([
                 'company_id' => (int) $company->id,
                 'conversation_id' => (int) $conversation->id,
                 'message_id' => (int) $inMessage->id,
@@ -993,7 +1106,7 @@ class InboundMessageService
         if ($safety->blocked) {
             $latencyMs = max(0, (int) floor((hrtime(true) - $startedNs) / 1_000_000));
 
-            $this->chatbotAiDecisionLogger->logDecision([
+            $decisionLog = $this->chatbotAiDecisionLogger->logDecision([
                 'company_id' => (int) $company->id,
                 'conversation_id' => (int) $conversation->id,
                 'message_id' => (int) $inMessage->id,
@@ -1194,7 +1307,7 @@ class InboundMessageService
                 $sandboxNumberAllowed,
             );
 
-            $this->chatbotAiDecisionLogger->logDecision([
+            $decisionLog = $this->chatbotAiDecisionLogger->logDecision([
                 'company_id' => (int) $company->id,
                 'conversation_id' => (int) $conversation->id,
                 'message_id' => (int) $inMessage->id,
@@ -1230,13 +1343,18 @@ class InboundMessageService
                 $forceHumanHandoff,
                 $statefulResult,
                 $intent,
-                $handoffArea
+                $handoffArea,
+                $this->safeDecisionLogId($decisionLog),
+                $mode,
+                $action,
+                $confidence,
+                $error ?? ((str_starts_with($reason, 'provider_') || $reason === 'policy_exception') ? $reason : null)
             );
         } catch (Throwable $exception) {
             $latencyMs = max(0, (int) floor((hrtime(true) - $startedNs) / 1_000_000));
 
             try {
-                $this->chatbotAiDecisionLogger->logDecision([
+                $decisionLog = $this->chatbotAiDecisionLogger->logDecision([
                     'company_id' => (int) $company->id,
                     'conversation_id' => (int) $conversation->id,
                     'message_id' => (int) $inMessage->id,
@@ -1274,7 +1392,19 @@ class InboundMessageService
                 ]);
             }
 
-            return $this->assistiveDecisionResult($legacyReply, $replyMessage, false);
+            return $this->assistiveDecisionResult(
+                $legacyReply,
+                $replyMessage,
+                false,
+                null,
+                'fallback',
+                null,
+                $this->safeDecisionLogId($decisionLog ?? null),
+                $mode,
+                ChatbotAiPolicyService::ACTION_FALLBACK_LEGACY,
+                0.0,
+                $exception->getMessage()
+            );
         }
     }
 
@@ -1286,7 +1416,12 @@ class InboundMessageService
      *   force_human_handoff: bool,
      *   stateful_result?: array<string, mixed>|null,
      *   intent?: string,
-     *   handoff_area?: string|null
+     *   handoff_area?: string|null,
+     *   decision_log_id?: int|null,
+     *   mode?: string|null,
+     *   action?: string|null,
+     *   confidence?: float|null,
+     *   error?: string|null
      * }
      */
     private function assistiveDecisionResult(
@@ -1295,7 +1430,12 @@ class InboundMessageService
         bool $forceHumanHandoff,
         ?array $statefulResult = null,
         ?string $intent = null,
-        ?string $handoffArea = null
+        ?string $handoffArea = null,
+        ?int $decisionLogId = null,
+        ?string $mode = null,
+        ?string $action = null,
+        ?float $confidence = null,
+        ?string $error = null
     ): array
     {
         return [
@@ -1307,7 +1447,27 @@ class InboundMessageService
             'stateful_result' => $statefulResult,
             'intent' => $intent,
             'handoff_area' => $handoffArea,
+            'decision_log_id' => $decisionLogId,
+            'mode' => $mode,
+            'action' => $action,
+            'confidence' => $confidence,
+            'error' => $error,
         ];
+    }
+
+    private function safeDecisionLogId(mixed $decisionLog): ?int
+    {
+        if (! $decisionLog instanceof AiChatbotDecisionLog) {
+            return null;
+        }
+
+        try {
+            $id = $decisionLog->getKey();
+        } catch (Throwable) {
+            return null;
+        }
+
+        return is_numeric($id) && (int) $id > 0 ? (int) $id : null;
     }
 
     /**

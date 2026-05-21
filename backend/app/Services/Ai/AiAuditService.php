@@ -7,10 +7,14 @@ namespace App\Services\Ai;
 
 use App\Models\AiAuditLog;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 class AiAuditService
 {
+    /** @var array<string, bool>|null */
+    private ?array $columns = null;
+
     /**
      * @param  array<string, mixed>  $metadata
      */
@@ -29,14 +33,20 @@ class AiAuditService
         $sanitizedMetadata = $this->sanitizeMetadata($metadata, $normalizedAction);
 
         try {
-            AiAuditLog::query()->create([
+            AiAuditLog::query()->create(array_filter([
                 'company_id' => $companyId,
                 'user_id' => $userId,
                 'conversation_id' => $conversationId,
+                'inbox_conversation_id' => $this->metadataInt($sanitizedMetadata, 'inbox_conversation_id'),
+                'message_id' => $this->metadataInt($sanitizedMetadata, 'message_id'),
+                'decision_log_id' => $this->metadataInt($sanitizedMetadata, 'decision_log_id'),
                 'action' => $normalizedAction,
+                'source' => $this->metadataString($sanitizedMetadata, 'source', 40),
+                'contact_phone_hash' => $this->metadataString($sanitizedMetadata, 'contact_phone_hash', 64),
+                'contact_name' => $this->metadataString($sanitizedMetadata, 'contact_name', 160),
                 'metadata' => $sanitizedMetadata,
                 'created_at' => now(),
-            ]);
+            ], fn ($value, string $key): bool => $this->columnExists($key), ARRAY_FILTER_USE_BOTH));
         } catch (Throwable $exception) {
             Log::warning('ai.audit.log_failed', [
                 'company_id' => $companyId,
@@ -112,6 +122,37 @@ class AiAuditService
         }
 
         return AiAuditLog::ACTION_MESSAGE_SENT;
+    }
+
+    private function metadataInt(array $metadata, string $key): ?int
+    {
+        if (! is_numeric($metadata[$key] ?? null)) {
+            return null;
+        }
+
+        $value = (int) $metadata[$key];
+
+        return $value > 0 ? $value : null;
+    }
+
+    private function metadataString(array $metadata, string $key, int $limit): ?string
+    {
+        $value = trim((string) ($metadata[$key] ?? ''));
+
+        return $value !== '' ? mb_substr($value, 0, $limit) : null;
+    }
+
+    private function columnExists(string $column): bool
+    {
+        if ($this->columns === null) {
+            try {
+                $this->columns = array_fill_keys(Schema::getColumnListing('ai_audit_logs'), true);
+            } catch (Throwable) {
+                $this->columns = [];
+            }
+        }
+
+        return isset($this->columns[$column]);
     }
 
     /**

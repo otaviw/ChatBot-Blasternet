@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AiAuditLog;
 use App\Models\AiMessage;
 use App\Models\Company;
+use App\Models\Message as InboxMessage;
 use App\Models\User;
 use App\Services\Ai\AiAccessService;
 use Carbon\Carbon;
@@ -47,6 +48,8 @@ class AiAuditController extends Controller
             : (int) $user->company_id;
         $userId = (int) $request->integer('user_id', 0);
         $type = mb_strtolower(trim((string) $request->query('type', 'all')));
+        $source = mb_strtolower(trim((string) $request->query('source', 'all')));
+        $contact = trim((string) $request->query('contact', ''));
 
         $start = $this->parseDateOrNull((string) $request->query('start_date', ''), true);
         $end = $this->parseDateOrNull((string) $request->query('end_date', ''), false);
@@ -73,6 +76,25 @@ class AiAuditController extends Controller
             $query->where('action', AiAuditLog::ACTION_MESSAGE_SENT);
         } elseif ($type === 'tool') {
             $query->whereIn('action', [AiAuditLog::ACTION_TOOL_EXECUTED, AiAuditLog::ACTION_TOOL_FAILED]);
+        } elseif ($type === 'safety') {
+            $query->where('action', AiAuditLog::ACTION_SAFETY_BLOCKED);
+        }
+
+        if ($source !== '' && $source !== 'all') {
+            $query->where(function ($sourceQuery) use ($source): void {
+                $sourceQuery->where('source', $source)
+                    ->orWhere('metadata->source', $source);
+            });
+        }
+
+        if ($contact !== '') {
+            $contactLike = '%'.$contact.'%';
+            $query->where(function ($contactQuery) use ($contactLike): void {
+                $contactQuery
+                    ->where('contact_name', 'like', $contactLike)
+                    ->orWhere('metadata->contact_name', 'like', $contactLike)
+                    ->orWhere('metadata->customer_name', 'like', $contactLike);
+            });
         }
 
         $perPage = max(1, min(100, (int) $request->integer('per_page', 20)));
@@ -91,10 +113,17 @@ class AiAuditController extends Controller
                 'id' => (int) $log->id,
                 'type' => $this->resolveType($action),
                 'action' => $action,
-                'action_label' => $this->humanizeAction($action),
+                'action_label' => $this->humanizeAction($action, $meta),
+                'source' => (string) ($log->source ?? $meta['source'] ?? ''),
+                'source_label' => $this->humanizeSource((string) ($log->source ?? $meta['source'] ?? '')),
                 'user_id' => $log->user_id ? (int) $log->user_id : null,
                 'user_name' => (string) ($log->user?->name ?? 'Sistema'),
                 'conversation_id' => $log->conversation_id ? (int) $log->conversation_id : null,
+                'inbox_conversation_id' => $log->inbox_conversation_id ? (int) $log->inbox_conversation_id : ($this->metaInt($meta, 'inbox_conversation_id')),
+                'message_id' => $log->message_id ? (int) $log->message_id : ($this->metaInt($meta, 'message_id')),
+                'decision_log_id' => $log->decision_log_id ? (int) $log->decision_log_id : ($this->metaInt($meta, 'decision_log_id')),
+                'contact_name' => (string) ($log->contact_name ?? $meta['contact_name'] ?? $meta['customer_name'] ?? ''),
+                'contact_phone_hash' => (string) ($log->contact_phone_hash ?? $meta['contact_phone_hash'] ?? $meta['customer_phone_hash'] ?? ''),
                 'message' => (string) ($meta['user_message'] ?? ''),
                 'assistant_response' => (string) ($meta['assistant_response'] ?? ''),
                 'tool_used' => (string) ($meta['tool_used'] ?? $meta['tool'] ?? ''),
@@ -125,7 +154,9 @@ class AiAuditController extends Controller
             'selected_company_id' => $companyId > 0 ? $companyId : null,
             'filters' => [
                 'user_id' => $userId > 0 ? $userId : null,
-                'type' => in_array($type, ['all', 'message', 'tool'], true) ? $type : 'all',
+                'type' => in_array($type, ['all', 'message', 'tool', 'safety'], true) ? $type : 'all',
+                'source' => in_array($source, ['all', 'chatbot_whatsapp', 'internal_chat', 'conversation_suggestion'], true) ? $source : 'all',
+                'contact' => $contact,
                 'start_date' => $start?->toDateString(),
                 'end_date' => $end?->toDateString(),
             ],
@@ -182,6 +213,16 @@ class AiAuditController extends Controller
                 ->get(['id', 'role', 'content', 'meta', 'created_at']);
         }
 
+        $inboxConversationId = $log->inbox_conversation_id ? (int) $log->inbox_conversation_id : $this->metaInt($meta, 'inbox_conversation_id');
+        $inboxMessages = collect();
+        if ($inboxConversationId !== null) {
+            $inboxMessages = InboxMessage::query()
+                ->where('conversation_id', $inboxConversationId)
+                ->orderBy('id')
+                ->limit(100)
+                ->get(['id', 'direction', 'type', 'content_type', 'text', 'meta', 'created_at']);
+        }
+
         $action = (string) $log->action;
 
         return response()->json([
@@ -190,10 +231,17 @@ class AiAuditController extends Controller
                 'id' => (int) $log->id,
                 'type' => $this->resolveType($action),
                 'action' => $action,
-                'action_label' => $this->humanizeAction($action),
+                'action_label' => $this->humanizeAction($action, $meta),
+                'source' => (string) ($log->source ?? $meta['source'] ?? ''),
+                'source_label' => $this->humanizeSource((string) ($log->source ?? $meta['source'] ?? '')),
                 'user_id' => $log->user_id ? (int) $log->user_id : null,
                 'user_name' => (string) ($log->user?->name ?? 'Sistema'),
                 'conversation_id' => $log->conversation_id ? (int) $log->conversation_id : null,
+                'inbox_conversation_id' => $log->inbox_conversation_id ? (int) $log->inbox_conversation_id : ($this->metaInt($meta, 'inbox_conversation_id')),
+                'message_id' => $log->message_id ? (int) $log->message_id : ($this->metaInt($meta, 'message_id')),
+                'decision_log_id' => $log->decision_log_id ? (int) $log->decision_log_id : ($this->metaInt($meta, 'decision_log_id')),
+                'contact_name' => (string) ($log->contact_name ?? $meta['contact_name'] ?? $meta['customer_name'] ?? ''),
+                'contact_phone_hash' => (string) ($log->contact_phone_hash ?? $meta['contact_phone_hash'] ?? $meta['customer_phone_hash'] ?? ''),
                 'status' => $this->resolveStatus($log, $meta),
                 'metadata' => $meta,
                 'created_at' => $log->created_at?->toISOString(),
@@ -201,6 +249,15 @@ class AiAuditController extends Controller
                     'id' => (int) $message->id,
                     'role' => (string) $message->role,
                     'content' => (string) ($message->content ?? ''),
+                    'meta' => is_array($message->meta) ? $message->meta : [],
+                    'created_at' => $message->created_at?->toISOString(),
+                ])->values(),
+                'inbox_messages' => $inboxMessages->map(fn (InboxMessage $message) => [
+                    'id' => (int) $message->id,
+                    'role' => (string) ($message->direction === 'in' ? 'cliente' : ($message->type ?: 'bot')),
+                    'direction' => (string) $message->direction,
+                    'content_type' => (string) $message->content_type,
+                    'content' => (string) ($message->text ?? ''),
                     'meta' => is_array($message->meta) ? $message->meta : [],
                     'created_at' => $message->created_at?->toISOString(),
                 ])->values(),
@@ -228,18 +285,47 @@ class AiAuditController extends Controller
             return 'message';
         }
 
+        if ($action === AiAuditLog::ACTION_SAFETY_BLOCKED) {
+            return 'safety';
+        }
+
         return 'tool';
     }
 
-    private function humanizeAction(string $action): string
+    private function humanizeAction(string $action, array $meta = []): string
     {
+        $source = trim((string) ($meta['source'] ?? ''));
+
         return match (trim($action)) {
-            AiAuditLog::ACTION_MESSAGE_SENT => 'Mensagem enviada para IA',
+            AiAuditLog::ACTION_MESSAGE_SENT => $source === 'chatbot_whatsapp'
+                ? 'Resposta da IA enviada ao cliente'
+                : 'Mensagem enviada para IA',
             AiAuditLog::ACTION_TOOL_EXECUTED => 'Ferramenta executada',
             AiAuditLog::ACTION_TOOL_FAILED => 'Falha ao executar ferramenta',
-            AiAuditLog::ACTION_SAFETY_BLOCKED => 'Bloqueada por segurança',
-            default => 'Ação não informada',
+            AiAuditLog::ACTION_SAFETY_BLOCKED => 'Bloqueada por seguranca',
+            default => 'Acao nao informada',
         };
+    }
+
+    private function humanizeSource(string $source): string
+    {
+        return match (trim($source)) {
+            'chatbot_whatsapp' => 'Bot WhatsApp',
+            'internal_chat' => 'Chat interno',
+            'conversation_suggestion' => 'Sugestao de resposta',
+            default => $source !== '' ? $source : 'Nao informado',
+        };
+    }
+
+    private function metaInt(array $meta, string $key): ?int
+    {
+        if (! is_numeric($meta[$key] ?? null)) {
+            return null;
+        }
+
+        $value = (int) $meta[$key];
+
+        return $value > 0 ? $value : null;
     }
 
     private function parseDateOrNull(string $value, bool $start): ?Carbon
@@ -258,5 +344,4 @@ class AiAuditController extends Controller
         return $start ? $date->startOfDay() : $date->endOfDay();
     }
 }
-
 

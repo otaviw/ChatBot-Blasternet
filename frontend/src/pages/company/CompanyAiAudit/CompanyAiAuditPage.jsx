@@ -46,6 +46,8 @@ function buildAuditUrl(filters, companyId, page, perPage) {
   const params = new URLSearchParams();
   if (filters.userId) params.set('user_id', String(filters.userId));
   if (filters.type && filters.type !== 'all') params.set('type', filters.type);
+  if (filters.source && filters.source !== 'all') params.set('source', filters.source);
+  if (filters.contact) params.set('contact', filters.contact);
   if (filters.startDate) params.set('start_date', filters.startDate);
   if (filters.endDate) params.set('end_date', filters.endDate);
   if (companyId) params.set('company_id', String(companyId));
@@ -65,12 +67,16 @@ function CompanyAiAuditPage() {
   const [filters, setFilters] = useState({
     userId: '',
     type: 'all',
+    source: 'all',
+    contact: '',
     startDate: '',
     endDate: '',
   });
   const [draftFilters, setDraftFilters] = useState({
     userId: '',
     type: 'all',
+    source: 'all',
+    contact: '',
     startDate: '',
     endDate: '',
   });
@@ -130,7 +136,7 @@ function CompanyAiAuditPage() {
   };
 
   const clearFilters = () => {
-    const cleared = { userId: '', type: 'all', startDate: '', endDate: '' };
+    const cleared = { userId: '', type: 'all', source: 'all', contact: '', startDate: '', endDate: '' };
     setDraftFilters(cleared);
     setFilters(cleared);
     setPage(1);
@@ -199,7 +205,7 @@ function CompanyAiAuditPage() {
       />
 
       <Card className="mb-4 p-4">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-5">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-7">
           <label className="text-sm text-[#334155]">
             Usuário
             <select
@@ -230,7 +236,37 @@ function CompanyAiAuditPage() {
               <option value="all">Todos</option>
               <option value="message">Mensagem</option>
               <option value="tool">Ferramenta</option>
+              <option value="safety">Seguranca</option>
             </select>
+          </label>
+
+          <label className="text-sm text-[#334155]">
+            Origem
+            <select
+              value={draftFilters.source}
+              onChange={(event) =>
+                setDraftFilters((prev) => ({ ...prev, source: event.target.value }))
+              }
+              className="mt-1 w-full rounded-lg border border-[#d4d4d4] bg-white px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
+            >
+              <option value="all">Todas</option>
+              <option value="chatbot_whatsapp">Bot WhatsApp</option>
+              <option value="internal_chat">Chat interno</option>
+              <option value="conversation_suggestion">Sugestao</option>
+            </select>
+          </label>
+
+          <label className="text-sm text-[#334155]">
+            Contato
+            <input
+              type="search"
+              value={draftFilters.contact}
+              onChange={(event) =>
+                setDraftFilters((prev) => ({ ...prev, contact: event.target.value }))
+              }
+              placeholder="Nome do contato"
+              className="mt-1 w-full rounded-lg border border-[#d4d4d4] bg-white px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
+            />
           </label>
 
           <label className="text-sm text-[#334155]">
@@ -277,6 +313,8 @@ function CompanyAiAuditPage() {
               <table className="min-w-full text-sm app-responsive-table">
                 <thead className="bg-[#f8fafc]">
                   <tr className="border-b border-[#e2e8f0] text-left text-[#64748b]">
+                    <th className="px-4 py-3 font-medium">Contato</th>
+                    <th className="px-4 py-3 font-medium">Origem</th>
                     <th className="px-4 py-3 font-medium">Usuário</th>
                     <th className="px-4 py-3 font-medium">Mensagem enviada</th>
                     <th className="px-4 py-3 font-medium">Resposta da IA</th>
@@ -284,6 +322,7 @@ function CompanyAiAuditPage() {
                     <th className="px-4 py-3 font-medium">Tipo</th>
                     <th className="px-4 py-3 font-medium">Ação</th>
                     <th className="px-4 py-3 font-medium">Status</th>
+                    <th className="px-4 py-3 font-medium">Conversa</th>
                     <th className="px-4 py-3 font-medium">Data/hora</th>
                     <th className="px-4 py-3 font-medium">Detalhes</th>
                   </tr>
@@ -291,7 +330,7 @@ function CompanyAiAuditPage() {
                 <tbody>
                   {!visibleItems.length ? (
                     <tr className="border-b border-[#f1f5f9]">
-                      <td data-label="Info" colSpan={9} className="px-4 py-4 text-sm text-[#64748b]">
+                      <td data-label="Info" colSpan={12} className="px-4 py-4 text-sm text-[#64748b]">
                         Nenhum item nesta página.
                       </td>
                     </tr>
@@ -299,6 +338,13 @@ function CompanyAiAuditPage() {
 
                   {visibleItems.map((item) => (
                     <tr key={item.id} className="border-b border-[#f1f5f9] align-top">
+                      <td data-label="Contato" className="px-4 py-3 text-[#0f172a]">
+                        <p>{item.contact_name || '-'}</p>
+                        {item.contact_phone_hash ? (
+                          <p className="mt-1 text-xs text-[#64748b]">hash {String(item.contact_phone_hash).slice(0, 10)}</p>
+                        ) : null}
+                      </td>
+                      <td data-label="Origem" className="px-4 py-3 text-[#334155]">{item.source_label || item.source || '-'}</td>
                       <td data-label="Usuário" className="px-4 py-3 text-[#0f172a]">{item.user_name || '-'}</td>
                       <td data-label="Mensagem enviada" className="px-4 py-3 text-[#334155] max-w-[260px]">
                         <p className="line-clamp-3">{item.message || '-'}</p>
@@ -308,7 +354,7 @@ function CompanyAiAuditPage() {
                       </td>
                       <td data-label="Ferramenta" className="px-4 py-3 text-[#334155]">{item.tool_used || '-'}</td>
                       <td data-label="Tipo" className="px-4 py-3 text-[#334155]">
-                        {item.type === 'tool' ? 'Ferramenta' : 'Mensagem'}
+                        {item.type === 'tool' ? 'Ferramenta' : (item.type === 'safety' ? 'Seguranca' : 'Mensagem')}
                       </td>
                       <td data-label="Ação" className="px-4 py-3 text-[#334155]">{humanizeAiAction(item.action)}</td>
                       <td data-label="Status" className="px-4 py-3">
@@ -321,6 +367,9 @@ function CompanyAiAuditPage() {
                         >
                           {item.status === 'erro' ? 'Erro' : 'OK'}
                         </span>
+                      </td>
+                      <td data-label="Conversa" className="px-4 py-3 text-[#334155]">
+                        {item.inbox_conversation_id ? `Inbox #${item.inbox_conversation_id}` : (item.conversation_id ? `IA #${item.conversation_id}` : '-')}
                       </td>
                       <td data-label="Data/hora" className="px-4 py-3 text-[#334155]">{formatDateTime(item.created_at)}</td>
                       <td data-label="Detalhes" className="px-4 py-3">
@@ -418,11 +467,16 @@ function CompanyAiAuditPage() {
             {detailItem ? (
               <div className="space-y-4">
                 <div className="grid grid-cols-1 gap-2 text-sm md:grid-cols-2">
-                  <p><strong>Usuário:</strong> {detailItem.user_name || '-'}</p>
+                  <p><strong>Usuario:</strong> {detailItem.user_name || '-'}</p>
+                  <p><strong>Contato:</strong> {detailItem.contact_name || '-'}</p>
+                  <p><strong>Origem:</strong> {detailItem.source_label || detailItem.source || '-'}</p>
                   <p><strong>Status:</strong> {detailItem.status === 'erro' ? 'Erro' : 'OK'}</p>
-                  <p><strong>Ação:</strong> {humanizeAiAction(detailItem.action)}</p>
+                  <p><strong>Acao:</strong> {humanizeAiAction(detailItem.action)}</p>
                   <p><strong>Data/hora:</strong> {formatDateTime(detailItem.created_at)}</p>
-                  <p><strong>Conversa:</strong> {detailItem.conversation_id || '-'}</p>
+                  <p><strong>Conversa IA:</strong> {detailItem.conversation_id || '-'}</p>
+                  <p><strong>Conversa inbox:</strong> {detailItem.inbox_conversation_id || '-'}</p>
+                  <p><strong>Mensagem:</strong> {detailItem.message_id || '-'}</p>
+                  <p><strong>Decisao IA:</strong> {detailItem.decision_log_id || '-'}</p>
                 </div>
 
                 <div>
@@ -457,6 +511,33 @@ function CompanyAiAuditPage() {
                     </div>
                   ) : (
                     <p className="text-sm text-[#64748b]">Sem contexto de conversa disponível.</p>
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-[#0f172a] mb-2">Contexto do atendimento WhatsApp</h3>
+                  {Array.isArray(detailItem.inbox_messages) && detailItem.inbox_messages.length ? (
+                    <div className="max-h-64 overflow-auto rounded-lg border border-[#e2e8f0] app-responsive-table-wrap">
+                      <table className="min-w-full text-sm app-responsive-table">
+                        <thead className="bg-[#f8fafc]">
+                          <tr className="border-b border-[#e2e8f0] text-left text-[#64748b]">
+                            <th className="px-3 py-2 font-medium">Papel</th>
+                            <th className="px-3 py-2 font-medium">Conteudo</th>
+                            <th className="px-3 py-2 font-medium">Data</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {detailItem.inbox_messages.map((message) => (
+                            <tr key={message.id} className="border-b border-[#f1f5f9] align-top">
+                              <td data-label="Papel" className="px-3 py-2 text-[#334155]">{message.role}</td>
+                              <td data-label="Conteudo" className="px-3 py-2 text-[#0f172a] whitespace-pre-wrap">{message.content}</td>
+                              <td data-label="Data" className="px-3 py-2 text-[#334155]">{formatDateTime(message.created_at)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-[#64748b]">Sem contexto do WhatsApp disponivel.</p>
                   )}
                 </div>
               </div>
