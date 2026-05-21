@@ -10,11 +10,11 @@
   justify-content: space-between;
   gap: 24px;
   padding: 28px;
-  border: 1px solid #d8dee8;
+  border: 1px solid var(--ui-border);
   border-radius: 8px;
   background:
-    linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(20, 184, 166, 0.08)),
-    #ffffff;
+    linear-gradient(135deg, var(--ui-accent-muted), rgba(20, 184, 166, 0.08)),
+    var(--ui-surface);
 }
 
 .dashboard-welcome__identity {
@@ -31,10 +31,10 @@
   flex: 0 0 64px;
   place-items: center;
   overflow: hidden;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--ui-border);
   border-radius: 8px;
-  background: #ffffff;
-  color: #0f766e;
+  background: var(--ui-surface-elevated);
+  color: var(--ui-accent);
   font-size: 1.15rem;
   font-weight: 800;
 }
@@ -48,7 +48,7 @@
 
 .dashboard-eyebrow {
   margin: 0 0 6px;
-  color: #2563eb;
+  color: var(--ui-accent);
   font-size: 0.74rem;
   font-weight: 800;
   letter-spacing: 0;
@@ -58,7 +58,7 @@
 .dashboard-welcome h1,
 .dashboard-section h2 {
   margin: 0;
-  color: #111827;
+  color: var(--ui-text);
   letter-spacing: 0;
 }
 
@@ -77,7 +77,7 @@
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 12px;
-  color: #475569;
+  color: var(--ui-text-muted);
   font-size: 0.9rem;
 }
 
@@ -86,9 +86,9 @@
   align-items: center;
   min-height: 28px;
   padding: 4px 10px;
-  border: 1px solid #d8dee8;
+  border: 1px solid var(--ui-border);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.72);
+  background: color-mix(in srgb, var(--ui-surface-elevated) 82%, transparent);
 }
 
 .dashboard-cta-list {
@@ -104,10 +104,10 @@
   align-items: center;
   min-height: 38px;
   padding: 8px 13px;
-  border: 1px solid #2563eb;
+  border: 1px solid var(--ui-accent);
   border-radius: 7px;
-  background: #ffffff;
-  color: #1d4ed8;
+  background: var(--ui-surface);
+  color: var(--ui-accent);
   font-size: 0.88rem;
   font-weight: 700;
   text-decoration: none;
@@ -115,7 +115,7 @@
 }
 
 .dashboard-cta:hover {
-  background: #2563eb;
+  background: var(--ui-accent);
   color: #ffffff;
   transform: translateY(-1px);
 }
@@ -160,23 +160,23 @@
   flex-direction: column;
   justify-content: space-between;
   gap: 12px;
-  border-color: #dbe3ee;
+  border-color: var(--ui-border);
 }
 
 .dashboard-metric span {
-  color: #475569;
+  color: var(--ui-text-muted);
   font-size: 0.86rem;
   font-weight: 700;
 }
 
 .dashboard-metric strong {
-  color: #0f172a;
+  color: var(--ui-text);
   font-size: 2rem;
   line-height: 1;
 }
 
 .dashboard-metric small {
-  color: #64748b;
+  color: var(--ui-text-subtle);
   font-size: 0.82rem;
 }
 
@@ -188,7 +188,7 @@
 }
 
 .dashboard-search span {
-  color: #475569;
+  color: var(--ui-text-muted);
   font-size: 0.78rem;
   font-weight: 800;
 }
@@ -196,18 +196,18 @@
 .dashboard-search input {
   width: 100%;
   min-height: 42px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--ui-border);
   border-radius: 7px;
-  background: #ffffff;
-  color: #111827;
+  background: var(--ui-surface);
+  color: var(--ui-text);
   padding: 9px 12px;
   font-size: 0.94rem;
   outline: none;
 }
 
 .dashboard-search input:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+  border-color: var(--ui-accent);
+  box-shadow: 0 0 0 3px var(--ui-ring);
 }
 
 .dashboard-navigation {
@@ -224,7 +224,7 @@
 
 .dashboard-nav-group h3 {
   margin: 0;
-  color: #0f172a;
+  color: var(--ui-text);
   font-size: 0.98rem;
   letter-spacing: 0;
 }
@@ -242,17 +242,17 @@
   justify-content: space-between;
   gap: 16px;
   padding: 14px 16px;
-  border: 1px solid #dbe3ee;
+  border: 1px solid var(--ui-border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--ui-surface);
   color: inherit;
   text-decoration: none;
   transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }
 
 .dashboard-page-link:hover {
-  border-color: #94a3b8;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  border-color: var(--ui-accent);
+  box-shadow: var(--ui-shadow);
   transform: translateY(-1px);
 }
 
@@ -264,22 +264,22 @@
 }
 
 .dashboard-page-link strong {
-  color: #111827;
+  color: var(--ui-text);
   font-size: 0.95rem;
 }
 
 .dashboard-page-link small {
-  color: #64748b;
+  color: var(--ui-text-muted);
   font-size: 0.84rem;
   line-height: 1.4;
 }
 
 .dashboard-page-link em {
   flex: 0 0 auto;
-  border: 1px solid #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.45);
   border-radius: 999px;
-  background: #fffbeb;
-  color: #92400e;
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--color-warning-text);
   padding: 5px 9px;
   font-size: 0.72rem;
   font-style: normal;
@@ -289,7 +289,7 @@
 
 .dashboard-empty,
 .dashboard-error {
-  color: #b91c1c;
+  color: var(--color-danger-text);
   font-size: 0.92rem;
 }
 

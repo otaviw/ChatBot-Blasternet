@@ -11,6 +11,14 @@ import useAdminCompanySelector from '@/hooks/useAdminCompanySelector';
 import api from '@/services/api';
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+const FILTER_LABEL_CLASS = 'text-sm text-[var(--ui-text-muted)]';
+const FIELD_CLASS = 'mt-1 w-full rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface)] px-3 py-2 text-sm text-[var(--ui-text)] outline-none focus:border-[var(--ui-accent)] focus:ring-2 focus:ring-[var(--ui-ring)]';
+const COMPACT_FIELD_CLASS = 'rounded-md border border-[var(--ui-border)] bg-[var(--ui-surface)] px-2 py-1 text-xs text-[var(--ui-text)] outline-none focus:border-[var(--ui-accent)] focus:ring-2 focus:ring-[var(--ui-ring)]';
+const TABLE_HEAD_CLASS = 'bg-[var(--ui-surface-elevated)]';
+const TABLE_HEAD_ROW_CLASS = 'border-b border-[var(--ui-border)] text-left text-[var(--ui-text-muted)]';
+const TABLE_ROW_CLASS = 'border-b border-[var(--ui-border)] align-top';
+const TABLE_TEXT_CLASS = 'text-[var(--ui-text)]';
+const TABLE_MUTED_CLASS = 'text-[var(--ui-text-muted)]';
 
 function formatDateTime(value) {
   if (!value) return '-';
@@ -195,7 +203,7 @@ function CompanyAiAuditPage() {
               setSelectedCompanyId(e.target.value);
               setPage(1);
             }}
-            className="rounded-lg border border-[#d4d4d4] bg-white px-3 py-2 text-sm text-[#1f2937] outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
+            className="rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface)] px-3 py-2 text-sm text-[var(--ui-text)] outline-none focus:border-[var(--ui-accent)] focus:ring-2 focus:ring-[var(--ui-ring)]"
           >
             {companies.map((c) => (
               <option key={c.id} value={String(c.id)}>{c.name}</option>
@@ -206,14 +214,14 @@ function CompanyAiAuditPage() {
 
       <Card className="mb-4 p-4">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-7">
-          <label className="text-sm text-[#334155]">
+          <label className={FILTER_LABEL_CLASS}>
             Usuário
             <select
               value={draftFilters.userId}
               onChange={(event) =>
                 setDraftFilters((prev) => ({ ...prev, userId: event.target.value }))
               }
-              className="mt-1 w-full rounded-lg border border-[#d4d4d4] bg-white px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
+              className={FIELD_CLASS}
             >
               <option value="">Todos</option>
               {users.map((listUser) => (
@@ -224,14 +232,14 @@ function CompanyAiAuditPage() {
             </select>
           </label>
 
-          <label className="text-sm text-[#334155]">
+          <label className={FILTER_LABEL_CLASS}>
             Tipo
             <select
               value={draftFilters.type}
               onChange={(event) =>
                 setDraftFilters((prev) => ({ ...prev, type: event.target.value }))
               }
-              className="mt-1 w-full rounded-lg border border-[#d4d4d4] bg-white px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
+              className={FIELD_CLASS}
             >
               <option value="all">Todos</option>
               <option value="message">Mensagem</option>
@@ -240,14 +248,14 @@ function CompanyAiAuditPage() {
             </select>
           </label>
 
-          <label className="text-sm text-[#334155]">
+          <label className={FILTER_LABEL_CLASS}>
             Origem
             <select
               value={draftFilters.source}
               onChange={(event) =>
                 setDraftFilters((prev) => ({ ...prev, source: event.target.value }))
               }
-              className="mt-1 w-full rounded-lg border border-[#d4d4d4] bg-white px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
+              className={FIELD_CLASS}
             >
               <option value="all">Todas</option>
               <option value="chatbot_whatsapp">Bot WhatsApp</option>
@@ -256,7 +264,7 @@ function CompanyAiAuditPage() {
             </select>
           </label>
 
-          <label className="text-sm text-[#334155]">
+          <label className={FILTER_LABEL_CLASS}>
             Contato
             <input
               type="search"
@@ -265,11 +273,11 @@ function CompanyAiAuditPage() {
                 setDraftFilters((prev) => ({ ...prev, contact: event.target.value }))
               }
               placeholder="Nome do contato"
-              className="mt-1 w-full rounded-lg border border-[#d4d4d4] bg-white px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
+              className={FIELD_CLASS}
             />
           </label>
 
-          <label className="text-sm text-[#334155]">
+          <label className={FILTER_LABEL_CLASS}>
             Data inicial
             <input
               type="date"
@@ -277,11 +285,11 @@ function CompanyAiAuditPage() {
               onChange={(event) =>
                 setDraftFilters((prev) => ({ ...prev, startDate: event.target.value }))
               }
-              className="mt-1 w-full rounded-lg border border-[#d4d4d4] bg-white px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
+              className={FIELD_CLASS}
             />
           </label>
 
-          <label className="text-sm text-[#334155]">
+          <label className={FILTER_LABEL_CLASS}>
             Data final
             <input
               type="date"
@@ -289,7 +297,7 @@ function CompanyAiAuditPage() {
               onChange={(event) =>
                 setDraftFilters((prev) => ({ ...prev, endDate: event.target.value }))
               }
-              className="mt-1 w-full rounded-lg border border-[#d4d4d4] bg-white px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
+              className={FIELD_CLASS}
             />
           </label>
 
@@ -306,13 +314,13 @@ function CompanyAiAuditPage() {
 
       <Card className="p-0 overflow-hidden">
         {totalItems <= 0 ? (
-          <p className="p-6 text-sm text-[#64748b]">Nenhum log encontrado com os filtros aplicados.</p>
+          <p className="p-6 text-sm text-[var(--ui-text-muted)]">Nenhum log encontrado com os filtros aplicados.</p>
         ) : (
           <div>
             <div className="overflow-x-auto app-responsive-table-wrap">
               <table className="min-w-full text-sm app-responsive-table">
-                <thead className="bg-[#f8fafc]">
-                  <tr className="border-b border-[#e2e8f0] text-left text-[#64748b]">
+                <thead className={TABLE_HEAD_CLASS}>
+                  <tr className={TABLE_HEAD_ROW_CLASS}>
                     <th className="px-4 py-3 font-medium">Contato</th>
                     <th className="px-4 py-3 font-medium">Origem</th>
                     <th className="px-4 py-3 font-medium">Usuário</th>
@@ -329,34 +337,34 @@ function CompanyAiAuditPage() {
                 </thead>
                 <tbody>
                   {!visibleItems.length ? (
-                    <tr className="border-b border-[#f1f5f9]">
-                      <td data-label="Info" colSpan={12} className="px-4 py-4 text-sm text-[#64748b]">
+                    <tr className="border-b border-[var(--ui-border)]">
+                      <td data-label="Info" colSpan={12} className="px-4 py-4 text-sm text-[var(--ui-text-muted)]">
                         Nenhum item nesta página.
                       </td>
                     </tr>
                   ) : null}
 
                   {visibleItems.map((item) => (
-                    <tr key={item.id} className="border-b border-[#f1f5f9] align-top">
-                      <td data-label="Contato" className="px-4 py-3 text-[#0f172a]">
+                    <tr key={item.id} className={TABLE_ROW_CLASS}>
+                      <td data-label="Contato" className={`px-4 py-3 ${TABLE_TEXT_CLASS}`}>
                         <p>{item.contact_name || '-'}</p>
                         {item.contact_phone_hash ? (
-                          <p className="mt-1 text-xs text-[#64748b]">hash {String(item.contact_phone_hash).slice(0, 10)}</p>
+                          <p className="mt-1 text-xs text-[var(--ui-text-muted)]">hash {String(item.contact_phone_hash).slice(0, 10)}</p>
                         ) : null}
                       </td>
-                      <td data-label="Origem" className="px-4 py-3 text-[#334155]">{item.source_label || item.source || '-'}</td>
-                      <td data-label="Usuário" className="px-4 py-3 text-[#0f172a]">{item.user_name || '-'}</td>
-                      <td data-label="Mensagem enviada" className="px-4 py-3 text-[#334155] max-w-[260px]">
+                      <td data-label="Origem" className={`px-4 py-3 ${TABLE_MUTED_CLASS}`}>{item.source_label || item.source || '-'}</td>
+                      <td data-label="Usuário" className={`px-4 py-3 ${TABLE_TEXT_CLASS}`}>{item.user_name || '-'}</td>
+                      <td data-label="Mensagem enviada" className={`px-4 py-3 max-w-[260px] ${TABLE_MUTED_CLASS}`}>
                         <p className="line-clamp-3">{item.message || '-'}</p>
                       </td>
-                      <td data-label="Resposta da IA" className="px-4 py-3 text-[#334155] max-w-[260px]">
+                      <td data-label="Resposta da IA" className={`px-4 py-3 max-w-[260px] ${TABLE_MUTED_CLASS}`}>
                         <p className="line-clamp-3">{item.assistant_response || '-'}</p>
                       </td>
-                      <td data-label="Ferramenta" className="px-4 py-3 text-[#334155]">{item.tool_used || '-'}</td>
-                      <td data-label="Tipo" className="px-4 py-3 text-[#334155]">
+                      <td data-label="Ferramenta" className={`px-4 py-3 ${TABLE_MUTED_CLASS}`}>{item.tool_used || '-'}</td>
+                      <td data-label="Tipo" className={`px-4 py-3 ${TABLE_MUTED_CLASS}`}>
                         {item.type === 'tool' ? 'Ferramenta' : (item.type === 'safety' ? 'Seguranca' : 'Mensagem')}
                       </td>
-                      <td data-label="Ação" className="px-4 py-3 text-[#334155]">{humanizeAiAction(item.action)}</td>
+                      <td data-label="Ação" className={`px-4 py-3 ${TABLE_MUTED_CLASS}`}>{humanizeAiAction(item.action)}</td>
                       <td data-label="Status" className="px-4 py-3">
                         <span
                           className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
@@ -368,10 +376,10 @@ function CompanyAiAuditPage() {
                           {item.status === 'erro' ? 'Erro' : 'OK'}
                         </span>
                       </td>
-                      <td data-label="Conversa" className="px-4 py-3 text-[#334155]">
+                      <td data-label="Conversa" className={`px-4 py-3 ${TABLE_MUTED_CLASS}`}>
                         {item.inbox_conversation_id ? `Inbox #${item.inbox_conversation_id}` : (item.conversation_id ? `IA #${item.conversation_id}` : '-')}
                       </td>
-                      <td data-label="Data/hora" className="px-4 py-3 text-[#334155]">{formatDateTime(item.created_at)}</td>
+                      <td data-label="Data/hora" className={`px-4 py-3 ${TABLE_MUTED_CLASS}`}>{formatDateTime(item.created_at)}</td>
                       <td data-label="Detalhes" className="px-4 py-3">
                         <Button
                           variant="secondary"
@@ -387,13 +395,13 @@ function CompanyAiAuditPage() {
               </table>
             </div>
 
-            <div className="border-t border-[#e2e8f0] px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-[#64748b]">
+            <div className="border-t border-[var(--ui-border)] px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-[var(--ui-text-muted)]">
                 Mostrando {rangeStart}-{rangeEnd} de {totalItems}
               </p>
 
               <div className="flex flex-wrap items-center gap-2">
-                <label className="inline-flex items-center gap-2 text-xs text-[#475569]">
+                <label className="inline-flex items-center gap-2 text-xs text-[var(--ui-text-muted)]">
                   Itens por página
                   <select
                     value={String(perPage)}
@@ -402,7 +410,7 @@ function CompanyAiAuditPage() {
                       setPerPage(nextPerPage);
                       setPage(1);
                     }}
-                    className="rounded-md border border-[#d4d4d4] bg-white px-2 py-1 text-xs text-[#1f2937] outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
+                    className={COMPACT_FIELD_CLASS}
                   >
                     {PAGE_SIZE_OPTIONS.map((size) => (
                       <option key={size} value={String(size)}>
@@ -421,7 +429,7 @@ function CompanyAiAuditPage() {
                   Anterior
                 </Button>
 
-                <span className="text-xs text-[#475569] min-w-[96px] text-center">
+                <span className="text-xs text-[var(--ui-text-muted)] min-w-[96px] text-center">
                   Página {currentPage} de {lastPage}
                 </span>
 
@@ -447,21 +455,21 @@ function CompanyAiAuditPage() {
           aria-modal="true"
         >
           <div
-            className="w-full max-w-4xl rounded-xl border border-[#e5e7eb] bg-white p-5 shadow-lg"
+            className="w-full max-w-4xl rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface)] p-5 text-[var(--ui-text)] shadow-lg"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-[#0f172a]">Detalhe do log</h2>
+              <h2 className="text-lg font-semibold text-[var(--ui-text)]">Detalhe do log</h2>
               <button
                 type="button"
-                className="rounded-md p-1.5 text-[#64748b] hover:bg-[#f1f5f9]"
+                className="rounded-md p-1.5 text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-elevated)]"
                 onClick={closeDetail}
               >
                 x
               </button>
             </div>
 
-            {detailLoading ? <p className="text-sm text-[#64748b]">Carregando detalhe...</p> : null}
+            {detailLoading ? <p className="text-sm text-[var(--ui-text-muted)]">Carregando detalhe...</p> : null}
             {detailError ? <p className="text-sm text-red-600">{detailError}</p> : null}
 
             {detailItem ? (
@@ -480,19 +488,19 @@ function CompanyAiAuditPage() {
                 </div>
 
                 <div>
-                  <h3 className="text-sm font-semibold text-[#0f172a] mb-2">Metadata</h3>
+                  <h3 className="text-sm font-semibold text-[var(--ui-text)] mb-2">Metadata</h3>
                   <pre className="max-h-56 overflow-auto rounded-lg bg-[#0f172a] p-3 text-xs text-[#e2e8f0]">
                     {JSON.stringify(detailItem.metadata ?? {}, null, 2)}
                   </pre>
                 </div>
 
                 <div>
-                  <h3 className="text-sm font-semibold text-[#0f172a] mb-2">Contexto da conversa</h3>
+                  <h3 className="text-sm font-semibold text-[var(--ui-text)] mb-2">Contexto da conversa</h3>
                   {Array.isArray(detailItem.conversation_messages) && detailItem.conversation_messages.length ? (
-                    <div className="max-h-64 overflow-auto rounded-lg border border-[#e2e8f0] app-responsive-table-wrap">
+                    <div className="max-h-64 overflow-auto rounded-lg border border-[var(--ui-border)] app-responsive-table-wrap">
                       <table className="min-w-full text-sm app-responsive-table">
-                        <thead className="bg-[#f8fafc]">
-                          <tr className="border-b border-[#e2e8f0] text-left text-[#64748b]">
+                        <thead className={TABLE_HEAD_CLASS}>
+                          <tr className={TABLE_HEAD_ROW_CLASS}>
                             <th className="px-3 py-2 font-medium">Papel</th>
                             <th className="px-3 py-2 font-medium">Conteúdo</th>
                             <th className="px-3 py-2 font-medium">Data</th>
@@ -500,26 +508,26 @@ function CompanyAiAuditPage() {
                         </thead>
                         <tbody>
                           {detailItem.conversation_messages.map((message) => (
-                            <tr key={message.id} className="border-b border-[#f1f5f9] align-top">
-                              <td data-label="Papel" className="px-3 py-2 text-[#334155]">{message.role}</td>
-                              <td data-label="Conteúdo" className="px-3 py-2 text-[#0f172a] whitespace-pre-wrap">{message.content}</td>
-                              <td data-label="Data" className="px-3 py-2 text-[#334155]">{formatDateTime(message.created_at)}</td>
+                            <tr key={message.id} className={TABLE_ROW_CLASS}>
+                              <td data-label="Papel" className={`px-3 py-2 ${TABLE_MUTED_CLASS}`}>{message.role}</td>
+                              <td data-label="Conteúdo" className={`px-3 py-2 whitespace-pre-wrap ${TABLE_TEXT_CLASS}`}>{message.content}</td>
+                              <td data-label="Data" className={`px-3 py-2 ${TABLE_MUTED_CLASS}`}>{formatDateTime(message.created_at)}</td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
                     </div>
                   ) : (
-                    <p className="text-sm text-[#64748b]">Sem contexto de conversa disponível.</p>
+                    <p className="text-sm text-[var(--ui-text-muted)]">Sem contexto de conversa disponível.</p>
                   )}
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-[#0f172a] mb-2">Contexto do atendimento WhatsApp</h3>
+                  <h3 className="text-sm font-semibold text-[var(--ui-text)] mb-2">Contexto do atendimento WhatsApp</h3>
                   {Array.isArray(detailItem.inbox_messages) && detailItem.inbox_messages.length ? (
-                    <div className="max-h-64 overflow-auto rounded-lg border border-[#e2e8f0] app-responsive-table-wrap">
+                    <div className="max-h-64 overflow-auto rounded-lg border border-[var(--ui-border)] app-responsive-table-wrap">
                       <table className="min-w-full text-sm app-responsive-table">
-                        <thead className="bg-[#f8fafc]">
-                          <tr className="border-b border-[#e2e8f0] text-left text-[#64748b]">
+                        <thead className={TABLE_HEAD_CLASS}>
+                          <tr className={TABLE_HEAD_ROW_CLASS}>
                             <th className="px-3 py-2 font-medium">Papel</th>
                             <th className="px-3 py-2 font-medium">Conteudo</th>
                             <th className="px-3 py-2 font-medium">Data</th>
@@ -527,17 +535,17 @@ function CompanyAiAuditPage() {
                         </thead>
                         <tbody>
                           {detailItem.inbox_messages.map((message) => (
-                            <tr key={message.id} className="border-b border-[#f1f5f9] align-top">
-                              <td data-label="Papel" className="px-3 py-2 text-[#334155]">{message.role}</td>
-                              <td data-label="Conteudo" className="px-3 py-2 text-[#0f172a] whitespace-pre-wrap">{message.content}</td>
-                              <td data-label="Data" className="px-3 py-2 text-[#334155]">{formatDateTime(message.created_at)}</td>
+                            <tr key={message.id} className={TABLE_ROW_CLASS}>
+                              <td data-label="Papel" className={`px-3 py-2 ${TABLE_MUTED_CLASS}`}>{message.role}</td>
+                              <td data-label="Conteudo" className={`px-3 py-2 whitespace-pre-wrap ${TABLE_TEXT_CLASS}`}>{message.content}</td>
+                              <td data-label="Data" className={`px-3 py-2 ${TABLE_MUTED_CLASS}`}>{formatDateTime(message.created_at)}</td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
                     </div>
                   ) : (
-                    <p className="text-sm text-[#64748b]">Sem contexto do WhatsApp disponivel.</p>
+                    <p className="text-sm text-[var(--ui-text-muted)]">Sem contexto do WhatsApp disponivel.</p>
                   )}
                 </div>
               </div>
