@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNotificationsContext } from '@/hooks/useNotificationsContext';
 import { NOTIFICATION_MODULE } from '@/constants/notifications';
 import useBrand from '@/hooks/useBrand';
@@ -171,7 +171,12 @@ const iconKey = (label) => {
     'Base de conhecimento': 'respostas',
     Tags: 'tags',
     Inicio: 'dashboard',
-    Conversas: 'inbox',
+  Conversas: 'inbox',
+  Atendimento: 'inbox',
+  Relacionamento: 'contatos',
+  'Bot e IA': 'bot',
+  Integracoes: 'empresas',
+  Empresa: 'empresas',
   };
   return map[normalizedLabel] || 'dashboard';
 };
@@ -182,6 +187,10 @@ const sidebarIconFor = (item) => {
   }
   return iconKey(item?.label);
 };
+
+const isGroup = (item) => Array.isArray(item?.children) && item.children.length > 0;
+
+const itemKey = (item) => item?.id || item?.href || item?.label;
 
 export default function Sidebar({
   hasSidebar,
@@ -201,6 +210,13 @@ export default function Sidebar({
   const { unreadByModule, totalUnread } = useNotificationsContext();
   const brand = useBrand();
   const brandName = brand?.name || 'Blasternet ChatBot';
+  const [openGroups, setOpenGroups] = useState(() => {
+    try {
+      return JSON.parse(window.localStorage.getItem('layout-sidebar-groups') || '{}');
+    } catch {
+      return {};
+    }
+  });
 
   const unreadCountForLink = (item) => {
     if (!item?.module) return 0;
@@ -208,10 +224,38 @@ export default function Sidebar({
     return Number(unreadByModule?.[item.module] ?? 0);
   };
 
+  const unreadCountForItem = (item) => {
+    if (!isGroup(item)) return unreadCountForLink(item);
+    return item.children.reduce((sum, child) => sum + unreadCountForLink(child), 0);
+  };
+
   const isActive = (href) => {
     if (currentPath === href) return true;
     if (href === '/dashboard') return false;
     return currentPath.startsWith(`${href}/`);
+  };
+
+  const isItemActive = (item) => {
+    if (isGroup(item)) {
+      return item.children.some((child) => isActive(child.href));
+    }
+
+    return isActive(item.href);
+  };
+
+  const isGroupOpen = (item) => Boolean(openGroups[itemKey(item)] || isItemActive(item));
+
+  const toggleGroup = (item) => {
+    const key = itemKey(item);
+    setOpenGroups((current) => {
+      const next = { ...current, [key]: !current[key] };
+      try {
+        window.localStorage.setItem('layout-sidebar-groups', JSON.stringify(next));
+      } catch {
+        // localStorage is optional; navigation must keep working without it.
+      }
+      return next;
+    });
   };
 
   const isAnySupportActive = useMemo(() => (
@@ -255,6 +299,79 @@ export default function Sidebar({
     return null;
   }
 
+  const renderNavigationLink = (item, nested = false) => {
+    const unreadCount = unreadCountForLink(item);
+    const linkTitle = item.ariaLabel || item.label;
+
+    return (
+      <a
+        key={item.href}
+        href={item.href}
+        className={`layout-sidebar__link ${nested ? 'layout-sidebar__link--nested' : ''} ${isActive(item.href) ? 'layout-sidebar__link--active' : ''}`}
+        title={linkTitle}
+        aria-label={linkTitle}
+        aria-current={isActive(item.href) ? 'page' : undefined}
+        onClick={isMobile ? closeSidebarMobile : undefined}
+      >
+        <span className="layout-sidebar__icon">{ICONS[sidebarIconFor(item)]}</span>
+        <span className="layout-sidebar__label">{item.label}</span>
+        {unreadCount > 0 && (
+          <span className="layout-sidebar__badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+        )}
+      </a>
+    );
+  };
+
+  const renderNavigationGroup = (item) => {
+    const key = itemKey(item);
+    const open = isGroupOpen(item);
+    const active = isItemActive(item);
+    const unreadCount = unreadCountForItem(item);
+    const triggerId = `sidebar-group-${key}${isMobile ? '-mobile' : ''}`;
+    const panelId = `${triggerId}-panel`;
+    const title = item.ariaLabel || `${item.label} - expandir ou recolher`;
+
+    return (
+      <div key={key} className="layout-sidebar__accordion layout-sidebar__accordion--module">
+        <button
+          id={triggerId}
+          type="button"
+          className={`layout-sidebar__accordion-trigger ${active ? 'layout-sidebar__accordion-trigger--active' : ''}`}
+          onClick={() => toggleGroup(item)}
+          title={title}
+          aria-label={title}
+          aria-expanded={open}
+          aria-controls={panelId}
+        >
+          <span className="layout-sidebar__icon">{ICONS[sidebarIconFor(item)]}</span>
+          <span className="layout-sidebar__label">{item.label}</span>
+          {unreadCount > 0 && (
+            <span className="layout-sidebar__badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+          )}
+          <span className={`layout-sidebar__accordion-chevron ${open ? 'layout-sidebar__accordion-chevron--open' : ''}`}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </span>
+        </button>
+        <div
+          id={panelId}
+          role="region"
+          aria-labelledby={triggerId}
+          className={`layout-sidebar__accordion-content ${open ? 'layout-sidebar__accordion-content--open' : ''}`}
+        >
+          <div>
+            {item.children.map((child) => renderNavigationLink(child, true))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderNavigationItem = (item) => (
+    isGroup(item) ? renderNavigationGroup(item) : renderNavigationLink(item)
+  );
+
   return (
     <>
       {!isMobile && (
@@ -266,26 +383,7 @@ export default function Sidebar({
           aria-label="Navegação lateral"
         >
           <nav className="layout-sidebar__nav" aria-label="Navegação principal">
-            {mainLinks.map((item) => {
-              const unreadCount = unreadCountForLink(item);
-              const linkTitle = item.ariaLabel || item.label;
-              return (
-                <a
-                  key={item.href}
-                  href={item.href}
-                  className={`layout-sidebar__link ${isActive(item.href) ? 'layout-sidebar__link--active' : ''}`}
-                  title={linkTitle}
-                  aria-label={linkTitle}
-                  aria-current={isActive(item.href) ? 'page' : undefined}
-                >
-                  <span className="layout-sidebar__icon">{ICONS[sidebarIconFor(item)]}</span>
-                  <span className="layout-sidebar__label">{item.label}</span>
-                  {unreadCount > 0 && (
-                    <span className="layout-sidebar__badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
-                  )}
-                </a>
-              );
-            })}
+            {mainLinks.map((item) => renderNavigationItem(item))}
             {supportLinks.length > 0 && (
               <div className="layout-sidebar__accordion">
                 <button
@@ -401,27 +499,7 @@ export default function Sidebar({
               </button>
             </div>
             <nav className="layout-sidebar__nav" aria-label="Navegação principal">
-              {mainLinks.map((item) => {
-                const unreadCount = unreadCountForLink(item);
-                const linkTitle = item.ariaLabel || item.label;
-                return (
-                  <a
-                    key={item.href}
-                    href={item.href}
-                    className={`layout-sidebar__link ${isActive(item.href) ? 'layout-sidebar__link--active' : ''}`}
-                    title={linkTitle}
-                    aria-label={linkTitle}
-                    aria-current={isActive(item.href) ? 'page' : undefined}
-                    onClick={closeSidebarMobile}
-                  >
-                    <span className="layout-sidebar__icon">{ICONS[sidebarIconFor(item)]}</span>
-                    <span className="layout-sidebar__label">{item.label}</span>
-                    {unreadCount > 0 && (
-                      <span className="layout-sidebar__badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
-                    )}
-                  </a>
-                );
-              })}
+              {mainLinks.map((item) => renderNavigationItem(item))}
               {supportLinks.length > 0 && (
                 <div className="layout-sidebar__accordion">
                   <button

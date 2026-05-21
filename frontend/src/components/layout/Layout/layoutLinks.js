@@ -106,20 +106,16 @@ export function buildCompanyMainLinks({
 }) {
   const perm = (key) => hasPermission(userPerms, userRole, key);
   const links = [
-    { href: '/dashboard', label: 'Início', icon: 'dashboard', ariaLabel: 'Ir para o painel inicial' },
+    { href: '/dashboard', label: 'Inicio', icon: 'dashboard', ariaLabel: 'Ir para o painel inicial' },
   ];
-
-  if (userRole !== 'agent') {
-    links.push({
-      href: '/minha-conta/bot',
-      label: 'Bot',
-      icon: 'bot',
-      ariaLabel: 'Configurações do bot e atendimento',
-    });
-  }
+  const atendimento = [];
+  const relacionamento = [];
+  const botIa = [];
+  const integracoes = [];
+  const empresa = [];
 
   if (perm(PERM.PAGE_INBOX)) {
-    links.push({
+    atendimento.push({
       href: '/minha-conta/conversas',
       label: 'Conversas',
       icon: 'inbox',
@@ -128,26 +124,8 @@ export function buildCompanyMainLinks({
     });
   }
 
-  if (perm(PERM.PAGE_CONTACTS)) {
-    links.push({
-      href: '/minha-conta/contatos',
-      label: 'Contatos',
-      icon: 'contatos',
-      ariaLabel: 'Gestao de contatos da empresa',
-    });
-  }
-
-  if (perm(PERM.PAGE_CAMPAIGNS)) {
-    links.push({
-      href: '/minha-conta/campanhas',
-      label: 'Campanhas',
-      icon: 'campanhas',
-      ariaLabel: 'Gestao de campanhas de envio',
-    });
-  }
-
   if (perm(PERM.PAGE_INTERNAL_CHAT)) {
-    links.push({
+    atendimento.push({
       href: '/minha-conta/chat-interno',
       label: 'Equipe interna',
       icon: 'chatInterno',
@@ -157,25 +135,34 @@ export function buildCompanyMainLinks({
   }
 
   if (perm(PERM.PAGE_APPOINTMENTS)) {
-    links.push({
+    atendimento.push({
       href: '/minha-conta/agendamentos',
       label: 'Agendamentos',
       icon: 'agendamentos',
-      ariaLabel: 'Gestao de agenda e horários dos atendentes',
+      ariaLabel: 'Gestao de agenda e horarios dos atendentes',
+    });
+  }
+
+  if (perm(PERM.PAGE_CONTACTS)) {
+    relacionamento.push({
+      href: '/minha-conta/contatos',
+      label: 'Contatos',
+      icon: 'contatos',
+      ariaLabel: 'Gestao de contatos da empresa',
     });
   }
 
   if (perm(PERM.PAGE_QUICK_REPLIES)) {
-    links.push({
+    relacionamento.push({
       href: '/minha-conta/respostas-rapidas',
-      label: 'Respostas rápidas',
+      label: 'Respostas rapidas',
       icon: 'respostas',
-      ariaLabel: 'Mensagens prontas para resposta rápida',
+      ariaLabel: 'Mensagens prontas para resposta rapida',
     });
   }
 
   if (perm(PERM.PAGE_TAGS)) {
-    links.push({
+    relacionamento.push({
       href: '/minha-conta/tags',
       label: 'Tags',
       icon: 'tags',
@@ -183,26 +170,26 @@ export function buildCompanyMainLinks({
     });
   }
 
-  if (perm(PERM.PAGE_AUDIT)) {
-    links.push({
-      href: '/minha-conta/auditoria',
-      label: 'Auditoria',
-      icon: 'chatIa',
-      ariaLabel: 'Auditoria geral do sistema',
+  if (perm(PERM.PAGE_CAMPAIGNS)) {
+    relacionamento.push({
+      href: '/minha-conta/campanhas',
+      label: 'Campanhas',
+      icon: 'campanhas',
+      ariaLabel: 'Gestao de campanhas de envio',
     });
   }
 
-  if (perm(PERM.PAGE_IXC_CLIENTS) && hasIxcIntegration) {
-    links.push({
-      href: '/minha-conta/ixc/clientes',
-      label: 'Clientes IXC',
-      icon: 'contatos',
-      ariaLabel: 'Consultar clientes da integracao IXC',
+  if (userRole !== 'agent') {
+    botIa.push({
+      href: '/minha-conta/bot',
+      label: 'Bot',
+      icon: 'bot',
+      ariaLabel: 'Configuracoes do bot e atendimento',
     });
   }
 
   if (canUseInternalAi) {
-    links.push({
+    botIa.push({
       href: '/minha-conta/chat-ia',
       label: 'Assistente',
       icon: 'chatIa',
@@ -211,12 +198,12 @@ export function buildCompanyMainLinks({
   }
 
   if (canManageAi) {
-    links.push(
+    botIa.push(
       {
         href: '/minha-conta/ia/configuracoes',
-        label: 'Configurações de IA',
+        label: 'Configuracoes de IA',
         icon: 'bot',
-        ariaLabel: 'Configurações de inteligência artificial',
+        ariaLabel: 'Configuracoes de inteligencia artificial',
       },
       {
         href: '/minha-conta/ia/analytics',
@@ -228,7 +215,7 @@ export function buildCompanyMainLinks({
         href: '/minha-conta/ia/auditoria',
         label: 'Auditoria IA',
         icon: 'chatIa',
-        ariaLabel: 'Auditoria de ações da IA',
+        ariaLabel: 'Auditoria de acoes da IA',
       },
       {
         href: '/minha-conta/base-conhecimento',
@@ -238,17 +225,27 @@ export function buildCompanyMainLinks({
       },
     );
   }
+
+  if (perm(PERM.PAGE_IXC_CLIENTS) && hasIxcIntegration) {
+    integracoes.push({
+      href: '/minha-conta/ixc/clientes',
+      label: 'Clientes IXC',
+      icon: 'contatos',
+      ariaLabel: 'Consultar clientes da integracao IXC',
+    });
+  }
+
   if (canManageUsers) {
-    links.push({
+    empresa.push({
       href: '/minha-conta/usuarios',
-      label: 'Usuários',
+      label: 'Usuarios',
       icon: 'usuarios',
-      ariaLabel: 'Usuários da empresa',
+      ariaLabel: 'Usuarios da empresa',
     });
   }
 
   if (userRole === 'company_admin') {
-    links.push({
+    empresa.push({
       href: '/minha-conta/empresa',
       label: 'Minha empresa',
       icon: 'empresas',
@@ -256,8 +253,26 @@ export function buildCompanyMainLinks({
     });
   }
 
+  if (perm(PERM.PAGE_AUDIT)) {
+    empresa.push({
+      href: '/minha-conta/auditoria',
+      label: 'Auditoria',
+      icon: 'chatIa',
+      ariaLabel: 'Auditoria geral do sistema',
+    });
+  }
+
+  const pushGroup = (id, label, icon, ariaLabel, children) => {
+    if (children.length > 0) {
+      links.push({ id, label, icon, ariaLabel, children });
+    }
+  };
+
+  pushGroup('company-service', 'Atendimento', 'inbox', 'Atendimento e operacao das conversas', atendimento);
+  pushGroup('company-relationship', 'Relacionamento', 'contatos', 'Contatos, campanhas e organizacao do atendimento', relacionamento);
+  pushGroup('company-bot-ai', 'Bot e IA', 'bot', 'Automacao, bot e inteligencia artificial', botIa);
+  pushGroup('company-integrations', 'Integracoes', 'empresas', 'Integracoes e sistemas externos', integracoes);
+  pushGroup('company-admin', 'Empresa', 'empresas', 'Configuracoes da empresa, usuarios e auditoria', empresa);
+
   return links;
 }
-
-
-
